@@ -4,6 +4,8 @@ A step-by-step plan for building a Norwegian business-data service that AI agent
 
 Companion document: `NORBIZ_SPEC.md` (technical spec for the service itself). Where this plan says "per spec", the agent should open that file.
 
+> Note (orchestrator, 2026-09-03): org.nr `833286602` used below as the canonical example is **not a valid organisasjonsnummer** (fails MOD11, 404 on data.brreg.no). All task done-checks use `923609016` (Equinor ASA) instead; `833286602` is kept as the negative test case.
+>
 > Note (orchestrator, 2026-09-03): this plan predates the `registry-mcp` umbrella framing in `MULTI_AGENT_BUILD_GUIDE.md`. Where the two disagree on layout or route shapes (e.g. `/v1/{country}/company/{id}` vs `/v1/company/{id}`), the multi-agent guide and `DECISIONS.md` win. The done-checks and discoverability steps here remain authoritative.
 
 ---
