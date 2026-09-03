@@ -113,8 +113,38 @@ def test_second_country_needs_no_core_edit(example_registry: Registry) -> None:
     assert example_registry.describe()["is_stub"] is True
 
 
-def test_norwegian_methods_raise_not_implemented(brreg: Registry) -> None:
+async def test_stub_methods_raise_not_implemented(example_registry: Registry) -> None:
+    """The XX template still answers ``not_implemented`` for the data operations.
+
+    This is the half of the old ``test_norwegian_methods_raise_not_implemented``
+    that is still true: a stub registry resolves, describes itself and validates
+    an id, but has no data behind it.
+    """
     with pytest.raises(RegistryError) as excinfo:
-        brreg.validate_id("923609016")
+        await example_registry.lookup("12345678")
     assert excinfo.value.code is ErrorCode.NOT_IMPLEMENTED
     assert excinfo.value.http_status == 501
+
+    with pytest.raises(RegistryError) as excinfo:
+        await example_registry.search("example")
+    assert excinfo.value.code is ErrorCode.NOT_IMPLEMENTED
+
+
+def test_norwegian_sync_methods_are_implemented(
+    brreg: Registry, sample_report: CompanyReport
+) -> None:
+    """NO no longer raises ``not_implemented``: T02 filled in the sync methods.
+
+    Only the two pure methods are exercised here — ``lookup`` and ``search`` are
+    network calls covered by ``tests/test_client_no.py``.
+    """
+    assert brreg.validate_id("923 609 016") == "923609016"
+
+    with pytest.raises(RegistryError) as excinfo:
+        brreg.validate_id("923609017")
+    assert excinfo.value.code is ErrorCode.INVALID_ID
+    assert excinfo.value.http_status == 400
+
+    deadlines = brreg.deadlines(sample_report, date(2026, 1, 15))
+    assert deadlines, "an active ASA should have filing deadlines"
+    assert all(d.country == "NO" and d.registry == "brreg" for d in deadlines)
