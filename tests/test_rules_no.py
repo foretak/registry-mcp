@@ -35,7 +35,7 @@ from registry_mcp.registries.no.rules import (
 
 def _report(
     *,
-    legal_form_code: str = "AS",
+    legal_form_code: str | None = "AS",
     has_annual_accounts_duty: bool | None = True,
     vat_registered: bool | None = True,
     employees: int | None = 3,
@@ -575,3 +575,66 @@ def test_rules_markdown_is_nonempty_text() -> None:
     assert isinstance(markdown, str)
     assert "organisasjonsnummer" in markdown.lower()
     assert "vat_return" in markdown
+
+
+# ---------------------------------------------------------------------------
+# D-009 — an unclassified legal form gets no deadlines; tax_return is gated
+# on an explicit form list (REVIEW.md T02 B1/B2)
+# ---------------------------------------------------------------------------
+
+
+def test_b1_unknown_code_gets_no_deadlines() -> None:
+    """The spec's own test-25 fantasy form must never produce a deadline."""
+    report = _report(legal_form_code="ZZZZ", has_annual_accounts_duty=None)
+    assert deadlines_for(report, date(2026, 1, 15)) == []
+    note = deadline_exemption_note(report)
+    assert note is not None
+    assert "ZZZZ" in note
+    assert "not classified" in note
+
+
+def test_b1_missing_code_gets_no_deadlines() -> None:
+    report = _report(legal_form_code=None, has_annual_accounts_duty=None)
+    assert deadlines_for(report, date(2026, 1, 15)) == []
+    note = deadline_exemption_note(report)
+    assert note is not None
+
+
+def test_b2_orgl_gets_no_tax_return_but_keeps_fact_based_deadlines() -> None:
+    """Registerenheten i Brønnøysund (974760673) is ORGL — a classified but
+    §7 `VERIFY`-marked public-sector form. It must never be told it owes a
+    Skattemelding for næringsdrivende, but vat_return/payroll_report still
+    follow from published facts (D-009(c))."""
+    report = _report(
+        legal_form_code="ORGL",
+        has_annual_accounts_duty=None,
+        vat_registered=True,
+        employees=5,
+    )
+    deadlines = deadlines_for(report, date(2026, 1, 15))
+    kinds = {d.kind for d in deadlines}
+    assert "tax_return" not in kinds
+    assert "annual_accounts" not in kinds
+    assert "vat_return" in kinds
+    assert "payroll_report" in kinds
+
+
+def test_b2_unlisted_code_gets_empty_list() -> None:
+    """An unlisted (unclassified) code gets nothing at all, not just no tax_return."""
+    report = _report(legal_form_code="QQQQ", vat_registered=True, employees=5)
+    assert deadlines_for(report, date(2026, 1, 15)) == []
+
+
+def test_annual_accounts_duty_falls_back_to_legal_form_table() -> None:
+    """A hand-built report with has_annual_accounts_duty=None still gets the
+    deadline when the legal form's own table entry says it applies."""
+    report = _report(legal_form_code="ASA", has_annual_accounts_duty=None)
+    deadlines = deadlines_for(report, date(2026, 1, 15))
+    assert "annual_accounts" in {d.kind for d in deadlines}
+
+
+def test_applies_because_names_the_legal_form_code() -> None:
+    deadlines = deadlines_for(_report(legal_form_code="ASA"), date(2026, 1, 15))
+    for kind in ("annual_accounts", "general_meeting", "tax_return", "shareholder_register_statement"):
+        d = _by_kind(deadlines, kind)
+        assert "ASA" in d.applies_because

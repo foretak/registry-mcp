@@ -219,7 +219,7 @@ Computed from `report.legal_form_code`, `report.vat_registered`, `report.employe
 |---|---|---|---|---|
 | `annual_accounts` | Årsregnskap | 31 July, for the preceding calendar year | annual | forms with `has_annual_accounts_duty` (§7) |
 | `general_meeting` | Ordinær generalforsamling | 30 June (six months after a calendar year end) | annual | `AS`, `ASA` |
-| `tax_return` | Skattemelding for næringsdrivende | 31 May, for the preceding income year | annual | all forms except sub-units (`BEDR`, `AAFY`) |
+| `tax_return` | Skattemelding for næringsdrivende | 31 May, for the preceding income year | annual | the private-sector business forms in `_TAX_RETURN_FORMS`: `AS`, `ASA`, `ENK`, `ANS`, `DA`, `NUF`, `SA`, `KS`, `BA` (`D-009(b)`) |
 | `shareholder_register_statement` | Aksjonærregisteroppgaven (RF-1086) | 31 January, for the preceding income year | annual | `AS`, `ASA` |
 | `vat_return` | Mva-melding | see the term table below | bimonthly | `vat_registered == true` |
 | `payroll_report` | A-melding | the 5th of the following month | monthly | `employees` is not `None` and `> 0` |
@@ -327,7 +327,7 @@ Additional codes seen in the wild. English labels are ours; duty columns are `No
 | `SÆR` | Annet foretak iflg. særskilt lov | Other entity under a specific act | `None` | `None` |
 | `ANNA` | Annen juridisk person | Other legal person | `None` | `None` |
 
-The full list from `GET /organisasjonsformer` also contains `ADOS`, `BO`, `EOFG`, `IKJP`, `KIRK`, `KTRF`, `OPMV`, `PERS`, `SAM`. Treat any unlisted code as: `legal_form = organisasjonsform.beskrivelse`, all three duty fields `None`, and a `notes` entry saying the legal form is not classified yet. **Never guess a duty.** An unknown code must never produce a deadline.
+The full list from `GET /organisasjonsformer` also contains `ADOS`, `BO`, `EOFG`, `IKJP`, `KIRK`, `KTRF`, `OPMV`, `PERS`, `SAM`. Treat any unlisted code as: `legal_form = organisasjonsform.beskrivelse`, all three duty fields `None`, and a `notes` entry saying the legal form is not classified yet. **Never guess a duty.** An unknown code must never produce a deadline — this binds the whole deadline engine, not only the duty columns: `deadlines_for` returns `[]` for any `legal_form_code` that is not a key of `ORG_FORMS`, with `deadline_exemption_note` explaining why (`D-009(a)`). Among *classified* forms, `tax_return` is further restricted to the explicit `_TAX_RETURN_FORMS` set in §5.4 — public-sector and other `VERIFY`-marked forms (e.g. `ORGL`, `KOMM`, `FYLK`, `STAT`, `SF`, `KF`, `IKS`, `STI`, `FLI`, `BRL`, `BBL`, `ESEK`) get no `tax_return` until someone verifies the duty against a source (`D-009(b)`); `vat_return` and `payroll_report` are unaffected, since they follow from published facts (VAT registration, employee count) rather than from a legal-form duty (`D-009(c)`).
 
 ---
 

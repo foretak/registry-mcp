@@ -407,6 +407,17 @@ _MONTH_ABBR = (
 
 _CALENDAR_YEAR_ASSUMPTION = " Assumes a calendar-year accounting period."
 
+#: Legal-form codes that owe a tax return (skattemelding for næringsdrivende).
+#: D-009(b): the private-sector business forms of §7's confirmed table. Public
+#: -sector and VERIFY-marked forms (``ORGL``, ``KOMM``, ``FYLK``, ``STAT``,
+#: ``SF``, ``KF``, ``IKS``, ``STI``, ``FLI``, ``BRL``, ``BBL``, ``ESEK``, ...)
+#: get no ``tax_return`` until someone verifies the duty against a source.
+_TAX_RETURN_FORMS = frozenset({"AS", "ASA", "ENK", "ANS", "DA", "NUF", "SA", "KS", "BA"})
+
+#: Letters whose spoken name starts with a vowel sound, for the indefinite
+#: article in front of a legal-form code (e.g. "An ASA", "An NUF", "A KS").
+_AN_LETTERS = frozenset("AEFHILMNORSX")
+
 # (term, period_start_month, period_end_month, due_year_offset, due_month, due_day)
 _VAT_TERMS: tuple[tuple[int, int, int, int, int, int], ...] = (
     (1, 1, 2, 0, 4, 10),
@@ -422,11 +433,28 @@ def _is_subunit(report: CompanyReport) -> bool:
     return report.is_subunit or (report.legal_form_code or "") in _SUBUNIT_CODES
 
 
+def _is_unclassified_form(report: CompanyReport) -> bool:
+    """True when ``legal_form_code`` is missing or not a key of :data:`ORG_FORMS`.
+
+    D-009(a): "never guess a duty" binds the deadline engine, not only the
+    duty columns — an unclassified legal form gets no deadlines at all.
+    """
+    code = report.legal_form_code
+    return not code or code.upper() not in ORG_FORMS
+
+
+def _article(code: str) -> str:
+    """"A" or "An" in front of a legal-form code, by its first letter's sound."""
+    return "An" if code[:1].upper() in _AN_LETTERS else "A"
+
+
 def deadline_exemption_note(report: CompanyReport) -> str | None:
     """English sentence explaining why :func:`deadlines_for` returns ``[]`` for
     ``report``, or ``None`` when it would return deadlines.
 
     Callers (the mapping layer, T03) attach this to ``CompanyReport.notes``.
+    Precedence matches :func:`deadlines_for`: status exemptions, then the
+    sub-unit exemption, then an unclassified legal form (D-009(a)).
     """
     if report.status is CompanyStatus.DELETED:
         return "This company is deleted from Enhetsregisteret; no filing deadlines are computed."
@@ -444,10 +472,17 @@ def deadline_exemption_note(report: CompanyReport) -> str | None:
             "This is a sub-unit, not a legal entity in its own right; look up parent_id for "
             "its filing deadlines."
         )
+    if _is_unclassified_form(report):
+        label = report.legal_form_code or "(missing)"
+        return (
+            f"The legal form {label!r} is not classified by registry-mcp, so no filing "
+            "deadlines are computed for it. This does not mean none apply — check with an "
+            "accountant."
+        )
     return None
 
 
-def _annual_accounts(today: date, holidays: frozenset[date]) -> Deadline:
+def _annual_accounts(today: date, holidays: frozenset[date], code: str) -> Deadline:
     statutory = next_occurrence(7, 31, today)
     due = roll_forward(statutory, holidays)
     period = statutory.year - 1
@@ -466,14 +501,14 @@ def _annual_accounts(today: date, holidays: frozenset[date]) -> Deadline:
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
-            "This legal form must file annual accounts with Regnskapsregisteret."
+            f"{_article(code)} {code} must file annual accounts with Regnskapsregisteret."
             + _CALENDAR_YEAR_ASSUMPTION
         ),
         days_until=(due - today).days,
     )
 
 
-def _general_meeting(today: date, holidays: frozenset[date]) -> Deadline:
+def _general_meeting(today: date, holidays: frozenset[date], code: str) -> Deadline:
     statutory = next_occurrence(6, 30, today)
     due = roll_forward(statutory, holidays)
     period = statutory.year - 1
@@ -492,14 +527,14 @@ def _general_meeting(today: date, holidays: frozenset[date]) -> Deadline:
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
-            "AS and ASA companies must hold an ordinary general meeting within six months "
-            "of the financial year end." + _CALENDAR_YEAR_ASSUMPTION
+            f"{_article(code)} {code} company must hold an ordinary general meeting within "
+            "six months of the financial year end." + _CALENDAR_YEAR_ASSUMPTION
         ),
         days_until=(due - today).days,
     )
 
 
-def _tax_return(today: date, holidays: frozenset[date]) -> Deadline:
+def _tax_return(today: date, holidays: frozenset[date], code: str) -> Deadline:
     statutory = next_occurrence(5, 31, today)
     due = roll_forward(statutory, holidays)
     period = statutory.year - 1
@@ -518,14 +553,14 @@ def _tax_return(today: date, holidays: frozenset[date]) -> Deadline:
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
-            "All Norwegian entities other than sub-units must file a tax return "
-            "(skattemelding) with Skatteetaten." + _CALENDAR_YEAR_ASSUMPTION
+            f"{_article(code)} {code} must file a tax return (skattemelding) with "
+            "Skatteetaten." + _CALENDAR_YEAR_ASSUMPTION
         ),
         days_until=(due - today).days,
     )
 
 
-def _shareholder_register_statement(today: date, holidays: frozenset[date]) -> Deadline:
+def _shareholder_register_statement(today: date, holidays: frozenset[date], code: str) -> Deadline:
     statutory = next_occurrence(1, 31, today)
     due = roll_forward(statutory, holidays)
     period = statutory.year - 1
@@ -544,8 +579,8 @@ def _shareholder_register_statement(today: date, holidays: frozenset[date]) -> D
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
-            "AS and ASA companies must file the shareholder register statement (RF-1086) "
-            "with Skatteetaten." + _CALENDAR_YEAR_ASSUMPTION
+            f"{_article(code)} {code} company must file the shareholder register statement "
+            "(RF-1086) with Skatteetaten." + _CALENDAR_YEAR_ASSUMPTION
         ),
         days_until=(due - today).days,
     )
@@ -628,19 +663,28 @@ def deadlines_for(report: CompanyReport, today: date) -> list[Deadline]:
     """
     if report.status in _NO_DEADLINE_STATUSES or _is_subunit(report):
         return []
+    if _is_unclassified_form(report):
+        return []
+
+    # Guaranteed non-None and a key of ORG_FORMS by the check above.
+    code = (report.legal_form_code or "").upper()
 
     holidays = _holidays_spanning(today.year, today.year + 1, today.year + 2)
 
     deadlines: list[Deadline] = []
-    code = report.legal_form_code or ""
 
-    if report.has_annual_accounts_duty:
-        deadlines.append(_annual_accounts(today, holidays))
+    has_accounts_duty = report.has_annual_accounts_duty
+    if has_accounts_duty is None:
+        has_accounts_duty = legal_form_info(code).has_annual_accounts_duty
+
+    if has_accounts_duty:
+        deadlines.append(_annual_accounts(today, holidays, code))
     if code in {"AS", "ASA"}:
-        deadlines.append(_general_meeting(today, holidays))
-    deadlines.append(_tax_return(today, holidays))
+        deadlines.append(_general_meeting(today, holidays, code))
+    if code in _TAX_RETURN_FORMS:
+        deadlines.append(_tax_return(today, holidays, code))
     if code in {"AS", "ASA"}:
-        deadlines.append(_shareholder_register_statement(today, holidays))
+        deadlines.append(_shareholder_register_statement(today, holidays, code))
     if report.vat_registered:
         deadlines.append(_vat_return(today, holidays))
     if report.employees is not None and report.employees > 0:
