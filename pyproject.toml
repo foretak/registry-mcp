@@ -117,6 +117,9 @@ warn_required_dynamic_aliases = true
 testpaths = ["tests"]
 addopts = "-q"
 asyncio_mode = "auto"
+markers = [
+    "live: hits the real upstream registry over the network; excluded from CI with -m 'not live'",
+]
 
 [tool.coverage.run]
 source = ["src/registry_mcp"]

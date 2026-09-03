@@ -67,6 +67,13 @@ class BrregRegistry(Registry):
         result: list[Deadline] = rules.deadlines(report, today)
         return result
 
+    def format_id(self, id: str) -> str:
+        """``"923609016"`` -> ``"923 609 016"`` (``registries/no/mapping.py``, T03)."""
+        from registry_mcp.registries.no import mapping
+
+        result: str = mapping.format_orgnr(id)
+        return result
+
     def rules_markdown(self) -> str:
         """Served as the MCP resource ``registry://rules/NO``. Filled in by T02."""
         try:

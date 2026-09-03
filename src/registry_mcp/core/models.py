@@ -35,6 +35,7 @@ __all__ = [
     "CompanyStatus",
     "Deadline",
     "DeadlineRecurrence",
+    "DeadlineReport",
     "ErrorBody",
     "ErrorCode",
     "ErrorEnvelope",
@@ -43,6 +44,7 @@ __all__ = [
     "SearchHit",
     "SearchResult",
     "Surface",
+    "ValidationResult",
 ]
 
 
@@ -273,6 +275,110 @@ class Deadline(_Base):
     )
     source_url: str | None = Field(
         default=None, description="Authoritative page describing the obligation."
+    )
+
+    @field_validator("country")
+    @classmethod
+    def _upper_country(cls, v: str) -> str:
+        return v.upper()
+
+
+class DeadlineReport(_Base):
+    """The answer to "what must this company file, and by when?".
+
+    This is the **only** shape the deadlines operation returns, on both
+    surfaces (``DECISIONS.md`` D-010): REST
+    ``GET /v1/{country}/company/{id}/deadlines`` and the MCP tool
+    ``company_deadlines`` each emit ``model_dump(mode="json")`` of this model,
+    unchanged. Neither surface may return a bare ``list[Deadline]``, because a
+    list has nowhere to put ``today`` or ``notes`` — and an empty list without
+    a note is indistinguishable from a bug.
+
+    Build it with ``Registry.deadline_report(report, today)``; do not construct
+    it in a surface.
+    """
+
+    country: str = Field(description="ISO-3166-1 alpha-2, upper-case.")
+    registry: str = Field(description="Registry slug, e.g. 'brreg'.")
+    company_id: str = Field(
+        description="Canonical national identifier the deadlines were computed for."
+    )
+    company_name: str | None = Field(
+        default=None, description="Registered name, so the caller can echo it back to a user."
+    )
+    today: date = Field(
+        description=(
+            "The date 'next occurrence' was computed from, inclusive. Echoed back so the "
+            "answer is reproducible and an agent can tell a cached answer from a fresh one."
+        )
+    )
+    deadlines: list[Deadline] = Field(
+        default_factory=list,
+        description=(
+            "One entry per obligation kind, always the next occurrence, sorted by due_date. "
+            "An empty list is a real answer, not an error — read `notes` for why."
+        ),
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Caveats to surface to the user, carried over from the company report: why the "
+            "list is empty, an unclassified legal form, a status that suspends filing."
+        ),
+    )
+
+    @field_validator("country")
+    @classmethod
+    def _upper_country(cls, v: str) -> str:
+        return v.upper()
+
+
+# ---------------------------------------------------------------------------
+# Identifier validation
+# ---------------------------------------------------------------------------
+
+
+class ValidationResult(_Base):
+    """The answer to "is this identifier well-formed?" — no network call.
+
+    The only shape the validation operation returns, on both surfaces
+    (``DECISIONS.md`` D-010): REST ``GET /v1/{country}/validate/{id}`` and the
+    MCP tool ``validate_company_id``.
+
+    Note that an invalid identifier is **not** an error here: this operation
+    answers a question, so it returns ``valid=False`` with a ``reason`` and a
+    ``hint`` rather than raising. That is the one deliberate exception to
+    ``DECISIONS.md`` D-007's "every expected failure is a raised
+    ``RegistryError``" — and the reason ``hint`` is carried on this model.
+
+    Build it with ``Registry.validate(id)``; do not construct it in a surface.
+    """
+
+    country: str = Field(description="ISO-3166-1 alpha-2, upper-case.")
+    registry: str = Field(description="Registry slug, e.g. 'brreg'.")
+    id_scheme: str | None = Field(
+        default=None, description="Name of the identifier scheme, e.g. 'organisasjonsnummer'."
+    )
+    input: str = Field(description="The identifier exactly as the caller supplied it.")
+    valid: bool = Field(description="True when the identifier passes this country's format and checksum.")
+    normalized: str | None = Field(
+        default=None,
+        description="Canonical form to pass to lookup, e.g. '923609016'. None when invalid.",
+    )
+    formatted: str | None = Field(
+        default=None,
+        description="The identifier as a local would write it, e.g. '923 609 016'. None when invalid.",
+    )
+    reason: str | None = Field(
+        default=None,
+        description="One English sentence saying why it is valid, or what failed.",
+    )
+    hint: str | None = Field(
+        default=None,
+        description=(
+            "What to do next when `valid` is false — the same hint the invalid_id error "
+            "carries. None when valid: the next call is simply lookup."
+        ),
     )
 
     @field_validator("country")

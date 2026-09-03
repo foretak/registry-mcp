@@ -18,6 +18,7 @@ from registry_mcp.core.models import (
     RegistryError,
     SearchHit,
     SearchResult,
+    ValidationResult,
 )
 from registry_mcp.core.registry import Registry, get_registry, list_countries, list_registries
 
@@ -148,3 +149,82 @@ def test_norwegian_sync_methods_are_implemented(
     deadlines = brreg.deadlines(sample_report, date(2026, 1, 15))
     assert deadlines, "an active ASA should have filing deadlines"
     assert all(d.country == "NO" and d.registry == "brreg" for d in deadlines)
+
+
+# ---------------------------------------------------------------------------
+# D-010 — the two canonical documents both surfaces must emit
+# ---------------------------------------------------------------------------
+
+
+def test_deadline_report_is_the_canonical_deadlines_document(
+    brreg: Registry, sample_report: CompanyReport
+) -> None:
+    """`Registry.deadline_report` wraps `deadlines()` — surfaces never assemble it."""
+    today = date(2026, 1, 15)
+    document = brreg.deadline_report(sample_report, today)
+
+    assert document.country == "NO"
+    assert document.registry == "brreg"
+    assert document.company_id == sample_report.id
+    assert document.company_name == sample_report.name
+    assert document.today == today
+    assert document.deadlines == brreg.deadlines(sample_report, today)
+    assert document.notes == sample_report.notes
+
+    dumped = document.model_dump(mode="json")
+    assert dumped["today"] == "2026-01-15"
+    assert set(dumped) == {
+        "country",
+        "registry",
+        "company_id",
+        "company_name",
+        "today",
+        "deadlines",
+        "notes",
+    }
+
+
+def test_deadline_report_carries_notes_when_the_list_is_empty(brreg: Registry) -> None:
+    """An empty list is a real answer; `notes` is what makes it readable."""
+    bankrupt = CompanyReport(
+        country="NO",
+        registry="brreg",
+        id="923609016",
+        name="EQUINOR ASA",
+        legal_form_code="ASA",
+        has_annual_accounts_duty=True,
+        status=CompanyStatus.BANKRUPT,
+        notes=["This company is bankrupt; no filing deadlines are computed."],
+    )
+    document = brreg.deadline_report(bankrupt, date(2026, 1, 15))
+    assert document.deadlines == []
+    assert document.notes
+
+
+def test_validate_returns_a_result_not_an_error(brreg: Registry) -> None:
+    """`validate` answers a question: an invalid id is `valid=False`, not a raise."""
+    ok = brreg.validate("923 609 016")
+    assert isinstance(ok, ValidationResult)
+    assert ok.valid is True
+    assert ok.normalized == "923609016"
+    assert ok.formatted == "923 609 016"
+    assert ok.id_scheme == "organisasjonsnummer"
+    assert ok.input == "923 609 016"
+    assert ok.reason
+    assert ok.hint is None
+
+    bad = brreg.validate("923609017")
+    assert bad.valid is False
+    assert bad.normalized is None
+    assert bad.formatted is None
+    assert bad.reason
+    assert bad.hint is not None and "search_company" in bad.hint
+
+
+def test_validate_is_inherited_by_a_stub_country(example_registry: Registry) -> None:
+    """D-008: a new country gets both documents for free, with no extra code."""
+    ok = example_registry.validate("1234 5678")
+    assert ok.valid is True
+    assert ok.normalized == "12345678"
+    assert ok.formatted is None  # XX declares no local grouping convention
+    assert example_registry.validate("nope").valid is False

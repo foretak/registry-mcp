@@ -24,6 +24,12 @@ Minimal example — the whole contract::
 ``lookup`` and ``search`` are async because they do network I/O.
 ``validate_id`` and ``deadlines`` are sync and pure: no I/O, no clock reads —
 ``deadlines`` takes ``today`` as a parameter precisely so it stays testable.
+
+Those four are the only methods a country implements. The surfaces do **not**
+call ``validate_id`` and ``deadlines`` directly: they call the concrete
+:meth:`Registry.validate` and :meth:`Registry.deadline_report`, which wrap the
+primitives into the single ``ValidationResult`` / ``DeadlineReport`` document
+that REST and MCP both emit (``DECISIONS.md`` D-010).
 """
 
 from __future__ import annotations
@@ -36,9 +42,11 @@ from typing import ClassVar
 from registry_mcp.core.models import (
     CompanyReport,
     Deadline,
+    DeadlineReport,
     ErrorCode,
     RegistryError,
     SearchResult,
+    ValidationResult,
 )
 
 __all__ = [
@@ -150,7 +158,84 @@ class Registry(ABC):
             today: The date to compute "next occurrence" from, inclusive.
         """
 
+    # -- canonical response builders (do not override lightly) ----------------
+    #
+    # These two are concrete on purpose (``DECISIONS.md`` D-010). A country
+    # module implements the *pure* primitives above — ``validate_id`` returns a
+    # string or raises, ``deadlines`` returns a list — and the base class turns
+    # them into the one document shape both surfaces emit. A surface calls
+    # these; it never assembles ``DeadlineReport`` or ``ValidationResult``
+    # itself, because two assemblers are two shapes waiting to drift apart.
+
+    def deadline_report(self, report: CompanyReport, today: date) -> DeadlineReport:
+        """Wrap :meth:`deadlines` into the document REST and MCP both return.
+
+        ``notes`` is carried over from ``report.notes`` verbatim: every caveat
+        that explains an empty or surprising list (bankrupt, deleted, sub-unit,
+        unclassified legal form) is put there by the country module's mapping,
+        so ``core`` synthesises no prose of its own and stays country-neutral
+        (``DECISIONS.md`` D-001).
+
+        Args:
+            report: A report produced by this same registry.
+            today: The date to compute "next occurrence" from, inclusive.
+        """
+        return DeadlineReport(
+            country=self.country,
+            registry=self.registry,
+            company_id=report.id,
+            company_name=report.name,
+            today=today,
+            deadlines=self.deadlines(report, today),
+            notes=list(report.notes),
+        )
+
+    def validate(self, id: str) -> ValidationResult:
+        """Answer "is this identifier well-formed?" without raising.
+
+        Wraps :meth:`validate_id`: an ``invalid_id`` failure becomes
+        ``valid=False`` plus the error's own message and hint, because this
+        operation *answers a question* rather than failing at one. Any other
+        ``RegistryError`` still propagates — an unsupported country or an
+        internal fault is a real error, not a validation verdict.
+        """
+        try:
+            normalized = self.validate_id(id)
+        except RegistryError as exc:
+            if exc.code is not ErrorCode.INVALID_ID:
+                raise
+            return ValidationResult(
+                country=self.country,
+                registry=self.registry,
+                id_scheme=self.id_scheme or None,
+                input=id,
+                valid=False,
+                reason=exc.message,
+                hint=exc.hint,
+            )
+        return ValidationResult(
+            country=self.country,
+            registry=self.registry,
+            id_scheme=self.id_scheme or None,
+            input=id,
+            valid=True,
+            normalized=normalized,
+            formatted=self.format_id(normalized),
+            reason=(
+                f"Well-formed {self.id_scheme or 'identifier'} for {self.country}. "
+                "A valid identifier does not mean the entity exists — call lookup to find out."
+            ),
+        )
+
     # -- optional helpers ----------------------------------------------------
+
+    def format_id(self, id: str) -> str | None:
+        """The identifier as a local would write it, e.g. ``"923 609 016"``.
+
+        Takes an already-normalised identifier. Returns ``None`` when the
+        country has no conventional grouping — the default.
+        """
+        return None
 
     def rules_markdown(self) -> str:
         """Human/LLM readable description of this country's rules.
