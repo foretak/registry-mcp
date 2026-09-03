@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator, Iterator
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ import pytest
 import respx
 
 from registry_mcp.core.models import ErrorCode, RegistryError
+from registry_mcp.core.registry import get_registry
 from registry_mcp.registries.no import client as client_module
 from registry_mcp.registries.no import mapping
 
@@ -120,6 +122,82 @@ def test_89_search_result_no_embedded_key() -> None:
     assert result.hits == []
     assert result.total == 0
     assert result.truncated is False
+
+
+# ---------------------------------------------------------------------------
+# D-010 follow-up: CompanyReport.notes carries the calendar-year assumption
+# and/or `deadline_exemption_note`, since `Registry.deadline_report` copies
+# `notes` verbatim into `DeadlineReport.notes` for both REST and MCP.
+# ---------------------------------------------------------------------------
+
+
+def test_calendar_year_assumption_note_present_when_any_annual_deadline_applies() -> None:
+    """Equinor (ASA, active, annual-accounts duty) gets annual deadlines, so
+    the calendar-year assumption must be surfaced in `notes`."""
+    report = mapping.map_entity(EQUINOR, source_url="https://example/enheter/923609016")
+    assert any("calendar-year" in note for note in report.notes)
+    assert any("avvikende regnskapsår" in note for note in report.notes)
+
+
+def test_no_calendar_year_note_when_no_annual_deadline_applies() -> None:
+    """974760673 (ORGL, active, not VAT-registered, `has_annual_accounts_duty`
+    is `None`, not `AS`/`ASA`, not in the `tax_return` form list) gets no
+    annual-recurrence deadline under the D-009 gating, so no assumption note
+    is added — and it is a classified, active, non-sub-unit form, so
+    `deadline_exemption_note` also has nothing to say. `notes` is empty."""
+    report = mapping.map_entity(BROENNOYSUND, source_url="https://example/enheter/974760673")
+    assert report.notes == []
+
+
+def test_deadline_exemption_note_surfaced_for_unclassified_legal_form() -> None:
+    """An unlisted legal-form code gets `deadline_exemption_note`'s text
+    (D-009/D-010) instead of the calendar-year note, since `deadlines_for`
+    returns `[]` for an unclassified form."""
+    data = dict(EQUINOR)
+    data["organisasjonsform"] = {"kode": "ZZZZ", "beskrivelse": "Fantasiform"}
+    report = mapping.map_entity(data, source_url="https://example/enheter/923609016")
+    assert not any("calendar-year" in note for note in report.notes)
+    assert any("not yet classified" in note for note in report.notes)
+
+
+def test_deadline_exemption_note_surfaced_for_subunit() -> None:
+    data = dict(BROENNOYSUND)
+    data["organisasjonsform"] = {"kode": "BEDR", "beskrivelse": "Underenhet"}
+    report = mapping.map_entity(data, source_url="https://example/enheter/974760673")
+    assert report.is_subunit is True
+    assert any("parent_id" in note for note in report.notes)
+
+
+def test_deadline_report_copies_notes_verbatim() -> None:
+    """`Registry.deadline_report` (D-010) is what both REST and MCP show, so
+    the note must survive that hop unchanged."""
+    report = mapping.map_entity(EQUINOR, source_url="https://example/enheter/923609016")
+    registry = get_registry("NO")
+    deadline_report = registry.deadline_report(report, date(2026, 1, 15))
+    assert deadline_report.notes == report.notes
+    assert any("calendar-year" in note for note in deadline_report.notes)
+
+
+def test_format_id_returns_grouped_orgnr() -> None:
+    registry = get_registry("NO")
+    assert registry.format_id("923609016") == "923 609 016"
+
+
+def test_validate_invalid_orgnr_returns_valid_false_with_hint() -> None:
+    registry = get_registry("NO")
+    result = registry.validate("833286602")
+    assert result.valid is False
+    assert result.hint is not None and result.hint
+    assert result.normalized is None
+    assert result.formatted is None
+
+
+def test_validate_valid_orgnr_returns_formatted() -> None:
+    registry = get_registry("NO")
+    result = registry.validate("923609016")
+    assert result.valid is True
+    assert result.normalized == "923609016"
+    assert result.formatted == "923 609 016"
 
 
 # ---------------------------------------------------------------------------

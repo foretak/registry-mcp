@@ -18,8 +18,17 @@ Now that ``rules.py`` exists, this module calls its real API: ``validate_orgnr``
 ``limited_liability``, ``has_board_duty``, ``has_annual_accounts_duty``,
 ``is_subunit``, ``notes``), ``derive_status(*, bankrupt, under_liquidation,
 under_compulsory_liquidation, deleted_at, bankruptcy_date) -> StatusResult``
-(fields ``status``, ``status_detail``, ``is_active``, ``notes``), and
-``deadline_exemption_note(report) -> str | None``.
+(fields ``status``, ``status_detail``, ``is_active``, ``notes``),
+``deadline_exemption_note(report) -> str | None``, and ``deadlines_for(report,
+today) -> list[Deadline]``.
+
+``DECISIONS.md`` D-010 / ``NORBIZ_SPEC.md`` §5.4: ``CompanyReport.notes`` also
+carries (a) the calendar-year accounting-period assumption whenever the report
+would get any annual-recurrence deadline, and (b) ``deadline_exemption_note``'s
+text when deadlines are suppressed (unclassified form, sub-unit, bankrupt,
+deleted, under compulsory liquidation). ``Registry.deadline_report`` copies
+``notes`` verbatim into ``DeadlineReport.notes``, so both REST and MCP show
+whatever is put here — no other prose is synthesised.
 """
 
 from __future__ import annotations
@@ -32,6 +41,7 @@ from typing import Any
 from registry_mcp.core.models import (
     Address,
     CompanyReport,
+    DeadlineRecurrence,
     IndustryCode,
     SearchHit,
     SearchResult,
@@ -50,6 +60,25 @@ __all__ = [
 
 #: Norwegian sub-unit legal-form codes (`NORBIZ_SPEC.md` §2, `is_subunit`).
 _SUBUNIT_FORMS = frozenset({"BEDR", "AAFY"})
+
+#: `NORBIZ_SPEC.md` §5.4 / `DECISIONS.md` D-010: "lookup adds a notes entry"
+#: whenever it returns any annual deadline, because Enhetsregisteret does not
+#: publish a company's actual accounting-year end, so every annual deadline
+#: assumes a calendar year.
+_CALENDAR_YEAR_ASSUMPTION_NOTE = (
+    "Filing deadlines are computed assuming a calendar-year accounting period. "
+    "A company with a deviating accounting year (avvikende regnskapsår) will have "
+    "different actual dates, and Enhetsregisteret does not publish which companies those are."
+)
+
+#: An arbitrary, fixed anchor date used only to ask "would any *kind* of annual
+#: deadline apply to this report at all?" — never to compute an actual due
+#: date. Which deadline *kinds* `rules.deadlines_for` returns depends only on
+#: `report` (legal form, status, VAT/employee flags), not on `today`, so any
+#: valid date gives the same answer here. Using a fixed date (rather than the
+#: real clock) keeps `map_entity` pure: same input JSON, same `CompanyReport`,
+#: always.
+_DEADLINE_ELIGIBILITY_PROBE_DATE = date(2000, 1, 1)
 
 #: `CompanyReport.registers` keys -> brreg boolean field (`NORBIZ_SPEC.md` §2).
 _REGISTER_FIELDS = {
@@ -243,6 +272,10 @@ def map_entity(
         license="NLOD 2.0",
         notes=notes,
     )
+
+    probe_deadlines = rules.deadlines_for(report, _DEADLINE_ELIGIBILITY_PROBE_DATE)
+    if any(d.recurrence is DeadlineRecurrence.ANNUAL for d in probe_deadlines):
+        report.notes.append(_CALENDAR_YEAR_ASSUMPTION_NOTE)
 
     exemption_note = rules.deadline_exemption_note(report)
     if exemption_note:
