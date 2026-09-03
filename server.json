@@ -1,0 +1,98 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.foretak/registry-mcp",
+  "title": "registry-mcp — national company registries",
+  "description": "Company lookup in national business registries. Norway: brreg, orgnr, VAT, deadlines.",
+  "version": "0.1.0",
+  "websiteUrl": "https://api.foretak.dev",
+  "repository": {
+    "url": "https://github.com/foretak/registry-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "registry-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "REGISTRY_MCP_CONTACT_EMAIL",
+          "description": "Contact address sent in the User-Agent to the national registry, as Brønnøysundregistrene asks of API clients. Unset means an anonymous client, which may be blocked upstream.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "you@example.com"
+        },
+        {
+          "name": "REGISTRY_MCP_CACHE_PATH",
+          "description": "Path to the local SQLite response cache (24 h TTL). Defaults to ./data/cache.sqlite3.",
+          "format": "filepath",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "./data/cache.sqlite3"
+        }
+      ]
+    },
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "registry-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "REGISTRY_MCP_CONTACT_EMAIL",
+          "description": "Contact address sent in the User-Agent to the national registry, as Brønnøysundregistrene asks of API clients. Unset means an anonymous client, which may be blocked upstream.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "you@example.com"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.foretak.dev/mcp"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "tool": "registry-mcp T05",
+      "schemaFetchedAt": "2026-09-03",
+      "keywords": [
+        "brreg",
+        "brønnøysund",
+        "brønnøysundregistrene",
+        "enhetsregisteret",
+        "organisasjonsnummer",
+        "orgnr",
+        "org.nr",
+        "norway company lookup",
+        "norwegian business registry",
+        "foretak",
+        "company registry",
+        "mcp"
+      ],
+      "countries": [
+        "NO"
+      ],
+      "documentation": {
+        "llmsTxt": "https://api.foretak.dev/llms.txt",
+        "llmsFullTxt": "https://api.foretak.dev/llms-full.txt",
+        "openapi": "https://api.foretak.dev/openapi.json"
+      },
+      "license": "MIT",
+      "dataLicense": "NLOD 2.0 (Enhetsregisteret, Brønnøysundregistrene)"
+    }
+  }
+}

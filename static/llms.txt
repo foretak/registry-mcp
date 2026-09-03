@@ -1,0 +1,39 @@
+# registry-mcp — company data for AI agents, any country
+
+One MCP server and one REST API over national business registries. Same JSON
+from both surfaces. Live now: Norway (NO) — Enhetsregisteret /
+Brønnøysundregistrene ("brreg"): organisasjonsnummer (orgnr) lookup, name
+search, VAT registration status, and computed filing deadlines.
+
+## Add it as an MCP server
+
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+    uvx registry-mcp      # local stdio server (Python)
+    npx registry-mcp      # local stdio server (Node)
+
+Tools: lookup_company(id, country="NO"), search_company(name, country="NO"),
+company_deadlines(id, country, today), validate_company_id(id, country),
+list_countries(). Resource: registry://rules/{country}.
+Prompt: explain_company.
+
+## Or call the REST API
+
+    curl https://api.foretak.dev/v1/NO/company/923609016
+
+Returns a CompanyReport: name, legal_form, status, vat_registered, vat_number,
+addresses, industry_codes, employees, share_capital, plus confidence, cached,
+fetched_at, source_url and license for citation. Unknown is null, never "" or 0.
+
+Other routes: GET /v1/countries, GET /v1/{country}/search?q={name},
+GET /v1/{country}/company/{id}/deadlines?today=YYYY-MM-DD,
+GET /v1/{country}/validate/{id}, GET /health.
+
+Errors are always {"error": {"code", "message", "hint"}}. The hint names the
+next call you can make — read it before retrying.
+
+## More
+
+Full endpoint and tool docs: https://api.foretak.dev/llms-full.txt
+MCP manifest: https://api.foretak.dev/server.json
+Source (MIT): https://github.com/foretak/registry-mcp
+Norwegian data: Enhetsregisteret, NLOD 2.0 — attribution required.

@@ -40,7 +40,7 @@ Endpoints this module uses:
 - `GET /enheter/974760673` → 200 (Registerenheten i Brønnøysund, `ORGL`, not VAT-registered, has `overordnetEnhet` and `epostadresse`). Useful second fixture: a public body with a different field mix.
 - **`GET /enheter/833286602` → 404, with an empty body.** The build plan names this org.nr as the canonical test number. It is not in the register **and it fails MOD11** (weighted sum 145, remainder 2, so the check digit should be 9, not 2). It is not a valid organisasjonsnummer at all. **T03 must use `923609016` as the live-fetch fixture and `974760673` as the second one.** `833286602` is repurposed as the negative fixture in test 9 below. Raise this with the orchestrator: every done-check in `BRREG_MCP_BUILD_PLAN.md` and `tasks/` that names `833286602` should read `923609016`.
 - A 404 body is empty — there is no JSON error document to parse. Do not try.
-- Deleted entities: brreg is documented to answer `410 Gone` with a body containing `slettedato`. `VERIFY` — no deleted entity was reachable to test against. T03 must find one (or confirm the behaviour in brreg's own docs) and handle both `410` and a 200 body carrying `slettedato`.
+- **Deleted entities confirmed (2026-09-03) — T03.** Found live examples via `GET /oppdateringer/enheter?dato=2026-08-01T00:00:00.000Z&size=200`, filtering `endringstype == "Sletting"` (e.g. `921084846`, `915421970`, `969455706`, `987716770`). `GET /enheter/{orgnr}` on each returns **`200`, not `410`**, with a normal-shaped body carrying `"slettedato"` and `"respons_klasse": "SlettetEnhet"` (`historiskeNavn` still present, most other optional fields simply absent). This is fully handled by the ordinary 200 mapping path — status derivation's "`slettedato` is present → `DELETED`" rule (§8) fires without any special-casing in the client. A `410` may still occur for very old/purged records outside this API's retention window (unconfirmed, no example reachable) — the client keeps the defensive `410 → not_found` mapping in §6 as a belt-and-braces path, but the `200` + `slettedato` path is the one that actually happens and is the one covered by tests.
 
 ---
 
@@ -70,7 +70,7 @@ Target model: `core/models.py :: CompanyReport`. Every field below is filled fro
 | `founded_at` | `stiftelsesdato` | `date \| None` | Absent for public bodies |
 | `business_register_registered_at` | `registreringsdatoForetaksregisteret` | `date \| None` | |
 | `bankruptcy_date` | `konkursdato` | `date \| None` | Only present when `konkurs` is true |
-| `deregistered_at` | `slettedato` | `date \| None` | `VERIFY` — only on deleted entities |
+| `deregistered_at` | `slettedato` | `date \| None` | Only on deleted entities. Confirmed live 2026-09-03 (see §1.1) |
 | `vat_registered` | `registrertIMvaregisteret` | `bool` | |
 | `vat_registered_at` | `registreringsdatoMerverdiavgiftsregisteret` | `date \| None` | |
 | `vat_number` | derived | `str \| None` | `f"NO{id}MVA"` when `vat_registered` is true, else `None` |
@@ -272,7 +272,7 @@ Real obligations, deliberately left out of the first release because getting the
 |---|---|
 | 200 | Map and return |
 | 404 on `/enheter` | Retry once against `/underenheter/{orgnr}`; if that is also 404 → `RegistryError(not_found)` |
-| 410 | `RegistryError(not_found)` with `details={"deleted": true}` and the `slettedato` if the body carries one. `VERIFY` |
+| 410 | `RegistryError(not_found)` with `details={"deleted": true}` and the `slettedato` if the body carries one. Defensive: confirmed 2026-09-03 that live deleted entities actually answer `200` with `slettedato` set (see §1.1), not `410` — this row is kept for records outside the API's retention window, unconfirmed |
 | 429 | `RegistryError(upstream_error)`, hint says to retry in a minute |
 | 5xx (after the retry) | `RegistryError(upstream_error)` |
 | timeout (after the retry) | `RegistryError(upstream_timeout)` |
@@ -554,3 +554,30 @@ The subject is an active `AS`, VAT-registered, with 3 employees, unless stated o
 **T03 — client and mapping.** `registries/no/client.py`, `registries/no/mapping.py`, `registries/no/cache.py`, wiring `BrregRegistry.lookup` / `.search` in `registries/no/__init__.py`, `tests/no/conftest.py` (stored fixtures), `tests/no/test_mapping.py`, `tests/no/test_client.py` — tests 82–97.
 
 Neither may edit `core/models.py` or `core/registry.py`. If a shape is wrong, say so in `REVIEW.md` and let Opus A change it — a silently widened model breaks the REST/MCP parity that `DECISIONS.md` D-004 exists to guarantee.
+
+---
+
+## 15. Serving static files
+
+*(Appended by T05. The files themselves are written and owned by T05; **T06 implements the routes.**)*
+
+The discovery layer is four static files in `static/` plus `server.json` at the repo root. They are how an agent or a registry crawler finds the service without being told about it, so they must be served from the API origin itself — not only from GitHub.
+
+| Route | File | Content-Type |
+|---|---|---|
+| `GET /` | `static/index.html` | `text/html; charset=utf-8` |
+| `GET /llms.txt` | `static/llms.txt` | `text/plain; charset=utf-8` |
+| `GET /llms-full.txt` | `static/llms-full.txt` | `text/plain; charset=utf-8` |
+| `GET /server.json` | `server.json` (repo root) | `application/json; charset=utf-8` |
+
+Rules:
+
+- **`charset=utf-8` is mandatory on the two `.txt` routes.** They contain `Brønnøysundregistrene`, `Årsregnskap` and an en dash; served as latin-1 they are mojibake to the crawler that matters most.
+- These four routes are **exempt from the rate limiter**. A registry crawler hitting `/llms.txt` must never get a 429 — that is the one request we most want to succeed.
+- They are **not** logged through `core/log.py` (§11). The stats page counts API calls by agents, and static reads would drown the signal. If crawler traffic is wanted later it gets its own counter.
+- Files are read from disk at request time (or on startup with a mtime check), never inlined into Python. T05 owns their contents and will edit them without touching `api/`.
+- `server.json` is served verbatim from the repo root, byte-for-byte identical to what is published to the official MCP registry. Do not regenerate or reformat it in the API layer — the `$schema` field pins a dated schema version and the registry validates against it.
+- `GET /health` (§ build plan 2.5) stays a separate JSON route and is not part of this set.
+- Anything else under `/` is a 404 in the standard error envelope of §10, with a `hint` naming `/llms.txt` — a crawler that guesses a path should be told where the real map is.
+
+Path resolution: `static/` sits at the repo root, next to `src/`. Resolve it from the installed package location or an explicit `REGISTRY_MCP_STATIC_DIR` environment variable rather than from the process working directory, so the routes still work under Docker and under `uvx`. If the directory is missing, log a warning at startup and serve 404s for these four routes — a missing homepage must not stop the API from booting.

@@ -1,0 +1,443 @@
+# registry-mcp — full reference for LLM readers
+
+Company data for AI agents, any country. One shape, many national registries.
+This document is written for a model deciding which call to make. Every section
+says what the call is for, when to use it, what comes back, and what to do on
+each error.
+
+Base URL: https://api.foretak.dev
+MCP endpoint (Streamable HTTP): https://api.foretak.dev/mcp
+Local stdio: `uvx registry-mcp` or `npx registry-mcp`
+Source (MIT): https://github.com/foretak/registry-mcp
+Short version of this file: https://api.foretak.dev/llms.txt
+
+Aliases you may be searching for: brreg, Brønnøysund, Brønnøysundregistrene,
+Enhetsregisteret, organisasjonsnummer, orgnr, org.nr, Norway company lookup,
+Norwegian business registry, foretak, company registry, MCP.
+
+
+## 0. The one thing to know first
+
+REST and MCP return the **same JSON documents**. A `CompanyReport` from
+`GET /v1/NO/company/923609016` is byte-identical to the one from the MCP tool
+`lookup_company("923609016", country="NO")`. Learn the shape once.
+
+Unknown is always `null` — never `""`, never `0`. `"employees": null` means the
+register does not publish a figure; `"employees": 0` means it publishes zero.
+`employees_reported` tells the two apart explicitly.
+
+Dates are ISO-8601 `YYYY-MM-DD`. Timestamps are timezone-aware UTC.
+Country codes are ISO-3166-1 alpha-2, upper-case.
+
+
+## 1. Countries currently supported
+
+| Country | Code | Register | Identifier | Example |
+|---|---|---|---|---|
+| Norway | `NO` | Enhetsregisteret (Brønnøysundregistrene), slug `brreg` | organisasjonsnummer | `923609016` |
+
+Do not hard-code this table — call `list_countries()` / `GET /v1/countries`.
+Countries are added as separate modules; the list grows without the tool shape
+changing.
+
+
+## 2. Choosing a call
+
+- You have a national identifier and want facts  → `lookup_company`
+- You have only a company name                    → `search_company`, then
+  `lookup_company` with the `id` of the right hit
+- You want to know if an identifier is well-formed, with no network round-trip
+  → `validate_company_id`
+- You want filing dates for a company             → `company_deadlines`
+- You want to know which countries work           → `list_countries`
+
+Never guess an identifier. If `search_company` returns several hits, show the
+user the candidates with their `confidence` and `confidence_basis` rather than
+picking one silently.
+
+
+## 3. REST endpoints
+
+### 3.1 GET /v1/countries
+
+**For:** discovering which national registries this service can answer for, and
+what each one's identifier looks like.
+**When:** before your first call in a new country, or when a user names a
+country you have not used here before.
+
+    curl https://api.foretak.dev/v1/countries
+
+Response (abridged):
+
+    {
+      "countries": [
+        {
+          "country": "NO",
+          "registry": "brreg",
+          "name": "Enhetsregisteret (Brønnøysundregistrene)",
+          "id_scheme": "organisasjonsnummer",
+          "id_example": "923609016",
+          "id_description": "Nine digits with a MOD11 check digit.",
+          "source_url": "https://data.brreg.no/enhetsregisteret/api",
+          "license": "NLOD 2.0"
+        }
+      ]
+    }
+
+Errors: none expected. A 500 means a bug here — retry once, then tell the user.
+
+### 3.2 GET /v1/{country}/company/{id}
+
+**For:** the full report on one registered entity.
+**When:** you already have the national identifier — from the user, an invoice,
+a contract, or a previous `search_company` hit.
+
+    curl https://api.foretak.dev/v1/NO/company/923609016
+
+Response (abridged — every field is documented in §5):
+
+    {
+      "country": "NO",
+      "registry": "brreg",
+      "id": "923609016",
+      "id_formatted": "923 609 016",
+      "id_scheme": "organisasjonsnummer",
+      "name": "EQUINOR ASA",
+      "previous_names": ["STATOIL ASA"],
+      "legal_form_code": "ASA",
+      "legal_form": "Public limited company",
+      "legal_form_local": "Allmennaksjeselskap",
+      "limited_liability": true,
+      "has_board_duty": true,
+      "has_annual_accounts_duty": true,
+      "status": "active",
+      "status_detail": "Registered and active in Enhetsregisteret.",
+      "is_active": true,
+      "registered_at": "1995-09-22",
+      "vat_registered": true,
+      "vat_number": "NO923609016MVA",
+      "in_business_register": true,
+      "employees": 22000,
+      "employees_reported": true,
+      "industry_codes": [
+        {"code": "06.100", "description": "Utvinning av råolje",
+         "scheme": "NACE", "rank": 1}
+      ],
+      "share_capital": 5976872600.0,
+      "share_capital_currency": "NOK",
+      "business_address": {
+        "lines": ["Forusbeen 50"], "postal_code": "4035",
+        "city": "STAVANGER", "municipality": "STAVANGER",
+        "municipality_code": "1103", "country_code": "NO",
+        "country_name": "Norge"
+      },
+      "confidence": 1.0,
+      "confidence_basis": "exact identifier lookup in Enhetsregisteret",
+      "cached": false,
+      "fetched_at": "2026-09-03T09:12:44Z",
+      "source": "Enhetsregisteret (Brønnøysundregistrene)",
+      "source_url": "https://data.brreg.no/enhetsregisteret/api/enheter/923609016",
+      "license": "NLOD 2.0",
+      "notes": []
+    }
+
+Identifier input is normalised for you: `923 609 016`, `923.609.016`,
+`NO923609016MVA` and `NO 923 609 016 MVA` all resolve to `923609016`.
+
+Errors:
+- `400 invalid_id` — the identifier fails the country's checksum or format.
+  Do **not** retry the same string. Either fix the digits or call
+  `search_company` with the name.
+- `404 not_found` — well-formed but no such entity. The number may never have
+  been issued, or the entity was deleted. Call `search_company` with the name.
+- `404 unsupported_country` — no module for that country code. Call
+  `list_countries` and pick a supported one; do not invent a route.
+- `502 upstream_error` / `504 upstream_timeout` — the national register is
+  down or slow. We already retried once. Wait ~60 s and retry at most once,
+  then tell the user the register is unavailable. Do not loop.
+- `429 rate_limited` — you exceeded 60 requests/minute per IP. Back off for the
+  number of seconds in `details.retry_after` and batch your calls.
+
+### 3.3 GET /v1/{country}/search?q={name}
+
+**For:** turning a company name into candidate identifiers.
+**When:** the user gave you a name, not a number.
+
+    curl "https://api.foretak.dev/v1/NO/search?q=equinor&limit=5"
+
+`limit` is 1–100, default 10. A `limit` outside that range is a
+`400 bad_request`, not a silent clamp.
+
+Response:
+
+    {
+      "country": "NO",
+      "registry": "brreg",
+      "query": "equinor",
+      "hits": [
+        {
+          "country": "NO", "registry": "brreg",
+          "id": "923609016", "name": "EQUINOR ASA",
+          "legal_form_code": "ASA", "legal_form": "Public limited company",
+          "status": "active", "city": "STAVANGER",
+          "municipality": "STAVANGER", "registered_at": "1995-09-22",
+          "is_subunit": false,
+          "confidence": 0.95,
+          "confidence_basis": "name matches the query exactly (case-insensitive)",
+          "source_url": "https://data.brreg.no/enhetsregisteret/api/enheter/923609016"
+        }
+      ],
+      "total": 240,
+      "truncated": true,
+      "cached": false,
+      "fetched_at": "2026-09-03T09:13:02Z",
+      "hint": "240 companies match. Call lookup_company with the id of the right hit for the full report."
+    }
+
+A search hit is deliberately thin. It is enough to **choose**, not enough to
+act on. Call `lookup_company` before telling a user anything about VAT, status
+or deadlines.
+
+Confidence anchors: `0.95` exact case-insensitive name match, `0.8` the name
+starts with the query, `0.6` the name contains every query token, `0.4` any
+other hit the register returned.
+
+Errors:
+- `400 bad_request` — `q` missing/empty, or `limit` outside 1–100. Fix the
+  parameter and call again.
+- `404 unsupported_country`, `429`, `502`, `504` — as in §3.2.
+- Zero hits is **not** an error: `hits: []`, `total: 0`, and a `hint` telling
+  you to try a shorter or differently spelled name. Norwegian names are
+  registered upper-case and often contain `AS`, `ASA` or `NUF` — try dropping
+  the suffix before concluding a company does not exist.
+
+### 3.4 GET /v1/{country}/company/{id}/deadlines?today=YYYY-MM-DD
+
+**For:** the next occurrence of each statutory filing obligation.
+**When:** the user asks what a company must file, or by when.
+
+    curl "https://api.foretak.dev/v1/NO/company/923609016/deadlines?today=2026-01-15"
+
+`today` is optional and defaults to the server's current UTC date. Pass it
+explicitly whenever you want a reproducible answer, or when reasoning about a
+date that is not today.
+
+Response:
+
+    {
+      "country": "NO",
+      "registry": "brreg",
+      "id": "923609016",
+      "today": "2026-01-15",
+      "deadlines": [
+        {
+          "country": "NO", "registry": "brreg",
+          "kind": "shareholder_register_statement",
+          "name": "Shareholder register statement",
+          "local_name": "Aksjonærregisteroppgaven (RF-1086)",
+          "authority": "Skatteetaten",
+          "statutory_date": "2026-01-31",
+          "due_date": "2026-02-02",
+          "rolled_forward": true,
+          "period_label": "2025",
+          "recurrence": "annual",
+          "mandatory": true,
+          "applies_because": "An ASA must file the shareholder register statement for the preceding income year. Assumes a calendar-year accounting period.",
+          "days_until": 18
+        }
+      ],
+      "notes": ["Annual dates assume a calendar-year accounting period; the register does not publish deviating accounting years."]
+    }
+
+How to read it:
+- `statutory_date` is the date in the statute. `due_date` is the date to act
+  on, after weekends and public holidays. Quote `due_date`.
+- `rolled_forward: true` means the two differ — worth mentioning to the user.
+- One entry per `kind`, always the **next** occurrence, sorted by `due_date`.
+- `days_until` is negative if the date has passed relative to `today`.
+- `applies_because` states the assumption behind the date. Quote it rather
+  than presenting a date as unconditional fact.
+- An empty list is a real answer: bankrupt, deleted and compulsorily liquidated
+  entities have no filing deadlines, and neither do branches/sub-units. `notes`
+  says why, and for a sub-unit points you at `parent_id`.
+
+Norwegian obligations covered: `annual_accounts` (Årsregnskap),
+`general_meeting` (Ordinær generalforsamling), `tax_return` (Skattemelding),
+`shareholder_register_statement` (Aksjonærregisteroppgaven RF-1086),
+`vat_return` (Mva-melding, bimonthly), `payroll_report` (A-melding, monthly).
+Advance tax (forskuddsskatt) is deliberately not covered yet — do not infer it.
+
+Errors: `400 invalid_id`, `400 bad_request` (unparseable `today`),
+`404 not_found`, `404 unsupported_country`, `429`, `502`, `504` — handle as in
+§3.2. For `bad_request` on `today`, send `YYYY-MM-DD` and retry once.
+
+### 3.5 GET /v1/{country}/validate/{id}
+
+**For:** checking an identifier's format and checksum with no call to the
+national register.
+**When:** validating user input or a spreadsheet column, before spending
+lookups. Cheap and instant — prefer it to a speculative lookup.
+
+    curl https://api.foretak.dev/v1/NO/validate/923609016
+
+Response:
+
+    {
+      "country": "NO",
+      "registry": "brreg",
+      "input": "923 609 016",
+      "valid": true,
+      "normalised": "923609016",
+      "formatted": "923 609 016",
+      "id_scheme": "organisasjonsnummer",
+      "reason": "Nine digits with a valid MOD11 check digit."
+    }
+
+An invalid identifier returns `200` with `"valid": false` and a `reason` — this
+endpoint answers a question rather than failing. `404 unsupported_country` is
+the only common error.
+
+Valid format does **not** mean the company exists. `833286602` is a
+well-known example of a string that looks right and is not: it fails MOD11 and
+no such entity exists. Follow a successful validation with `lookup_company` if
+you need facts.
+
+### 3.6 GET /health
+
+Liveness for monitoring: `{"status": "ok", "version": "0.1.0"}`. Not part of
+the data API; do not call it in a loop.
+
+
+## 4. MCP tools
+
+Add the server:
+
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+
+or run it locally over stdio with `uvx registry-mcp` / `npx registry-mcp`.
+
+| Tool | Signature | Returns | REST twin |
+|---|---|---|---|
+| `lookup_company` | `(id: str, country: str = "NO")` | `CompanyReport` | §3.2 |
+| `search_company` | `(name: str, country: str = "NO", limit: int = 10)` | `SearchResult` | §3.3 |
+| `company_deadlines` | `(id: str, country: str = "NO", today: str \| None = None)` | `list[Deadline]` | §3.4 |
+| `validate_company_id` | `(id: str, country: str = "NO")` | validation result | §3.5 |
+| `list_countries` | `()` | supported countries | §3.1 |
+
+Resource `registry://rules/{country}` — the country's identifier rules, legal
+forms and deadline rules as a document you can read once and reason with,
+instead of calling `validate_company_id` in a loop. Read it before processing a
+list of identifiers.
+
+Prompt `explain_company` — takes an identifier and a country and produces a
+plain-language summary of a company: what it is, whether it is trading, whether
+it is VAT-registered, and what it must file next.
+
+Errors arrive as the same `{"error": {...}}` document described in §6, so the
+handling in §3 applies unchanged.
+
+
+## 5. The CompanyReport shape
+
+Groups, in the order they appear:
+
+- **Identity** — `country`, `registry`, `id`, `id_formatted`, `id_scheme`.
+- **Names** — `name`, `previous_names` (newest first).
+- **Legal form** — `legal_form_code` (national, e.g. `AS`, `ASA`, `ENK`),
+  `legal_form` (English label), `legal_form_local`, `limited_liability`,
+  `has_board_duty`, `has_annual_accounts_duty`. A duty field is `null` when it
+  depends on facts the register does not publish (turnover, balance sheet).
+  `null` means "we do not know", never "no".
+- **Status** — `status` is one of `active`, `under_liquidation`,
+  `under_compulsory_liquidation`, `bankrupt`, `dissolved`, `deleted`,
+  `unknown`. `status_detail` is one English sentence naming the flag it came
+  from; `is_active` mirrors `status == "active"` so you need no enum table.
+- **Dates** — `registered_at`, `founded_at`,
+  `business_register_registered_at`, `bankruptcy_date`, `deregistered_at`.
+- **Tax/VAT** — `vat_registered`, `vat_registered_at`, `vat_number` (Norway:
+  `NO{orgnr}MVA`, present only when VAT-registered).
+- **Registers** — `in_business_register`, plus `registers`, a map of national
+  sub-register slugs to booleans.
+- **Size and activity** — `employees`, `employees_reported`, `industry_codes`
+  (`code`, `description`, `scheme`, `rank`), `sector_code`, `sector`,
+  `purpose`, `activity`.
+- **Capital** — `share_capital`, `share_capital_currency`.
+- **Contact** — `business_address`, `postal_address` (each with `lines`,
+  `postal_code`, `city`, `municipality`, `municipality_code`, `country_code`,
+  `country_name`), `website`, `email`, `phone`.
+- **Structure** — `parent_id`, `is_subunit`, `in_group`.
+- **Accounts** — `last_annual_accounts_year`.
+- **Provenance** — `confidence` (0.0–1.0), `confidence_basis`, `cached`,
+  `fetched_at`, `source`, `source_url`, `license`, `notes`.
+
+Two fields deserve special attention:
+
+`notes` is a list of plain-English caveats meant to be surfaced to the user, not
+swallowed. If a company is bankrupt, or its legal form is unclassified, or a
+deadline rests on an assumption, it says so here. **Read `notes` before acting
+on a report.**
+
+`cached` and `fetched_at` are honest. A cache hit sets `cached: true` and keeps
+the *original* `fetched_at`, so staleness is visible. Cached data is at most 24
+hours old (1 hour for negative results). If a decision depends on today's
+state, say when the data was fetched.
+
+Attribution: Norwegian data is published under NLOD 2.0 and attribution is
+required. Cite `source` and `source_url` when you present the data to a user.
+
+
+## 6. Errors
+
+Every failure, on both surfaces, is:
+
+    {
+      "error": {
+        "code": "not_found",
+        "message": "No entity with organisasjonsnummer 923609017 exists in Enhetsregisteret.",
+        "hint": "The number is well-formed, so it may never have been issued or the entity may have been deleted. Call search_company with the company name instead.",
+        "country": "NO",
+        "registry": "brreg",
+        "details": {}
+      }
+    }
+
+`hint` is mandatory and always names a next action. It is the most useful field
+in the document — read it before deciding what to do.
+
+| `code` | HTTP | What happened | What to do |
+|---|---|---|---|
+| `invalid_id` | 400 | Checksum or format failed | Do not retry the same string. Fix it, or call `search_company` with the name. |
+| `bad_request` | 400 | A parameter is missing or out of range | Correct the parameter named in `message` and call again once. |
+| `not_found` | 404 | Well-formed identifier, no such entity | Call `search_company` with the name. Do not retry the identifier. |
+| `unsupported_country` | 404 | No module for that country code | Call `list_countries` and choose from it. |
+| `rate_limited` | 429 | Over 60 requests/minute per IP | Back off, then batch. Do not parallelise harder. |
+| `not_implemented` | 501 | The country module exists but not this operation | Use a different tool for that country; the capability is not there yet. |
+| `upstream_error` | 502 | The national register errored | We already retried once. Wait ~60 s, retry at most once, then report unavailability. |
+| `upstream_timeout` | 504 | The national register did not answer | Same as `upstream_error`. |
+| `internal_error` | 500 | A bug on our side | Retry once. If it persists, open an issue at the repo with the request URL. |
+
+Error codes are stable strings and are never renamed. Branch on `code`, not on
+`message`.
+
+
+## 7. Limits and etiquette
+
+- 60 requests/minute per IP on the hosted REST API. The local stdio server has
+  no limit of ours, but it still talks to the national register — be polite.
+- Responses are cached for 24 hours (1 hour for `not_found`). Repeating an
+  identical call inside that window costs the upstream register nothing.
+- Set `REGISTRY_MCP_CONTACT_EMAIL` when running locally. It goes into the
+  `User-Agent` we send upstream; Brønnøysundregistrene asks for a contactable
+  client and may block anonymous ones.
+- Data is company data — public, non-personal. Sole proprietorships (ENK) are
+  registered in a person's name, so treat those records with the care you would
+  give personal data.
+
+
+## 8. Adding a country
+
+A country is one folder under `src/registry_mcp/registries/` implementing four
+methods, plus one import line. Nothing country-neutral changes, and every tool
+above starts working for the new code immediately. The template folder `xx/`
+carries the six-step recipe:
+https://github.com/foretak/registry-mcp

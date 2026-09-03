@@ -21,8 +21,8 @@ Format: `| id | owner | status | done-check result | blocker |`
 |---|---|---|---|---|
 | T02 | Sonnet 1 | doing | — | — |
 | T03 | Sonnet 2 | doing | — | — |
-| T04 | Sonnet 4 | doing | — | — |
-| T05 | Opus B | doing | — | — |
+| T04 | Sonnet 4 | review | 2026-09-03: `docker build -t registry-mcp:dev .` succeeds (legacy builder, no BuildKit/buildx available in this env — Dockerfile avoids `--mount=type=cache`); `docker compose config` valid. Runtime verification deferred to T13 (API module doesn't exist yet) | — |
+| T05 | Opus B | review | 2026-09-03: `check-jsonschema --schemafile https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json server.json` → `ok -- validation done`. `wc -l static/llms.txt` → 39 (≤40). `static/index.html` JSON-LD `WebAPI` block parses (1 block, 16 keys). Also written: `static/llms-full.txt`, `KEYWORDS.md`, `HUMAN_TODO.md`, `NORBIZ_SPEC.md` §15 "Serving static files" | Placeholders `foretak` / `api.foretak.dev` throughout — see `HUMAN_TODO.md` §1. `README.md` still says `api.example.dev` (T11 owns it). `legal/terms.md` does not exist but the homepage JSON-LD `termsOfService` points at it |
 
 ## Phase 3 — Surfaces
 

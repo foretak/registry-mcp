@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>registry-mcp — company data for AI agents</title>
+<meta name="description" content="MCP server and REST API over national business registries. Norway first: Brønnøysundregistrene / Enhetsregisteret — organisasjonsnummer (orgnr) lookup, VAT status, filing deadlines.">
+<meta name="keywords" content="brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, company registry, mcp, mcp server, model context protocol">
+<link rel="canonical" href="https://api.foretak.dev/">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fdfdfc;
+    --fg: #1b1b19;
+    --muted: #5c5c56;
+    --rule: #e2e1dc;
+    --code-bg: #f4f3ef;
+    --link: #0f5c4a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14140f;
+      --fg: #ececd8;
+      --muted: #9c9c8f;
+      --rule: #2d2d26;
+      --code-bg: #1e1e17;
+      --link: #6fd6b3;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.25rem 4rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  h1 { font-size: 1.55rem; margin: 0 0 .35rem; letter-spacing: -.01em; }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 2.5rem 0 .6rem; font-weight: 600; }
+  p { margin: 0 0 1rem; }
+  .lede { color: var(--muted); margin-bottom: 2rem; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .85rem 1rem;
+    overflow-x: auto;
+    margin: 0 0 .75rem;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .875rem; }
+  a { color: var(--link); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: .4rem .6rem .4rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  ul { margin: 0 0 1rem; padding-left: 1.15rem; }
+  li { margin-bottom: .3rem; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .875rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>registry-mcp</h1>
+<p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries; first module Norway (Brønnøysundregistrene / Enhetsregisteret).</p>
+
+<h2>Add to an MCP client</h2>
+<pre><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code></pre>
+<pre><code>uvx registry-mcp    # local stdio server (Python)
+npx registry-mcp    # local stdio server (Node)</code></pre>
+
+<h2>Or call it directly</h2>
+<pre><code>curl https://api.foretak.dev/v1/NO/company/923609016</code></pre>
+<pre><code>curl "https://api.foretak.dev/v1/NO/search?q=equinor&amp;limit=5"
+curl "https://api.foretak.dev/v1/NO/company/923609016/deadlines?today=2026-01-15"
+curl https://api.foretak.dev/v1/NO/validate/923609016
+curl https://api.foretak.dev/v1/countries</code></pre>
+
+<h2>Tools</h2>
+<table>
+  <tr><th>Tool</th><th>What it does</th></tr>
+  <tr><td><code>lookup_company(id, country)</code></td><td>Full report for one company by national identifier</td></tr>
+  <tr><td><code>search_company(name, country)</code></td><td>Find a company by name; returns candidates with identifiers</td></tr>
+  <tr><td><code>company_deadlines(id, country, today)</code></td><td>Next statutory filing deadline of each kind</td></tr>
+  <tr><td><code>validate_company_id(id, country)</code></td><td>Checksum-validate an identifier with no network call</td></tr>
+  <tr><td><code>list_countries()</code></td><td>Which national registries are supported</td></tr>
+</table>
+<p>Resource <code>registry://rules/{country}</code>. Prompt <code>explain_company</code>. REST and MCP return the same JSON.</p>
+
+<h2>For agents</h2>
+<ul>
+  <li><a href="/llms.txt">/llms.txt</a> — what this is, in under 40 lines</li>
+  <li><a href="/llms-full.txt">/llms-full.txt</a> — every endpoint, tool, field and error code</li>
+  <li><a href="/server.json">/server.json</a> — MCP registry manifest</li>
+</ul>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebAPI",
+  "name": "registry-mcp",
+  "alternateName": ["brreg-mcp", "Foretak Company Registry API"],
+  "description": "MCP server and REST API for company data from national business registries. First module: Norway — Enhetsregisteret / Brønnøysundregistrene (brreg). Look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines.",
+  "url": "https://api.foretak.dev/",
+  "documentation": "https://api.foretak.dev/llms-full.txt",
+  "termsOfService": "https://github.com/foretak/registry-mcp/blob/main/legal/terms.md",
+  "provider": {
+    "@type": "Organization",
+    "name": "Foretak",
+    "url": "https://foretak.dev",
+    "email": "hello@foretak.dev"
+  },
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "inLanguage": "en",
+  "areaServed": {
+    "@type": "Country",
+    "name": "Norway",
+    "identifier": "NO"
+  },
+  "keywords": "brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, company registry, mcp",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://api.foretak.dev/v1/NO/search?q={search_term_string}",
+      "contentType": "application/json",
+      "httpMethod": "GET"
+    },
+    "query-input": "required name=search_term_string"
+  },
+  "sameAs": ["https://github.com/foretak/registry-mcp"]
+}
+</script>
+
+<footer>
+<p>Source, issues and the country-module template: <a href="https://github.com/foretak/registry-mcp">github.com/foretak/registry-mcp</a> — MIT licensed.</p>
+<p>Norwegian data comes from Enhetsregisteret (Brønnøysundregistrene), published under NLOD 2.0. Attribution required; every response carries <code>source</code>, <code>source_url</code> and <code>license</code>.</p>
+</footer>
+
+</main>
+</body>
+</html>
