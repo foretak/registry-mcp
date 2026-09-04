@@ -42,6 +42,7 @@ __all__ = [
     "ErrorCode",
     "ErrorEnvelope",
     "IndustryCode",
+    "PublishedDeadline",
     "RegistryError",
     "SearchHit",
     "SearchResult",
@@ -280,6 +281,75 @@ class CountriesResponse(_Base):
 # ---------------------------------------------------------------------------
 # Deadlines
 # ---------------------------------------------------------------------------
+
+
+class PublishedDeadline(_Base):
+    """A filing obligation exactly as the *register itself* publishes it.
+
+    The counterpart to :class:`Deadline`, and deliberately much smaller.
+    :class:`Deadline` is *ours*: computed, English-labelled, dated against a
+    caller-supplied ``today``. This is *theirs*: whatever the upstream register
+    states about the obligation, carried verbatim, with no interpretation and
+    no arithmetic.
+
+    It exists because some registers do the filing arithmetic themselves and
+    publish the answer — Companies House publishes
+    ``accounts.next_accounts.due_on`` and ``confirmation_statement.next_due``,
+    which already account for accounting-reference-date changes, shortened and
+    extended periods, and administrative extensions that no outside calculation
+    can see (``DECISIONS.md`` D-016(a), D-018). A registry whose upstream
+    publishes such a date fills this list at lookup time, and its
+    :meth:`Registry.deadlines` then merges: the published date wins, a
+    computation fills the gaps. A registry whose upstream publishes nothing —
+    Brønnøysundregistrene, and every register that only states the statute —
+    leaves the list empty and loses nothing.
+
+    Nothing in ``core/`` interprets any field here. ``kind`` and ``source``
+    are opaque strings owned by the country module; ``core`` only carries them
+    across the lookup → deadlines boundary so that
+    ``Registry.deadlines(report, today)`` can stay the pure function of
+    ``(report, today)`` that its contract promises.
+    """
+
+    kind: str = Field(
+        description=(
+            "The same machine slug the country module uses for the matching "
+            "`Deadline.kind`, e.g. 'annual_accounts'. Unique within a report."
+        )
+    )
+    due_date: date | None = Field(
+        default=None,
+        description=(
+            "The date the register itself publishes for this filing. `None` when the "
+            "register names a period but no date — the country module may still be able "
+            "to compute one from `period_end`."
+        ),
+    )
+    period_start: date | None = Field(
+        default=None, description="First day of the period this filing covers, if published."
+    )
+    period_end: date | None = Field(
+        default=None,
+        description=(
+            "Last day of the period this filing covers, if published. This, not an "
+            "accounting reference date, is what a statutory period runs from."
+        ),
+    )
+    overdue: bool | None = Field(
+        default=None,
+        description=(
+            "The register's own overdue flag, if it publishes one. Corroboration only: it "
+            "is computed against the register's today, not the caller's, so "
+            "`Deadline.days_until < 0` is the authoritative answer."
+        ),
+    )
+    source: str | None = Field(
+        default=None,
+        description=(
+            "Where the date came from upstream, e.g. 'accounts.next_accounts.due_on'. "
+            "Opaque to core; the country module turns it into `applies_because` prose."
+        ),
+    )
 
 
 class Deadline(_Base):
@@ -619,6 +689,16 @@ class CompanyReport(_Base):
     # --- accounts -----------------------------------------------------------
     last_annual_accounts_year: int | None = Field(
         default=None, description="Most recent financial year for which accounts were filed."
+    )
+    published_deadlines: list[PublishedDeadline] = Field(
+        default_factory=list,
+        description=(
+            "Filing dates the upstream register publishes for this entity itself, carried "
+            "verbatim. Empty for a register that publishes none — most of them. This is the "
+            "input `Registry.deadlines(report, today)` needs to prefer the register's own "
+            "figure over any calculation (DECISIONS.md D-018), and it is what keeps that "
+            "method the pure function of (report, today) its contract promises."
+        ),
     )
 
     # --- provenance ---------------------------------------------------------

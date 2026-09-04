@@ -353,3 +353,146 @@ Sign-off pass over `686de84..HEAD` (`7eba739`). Every item re-verified by execut
 - Unchanged from the main T10 section: the seven tests that hard-code the country list (T15), `country: str = "NO"` and Norway-specific prose in `mcp/server.py` (T15), REST not logging pre-`try` failures that MCP does log, and the non-constant-time admin-key compare in `api/stats.py` / `api/dashboard.py`.
 
 **Verdict: APPROVED.** All four blockers and all eight pre-launch items are closed and verified. T10 unblocks T14.
+
+---
+
+## T15e — 2026-09-04 — BLOCKED (one blocking fix; everything else approved)
+
+Full read of `src/registry_mcp/registries/gb/{__init__,client,mapping,rules}.py` (1,643 lines), `tests/test_rules_gb.py`, `tests/test_client_gb.py`, the one import line in `registries/__init__.py`, `scripts/lookup_demo.py`, and `git diff -- tests/`, against `UK_SPEC.md`, D-015/D-016/D-017 and the numbered test list of §14. Every claim below was executed, not read off.
+
+Environment: `uv run pytest -q -m "not live"` → **391 passed, 5 deselected** (273 before GB). `uv run mypy .` → clean, 52 source files. `uv run ruff check .` → clean. Live GB (`-m live`, real `COMPANIES_HOUSE_API_KEY`) → **4 passed** — including test 109, which re-fetches all twelve company fixtures and diffs the mapped report, so the register has not drifted under us. (`ruff format --check` reports 23 files needing reformatting, but that is repo-wide and pre-existing; CI runs `ruff check`, not `ruff format` — `.github/workflows/ci.yml:29-35`. Not a finding against T15b.)
+
+### Checklist
+
+| # | Item | Verdict |
+|---|---|---|
+| 1 | Zero edits to `core/`, `api/`, `mcp/` | **PASS** |
+| 2 | Every §1.6 trap handled (8 of 8) | **PASS** |
+| 3 | D-015 identifier rules exactly | **PASS** |
+| 4 | D-016 deadline policy (rules layer) | **PASS** — but see 8 for the delivery path |
+| 5 | Client: auth, bucket, 429/401, key at call time, D-006, `aclose` | **PASS** (two nits) |
+| 6 | Spec tests 1–109, one per number, live tests marked | **PASS** |
+| 7 | REST ≡ MCP for GB; `/v1/countries` shows `requires_api_key` | **PASS** |
+| 8 | **The architectural finding — `deadlines()` via the raw cache** | **FAIL — BLOCKING** |
+| 9 | Suite, mypy, ruff, live tests, independent verifier | **PASS** (verifier: 42/45, adjudicated below) |
+| 10 | Time vs the ≤2-week target | **PASS** |
+
+---
+
+**1. Zero edits to `core/`, `api/`, `mcp/` — PASS.**
+
+`git diff --stat` on the working tree: `PROGRESS.md`, `scripts/lookup_demo.py`, `src/registry_mcp/registries/__init__.py` (+1 line), `tests/test_api.py`, `tests/test_interface.py`, `tests/test_mcp.py`; untracked `src/registry_mcp/registries/gb/`, `tests/test_rules_gb.py`, `tests/test_client_gb.py`. Not one file under `core/`, `api/` or `mcp/`. The verifier's own leak grep over those three trees found no GB-specific code. D-001 and D-008 hold on their second real test: **country #2 was one folder plus one import line**, exactly as claimed — and the two `core/` changes it did need (D-017) had already been made by the architect before T15b started.
+
+`scripts/lookup_demo.py` is now country-generic (`--country`) and switched from `registries.no.client.aclose()` to `registry.aclose()`, which is D-014 being used the way it was meant to be. The seven suite tests that hard-coded the country list are updated and `test_unsupported_country` moved `SE` → `ZZ` — the T10 carry-over, closed.
+
+**2. Every §1.6 trap handled — PASS, 8 of 8.**
+
+| §1.6 | Trap | Where handled | Evidence |
+|---|---|---|---|
+| 1 | `has_charges` boolean, **not** `links.charges` | `mapping.py:130-133` | `map_registers` reads only the two booleans; the live TESCO payload has `links.charges` present and `has_charges: false`, and `registers["charges"]` comes back `False` (verified directly; test 78). The single most important mapping test in the file, and it is right. |
+| 2 | `"null"` as a four-character string in `last_accounts.type` | `mapping.py:157-160` | The field is never read — `_last_annual_accounts_year` reads `period_end_on`/`made_up_to` only. `ch_FC032315.json` maps without raising (test 86). Avoidance is the correct handling here, per §15. |
+| 3 | Zero-padded ARD **strings** (`{"day": "26", "month": "02"}`) | `rules.py:475` | `accounting_reference_date` is never read at all; the computed rung runs from `next_accounts.period_end_on`. No `int()` coercion is needed because no comparison is made. Test 55 pins it on TESCO, the 52/53-week filer whose ARD drifts from its period end. |
+| 4 | Address components individually optional | `mapping.py:78-107` | Every component via `.get()`; a missing object → `None`, not an empty `Address`. `ch_SC090312.json` → `city is None`, `country_code is None` (test 80). |
+| 5 | `premises` in search but not the profile | `mapping.py:89` | `premises` is in the `lines` list between `po_box` and `address_line_1`, so `one_line()` renders the same string from either endpoint. |
+| 6 | `company_status` absent from a search item | `mapping.py:353` | `item.get("company_status")` → `derive_status` → `UNKNOWN` (test 92). No `KeyError`. |
+| 7 | 11-key CIO / registered-society stubs | `mapping.py:140-144`, `227-232` | `_is_stub_profile` keys off *both* `company_status` and `date_of_creation` being absent. `CE020555` and `RS007790` both map, both come back **not ACTIVE** (`UNKNOWN`), both carry the stub note plus (respectively) the external-registration-number and `partial_data_available` sentences. Verified independently. Nothing infers `ACTIVE` from an absent status — the one thing §2.2 said not to do. |
+| 8 | `items_per_page` capped at 100; API validates neither `q` nor the limit | `client.py:347-367` | 1..100 raises `bad_request` outside the range; a whitespace-only `name` raises `bad_request` (test 103). |
+
+Two more that §1.6 does not number but the spec turns on, both handled: **`open` → `ACTIVE`** for `uk-establishment` (`rules.py:324`; `ch_BR026263.json` verified → `ACTIVE`, `is_subunit True`, `parent_id "FC041146"`), and **`has_insolvency_history` never a status** (`rules.py:361-403` derives from `company_status` alone; `ch_04374209.json` → `UNDER_LIQUIDATION`, never `BANKRUPT`; an *active* company with insolvency history stays `ACTIVE` and gets the §2.1 note, `mapping.py:201-206`). **`date_of_cessation` never drives status** — it reaches `derive_status` only as a formatting argument for the detail sentence (`rules.py:385-388`) and maps to `deregistered_at` (`mapping.py:286`), which is exactly the §8 reading.
+
+The implementer also found a ninth discrepancy the spec missed, and reported it rather than papering over it: `ch_BR026263.json` and the stub profiles omit `has_charges`/`has_insolvency_history` **entirely**, not merely as `false`. `map_registers`'s `bool(data.get(...))` already gives `False`, which §2 explicitly prescribes ("absent booleans map to `False`, not `None`"). Correct, and correctly escalated.
+
+**3. D-015 identifier rules exactly — PASS.**
+
+`rules.py:92-122` is the §5.1 algorithm verbatim and in order: strip `[\s.\-/]`, upper-case, VAT check *before* padding, then the two padding shapes, then the four-part accept test. Tests 1–25 all present and green. Spot-checked independently: `"1234"`→`"00001234"`, `"sc123456"`→`"SC123456"`, `"oc303675"`→`"OC303675"`, `" 00445790 "`→`"00445790"`; `""`, `"12345678901"`, `"ABCDEFGH"` all rejected with a hint.
+
+The two rules that were most likely to be got wrong are both right. **The prefix table is not a gate** — `COMPANY_TYPES` and §5.1.2 are never consulted by `validate_crn`, and `"QQ000001"` is accepted (test 25). That is the rule that stops us turning a real company into an `invalid_id` the day Companies House adds a prefix. And **nothing truncates**: `"123456789"` and `"SC1234567"` raise rather than being cut to 8 (tests 18, 19). `UK` is rejected — `get_registry("UK")` raises `unsupported_country` (verified), no alias table anywhere.
+
+**4. D-016 deadlines — PASS at the rules layer.**
+
+`rules.py:449-619` implements both ladders exactly. Published beats computed: `next_accounts.due_on` → `accounts.next_due` (rung 2 labels itself "from the deprecated `accounts.next_due` field") → `period_end_on` + 9/6 months → nothing plus a note. Confirmation: `next_due` → `next_made_up_to` + 14 days → nothing plus a note. Only two kinds. Only when `status is ACTIVE` (`:600`), plus the sub-unit gate (`:602`) and the D-009(a) unclassified-form gate (`:604`), so `ch_00000006.json` (dissolved, and still carrying `next_accounts.due_on`) returns `[]` — verified independently. **No roll-forward anywhere**: `statutory_date == due_date` and `rolled_forward=False` are literals at `:508-510` and `:568-570`, there is no `holidays.py`, and `roll_forward` is never imported (`rules.py:36` imports `add_months` only). `days_until < 0` is allowed and is the authoritative overdue signal; the §5.4.1 disagreement note fires only when the upstream flag and our arithmetic actually disagree (`:496`, `:556`).
+
+**TESCO's due dates equal Companies House's own `next_due` — confirmed.** `{2027-08-26, 2027-07-02}` out of `rules.deadlines_for` equals `{accounts.next_due, confirmation_statement.next_due}` read straight off `ch_00445790.json`. The five §1.5 arithmetic proofs each have a test (53–57), including the DELOITTE month-end clamp (31 May + 9 months → 28 Feb 2027) and TESCO's 6-month plc rule computed from `period_end_on` rather than the string-valued ARD.
+
+The one thing the ladder cannot do today is *reach* this code reliably. That is item 8.
+
+**5. Client — PASS, two nits.**
+
+Basic auth with the key as username and an empty password (`client.py:242`, `httpx.BasicAuth(api_key, "")`), asserted by decoding the header (test 96). Token bucket capacity 600, refill 2.0/s, 2 s max wait → `rate_limited` (`client.py:101-143`); it holds its lock only across the token arithmetic, never across the HTTP call, so concurrent lookups of different companies are not serialised (test 105). 429 → `rate_limited` with `Retry-After` if present, else the `x-ratelimit-reset` epoch rendered as a wait, else "about five minutes" (`:199-218`), and never retried (test 100). 401 **and** 403 → `upstream_error` naming `COMPANIES_HOUSE_API_KEY` and the free-signup URL (`:169-180`), not retried. The key is read inside the request path (`:236-238`) and the no-key error is raised **before a socket is opened** — test 94 asserts the mock's call count is 0, and test 95 asserts that importing the package with the variable unset succeeds and still registers `GB`. Upstream error bodies are never echoed: the 404 handler lifts only `request_id` into `details` and writes our own message and hint (`:183-196`, `:303-312`), per D-007. Test 104 drives a 401 and a timeout with a recognisable key and asserts it appears in no log record, no message and no `to_dict()`. D-006 semantics come from the shared `core/cache.py` (24 h ok / 1 h `not_found` fixed, original `fetched_at` preserved on a hit — test 102). `aclose` is overridden on the registry and delegates to the module-level client (`__init__.py:82-90`), with its own test.
+
+Nit **N-1**: `_bucket.acquire()` is called once at `client.py:240`, *outside* the retry loop, so a retried attempt does not spend a second token. §6 says "one token per HTTP attempt (the retry costs a second token)". Immaterial against a 600-token budget, but it is a deviation from a written rule; move the `acquire()` to the top of the `while True` body.
+
+Nit **N-2**: this module caches the **raw upstream JSON** while `registries/no/client.py` caches the mapped report. Each country owns its own cache format, so this is not a violation — and raw is arguably the better call, since a mapping fix then applies to entries already cached. Keep it. What must not survive is using that cache as a *transport* (item 8).
+
+**6. Spec tests 1–109 — PASS.**
+
+All 109 numbers present, one function per number, named `test_NN_<slug>`: 1–72 in `tests/test_rules_gb.py`, 73–105 in `tests/test_client_gb.py`, 106–109 in the same file and all four `@pytest.mark.live` (plus one extra `test_101b`, and six unnumbered extras covering `aclose`, `format_id`, `validate`, `rules_markdown` and the type table). None skipped, none merged, none stubbed.
+
+The tests live in `tests/test_rules_gb.py` / `tests/test_client_gb.py` rather than §14's `tests/gb/test_{rules,mapping,client}.py`. That follows the repo's existing `test_rules_no.py` / `test_client_no.py` convention instead of the spec's, which is the right call — my spec was wrong to invent a second layout for the second country. No action.
+
+**7. REST ≡ MCP parity for GB — PASS.**
+
+`tests/test_mcp.py:305-336` adds `test_rest_and_mcp_lookup_company_are_identical_gb`, which drives the same `respx`-mocked TESCO payload through `GET /v1/GB/company/00445790` and the MCP `lookup_company` tool in one process and asserts the two documents are equal except `fetched_at`. That is the D-004 guarantee re-proved on the country whose surfaces have a second thing to agree on. `test_list_countries_gb_requires_api_key` pins `requires_api_key: true` / `api_key_env: "COMPANIES_HOUSE_API_KEY"` for GB and `false` / `null` for NO, and `test_rest_and_mcp_list_countries_are_identical` carries it to REST. Confirmed live against the app: `GET /v1/countries` returns the GB row with both keys populated. D-017 works end to end.
+
+Still open for **T15c**, unchanged from D-017 and not T15b's to fix: `api/main.py:185 _COUNTRIES_EXAMPLE` and the `/v1/countries` example in `static/llms-full.txt` both still advertise fewer keys than the endpoint returns.
+
+**8. The architectural finding — FAIL, BLOCKING. Ruled on in D-018.**
+
+The implementer's report is accurate and the escalation was exactly right; the workaround is not shippable. `CompaniesHouseRegistry.deadlines(report, today)` (`__init__.py:76-79`) calls `client.raw_for(report.id)`, which is a **synchronous SQLite read** (`client.py:325-338`) of the entry `lookup` last wrote. The ABC's contract says the opposite in as many words: "`validate_id` and `deadlines` are sync and **pure: no I/O, no clock reads**" (`core/registry.py:25-26`).
+
+It is not a style objection. Reproduced:
+
+```
+$ REGISTRY_MCP_CACHE_DISABLED=1 uv run python -c "... map_entity(ch_00445790) ; reg.deadline_report(report, 2026-09-04)"
+cache disabled -> deadlines: []
+```
+
+TESCO PLC — active, with both due dates sitting in the payload the report was built from — yields **zero deadlines and zero notes**. `core/models.py:396-398` calls that exact shape out: "An empty list is a real answer, not an error — read `notes` for why", and here `notes` is empty too, because the notes were computed at map time from the raw payload and correctly found nothing to say. So the failure is silent and indistinguishable from "this company has nothing to file". A wrong answer, with no signal, on the one feature that differentiates the product.
+
+The triggers are not exotic. `REGISTRY_MCP_CACHE_DISABLED=1` is a documented, supported configuration (§9). Worse, §9 also requires that "a cache failure is logged and ignored, never turned into a `RegistryError`" — so an unwritable cache directory, which T10 item 8 fault-tested precisely because it must degrade gracefully, now degrades into *wrong deadlines* instead of a slow request. Add a read-only container filesystem, or a 24 h entry that expires between two REST calls, and the same hole opens.
+
+Every test missed it for one reason, and it is worth naming: `tests/test_client_gb.py:59` deletes `REGISTRY_MCP_CACHE_DISABLED` from the environment in an autouse fixture, so no GB test can ever exercise the cold path, and `test_deadline_report_via_registry_uses_published_dates` (`:513`) passes only because the cache is warm. The orchestrator's verifier, which runs outside pytest, caught it on its first attempt.
+
+**The ruling: D-018.** The abstraction was wrong, not the implementer. `Registry.deadlines(report, today)` is right to be pure; what was missing is that `CompanyReport` had no way to carry the *register's own* published dates from lookup to deadlines. Norway derives everything from statute, so the first country never needed it; Britain publishes its dates, so the second country did. That is the country-neutral shape of the problem, and the guide's Step 12 signal — fix `core/` before country three, not after.
+
+`core/models.py` now carries `PublishedDeadline` and `CompanyReport.published_deadlines: list[PublishedDeadline]` (default `[]`). I made that change; `registries/no/` and `registries/xx/` are untouched and green (391 passed, mypy and ruff clean with it in). The exact `registries/gb/` edits that remove the workaround are listed under "Fix list" below and owned by the T15b implementer — I have deliberately not made them.
+
+Also ruled: **the NO-vs-GB 429 inconsistency**, as **D-019**. GB's `rate_limited`/429 (`registries/gb/client.py:212-218`) is correct and Norway's `upstream_error`/502 (`registries/no/client.py:167-175`) is the bug — `ErrorCode.RATE_LIMITED` exists, maps to 429 in `core/models.py:774`, and tells an agent to wait rather than to treat the register as broken. No test pins Norway's current behaviour, so it is a three-line fix.
+
+**9. The runs — PASS. The independent verifier: 42/45, and all three disagreements adjudicated.**
+
+`uv run python .../verify_gb.py` (run with `REGISTRY_MCP_CACHE_DISABLED=1`) reports **42/45 checks passed**. Of the three failures:
+
+- *"Tesco has_charges False (not links.charges)" — the verifier is wrong.* It reads `report.has_charges`, which is not a field on `CompanyReport`; §2 maps the boolean into `registers["charges"]`. Checked directly: `registers == {"charges": False, "insolvency": False}` on a payload that does carry `links.charges`. The implementation is right; the verifier should assert `report.registers["charges"] is False`.
+- *"validate bad 'SC12-34' → valid False" — the verifier is wrong.* §5.1 step 1 strips `-` before anything else (test 7 pins `"0044-5790"` → `"00445790"`), so `"SC12-34"` normalises to `"SC001234"`, which is a well-formed CRN. Accepting it is the specified behaviour. The verifier should use a string that survives stripping, e.g. `"SC12#456"` (test 22).
+- *"reg.deadlines without raw cache == pure rules output (FRAGILITY CHECK)" — the verifier is right, and this is item 8.* `via_reg=[]` against `pure=['2027-07-02', '2027-08-26']`. Whoever wrote that check named it correctly.
+
+So: 44 of 45 substantive checks pass, one real blocking failure, and it is the one this review is about.
+
+**10. Time vs the ≤2-week target — PASS, by a wide margin.**
+
+The UK spec (T15a, sixteen live fixtures and a 1,470-line specification) started ~17:15 and the module (T15b, 1,643 lines of implementation plus 1,242 lines of test) was finished ~19:00 on the same day — **under two hours from "no UK support" to a green module with 118 GB tests and four passing live checks**, against a target measured in weeks. The project itself is two days old (2026-09-03 → 2026-09-04). D-001's claim that a country is one folder plus one import line now has a second data point, and the cost of country #2 was dominated by *specifying* Britain, not by coding it.
+
+### Fix list — owner: T15b implementer
+
+**B1 (BLOCKING) — remove the raw-cache workaround; deliver the published dates on `CompanyReport` (D-018).** `core/models.py` already carries `PublishedDeadline` and `CompanyReport.published_deadlines`; nothing else in `core/` changes.
+
+1. `src/registry_mcp/registries/gb/mapping.py:265-318` — in `map_entity`, pass `published_deadlines=` built from the raw payload:
+   - `annual_accounts`: `due_date` ← `accounts.next_accounts.due_on` (`source="accounts.next_accounts.due_on"`), else `accounts.next_due` (`source="accounts.next_due"`); `period_start`/`period_end` ← `next_accounts.period_start_on`/`period_end_on`; `overdue` ← `next_accounts.overdue` or `accounts.overdue`. Emit the entry when *either* a date or a `period_end` is present (rung 3 needs `period_end` with no `due_date` — `ch_FC032315.json` is that shape).
+   - `confirmation_statement`: `due_date` ← `confirmation_statement.next_due` (`source="confirmation_statement.next_due"`); `period_end` ← `next_made_up_to`; `overdue` ← `confirmation_statement.overdue`.
+2. `src/registry_mcp/registries/gb/rules.py:582` — `deadlines_for(data, report, today)` → `deadlines_for(report, today)`. `_accounts_deadline` (`:449`) and `_confirmation_deadline` (`:522`) take the matching `PublishedDeadline | None` instead of `data`; the rung-1-vs-rung-2 `applies_because` wording is chosen from `PublishedDeadline.source`, the computed rung from `period_end` + `legal_form_info(report.legal_form_code).accounts_period`, and the confirmation `period_start` reconstruction (`:548-553`) is unchanged. The three gates at `:600-605` are unchanged.
+3. `src/registry_mcp/registries/gb/rules.py:8-19` — delete the "the one thing this module cannot be" paragraph; it is no longer true. `deadline_exemption_note(data, report)` (`:640`) **stays as it is** — it is called from `map_entity`, where the raw payload is genuinely in hand, so it never touches the cache.
+4. `src/registry_mcp/registries/gb/client.py` — delete `raw_for` (`:325-338`) and drop it from `__all__` (`:55`); delete the "Why this module caches the raw upstream JSON" rationale (`:22-36`) and replace it with the honest one-line reason (a mapping fix then applies to already-cached entries). Keep caching raw JSON.
+5. `src/registry_mcp/registries/gb/__init__.py:68-80` — `deadlines()` becomes `return rules.deadlines_for(report, today)`; drop the `client` import and the cache paragraph from the docstring.
+6. `tests/test_client_gb.py:59` — **stop deleting `REGISTRY_MCP_CACHE_DISABLED`** unconditionally; the fixture must let a test choose the cold path. `:513` `test_deadline_report_via_registry_uses_published_dates` must then pass with the cache disabled, and a new regression test should assert exactly that: map `ch_00445790.json`, call `Registry.deadline_report` with no cache anywhere, expect both deadlines. `:528` `test_raw_for_returns_none_on_miss` is deleted with the function.
+7. `tests/test_rules_gb.py` tests 51–72 call `deadlines_for(data, report, today)`; rewrite them to build the report with `mapping.map_entity(data)` and call `deadlines_for(report, today)`. This *strengthens* them — they then exercise the path the surfaces actually use, which is what would have caught B1.
+8. Add `published_deadlines` to test 79's list of fields (it is `[]` for nothing-published cases) and re-run tests 51–72, 106–109.
+
+**B2 (non-blocking, D-019) — align Norway's 429.** `src/registry_mcp/registries/no/client.py:167-175`: `ErrorCode.UPSTREAM_ERROR` → `ErrorCode.RATE_LIMITED`, and reword the hint to name the wait. Three call sites (`:216`, `:225`, `:265`) need no change. Also correct the `429` row of `NORBIZ_SPEC.md:278`. No existing test asserts the current code.
+
+**N-1 (nit)** — `client.py:240`: move `_bucket.acquire()` inside the retry loop so a retry spends a token, per §6.
+**N-2 (nit)** — `mapping.py:114`: `entry["name"]` is the one place the mapper indexes rather than `.get()`s; a `previous_company_names` entry without `name` would `KeyError`. Use `.get("name")` and drop empties.
+**N-3 (nit)** — `mapping.py:393`: `total = data.get("total_results", len(hits))` defaults to the hit count where §4 says `0`. The current default is arguably kinder (it keeps `truncated` honest), but the spec and the code should agree — change one of them.
+**N-4 (nit)** — `tests/test_rules_gb.py:570` test 72 monkeypatches `rules_common.roll_forward`, but `gb/rules.py` imports `add_months` by name and never touches the module attribute, so the patch can only ever be a no-op. Add the source-inspection half the spec also allows: assert `"roll_forward"` appears in no file under `registries/gb/`.
+
+**Verdict: BLOCKED on B1 alone.** Everything else in the module is approved and, on the traps that mattered, better than the spec required — the finding that produced D-018 was raised by the implementer, in writing, before the review, which is exactly the behaviour the process is for. Fix B1 and T15e signs off; T15c and T15d stay blocked until it lands.

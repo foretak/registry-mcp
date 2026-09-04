@@ -188,3 +188,51 @@ Follow-ups this does not fix by itself, both for **T15c**, both cosmetic rather 
 The `Registry` ABC stays four abstract methods wide (D-008): these are class attributes with defaults, like `name` and `license`, so `registries/xx/` needs no edit and a third country inherits them for free.
 Reason: `tasks/T15.md` set the rule that a `core/` edit forced by the second country is itself the finding. This is that finding, and it is the good kind: the thing missing from the interface was not country-specific, it was *credential*-specific, and Denmark's CVR (T16, application pending) will need exactly the same two attributes. The alternative — leaving it out — means the only way an agent can learn that a self-hosted deployment cannot answer for GB is to call it and read the error, which is the one thing D-007's hints exist to make unnecessary in advance.
 Applies to tasks: T15a, T15b, T15c, T16
+
+### D-018 — The register's own published dates travel on `CompanyReport.published_deadlines`; `Registry.deadlines` stays pure
+Date: 2026-09-04
+Decision: `core/models.py` gains a small model, `PublishedDeadline`, and `CompanyReport` gains one field, `published_deadlines: list[PublishedDeadline]`, defaulting to `[]`. A registry whose upstream publishes filing dates for the entity itself fills the list at **lookup** time; its `deadlines(report, today)` reads the list and merges — published wins, computation fills the gaps (D-016(a)) — and stays the pure function of `(report, today)` that `core/registry.py:25-26` promises. `registries/no/` and `registries/xx/` leave it empty and are not edited at all.
+
+```python
+class PublishedDeadline(_Base):
+    kind: str                      # same slug as the matching Deadline.kind, e.g. "annual_accounts"
+    due_date: date | None = None   # the register's own figure; None when it names a period but no date
+    period_start: date | None = None
+    period_end: date | None = None # what a statutory period actually runs from
+    overdue: bool | None = None    # the register's flag; corroboration only, our days_until decides
+    source: str | None = None      # opaque upstream provenance, e.g. "accounts.next_accounts.due_on"
+```
+
+**The finding this closes, and how it surfaced.** T15b reported, correctly and in writing before review, that D-016(a) cannot be honoured over `(report, today)` alone: Companies House's `accounts.next_accounts.due_on` and `confirmation_statement.next_due` are not fields on `CompanyReport`, so `deadlines()` had nowhere to read them from. It worked around it without touching `core/` — `registries/gb/client.py` cached the raw upstream JSON and `deadlines()` recovered it with a synchronous SQLite read (`client.raw_for`). That is I/O inside a method whose contract says "no I/O", and it produces a **silently wrong answer** whenever the cache is cold: with `REGISTRY_MCP_CACHE_DISABLED=1`, `deadline_report` for an active TESCO PLC returns zero deadlines *and* zero notes, which `core/models.py`'s own `DeadlineReport.deadlines` docstring identifies as indistinguishable from a bug. `REGISTRY_MCP_CACHE_DISABLED` is a supported configuration, and D-006 further requires that a *failed* cache write be logged and ignored — so a read-only cache directory, which T10 fault-tested precisely to prove it degrades gracefully, would instead have degraded into wrong deadlines.
+
+**Why this shape.** Three alternatives were considered and declined.
+
+(a) *Widen the ABC to `deadlines(report, today, raw)`.* Rejected: it makes every country carry a country-shaped parameter, and it pushes the upstream payload — the one thing `core/` must never understand — through the interface D-001 exists to keep country-free.
+
+(b) *`filing_due_dates: dict[str, date]`.* Simpler, and it was the first instinct, but it carries only the top rung of the ladder. Britain's third rung computes from `next_accounts.period_end_on` when no date is published (`ch_FC032315.json` is exactly that payload, live), the `Deadline` needs `period_start`/`period_end`/`period_label`, and §5.4.1's overdue-disagreement note needs the register's own flag. A `dict[str, date]` would have forced the raw payload back through the cache for all three.
+
+(c) *Put a full `list[Deadline]` on the report.* Rejected because `Deadline.days_until` is defined against a caller-supplied `today` that does not exist at lookup time, and `applies_because` is prose the *rules* layer owns. Publishing a half-filled `Deadline` would make the two shapes mean different things in different places.
+
+What is left is the honest distinction: **`PublishedDeadline` is theirs, `Deadline` is ours.** One is quoted, one is computed, and `applies_because` already exists to say which. `core/` interprets neither `kind` nor `source` — it only carries them across the lookup → deadlines boundary.
+
+**Country-neutral, and already needed twice.** Most registers state a statute and let you do the arithmetic; some do the arithmetic and publish the answer. Britain is the second country and the first of the second kind, which is why it did not exist before. Denmark's CVR (T16) publishes `nyesteRegnskabsperiode` and Companies House-style filing dates; any register that runs its own filing system will too. And the field is honest even for Norway: an empty list means "Brønnøysundregistrene publishes no dates", which is true and worth an agent knowing.
+
+**Wire effect.** `CompanyReport` grows one key, present and `[]` on every country per D-004's "always present, never omitted". `PublishedDeadline` is exported from `core.models`. Verified after the change: 391 passed / 5 deselected, `mypy` clean on 52 files, `ruff` clean, and the GB live tests still green.
+
+Follow-ups this does not fix by itself:
+- **T15b**: remove the `raw_for` workaround and fill `published_deadlines` in `registries/gb/mapping.py` — the exact edit list is in `REVIEW.md` §T15e "Fix list", item B1. `registries/gb/client.py` keeps caching raw JSON (that part is fine, and better than caching the mapped report); what it must stop doing is using the cache as a *transport*.
+- **T15c**: `static/llms-full.txt`'s `CompanyReport` field list (the "Accounts" bullet, ~line 447) and the worked example (~line 165) need `published_deadlines`, alongside the two `/v1/countries` keys D-017 already left open.
+Reason: `tasks/T15.md` made a `core/` edit forced by the second country the finding itself, and the guide's Step 12 says an abstraction that is wrong should be fixed before country three, not worked around twice. This is that fix, and the missing concept was not "Companies House" — it was *provenance*: the interface could express a date we computed but not a date we were told, which is precisely the distinction D-016 says makes the deadline feature trustworthy.
+Applies to tasks: T15b, T15c, T16
+
+### D-019 — An upstream 429 is `rate_limited` everywhere; Norway is aligned to Britain, not the reverse
+Date: 2026-09-04
+Decision: every registry module maps an upstream `429 Too Many Requests` to `RegistryError(ErrorCode.RATE_LIMITED)`, which `core/models.py` already maps to HTTP 429. `registries/gb/client.py` does this; `registries/no/client.py:167-175` currently raises `ErrorCode.UPSTREAM_ERROR` (HTTP 502) and is the one that changes.
+
+T15a spotted the divergence while writing `UK_SPEC.md` §6 and deliberately deferred it ("do not 'fix' Norway to match as part of T15b; record it for T15e"). Ruled here, in Britain's favour, for three reasons. The code exists and means exactly this — `ErrorCode.RATE_LIMITED` is in D-007's status table and `core/models.py:774` maps it to 429. The two codes tell an agent to do **different things**: `upstream_error`/502 means the register is broken and the call may never succeed, `rate_limited`/429 means the call will succeed shortly, and only one of those is true of a 429. And `/v1/stats` counts error codes, so mislabelling throttling as an upstream fault hides the single operational signal that most warrants an alert.
+
+Scope is deliberately narrow: this is about an error *code*, not about retry policy. Neither country retries a 429, and neither should — retrying a rate limit is how a shared key gets blocked. Our own inbound limiter (`api/ratelimit.py:90`) already emits `RATE_LIMITED`, so after this change the code means one thing on both sides of the server.
+
+No existing test asserts Norway's current behaviour, so the change is three lines in `registries/no/client.py` (the code, and a hint that names the wait) plus the `429` row of `NORBIZ_SPEC.md:278`. Owner: the T15b implementer, as a follow-up to T15e; non-blocking for the GB module.
+Reason: two countries answering the same upstream condition with two different error codes is a contract that means nothing to an agent, and the whole point of `core/models.py`'s `ErrorCode` enum is that the agent never has to know which country it is talking to. The second country is the moment such a divergence is cheapest to close — waiting for the third makes it a migration.
+Applies to tasks: T15b, T15e, T16
