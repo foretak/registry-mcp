@@ -140,7 +140,12 @@ Two schema constraints that will bite an edit:
       which authenticates as the org. **Future releases:** bump `server.json`
       (3 version fields) + PyPI/npm, then either push a `v*` tag or run the
       workflow from the Actions tab. §7.2 below is superseded by this.
-- [ ] Smithery, Glama, mcp.so, MCP Market — each needs a login. **PulseMCP is
+- [x] **Smithery — published 2026-09-04** (`fargerod/registry-mcp`, scan found 5 tools):
+      https://smithery.ai/servers/fargerod/registry-mcp
+- [x] **mcp.so — submission issue open** chatmcp/mcpso#3927 (2026-09-04); **awesome-mcp-servers
+      (punkpeye) — PR #13631 open**; appcypher list is archived (skip).
+- [ ] Glama (claim flow, GitHub sign-in) and MCP Market (web form) — browser-only, still yours.
+- [ ] ~~Smithery, Glama, mcp.so, MCP Market — each needs a login.~~ **PulseMCP is
       closed to submissions** as of 2026-09-04 and ingests from the official
       registry instead, so #1 covers it. T11 has prepared every manifest and
       written the exact steps per registry in **`SUBMISSIONS.md`**.

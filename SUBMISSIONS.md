@@ -260,6 +260,11 @@ smithery mcp publish "https://api.foretak.dev/mcp" -n @foretak/registry-mcp
 
 **Needs a human login: yes** — Smithery account.
 
+**Status (2026-09-04): published** via `smithery mcp publish https://api.foretak.dev/mcp -n fargerod/registry-mcp`
+(API key from Kim's Smithery account; namespace is `fargerod`, not `foretak` — Smithery namespaces follow the
+GitHub login). Listing: <https://smithery.ai/servers/fargerod/registry-mcp>. Re-run the same command after
+each release; it re-scans the endpoint.
+
 ---
 
 ## 3. Glama
