@@ -145,6 +145,7 @@ Two schema constraints that will bite an edit:
 - [x] **mcp.so — submission issue open** chatmcp/mcpso#3927 (2026-09-04); **awesome-mcp-servers
       (punkpeye) — PR #13631 open**; appcypher list is archived (skip).
 - [~] **Glama — submitted for review 2026-09-04** by Kim (name `registry-mcp`, repo foretak/registry-mcp). When it appears, the orchestrator adds the Glama score badge to awesome-mcp-servers PR #13631 (their bot requires it before merge). Optional: also list the hosted endpoint at https://glama.ai/mcp/connectors.
+      - [ ] **Glama needs a Dockerfile pasted into its server settings** (the bot on PR #13631: "you must add Dockerfile directly to Glama … the server [must] start and respond to introspection requests"). Paste **`Dockerfile.glama`** — its CMD is the stdio server `registry-mcp`; the main `Dockerfile` starts uvicorn and would fail the check. Verified 2026-09-04: `docker run -i` of that image answers `initialize` + `tools/list` with all 5 tools.
 - [ ] MCP Market (web form) — browser-only, still yours.
 - [ ] ~~Smithery, Glama, mcp.so, MCP Market — each needs a login.~~ **PulseMCP is
       closed to submissions** as of 2026-09-04 and ingests from the official

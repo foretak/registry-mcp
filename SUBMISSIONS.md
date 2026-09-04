@@ -307,6 +307,16 @@ The file must sit in the **repository root**, which it does.
    what triggers Glama to re-read the file.
 5. Once claimed, set the description from `pyproject.toml` and the keywords from
    `KEYWORDS.md` §1.
+6. **Dockerfile (required since 2026-09 for the listing check).** Glama's bot on
+   awesome-mcp-servers PR #13631: "you must add Dockerfile directly to Glama.
+   For checks to pass, we only need the server to start and respond to
+   introspection requests." Their inspector builds the image and speaks MCP to
+   the container over **stdio**, so the CMD must be the stdio server, not the
+   HTTP API. Paste [`Dockerfile.glama`](Dockerfile.glama) into the Dockerfile
+   field in the server settings — **not** the main `Dockerfile`, whose uvicorn
+   CMD would fail the check. Verified locally 2026-09-04:
+   `docker run --rm -i registry-mcp-glama < tests/fixtures/tools_list.jsonl`
+   answers `initialize` (registry-mcp 0.2.0) and `tools/list` (5 tools).
 
 **Needs a human login: yes** — GitHub OAuth on glama.ai.
 
