@@ -31,7 +31,7 @@ Format: `| id | owner | status | done-check result | blocker |`
 | T06 | Sonnet 3 | doing | 2026-09-03: `uv run uvicorn registry_mcp.api.main:app --port 8080` boots; `curl /v1/NO/company/923609016` → full `CompanyReport`; `curl /v1/NO/validate/923609016` → `valid:true, formatted:"923 609 016"`; `curl /v1/SE/company/1` → 404 `unsupported_country` naming `/v1/countries`; `curl /openapi.json \| uv run --with openapi-spec-validator python -c "validate(...)"` → `openapi ok`; `uv run pytest tests/test_api.py -q` → 23 passed; `uv run mypy .` clean (27 files); `uv run ruff check .` clean repo-wide. | None blocking. Flagged for the architect in the T06 report: `Registry` ABC has no generic identifier-formatting hook, so `/v1/{country}/validate/{id}`'s `formatted` field uses a digits-in-3s heuristic in `api/main.py` rather than a real per-country formatter; and `deadlines_for` never attaches a calendar-year-assumption note to the response (only per-deadline `applies_because` text), so `api/main.py` synthesises one itself when any returned deadline is annual. Both are documented in code comments. |
 | T07 | Sonnet 3 | doing | — | — |
 | T08 | Sonnet 3 | doing | — | core part started in parallel with T07; wiring into api/main.py + mcp/server.py after T07 lands |
-| T09 | Sonnet 4 | todo | — | Blocked on T08 |
+| T09 | Sonnet 4 | doing | — | router include in api/main.py deferred to wiring step |
 | T10 | Opus A | todo | — | Blocked on T06–T09. Carry-over for review: brreg omits `antallAnsatte` when `harRegistrertAntallAnsatte` is true (833285602) → mapper yields employees=None; decide 0 vs None |
 
 ## Phase 4 — Publish and launch
