@@ -89,7 +89,7 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
   <tr><td><code>lookup_company(id, country)</code></td><td>Full report for one company by national identifier</td></tr>
   <tr><td><code>search_company(name, country)</code></td><td>Find a company by name; returns candidates with identifiers</td></tr>
   <tr><td><code>company_deadlines(id, country, today)</code></td><td>Next statutory filing deadline of each kind</td></tr>
-  <tr><td><code>validate_company_id(id, country)</code></td><td>Checksum-validate an identifier with no network call</td></tr>
+  <tr><td><code>validate_company_id(id, country)</code></td><td>Validate and normalise an identifier with no network call (MOD11 checksum for Norway; shape rules for the UK)</td></tr>
   <tr><td><code>list_countries()</code></td><td>Which national registries are supported</td></tr>
 </table>
 <p>Resource <code>registry://rules/{country}</code>. Prompt <code>explain_company</code>. REST and MCP return the same JSON.</p>

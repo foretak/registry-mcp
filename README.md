@@ -16,7 +16,7 @@
 
 **United Kingdom** — **Companies House**. Look up a company by **company number** (**company registration number**, CRN), search by name, and read the **annual accounts** and **confirmation statement** deadlines the register publishes. The country code is **`GB`**, not `UK`. Companies House requires a free API key — see [Configuration](#configuration).
 
-> Status: pre-release (`0.2.0`). The five tools and their response shapes are frozen; the hosted API at `api.foretak.dev` goes live with the first release.
+> Status: `0.2.0`. The five tools and their response shapes are frozen; the hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`.
 
 ## Add to Claude Code
 
