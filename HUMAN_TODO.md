@@ -108,7 +108,7 @@ Two schema constraints that will bite an edit:
 
 ## 5. Known corrections carried forward
 
-- The build plan's canonical org.nr **`833286602` is not valid** — it fails
+- The build plan's canonical org.nr **`833286602` is a typo for `833285602`** (EL ANSARI KONSULT, ENK) — the mistyped one fails
   MOD11 and 404s on the live API. Every example in `static/`, `server.json` and
   this file uses **`923609016` (Equinor ASA)**. `833286602` survives only as the
   negative test case (`NORBIZ_SPEC.md` §13 test 9) and as a cautionary example
