@@ -69,7 +69,7 @@ Four fields settle it:
   "error": {
     "code": "not_found",
     "message": "No entity with organisasjonsnummer 999999999 exists in Enhetsregisteret.",
-    "hint": "... Call search_company with the company name instead."
+    "hint": "The number is well-formed, so it may never have been issued or the entity may have been deleted. Call search_company with the company name instead."
   }
 }
 ```
