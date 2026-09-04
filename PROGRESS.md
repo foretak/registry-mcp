@@ -38,7 +38,7 @@ Format: `| id | owner | status | done-check result | blocker |`
 
 | id | owner | status | done-check | blocker |
 |---|---|---|---|---|
-| T11 | Opus B | todo | — | Blocked on T10 |
-| T12 | Opus B | todo | — | Blocked on T10 |
-| T13 | Sonnet 4 | todo | — | Blocked on T10 |
+| T11 | Opus B | doing | — | running in parallel with T10 review |
+| T12 | Opus B | doing | — | running in parallel with T10 review |
+| T13 | Sonnet 4 | doing | — | running in parallel with T10 review |
 | T14 | Orchestrator | todo | — | Blocked on T11–T13 |
