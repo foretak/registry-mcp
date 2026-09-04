@@ -88,6 +88,13 @@ Two schema constraints that will bite an edit:
       issued the certificate; **https://api.foretak.dev** serves everything and
       `claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp`
       connects. Every `api.foretak.dev` placeholder in the repo is now real.
+- [ ] **Bare `foretak.dev` serves nothing yet** (Railway Hobby allows one custom
+      domain per service, so it can't be a second Railway domain). Cheapest
+      fix, ~2 minutes in the Cloudflare dashboard: DNS → add `A @ 192.0.2.1`
+      **proxied** (dummy target), then Rules → Redirect Rules → "Redirect from
+      Root to WWW"-style template edited to `https://api.foretak.dev/${1}`
+      (301). The homepage JSON-LD `provider.url` points at `https://foretak.dev`,
+      so this makes that link resolve. Not blocking anything.
 - [x] GitHub organisation `foretak` and repo `registry-mcp` — **done 2026-09-04**:
       https://github.com/foretak/registry-mcp (public), 12 topics set, labels
       created, seed issues #1–#3 filed. `gh` token now has `workflow` scope.
