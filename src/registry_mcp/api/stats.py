@@ -22,10 +22,17 @@ code is used instead: `ErrorCode.BAD_REQUEST`, with the HTTP status forced to
 in this route (not via `install_error_handlers`) because this router may be
 mounted on an app that hasn't installed those handlers — e.g. the throwaway
 `FastAPI()` test apps `tests/test_stats.py` uses.
+
+Key comparison: `_admin_key_ok` (below) uses `hmac.compare_digest` rather than
+`==`, so a wrong guess cannot be narrowed down one character at a time via a
+timing side-channel. `api/dashboard.py` imports and reuses this same helper
+rather than growing its own copy, since its auth is meant to mirror this
+file's exactly.
 """
 
 from __future__ import annotations
 
+import hmac
 import os
 
 from fastapi import APIRouter
@@ -41,11 +48,26 @@ _ADMIN_KEY_ENV = "REGISTRY_MCP_ADMIN_KEY"
 stats_router = APIRouter()
 
 
+def _admin_key_ok(key: str | None) -> bool:
+    """True when `key` matches `REGISTRY_MCP_ADMIN_KEY`, in constant time.
+
+    False whenever the env var is unset/empty or `key` is `None` — the same
+    403 covers "wrong key" and "no key configured" either way, so a caller
+    cannot distinguish the two (this module's docstring). Compared with
+    `hmac.compare_digest` on the UTF-8 bytes rather than `==`, which short-
+    circuits on the first mismatched byte and would let a caller recover the
+    key one character at a time by timing repeated guesses.
+    """
+    admin_key = os.environ.get(_ADMIN_KEY_ENV, "")
+    if not admin_key or key is None:
+        return False
+    return hmac.compare_digest(key.encode(), admin_key.encode())
+
+
 @stats_router.get("/v1/stats", include_in_schema=False)
 def get_stats(key: str | None = None) -> JSONResponse:
     """Return `core/stats.py::summary()` when `key` matches; else a 403 envelope."""
-    admin_key = os.environ.get(_ADMIN_KEY_ENV, "")
-    if not admin_key or key != admin_key:
+    if not _admin_key_ok(key):
         err = RegistryError(
             ErrorCode.BAD_REQUEST,
             "Missing or incorrect stats key.",

@@ -8,14 +8,17 @@ Mounted on the real app via `app.include_router(dashboard_router)` in
 `api/main.py`. `include_in_schema=False`, for the same reason `api/stats.py`
 is: an admin/debugging page, not part of the versioned public data API.
 
-Auth mirrors `api/stats.py` exactly: `?key=` must equal the
-`REGISTRY_MCP_ADMIN_KEY` env var. Missing key, wrong key, or the env var
-being unset at all -> 403, in the same `DECISIONS.md` D-007 envelope
-(`ErrorCode.BAD_REQUEST` with `http_status=403`, since `ErrorCode` has no
-`forbidden` member). The response is built directly in this route rather
-than via `install_error_handlers`, so this router works when mounted on an
-app that hasn't installed those handlers (e.g. the throwaway `FastAPI()` test
-apps `tests/test_dashboard.py` uses).
+Auth mirrors `api/stats.py` exactly — literally, via the shared
+`_admin_key_ok` helper imported from there rather than a second copy: `?key=`
+must equal the `REGISTRY_MCP_ADMIN_KEY` env var, compared with
+`hmac.compare_digest` rather than `==` so a wrong guess cannot be timed one
+character at a time. Missing key, wrong key, or the env var being unset at
+all -> 403, in the same `DECISIONS.md` D-007 envelope (`ErrorCode.BAD_REQUEST`
+with `http_status=403`, since `ErrorCode` has no `forbidden` member). The
+response is built directly in this route rather than via
+`install_error_handlers`, so this router works when mounted on an app that
+hasn't installed those handlers (e.g. the throwaway `FastAPI()` test apps
+`tests/test_dashboard.py` uses).
 
 Every user-supplied string that reaches the page (user agents, queries) is
 passed through `html.escape` — `core/stats.py` reads straight from the
@@ -25,20 +28,18 @@ as safe markup.
 
 from __future__ import annotations
 
-import os
 from html import escape
 from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from registry_mcp.api.stats import _ADMIN_KEY_ENV, _admin_key_ok
 from registry_mcp.core import stats as stats_module
 from registry_mcp.core.models import ErrorCode, RegistryError
 from registry_mcp.core.ua_classify import Label, classify
 
 __all__ = ["dashboard_router"]
-
-_ADMIN_KEY_ENV = "REGISTRY_MCP_ADMIN_KEY"
 
 # Display order + colour for each classifier label (dashboard-only styling;
 # `ua_classify.Label` itself carries no colour).
@@ -69,8 +70,7 @@ def _forbidden() -> JSONResponse:
 @dashboard_router.get("/v1/stats/dashboard", response_model=None, include_in_schema=False)
 def get_dashboard(key: str | None = None) -> HTMLResponse | JSONResponse:
     """Render the usage dashboard when `key` matches; else a 403 envelope."""
-    admin_key = os.environ.get(_ADMIN_KEY_ENV, "")
-    if not admin_key or key != admin_key:
+    if not _admin_key_ok(key):
         return _forbidden()
     data = stats_module.summary()
     return HTMLResponse(content=_render_page(data))
