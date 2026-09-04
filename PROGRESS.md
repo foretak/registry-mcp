@@ -32,7 +32,7 @@ Completed phases are rolled up to one line each; the full done-check trails live
 | id | owner | status | done-check | blocker |
 |---|---|---|---|---|
 | T15a | Opus A | doing | — | — |
-| T15b | Sonnet | todo | — | Blocked on T15a; live fixtures need `COMPANIES_HOUSE_API_KEY` from Kim |
+| T15b | Sonnet | todo | — | Blocked on T15a. `COMPANIES_HOUSE_API_KEY` received 2026-09-04 (secrets dir + Railway, verified live) |
 | T15c | Opus B | todo | — | Blocked on T15b |
 | T15d | Sonnet 4 | todo | — | Blocked on T15b, T15c |
 | T15e | Opus A | todo | — | Blocked on T15b–d |
