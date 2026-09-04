@@ -82,8 +82,12 @@ Two schema constraints that will bite an edit:
 
 ## 3. Accounts, logins and DNS
 
-- [ ] Domain for the brand (`foretak.dev` or the fallback), DNS `A`/`AAAA` for
-      `api.<domain>` pointing at the VPS.
+- [x] Domain **`foretak.dev` bought 2026-09-04** (Cloudflare Registrar, $12.20/yr,
+      auto-renew). DNS in Cloudflare: `api` CNAME → `ni4lg1ne.up.railway.app`
+      (DNS-only, not proxied) + `_railway-verify.api` TXT. Railway verified and
+      issued the certificate; **https://api.foretak.dev** serves everything and
+      `claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp`
+      connects. Every `api.foretak.dev` placeholder in the repo is now real.
 - [x] GitHub organisation `foretak` and repo `registry-mcp` — **done 2026-09-04**:
       https://github.com/foretak/registry-mcp (public), 12 topics set, labels
       created, seed issues #1–#3 filed. `gh` token now has `workflow` scope.
