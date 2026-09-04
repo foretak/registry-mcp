@@ -25,6 +25,7 @@ placement table says.
 | 9 | `norwegian business registry` | The English domain phrase |
 | 10 | `foretak` | Norwegian for "enterprise"; also the brand, and a term Norwegian prompts contain |
 | 11 | `company registry` | The country-neutral umbrella phrase |
+| 11a | `company registry MCP` | **The phrase we own.** "registry MCP" alone collides with the official *MCP Registry* directory, so every headline (homepage H1, README H1, `llms.txt` line 1, package descriptions, `server.json`, FastMCP `instructions`) leads with "the company registry MCP". Decided by Kim 2026-09-04. |
 | 12 | `mcp` | The protocol clients search for |
 
 ASCII fallbacks — always in addition to, never instead of, the accented form:

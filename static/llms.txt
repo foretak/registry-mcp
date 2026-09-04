@@ -1,4 +1,4 @@
-# registry-mcp — company data for AI agents, any country
+# registry-mcp — the company registry MCP: company data for AI agents, any country
 
 One MCP server and one REST API over national business registries. Same JSON
 from both surfaces. Live now: Norway (NO) — Enhetsregisteret /

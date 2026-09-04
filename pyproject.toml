@@ -1,7 +1,7 @@
 [project]
 name = "registry-mcp"
 version = "0.1.0"
-description = "Company data for AI agents, any country. MCP server and REST API over national business registries — first module: Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, company lookup by organisasjonsnummer, orgnr or org.nr)."
+description = "The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — first module: Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, company lookup by organisasjonsnummer, orgnr or org.nr)."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

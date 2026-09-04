@@ -1,6 +1,6 @@
 <!-- mcp-name: io.github.foretak/registry-mcp -->
 
-# registry-mcp
+# registry-mcp — the company registry MCP
 
 [![PyPI](https://img.shields.io/pypi/v/registry-mcp?label=pypi%20registry-mcp)](https://pypi.org/project/registry-mcp/)
 [![PyPI alias](https://img.shields.io/pypi/v/brreg-mcp?label=pypi%20brreg-mcp)](https://pypi.org/project/brreg-mcp/)
