@@ -310,3 +310,46 @@ T13 fixed two of the four blockers while this review was being written; both ver
 **Still blocking: B2** (`BrregRegistry.aclose()`, T03) and **B3** (`try/finally` around the lifespan `yield`, T06). Both are in item (e) and neither is touched by T13's changes — the client is still not closed on shutdown.
 
 Suite after all of the above, working tree: `mypy` clean (45 files), `ruff` clean, `pytest -m "not live"` → **264 passed, 1 deselected**.
+
+### T10 sign-off — 2026-09-04 — APPROVED
+
+Sign-off pass over `686de84..HEAD` (`7eba739`). Every item re-verified by execution, not by reading the diff. Working tree clean, nothing committed or edited here.
+
+**Gates at `7eba739`:** `uv run mypy .` → clean (45 source files) · `uv run ruff check .` → clean · `uv run pytest -q -m "not live"` → **273 passed, 1 deselected**.
+
+**Clean checkout re-run (closes item 5):** fresh `git clone` of `7eba739` + `uv sync --all-extras` + `uv run pytest -q` → **274 passed, 3 runs out of 3**. `tests/test_api.py::test_rate_limit_429_shape` also re-run **in isolation** 3/3 green — the exact case that failed 3/3 before. Item 5 flips **FAIL → PASS**.
+
+#### Blockers
+
+| | Commit | Status |
+|---|---|---|
+| **B1** — flaky rate-limit test | `7eba739` | **CLOSED.** `tests/test_api.py:276-312`: a `_FrozenClock` monkeypatched over `ratelimit`'s module-level `time` pins refill at zero, so the bucket depletes on request count alone; switched to the per-test `ip` fixture. 3/3 in isolation, 3/3 in a clean clone. |
+| **B2** — registry client never closed | `79b18bd` | **CLOSED.** `registries/no/__init__.py:77-89` overrides `aclose()`, lazy-importing `client` and awaiting `client.aclose()`. Measured: `registries.no.client._client` is `None` after the app's lifespan exits — previously `is_closed = False`. |
+| **B3** — cleanup outside `finally` | `7eba739` | **CLOSED.** `api/main.py:420-430` wraps the `yield` in `try/finally`. Verified by injecting a lifespan that raises on `__aexit__`: the `RuntimeError` still propagates *and* `_close_registry_clients()` ran. Also `:363-378` now `await reg.aclose()` on every registry unconditionally — a real interface call, no `getattr` probe, `inspect` import dropped. |
+| **B4** — `/mcp` redirect regression test | `7eba739` | **CLOSED.** `tests/test_mcp.py:274-305`, parametrised over `/mcp` and `/mcp/` with `follow_redirects=False` and an explicit `!= 307`. Re-measured live: both paths **200**. |
+
+#### N1–N8
+
+| | Commit | Status |
+|---|---|---|
+| **N1** employees invariant (D-011) | `79b18bd` | **CLOSED.** `mapping.py:210-224` derives `employees_reported = employees_flag and employees is not None`, never synthesises `0`, and appends the D-011 `notes` sentence. Two tests, including `test_employees_reported_invariant_implies_employees_not_none` over all three fixtures. `NORBIZ_SPEC.md` §1.1 and the §2 rows updated; spec test 88 still passes unchanged. |
+| **N2** `not_found` hint duplication | `79b18bd` | **CLOSED.** `client.py:127-140` — hint now carries only the next action. `NORBIZ_SPEC.md` §6 and `llms-full.txt:475` realigned (`a46652c`). |
+| **N3** `_VALIDATE_EXAMPLE` | `7eba739` | **CLOSED.** `api/main.py:318-325` now shows the string the code actually emits. |
+| **N4/N5** D-012 adoption | `7eba739` | **CLOSED.** Private `RegistryInfo`/`CountriesResponse` deleted; `api/main.py:519` and `mcp/server.py:289-291` both build `core.models.CountriesResponse` from `r.country_info()`. |
+| **N6** strict `YYYY-MM-DD` | `7eba739` | **CLOSED.** `core/rules/common.py:99-142` guards with `\A\d{4}-\d{2}-\d{2}\Z`. Re-measured: `20260115` and `2026-W03-1` are now `bad_request` on **both** surfaces, identically. |
+| **N7** `llms-full.txt` | `37939e3`, `a46652c` | **CLOSED.** Validate `reason`, the `not_found` hint, and the `/v1/countries` example (now with `is_stub` and a "MCP `list_countries` returns this identical document" line) all match live output. |
+| **N8** deleted/bankrupt mapping tests | `79b18bd` | **CLOSED.** Four new tests drive `slettedato`/`konkursdato` payloads through `map_entity`, covering `deregistered_at`, `bankruptcy_date`, deleted-wins precedence, and no-deadlines-for-either. |
+
+#### Independent re-verification
+
+- **Item 1 (parity) — still holds, now broader.** Re-ran the full REST-vs-MCP harness at `7eba739` with **13** cases (added the two N6 rejections): **all 13 byte-identical**, `fetched_at` excluded. `list_countries` is now identical *by construction* rather than by coincidence, which is the D-012 payoff.
+- **Item 8 (fault injection) — still holds.** Both `REGISTRY_MCP_CACHE_PATH` and `REGISTRY_MCP_LOG_PATH` on a `0555` directory: **12/12** calls succeeded across both surfaces, 0 files created.
+- **Item 10 (keywords) — still holds.** All 9 required aliases in the first two sentences of each of the four Norway tools; `list_countries` still free of Norwegian vocabulary after its D-012 rewrite.
+
+#### Still open — non-blocking, for T14 / `HUMAN_TODO.md`
+
+- **`fastmcp>=2.0` is unpinned while 4.0.2 is what runs**, and `api/main.py:381-395` now depends on fastmcp internals: `fastmcp.server.http.StarletteWithLifespan`, and the assumption that `http_app()` exposes **exactly one** `StarletteRoute`. That assumption is a tuple-unpack at module scope (`:391`, executed via `:447`), so a future fastmcp emitting zero or two routes raises `ValueError` **at import** and the whole app fails to boot — not just `/mcp`. Compounded by CI running `uv sync --all-extras` without `--locked` (the T04 note, still open), so CI can resolve a version the lockfile never saw. An upper bound (`fastmcp>=2,<5`) plus `--locked` in CI is the cheap insurance; the route trick itself is fine and well-commented.
+- **N1's reverse case is now unguarded.** `mapping.py:211` reads `antallAnsatte` unconditionally, so a payload with `harRegistrertAntallAnsatte: false` *and* a count present would yield `employees=<n>, employees_reported=False` — the D-011 invariant holds in the direction that matters, but not symmetrically. Unreachable with any observed brreg payload (the flag exists precisely to say whether a count was registered), and arguably the more honest reading of such a payload anyway. Recorded so it is a known shape, not a surprise.
+- Unchanged from the main T10 section: the seven tests that hard-code the country list (T15), `country: str = "NO"` and Norway-specific prose in `mcp/server.py` (T15), REST not logging pre-`try` failures that MCP does log, and the non-constant-time admin-key compare in `api/stats.py` / `api/dashboard.py`.
+
+**Verdict: APPROVED.** All four blockers and all eight pre-launch items are closed and verified. T10 unblocks T14.
