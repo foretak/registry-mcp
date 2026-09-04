@@ -27,7 +27,7 @@ import respx
 from registry_mcp.core.models import ErrorCode, RegistryError
 from registry_mcp.core.registry import get_registry
 from registry_mcp.registries.no import client as client_module
-from registry_mcp.registries.no import mapping
+from registry_mcp.registries.no import mapping, rules
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = client_module.BASE_URL
@@ -40,6 +40,7 @@ def _load_fixture(name: str) -> dict[str, Any]:
 
 EQUINOR = _load_fixture("brreg_923609016.json")
 BROENNOYSUND = _load_fixture("brreg_974760673.json")
+EL_ANSARI = _load_fixture("brreg_833285602.json")
 
 
 @pytest.fixture(autouse=True)
@@ -122,6 +123,71 @@ def test_89_search_result_no_embedded_key() -> None:
     assert result.hits == []
     assert result.total == 0
     assert result.truncated is False
+
+
+# ---------------------------------------------------------------------------
+# Third live fixture: 833285602 (EL ANSARI KONSULT, ENK) — the build plan's
+# canonical org.nr was a typo for this number, not for the invalid 833286602
+# (see `NORBIZ_SPEC.md` §1.1). A sole proprietorship has a much sparser
+# payload than the ASA/ORGL fixtures, which is exactly what this exercises.
+# ---------------------------------------------------------------------------
+
+
+def test_el_ansari_maps_without_crashing_on_a_sparse_enk_payload() -> None:
+    """An ENK payload omits `historiskeNavn` entries, `kapital`, `stiftelsesdato`
+    and (despite `harRegistrertAntallAnsatte: true`) `antallAnsatte` — every
+    field the mapper reads must be handled as absent-is-`None`, not crash."""
+    report = mapping.map_entity(EL_ANSARI, source_url="https://example/enheter/833285602")
+    assert report.name == "EL ANSARI KONSULT"
+    assert report.legal_form_code == "ENK"
+    assert report.status.value == "active"
+    assert report.vat_registered is True
+    assert report.vat_number == "NO833285602MVA"
+    assert report.previous_names == []
+    assert report.share_capital is None
+    assert report.founded_at is None
+
+
+def test_el_ansari_has_annual_accounts_duty_is_none_not_false() -> None:
+    """`rules.legal_form_info("ENK")` says `has_annual_accounts_duty=None`
+    (it depends on turnover/balance-sheet facts brreg does not publish,
+    `NORBIZ_SPEC.md` §7/§5.5) — `False` would be guessing a duty that D-009
+    explicitly forbids guessing."""
+    info = rules.legal_form_info("ENK", "Enkeltpersonforetak")
+    assert info.has_annual_accounts_duty is None
+    report = mapping.map_entity(EL_ANSARI, source_url="https://example/enheter/833285602")
+    assert report.has_annual_accounts_duty is None
+    assert report.limited_liability is False
+    assert report.has_board_duty is False
+
+
+def test_el_ansari_employees_reported_true_but_count_absent_maps_to_none() -> None:
+    """This live payload has `harRegistrertAntallAnsatte: true` with no
+    `antallAnsatte` key at all (brreg appears to omit the field rather than
+    send `0`) — the mapper's `.get` falls through to `None` for the count
+    while still recording that a figure was reported. Documented as a
+    real-data quirk in `NORBIZ_SPEC.md` §1.1, not changed here."""
+    assert "antallAnsatte" not in EL_ANSARI
+    assert EL_ANSARI["harRegistrertAntallAnsatte"] is True
+    report = mapping.map_entity(EL_ANSARI, source_url="https://example/enheter/833285602")
+    assert report.employees is None
+    assert report.employees_reported is True
+
+
+def test_el_ansari_deadlines_tax_return_and_vat_return_only() -> None:
+    """Per `NORBIZ_SPEC.md` §5.4/§7 and D-009: an ENK gets `tax_return` (all
+    forms except sub-units) and `vat_return` (VAT-registered), but not
+    `annual_accounts` (has_annual_accounts_duty is None, not True) or
+    `general_meeting`/`shareholder_register_statement` (AS/ASA only). No
+    `payroll_report` either, since `employees` is `None` here."""
+    report = mapping.map_entity(EL_ANSARI, source_url="https://example/enheter/833285602")
+    deadlines = rules.deadlines_for(report, date(2026, 3, 15))
+    kinds = {d.kind for d in deadlines}
+    assert kinds == {"tax_return", "vat_return"}
+    assert "annual_accounts" not in kinds
+    assert "general_meeting" not in kinds
+    assert "shareholder_register_statement" not in kinds
+    assert "payroll_report" not in kinds
 
 
 # ---------------------------------------------------------------------------
