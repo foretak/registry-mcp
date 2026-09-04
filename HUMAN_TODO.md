@@ -84,9 +84,10 @@ Two schema constraints that will bite an edit:
 
 - [ ] Domain for the brand (`foretak.dev` or the fallback), DNS `A`/`AAAA` for
       `api.<domain>` pointing at the VPS.
-- [ ] GitHub organisation `foretak` (or fallback) and repo `registry-mcp`, made
-      public. Repo topics per `KEYWORDS.md` §2 — topics can only be set through
-      the web UI or an authenticated `gh` call.
+- [x] GitHub organisation `foretak` and repo `registry-mcp` — **done 2026-09-04**:
+      https://github.com/foretak/registry-mcp (public), 12 topics set, labels
+      created, seed issues #1–#3 filed. `gh` token now has `workflow` scope.
+      See `NAMES.md` for the full name/competitor audit.
 - [ ] PyPI account + project names `registry-mcp` and the alias `brreg-mcp`.
       **Both free on PyPI as of 2026-09-04.**
 - [ ] npm account + package name `registry-mcp` (**free**) and the alias.
@@ -129,7 +130,8 @@ Two schema constraints that will bite an edit:
 - [ ] **NLOD 2.0 attribution** is a licence condition, not a courtesy. Every
       response already carries `source`, `source_url` and `license`; keep the
       footer line on the homepage too.
-- [ ] `NAMES.md` per build plan §1.1, recording the names actually owned.
+- [x] `NAMES.md` per build plan §1.1 — written 2026-09-04, including the
+      competitor field (8–10 existing Norway/brreg MCP servers, several active).
 
 ---
 
