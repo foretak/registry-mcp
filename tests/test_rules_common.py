@@ -137,3 +137,14 @@ def test_parse_iso_date_custom_field_name_in_hint() -> None:
     with pytest.raises(RegistryError) as excinfo:
         parse_iso_date("nope", field="since")
     assert "since" in excinfo.value.hint
+
+
+# `REVIEW.md` T10 item 7 / N6: `date.fromisoformat` is more lenient than the
+# `YYYY-MM-DD` this function documents and promises in its `hint` — a bare
+# `20260115` and an ISO week date `2026-W03-1` are both silently *accepted* by
+# it (parsing to 2026-01-15 and 2026-01-12 respectively) unless rejected first.
+@pytest.mark.parametrize("value", ["20260115", "2026-W03-1"])
+def test_parse_iso_date_rejects_non_dash_iso_forms(value: str) -> None:
+    with pytest.raises(RegistryError) as excinfo:
+        parse_iso_date(value)
+    assert excinfo.value.code is ErrorCode.BAD_REQUEST

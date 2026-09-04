@@ -21,7 +21,6 @@ See ``NORBIZ_SPEC.md`` §§3, 15, ``DECISIONS.md`` D-010 and ``tasks/T06.md``.
 
 from __future__ import annotations
 
-import inspect
 import logging
 import os
 import time
@@ -31,7 +30,9 @@ from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, Field
+from fastmcp.server.http import StarletteWithLifespan
+from pydantic import BaseModel
+from starlette.routing import Route as StarletteRoute
 
 from registry_mcp import __version__
 from registry_mcp.api.dashboard import dashboard_router
@@ -42,6 +43,7 @@ from registry_mcp.api.status import status_router
 from registry_mcp.core import log
 from registry_mcp.core.models import (
     CompanyReport,
+    CountriesResponse,
     DeadlineReport,
     ErrorCode,
     RegistryError,
@@ -158,31 +160,16 @@ def _warn_if_static_missing() -> None:
 # ---------------------------------------------------------------------------
 # Response shapes local to the REST surface.
 #
-# `DECISIONS.md` D-004/D-010 pin `core/models.py` as the *whole* contract
-# shared with MCP: `CompanyReport`, `SearchResult`/`SearchHit`, `Deadline`,
-# `DeadlineReport`, `ValidationResult`, the enums. `RegistryInfo` /
-# `CountriesResponse` below are not that — `/v1/countries` is a REST-only
-# convenience with no MCP twin (MCP has its own `list_countries` tool, T07's
-# to shape). None of this widens or reshapes a D-004/D-010 model.
+# `DECISIONS.md` D-004/D-010/D-012 pin `core/models.py` as the *whole*
+# contract shared with MCP: `CompanyReport`, `SearchResult`/`SearchHit`,
+# `Deadline`, `DeadlineReport`, `ValidationResult`, `CountriesResponse`/
+# `CountryInfo`, the enums. `/v1/countries` used to have its own private
+# `RegistryInfo`/`CountriesResponse` pair here — a plain `BaseModel` that
+# silently *dropped* an unrecognised key, while `mcp/server.py` passed the
+# raw `Registry.describe()` dict through and *kept* it — a latent divergence
+# with no test to catch it (D-012). Both surfaces now build
+# `core.models.CountriesResponse` from `Registry.country_info()` instead.
 # ---------------------------------------------------------------------------
-
-
-class RegistryInfo(BaseModel):
-    """One row of `GET /v1/countries` — mirrors `Registry.describe()`."""
-
-    country: str = Field(examples=["NO"])
-    registry: str = Field(examples=["brreg"])
-    name: str = Field(examples=["Enhetsregisteret (Brønnøysundregistrene)"])
-    id_scheme: str = Field(examples=["organisasjonsnummer"])
-    id_example: str = Field(examples=["923609016"])
-    id_description: str = Field(examples=["Nine digits with a MOD11 check digit."])
-    source_url: str = Field(examples=["https://data.brreg.no/enhetsregisteret/api"])
-    license: str = Field(examples=["NLOD 2.0"])
-    is_stub: bool = False
-
-
-class CountriesResponse(BaseModel):
-    countries: list[RegistryInfo]
 
 
 class HealthResponse(BaseModel):
@@ -331,7 +318,11 @@ _VALIDATE_EXAMPLE = {
     "valid": True,
     "normalized": "923609016",
     "formatted": "923 609 016",
-    "reason": "Nine digits with a valid MOD11 check digit.",
+    "reason": (
+        "Well-formed organisasjonsnummer for NO. A valid identifier does not mean the "
+        "entity exists — call lookup_company (MCP) or GET /v1/{country}/company/{id} "
+        "(REST) to find out."
+    ),
     "hint": None,
 }
 
@@ -363,42 +354,65 @@ _TAGS_METADATA = [
 ]
 
 # ---------------------------------------------------------------------------
-# MCP surface (T07). `mcp.http_app(path="/")` builds a Starlette app whose own
-# root *is* the Streamable HTTP endpoint; mounting that at "/mcp" below is
-# what makes the final route "/mcp" rather than "/mcp/mcp". Its lifespan
-# starts/stops the session manager and must be composed into this app's own
-# lifespan (`_lifespan` below) — FastAPI does not run a mounted sub-app's
-# lifespan on its own.
+# MCP surface (T07). `mcp.http_app(path="/mcp")` builds a Starlette app with
+# one internal `Route("/mcp", ...)`. Its lifespan starts/stops the session
+# manager and must be composed into this app's own lifespan (`_lifespan`
+# below) — FastAPI does not run a mounted sub-app's lifespan on its own.
+#
+# **Not `app.mount("/mcp", ...)`** (T07's original choice, corrected here per
+# T13's `deploy.md` finding and `PROGRESS.md`'s T13 note): a Starlette `Mount`
+# compiles its path as `<mount_path>/{path:path}` (`starlette/routing.py`),
+# which only ever matches `<mount_path>/` plus a remainder — it never matches
+# the bare mount path with no trailing slash at all. A bare `POST /mcp` only
+# "worked" through `Router.app`'s redirect-slash fallback, which is
+# asymmetric: it 307-redirects whichever trailing-slash variant has no
+# direct route match to the one that does. `fastmcp.Client`'s Streamable HTTP
+# transport does not follow a POST redirect, so any agent given the URL this
+# project advertises everywhere without a trailing slash (`server.json`,
+# `llms.txt`, `README.md`, the articles) silently failed.
+#
+# The fix: register the same underlying ASGI endpoint directly as two exact
+# `Route`s, `/mcp` and `/mcp/`, on this app's own router (`_register_mcp_routes`
+# below) instead of `Mount`ing a sub-app — both then match `Match.FULL`
+# immediately, in either direction, with no redirect involved at all.
 # ---------------------------------------------------------------------------
 
-_mcp_app = mcp_server.http_app(path="/")
+_mcp_app = mcp_server.http_app(path="/mcp")
+
+
+def _register_mcp_routes(fastapi_app: FastAPI, mcp_app: StarletteWithLifespan) -> None:
+    """Serve `mcp_app`'s one Streamable HTTP endpoint at both `/mcp` and `/mcp/`.
+
+    Reuses the exact `Route` (and its `endpoint`/`methods`) `mcp.http_app()`
+    built, so the session-manager lifespan (which mutates that same endpoint
+    object in place on startup) applies no matter which of the two paths a
+    request arrives on.
+    """
+    (mcp_route,) = [r for r in mcp_app.routes if isinstance(r, StarletteRoute)]
+    for path in ("/mcp", "/mcp/"):
+        fastapi_app.router.routes.append(
+            StarletteRoute(
+                path,
+                endpoint=mcp_route.endpoint,
+                methods=list(mcp_route.methods) if mcp_route.methods else None,
+            )
+        )
 
 
 async def _close_registry_clients() -> None:
     """Close any HTTP client a registry module owns, on shutdown.
 
-    The `Registry` ABC (`core/registry.py`) exposes no `aclose` hook — its
-    four primitives are `validate_id`/`lookup`/`search`/`deadlines`, plus the
-    D-010 builders — so this is a generic, best-effort probe rather than a
-    real interface method: call `aclose()` on a registry instance if it
-    happens to have one, await it if it's a coroutine, and otherwise skip it
-    silently. `BrregRegistry` (`registries/no/__init__.py`) does not expose
-    one today; only its module-level `registries/no/client.py::aclose()`
-    does, and nothing calls that on shutdown. Flagged for the architect: on
-    process shutdown the module's `httpx.AsyncClient` is simply dropped
-    rather than closed. Adding `BrregRegistry.aclose()` (three lines,
-    delegating to `client.aclose()`, matching the existing
-    `validate_id`/`lookup`/`search`/`deadlines`/`format_id` delegation
-    pattern) would make this loop do real work without any change here.
+    `Registry.aclose()` (`core/registry.py`, `DECISIONS.md` D-014) is a
+    concrete, always-present ABC method — a no-op by default, overridden by a
+    country module that keeps a shared client (`BrregRegistry.aclose()`
+    delegates to `registries/no/client.py::aclose()`). Called on every
+    registered registry (stubs included, since a future stub's resources
+    should still be released), so this is a real interface call rather than
+    the `getattr` probe it used to be before D-014 gave the ABC this method.
     """
     for reg in list_registries(include_stubs=True):
-        aclose = getattr(reg, "aclose", None)
-        if aclose is None:
-            continue
         try:
-            result = aclose()
-            if inspect.isawaitable(result):
-                await result
+            await reg.aclose()
         except Exception:  # pragma: no cover - defensive; shutdown must not crash
             logger.exception("Registry %s aclose() failed during shutdown", reg.country)
 
@@ -406,9 +420,14 @@ async def _close_registry_clients() -> None:
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _warn_if_static_missing()
-    async with _mcp_app.lifespan(_app):
-        yield
-    await _close_registry_clients()
+    try:
+        async with _mcp_app.lifespan(_app):
+            yield
+    finally:
+        # `finally`, not a plain statement after the `async with`: a shutdown
+        # that raises out of the MCP session manager's own `__aexit__` must
+        # still release registry clients (`DECISIONS.md` D-014, REVIEW.md B3).
+        await _close_registry_clients()
 
 
 app = FastAPI(
@@ -425,7 +444,7 @@ install_error_handlers(app)
 app.include_router(stats_router)
 app.include_router(dashboard_router)
 app.include_router(status_router)
-app.mount("/mcp", _mcp_app)
+_register_mcp_routes(app, _mcp_app)
 
 
 # ---------------------------------------------------------------------------
@@ -497,7 +516,7 @@ async def health() -> HealthResponse:
 )
 async def get_countries(request: Request) -> CountriesResponse:
     started = time.monotonic()
-    rows = [RegistryInfo.model_validate(r.describe()) for r in list_registries()]
+    rows = [r.country_info() for r in list_registries()]
     _record(operation="list_countries", country=None, query=None, request=request, started=started, ok=True)
     return CountriesResponse(countries=rows)
 

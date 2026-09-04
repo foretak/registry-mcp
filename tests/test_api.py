@@ -23,6 +23,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from registry_mcp import __version__
+from registry_mcp.api import ratelimit as ratelimit_module
 from registry_mcp.api.main import app
 from registry_mcp.registries.no import client as client_module
 
@@ -271,11 +272,37 @@ def test_unknown_route_is_404_naming_llms_txt(client: TestClient, ip: str) -> No
 # ---------------------------------------------------------------------------
 
 
-def test_rate_limit_429_shape(client: TestClient) -> None:
-    rl_ip = "203.0.113.251"
-    responses = [
-        client.get("/v1/countries", headers={"X-Forwarded-For": rl_ip}) for _ in range(61)
-    ]
+class _FrozenClock:
+    """A stand-in for the `time` module exposing only `monotonic()`, pinned to
+    a constant. Assigning this over `ratelimit`'s module-level `time` name
+    (not the real stdlib `time` module — see the test below) makes the
+    limiter's refill exactly zero for every request, so its 60-capacity
+    bucket depletes on pure request count with no dependence on how long the
+    61 real HTTP round trips (each one now also a `core/log.py::log_call`
+    SQLite write, D-006/T08) happen to take on the machine running the test.
+    """
+
+    def monotonic(self) -> float:
+        return 0.0
+
+
+def test_rate_limit_429_shape(client: TestClient, ip: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    # This test was flaky (`PROGRESS.md`'s T13 note, reproduced independently
+    # of T13's own changes): `RateLimitMiddleware` refills its per-IP bucket
+    # by elapsed *wall-clock* time (`api/ratelimit.py`'s `time.monotonic()`),
+    # so 61 real, sequential requests occasionally took just long enough
+    # (disk I/O, scheduler jitter, a slow CI host) for the bucket to refill a
+    # sliver of a token — enough, once in a while, for the 61st request to
+    # come back 200 instead of the expected 429. Freezing the clock removes
+    # time from the equation entirely: with refill pinned at zero, exactly 60
+    # of 60.0 capacity are consumable before the 61st is always the first
+    # rejection, deterministically. `ip` (this file's per-test IP fixture,
+    # never reused) also rules out a shared bucket carrying over state from
+    # another test — `RateLimitMiddleware`'s bucket dict lives on the single
+    # instance attached to the `app` singleton for the whole test session.
+    monkeypatch.setattr(ratelimit_module, "time", _FrozenClock())
+
+    responses = [client.get("/v1/countries", headers={"X-Forwarded-For": ip}) for _ in range(61)]
     last = responses[-1]
     assert last.status_code == 429
     assert "Retry-After" in last.headers

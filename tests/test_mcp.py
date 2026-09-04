@@ -270,3 +270,59 @@ def test_rest_and_mcp_lookup_company_are_identical(monkeypatch: pytest.MonkeyPat
     assert {k: v for k, v in rest_body.items() if k not in volatile} == {
         k: v for k, v in mcp_body.items() if k not in volatile
     }
+
+
+def test_rest_and_mcp_list_countries_are_identical() -> None:
+    """`DECISIONS.md` D-012: `CountriesResponse`/`Registry.country_info()` is
+    the one shared builder behind both `GET /v1/countries` and the MCP
+    `list_countries` tool — before D-012 each surface re-derived this
+    envelope on its own (REST through a private model that silently dropped
+    an unrecognised key, MCP by passing the raw `describe()` dict through),
+    a latent divergence with no test to catch it."""
+    with TestClient(app) as rest_client:
+        rest_body = rest_client.get(
+            "/v1/countries", headers={"X-Forwarded-For": "203.0.113.98"}
+        ).json()
+
+    async def _mcp_call() -> dict[str, Any]:
+        async with Client(mcp) as client:
+            result = await client.call_tool("list_countries", {})
+            data: dict[str, Any] = result.data
+            return data
+
+    mcp_body = anyio.run(_mcp_call)
+    assert rest_body == mcp_body
+    assert {row["country"] for row in rest_body["countries"]} == {"NO"}
+
+
+# ---------------------------------------------------------------------------
+# `/mcp` mount: both trailing-slash variants must serve directly, no 307.
+#
+# `fastmcp.Client`'s Streamable HTTP transport does not follow a POST
+# redirect, and every URL this project advertises (`server.json`, `llms.txt`,
+# README, articles) is `/mcp` with no trailing slash — so a 307 here would
+# silently break every agent configured against the advertised URL
+# (`deploy.md`'s T13 "Corrections found while verifying" note).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/"])
+def test_mcp_mount_has_no_trailing_slash_redirect(path: str) -> None:
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "t", "version": "0"},
+        },
+    }
+    with TestClient(app, follow_redirects=False) as rest_client:
+        resp = rest_client.post(
+            path,
+            json=body,
+            headers={"accept": "application/json, text/event-stream"},
+        )
+    assert resp.status_code != 307
+    assert resp.status_code == 200

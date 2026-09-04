@@ -13,6 +13,7 @@ See ``NORBIZ_SPEC.md`` §5 for the numbered test list T02 must satisfy.
 from __future__ import annotations
 
 import calendar
+import re
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
 
@@ -95,14 +96,27 @@ def last_day_of_month(year: int, month: int) -> date:
     return date(year, month, calendar.monthrange(year, month)[1])
 
 
+#: Strict `YYYY-MM-DD`, nothing else. `date.fromisoformat` on 3.11+ is far more
+#: lenient than that — it also accepts a bare `20260115` and ISO week dates
+#: like `2026-W03-1` — which would silently compute a *different* date than
+#: the one the docstring, the REST `Query` description and this function's own
+#: `hint` all promise (`REVIEW.md` T10 item 7 / N6). Checked before parsing so
+#: either rejected form is a `bad_request`, not a quietly-accepted surprise.
+_STRICT_ISO_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+
+
 def parse_iso_date(value: str | None, *, field: str = "today") -> date:
-    """Parse a caller-supplied ``YYYY-MM-DD`` date, or default to today's UTC date.
+    """Parse a caller-supplied strict ``YYYY-MM-DD`` date, or default to today's UTC date.
 
     Shared by every surface's date-taking endpoint/tool (REST
     ``GET /v1/{country}/company/{id}/deadlines``'s ``today`` query param, MCP
     ``company_deadlines``'s ``today`` argument) so the error text cannot drift
     between them (`DECISIONS.md` D-007) — added for T08 after T06 and T07 had
-    each grown their own copy of this exact parsing/error logic.
+    each grown their own copy of this exact parsing/error logic. It lives here
+    rather than in ``api/`` or ``mcp/`` because it is country-neutral, even
+    though — unlike this module's other helpers — it is parsing a caller
+    *request* parameter rather than doing deadline-rule date arithmetic
+    (`REVIEW.md` T10 item (b)).
 
     Args:
         value: The caller-supplied date string, or ``None`` to use today.
@@ -113,11 +127,19 @@ def parse_iso_date(value: str | None, *, field: str = "today") -> date:
         parsed date.
 
     Raises:
-        RegistryError: ``bad_request`` when ``value`` is not ``None`` and not
-            a valid ISO-8601 date.
+        RegistryError: ``bad_request`` when ``value`` is not ``None`` and is
+            not exactly ``YYYY-MM-DD`` — a bare ``20260115`` or an ISO week
+            date like ``2026-W03-1`` are both rejected even though
+            ``date.fromisoformat`` would otherwise accept them.
     """
     if value is None:
         return datetime.now(UTC).date()
+    if _STRICT_ISO_DATE.match(value) is None:
+        raise RegistryError(
+            ErrorCode.BAD_REQUEST,
+            f"{value!r} is not a valid date.",
+            hint=f"Send `{field}` as YYYY-MM-DD, e.g. 2026-01-15, and retry.",
+        )
     try:
         return date.fromisoformat(value)
     except ValueError as exc:

@@ -6,9 +6,9 @@ second country lights this whole surface up the moment its module registers
 itself. Every success response is ``model_dump(mode="json")`` of the same
 ``core.models`` shape the REST surface (``api/main.py``) returns for that
 operation — ``CompanyReport``, ``SearchResult``, ``DeadlineReport``,
-``ValidationResult`` — built by ``Registry.lookup``/``.search``/
-``.deadline_report``/``.validate`` (``DECISIONS.md`` D-004, D-010), never
-reshaped here. Every failure is a raised
+``ValidationResult``, ``CountriesResponse`` — built by ``Registry.lookup``/
+``.search``/``.deadline_report``/``.validate``/``.country_info`` (``DECISIONS.md``
+D-004, D-010, D-012), never reshaped here. Every failure is a raised
 :class:`~registry_mcp.core.models.RegistryError`, turned into a FastMCP
 ``ToolError``/``ResourceError`` whose text is ``json.dumps(err.to_dict())`` —
 the same ``{"error": {...}}`` envelope REST emits (D-007) — never a bare
@@ -41,7 +41,7 @@ from fastmcp.server.dependencies import get_http_headers
 
 from registry_mcp import __version__
 from registry_mcp.core import log
-from registry_mcp.core.models import RegistryError, Surface
+from registry_mcp.core.models import CountriesResponse, RegistryError, Surface
 from registry_mcp.core.registry import get_registry, list_registries
 from registry_mcp.core.rules.common import parse_iso_date
 
@@ -287,8 +287,8 @@ def list_countries() -> dict[str, Any]:
     something to retry differently.
     """
     with _call_context(operation="list_countries", country=None, query=None):
-        rows = [dict(r.describe()) for r in list_registries()]
-    return {"countries": rows}
+        result = CountriesResponse(countries=[r.country_info() for r in list_registries()])
+    return result.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
