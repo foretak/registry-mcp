@@ -117,8 +117,7 @@ changes will be noted in the repository's release notes.
 
 ## Contact
 
-**hello@foretak.dev** _(placeholder — replace with the real inbox before launch;
-see `HUMAN_TODO.md` §3)_
+**hello@foretak.dev**
 
 Bugs and corrections are better as issues:
 <https://github.com/foretak/registry-mcp/issues>

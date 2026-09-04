@@ -115,9 +115,11 @@ Two schema constraints that will bite an edit:
       the trade-offs are in `SUBMISSIONS.md` § Prerequisites — **decide before
       publishing.** Note also that this means **a competing brreg MCP server
       already exists** with a five-month head start; read it before launch.
-- [ ] A contact inbox that a human reads: `hello@<domain>`. It goes into the
-      JSON-LD and, via `REGISTRY_MCP_CONTACT_EMAIL`, into the `User-Agent` we
-      send to Brønnøysundregistrene — they may block anonymous clients.
+- [x] **`hello@foretak.dev` live 2026-09-04** — Cloudflare Email Routing forwards
+      it to fargerod@gmail.com (MX + SPF records added, destination verified).
+      Railway `REGISTRY_MCP_CONTACT_EMAIL` switched to it, so the User-Agent we
+      send to Brønnøysundregistrene now names a real inbox. `legal/terms.md`
+      placeholder removed.
 - [x] ~~VPS (Hetzner Helsinki or Norwegian)~~ → **deployed on Railway
       2026-09-04** (project `registry-mcp`, region EU west, one replica, volume
       at `/app/data`): **https://registry-mcp-production.up.railway.app** —
