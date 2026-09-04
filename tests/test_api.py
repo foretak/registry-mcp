@@ -4,6 +4,10 @@ The Norwegian registry's HTTP is mocked with `respx` against
 `tests/fixtures/brreg_923609016.json`, the same pattern `tests/test_client_no.py`
 (T03) uses — these tests exercise the REST surface end to end, not the client
 directly.
+
+Deadlines and validate return `core.models.DeadlineReport` / `ValidationResult`
+built by `Registry.deadline_report` / `Registry.validate` (`DECISIONS.md`
+D-010) — an invalid identifier is HTTP 200 with `valid: false`, not an error.
 """
 
 from __future__ import annotations
@@ -118,18 +122,24 @@ def test_validate_valid(client: TestClient, ip: str) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["valid"] is True
-    assert body["normalised"] == "923609016"
+    assert body["normalized"] == "923609016"
     assert body["formatted"] == "923 609 016"
     assert body["id_scheme"] == "organisasjonsnummer"
+    assert body["hint"] is None
 
 
 def test_validate_invalid_is_200_not_error(client: TestClient, ip: str) -> None:
+    # D-010: an invalid identifier is a normal 200 answering "is it valid?",
+    # not a raised RegistryError — the one deliberate exception to D-007.
     resp = client.get("/v1/NO/validate/923609017", headers={"X-Forwarded-For": ip})
     assert resp.status_code == 200
     body = resp.json()
     assert body["valid"] is False
-    assert body["normalised"] is None
+    assert body["normalized"] is None
+    assert body["formatted"] is None
     assert body["reason"]
+    assert body["hint"]
+    assert "search_company" in body["hint"]
 
 
 @respx.mock
@@ -176,7 +186,8 @@ def test_deadlines(client: TestClient, ip: str) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["today"] == "2026-01-15"
-    assert body["id"] == "923609016"
+    assert body["company_id"] == "923609016"
+    assert body["company_name"] == "EQUINOR ASA"
     assert len(body["deadlines"]) > 0
     assert body["deadlines"][0]["kind"] == "shareholder_register_statement"
     assert any("calendar-year" in n for n in body["notes"])

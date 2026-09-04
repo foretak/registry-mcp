@@ -3,10 +3,12 @@
 Every route dispatches through ``core.registry.get_registry(country)`` — no
 country-specific module is ever imported here (`DECISIONS.md` D-001, D-008),
 so a second country lights this whole surface up the moment its module
-registers itself. Every success response is a ``core.models`` shape (or, for
-the two REST-only conveniences ``/v1/countries`` and
-``/v1/{country}/validate/{id}``, a small local model — see the note above
-those); every failure is a raised
+registers itself. Every success response is a ``core.models`` shape — the
+deadlines and validate operations return ``DeadlineReport`` /
+``ValidationResult`` built by ``Registry.deadline_report`` /
+``Registry.validate`` (`DECISIONS.md` D-010), never assembled here — and
+``/v1/countries`` returns a small REST-only convenience model with no MCP
+twin. Every failure is a raised
 :class:`~registry_mcp.core.models.RegistryError`, turned into the
 ``{"error": {...}}`` envelope by :mod:`registry_mcp.api.errors` (D-007).
 
@@ -14,11 +16,12 @@ Run with::
 
     uv run uvicorn registry_mcp.api.main:app --port 8080
 
-See ``NORBIZ_SPEC.md`` §§3, 15 and ``tasks/T06.md``.
+See ``NORBIZ_SPEC.md`` §§3, 15, ``DECISIONS.md`` D-010 and ``tasks/T06.md``.
 """
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 import time
@@ -37,12 +40,12 @@ from registry_mcp.api.errors import install_error_handlers
 from registry_mcp.api.ratelimit import RateLimitMiddleware
 from registry_mcp.core.models import (
     CompanyReport,
-    Deadline,
-    DeadlineRecurrence,
+    DeadlineReport,
     ErrorCode,
     RegistryError,
     SearchResult,
     Surface,
+    ValidationResult,
 )
 from registry_mcp.core.registry import get_registry, list_countries, list_registries
 
@@ -157,35 +160,15 @@ def _warn_if_static_missing() -> None:
         logger.warning("server.json not found at %s; /server.json will 404.", server_json)
 
 
-def _best_effort_id_format(normalised: str) -> str:
-    """Group an all-digit identifier in 3s from the left, else pass it through.
-
-    The `Registry` ABC (`core/registry.py`) has no generic "format this
-    identifier the way a local would write it" hook, and `api/` must not
-    import country-specific code to get one Norway-shaped (D-001, D-008). This
-    heuristic happens to reproduce Norway's own convention
-    ("923609016" -> "923 609 016") for any digits-only scheme; a future
-    country whose convention differs from 3-digit grouping will get a
-    `formatted` value here nobody local would recognise. Flagged for the
-    architect as a candidate for a real `Registry.format_id` hook.
-    """
-    if normalised.isdigit():
-        chunks = [normalised[max(i - 3, 0) : i] for i in range(len(normalised), 0, -3)]
-        return " ".join(reversed(chunks))
-    return normalised
-
-
 # ---------------------------------------------------------------------------
 # Response shapes local to the REST surface.
 #
-# `DECISIONS.md` D-004 pins `core/models.py` as the *whole* contract shared
-# with MCP: `CompanyReport`, `SearchResult`/`SearchHit`, `Deadline`, the
-# enums. The four models below are not that — `/v1/countries` and
-# `/v1/{country}/validate/{id}` are REST-only conveniences with no MCP twin
-# (MCP has its own `list_countries`/`validate_company_id` tools, T07's to
-# shape), and the deadlines route wraps `list[Deadline]` in an envelope the
-# way `SearchResult` wraps `list[SearchHit]`. None of this widens or reshapes
-# a D-004 model.
+# `DECISIONS.md` D-004/D-010 pin `core/models.py` as the *whole* contract
+# shared with MCP: `CompanyReport`, `SearchResult`/`SearchHit`, `Deadline`,
+# `DeadlineReport`, `ValidationResult`, the enums. `RegistryInfo` /
+# `CountriesResponse` below are not that — `/v1/countries` is a REST-only
+# convenience with no MCP twin (MCP has its own `list_countries` tool, T07's
+# to shape). None of this widens or reshapes a D-004/D-010 model.
 # ---------------------------------------------------------------------------
 
 
@@ -205,35 +188,6 @@ class RegistryInfo(BaseModel):
 
 class CountriesResponse(BaseModel):
     countries: list[RegistryInfo]
-
-
-class ValidateResponse(BaseModel):
-    """`GET /v1/{country}/validate/{id}` — format/checksum only, no network call."""
-
-    country: str
-    registry: str
-    input: str
-    valid: bool
-    normalised: str | None = Field(
-        default=None, description="Canonical form, only present when `valid` is true."
-    )
-    formatted: str | None = Field(
-        default=None, description="Best-effort local formatting of `normalised`."
-    )
-    id_scheme: str
-    reason: str = Field(description="Why it is (in)valid, in one sentence.")
-
-
-class DeadlinesResponse(BaseModel):
-    """`GET /v1/{country}/company/{id}/deadlines` — the next occurrence of each
-    obligation, alongside the caveats a caller should not act without reading."""
-
-    country: str
-    registry: str
-    id: str
-    today: date
-    deadlines: list[Deadline]
-    notes: list[str] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
@@ -344,7 +298,8 @@ _SEARCH_EXAMPLE = {
 _DEADLINES_EXAMPLE = {
     "country": "NO",
     "registry": "brreg",
-    "id": "923609016",
+    "company_id": "923609016",
+    "company_name": "EQUINOR ASA",
     "today": "2026-01-15",
     "deadlines": [
         {
@@ -376,12 +331,13 @@ _DEADLINES_EXAMPLE = {
 _VALIDATE_EXAMPLE = {
     "country": "NO",
     "registry": "brreg",
+    "id_scheme": "organisasjonsnummer",
     "input": "923 609 016",
     "valid": True,
-    "normalised": "923609016",
+    "normalized": "923609016",
     "formatted": "923 609 016",
-    "id_scheme": "organisasjonsnummer",
     "reason": "Nine digits with a valid MOD11 check digit.",
+    "hint": None,
 }
 
 _HEALTH_EXAMPLE = {"status": "ok", "version": __version__, "countries": ["NO"]}
@@ -411,10 +367,40 @@ _TAGS_METADATA = [
     },
 ]
 
+async def _close_registry_clients() -> None:
+    """Close any HTTP client a registry module owns, on shutdown.
+
+    The `Registry` ABC (`core/registry.py`) exposes no `aclose` hook — its
+    four primitives are `validate_id`/`lookup`/`search`/`deadlines`, plus the
+    D-010 builders — so this is a generic, best-effort probe rather than a
+    real interface method: call `aclose()` on a registry instance if it
+    happens to have one, await it if it's a coroutine, and otherwise skip it
+    silently. `BrregRegistry` (`registries/no/__init__.py`) does not expose
+    one today; only its module-level `registries/no/client.py::aclose()`
+    does, and nothing calls that on shutdown. Flagged for the architect: on
+    process shutdown the module's `httpx.AsyncClient` is simply dropped
+    rather than closed. Adding `BrregRegistry.aclose()` (three lines,
+    delegating to `client.aclose()`, matching the existing
+    `validate_id`/`lookup`/`search`/`deadlines`/`format_id` delegation
+    pattern) would make this loop do real work without any change here.
+    """
+    for reg in list_registries(include_stubs=True):
+        aclose = getattr(reg, "aclose", None)
+        if aclose is None:
+            continue
+        try:
+            result = aclose()
+            if inspect.isawaitable(result):
+                await result
+        except Exception:  # pragma: no cover - defensive; shutdown must not crash
+            logger.exception("Registry %s aclose() failed during shutdown", reg.country)
+
+
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _warn_if_static_missing()
     yield
+    await _close_registry_clients()
 
 
 app = FastAPI(
@@ -591,7 +577,7 @@ async def search_companies(
 
 @app.get(
     "/v1/{country}/company/{id}/deadlines",
-    response_model=DeadlinesResponse,
+    response_model=DeadlineReport,
     tags=["companies"],
     summary="Next filing deadline of each kind",
     description=(
@@ -616,7 +602,7 @@ async def get_deadlines(
         None,
         description="Date to compute from, YYYY-MM-DD. Defaults to the server's current UTC date.",
     ),
-) -> DeadlinesResponse:
+) -> DeadlineReport:
     started = time.monotonic()
     registry = get_registry(country)
 
@@ -635,7 +621,6 @@ async def get_deadlines(
 
     try:
         report = await registry.lookup(id)
-        deadlines = registry.deadlines(report, today_date)
     except RegistryError as exc:
         _record(
             operation="company_deadlines", country=country.upper(), query=id, request=request,
@@ -643,31 +628,17 @@ async def get_deadlines(
         )
         raise
 
-    notes = list(report.notes)
-    has_annual = any(d.recurrence == DeadlineRecurrence.ANNUAL for d in deadlines)
-    if has_annual and not any("calendar-year accounting period" in n for n in notes):
-        notes.append(
-            "One or more of these deadlines assume a calendar-year accounting period; a "
-            "deviating accounting year would shift the real dates."
-        )
-
+    result = registry.deadline_report(report, today_date)
     _record(
         operation="company_deadlines", country=country.upper(), query=id, request=request,
         started=started, ok=True,
     )
-    return DeadlinesResponse(
-        country=country.upper(),
-        registry=registry.registry,
-        id=report.id,
-        today=today_date,
-        deadlines=deadlines,
-        notes=notes,
-    )
+    return result
 
 
 @app.get(
     "/v1/{country}/validate/{id}",
-    response_model=ValidateResponse,
+    response_model=ValidationResult,
     tags=["companies"],
     summary="Check an identifier's format and checksum",
     description=(
@@ -682,35 +653,17 @@ async def get_deadlines(
     ),
     responses={200: {"content": {"application/json": {"example": _VALIDATE_EXAMPLE}}}},
 )
-async def validate_id(country: str, id: str, request: Request) -> ValidateResponse:
+async def validate_id(country: str, id: str, request: Request) -> ValidationResult:
+    # No try/except: `Registry.validate` (D-010) already turns an `invalid_id`
+    # failure into `valid=False` rather than raising — this operation answers
+    # a question, it does not fail (`DECISIONS.md` D-010, the one deliberate
+    # exception to D-007). Any other `RegistryError` (e.g. unsupported
+    # country, already raised by `get_registry` above) still propagates.
     started = time.monotonic()
     registry = get_registry(country)
-    try:
-        normalised = registry.validate_id(id)
-    except RegistryError as exc:
-        _record(
-            operation="validate_company_id", country=country.upper(), query=id, request=request,
-            started=started, ok=True,
-        )
-        return ValidateResponse(
-            country=country.upper(),
-            registry=registry.registry,
-            input=id,
-            valid=False,
-            id_scheme=registry.id_scheme,
-            reason=exc.message,
-        )
+    result = registry.validate(id)
     _record(
         operation="validate_company_id", country=country.upper(), query=id, request=request,
-        started=started, ok=True,
+        started=started, ok=True, error_code=None if result.valid else "invalid_id",
     )
-    return ValidateResponse(
-        country=country.upper(),
-        registry=registry.registry,
-        input=id,
-        valid=True,
-        normalised=normalised,
-        formatted=_best_effort_id_format(normalised),
-        id_scheme=registry.id_scheme,
-        reason="Well-formed identifier.",
-    )
+    return result
