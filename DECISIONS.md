@@ -83,3 +83,53 @@ Likewise **the calendar-year assumption note belongs to the country module, not 
 T06, T07 and T11 must conform: T06/T07 return these two shapes on both surfaces, and T11 realigns `static/llms-full.txt` §3.4/§3.5/§4 to them — note that the current file says `normalised` where the model says `normalized`, and shows `list[Deadline]` for the MCP tool. Nothing in `registries/` changed except the three-line `format_id` override in `registries/no/__init__.py`.
 Reason: D-004's promise is "one contract, both surfaces". Two of the five operations were exempt from it by accident, and they are exactly the two where the surfaces were already documented as diverging. Wrapping in the base class rather than widening the ABC means a country module needs no edit, the `xx/` template needs no edit, and a second country inherits the shapes for free (D-008).
 Applies to tasks: T06, T07, T10, T11
+
+### D-011 — `employees_reported` means "a figure is present", not "brreg set the flag"
+Date: 2026-09-04
+Decision: Raised by the T10 review (item (a), the T09→T10 carry-over, and independently by T12's content author reading real MCP output). brreg's `833285602` fixture carries `harRegistrertAntallAnsatte: true` with **no `antallAnsatte` key at all**, which the current mapper (`src/registry_mcp/registries/no/mapping.py:211-212`) turns into `employees=None, employees_reported=True` — a report that says "the registry holds a figure" and then does not give one. `core/models.py:505` defines the flag as "whether the registry holds an employee figure at all (distinguishes 0 from unknown)", so the pair as emitted is self-contradictory.
+
+(a) **`employees` stays `None`. Do not synthesise `0`.** The inference "brreg omits the key when the count is zero" is plausible (an `ENK` sole proprietorship has no employees; the owner is not one) but rests on a single fixture and no upstream documentation. D-004's rule is "unknown is `None`, never `0`", and `NORBIZ_SPEC.md` §7's "never guess" binds data as well as duties: an invented `0` is a fact an agent will repeat to a user, and the T03 review praised exactly the opposite behaviour ("if verification fails, the item is dropped, not guessed").
+
+(b) **`employees_reported` becomes derived rather than mirrored**: `employees_reported = harRegistrertAntallAnsatte and antallAnsatte is not None`. This makes `employees_reported is True ⟹ employees is not None` a real invariant an agent can branch on, which is the only reason the field exists. For `833285602` the pair becomes `employees=None, employees_reported=False` — "we have no number", which is the honest reading of what we received.
+
+(c) The lost signal is preserved as prose, not dropped: when `harRegistrertAntallAnsatte` is true and `antallAnsatte` is absent, `registries/no/mapping.py` appends a `notes` entry — "Brønnøysundregistrene flagged an employee count for this entity but did not return the number; treat the employee count as unknown rather than zero." Per D-010, prose about a country is written once, in that country's module.
+
+No deadline changes: `registries/no/rules.py:690` already gates `payroll_report` on `report.employees is not None and report.employees > 0`, so `None` and `0` behave identically there. `NORBIZ_SPEC.md` §2's `employees_reported` row and spec test 88 need the wording widened (88 stays true as written); a companion test for the `true`-flag-absent-count case belongs beside `tests/test_client_no.py:164`, which currently asserts the contradictory pair as if it were correct.
+Reason: a field whose whole job is to distinguish "zero" from "unknown" must not have a third state that means both. Given a choice between inventing a number and admitting we do not have one, the product that tells an agent what to do next admits it.
+Applies to tasks: T03
+
+### D-012 — `CountryInfo` / `CountriesResponse`: the discovery operation gets models too
+Date: 2026-09-04
+Decision: Raised by the T10 review (item (c)) and flagged by T07 itself as "the one payload D-004 doesn't cover". `core/models.py` gains **`CountryInfo`** (the nine `Registry.describe()` values, `extra="forbid"`, `country` upper-cased by validator) and **`CountriesResponse`** (`countries: list[CountryInfo]`). `core/registry.py` gains the concrete builder **`Registry.country_info() -> CountryInfo`**; `Registry.describe()` is kept, unchanged in signature and output, but is now `dict(self.country_info().model_dump(mode="json"))` so there is one definition of the row rather than two. **Both already landed in this review, and nothing is broken by them** — `describe()` emits the same nine keys with the same values, so `api/` and `mcp/` work untouched.
+
+The remaining edits are the surfaces adopting the model, and they are mechanical:
+- **T06** — `src/registry_mcp/api/main.py:169-184`: delete the local `RegistryInfo` and `CountriesResponse`; import `CountriesResponse`/`CountryInfo` from `core.models`; `:498` becomes `rows = [r.country_info() for r in list_registries()]`. The `response_model=CountriesResponse` at `:481` and the `_COUNTRIES_EXAMPLE` at `:197` need no change.
+- **T07** — `src/registry_mcp/mcp/server.py:289-291`: `return CountriesResponse(countries=[r.country_info() for r in list_registries()]).model_dump(mode="json")`, replacing `{"countries": [dict(r.describe()) for r in list_registries()]}`.
+
+`CountriesResponse` is the one returned model that does not carry `country`/`registry` at the top level (D-004): it is a list *about* registries, so the pair lives on each row instead.
+Reason: the two surfaces did not merely lack a shared model, they had a **latent divergence**. `api/main.py`'s private `RegistryInfo` is a plain `BaseModel`, so pydantic's default silently *drops* a key `describe()` grows, while `mcp/server.py` passes the raw dict through and *keeps* it. The first registry attribute anyone adds would have made `/v1/countries` and `list_countries` disagree by omission, with no test failing. `extra="forbid"` on one shared model turns that into a loud error on both surfaces at once.
+Applies to tasks: T06, T07, T10, T11
+
+### D-013 — `ValidationResult.reason` stays populated on success; the sentence must name a real call
+Date: 2026-09-04
+Decision: Raised by T12's content author: the success `reason` — "Well-formed organisasjonsnummer for NO. A valid identifier does not mean the entity exists — call lookup to find out." — reads oddly because `reason` sounds like a failure field, and the second sentence is a next-action that arguably belongs in `hint`.
+
+**Considered and declined, with one correction.** `reason` keeps its D-010 meaning ("why it is valid, or what failed") and stays populated in both branches; `hint` stays `None` when `valid is True`. Moving the caveat into `hint` would make `hint` non-null on success, which contradicts D-010, breaks `tests/test_api.py:128` and `tests/test_interface.py:214`, and buys an agent nothing it cannot already read from `valid`. The caveat itself is worth keeping wherever it lives: treating a checksum pass as proof of existence is the single most likely mistake this operation invites.
+
+The correction, **already applied** in `core/registry.py:224-229`: the sentence said "call lookup", and `lookup` is not a callable name on either surface. D-007's standard — a hint names a concrete next call — applies to this sentence too, so it now names `lookup_company` (MCP) and `GET /v1/{country}/company/{id}` (REST). Covered by `tests/test_interface.py::test_validate_success_reason_names_a_concrete_next_call`.
+
+One genuine mismatch this turned up, for **T06**: `src/registry_mcp/api/main.py:334`'s `_VALIDATE_EXAMPLE` advertises `"reason": "Nine digits with a valid MOD11 check digit."`, a string the code has never emitted. `/openapi.json` is a crawled surface, so it must show the real sentence. `static/llms-full.txt:332` already had the real one and needs only the "call lookup" tail updated (**T11**).
+Reason: a field's name should not be the reason to move its contents somewhere the contract says is empty. The real defect was that the sentence told an agent to call something that does not exist — which is the same defect D-007 exists to prevent, one field over.
+Applies to tasks: T06, T07, T11
+
+### D-014 — `Registry.aclose()`: the shutdown hook is part of the interface, not a `getattr` guess
+Date: 2026-09-04
+Decision: Raised by the T10 review (item (e)). `core/registry.py` gains a **concrete, default no-op** `async def aclose(self) -> None`. A country module that owns no resources implements nothing; one that keeps a shared client **must** override it. **Already landed in this review**; it breaks nothing, and `api/main.py::_close_registry_clients`'s existing `getattr(reg, "aclose", None)` probe now always finds a real method.
+
+The ABC stays four abstract methods wide (D-008): `aclose` is concrete like `validate`/`deadline_report`/`format_id`/`country_info`, so `registries/xx/` and every future country need no edit to inherit it.
+
+Two follow-ups this does not fix by itself:
+- **T03** — `src/registry_mcp/registries/no/__init__.py` must override it: `async def aclose(self) -> None:` delegating to `registries/no/client.py::aclose()` (which already exists at `client.py:78-83` and is called by nothing on shutdown), matching the existing lazy-import delegation pattern of `validate_id`/`lookup`/`search`/`deadlines`/`format_id`. Verified 2026-09-04: after the FastAPI app's lifespan exits, `registries.no.client._client.is_closed` is still `False` — the `httpx.AsyncClient` is dropped, not closed.
+- **T06** — `src/registry_mcp/api/main.py:405-410`: `await _close_registry_clients()` sits after the `async with _mcp_app.lifespan(_app)` block rather than in a `finally`, so a shutdown that raises skips cleanup entirely. Wrap the `yield` in `try/finally`.
+Reason: `api/main.py:376-392` already documents, at length and correctly, that it is doing a "generic, best-effort probe rather than a real interface method" because the ABC gave it nothing to call. When a surface has to write a paragraph apologising for a `getattr`, the interface is missing a method.
+Applies to tasks: T03, T06, T10

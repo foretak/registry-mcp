@@ -33,6 +33,8 @@ __all__ = [
     "Address",
     "CompanyReport",
     "CompanyStatus",
+    "CountriesResponse",
+    "CountryInfo",
     "Deadline",
     "DeadlineRecurrence",
     "DeadlineReport",
@@ -196,6 +198,67 @@ class IndustryCode(_Base):
         default=1,
         ge=1,
         description="1 = primary activity, 2 = second, and so on.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Service discovery
+# ---------------------------------------------------------------------------
+
+
+class CountryInfo(_Base):
+    """One supported country/registry pair, as returned by the discovery operation.
+
+    Built by ``Registry.country_info()`` from the class attributes of a
+    :class:`~registry_mcp.core.registry.Registry` subclass — the same nine
+    values ``Registry.describe()`` has always emitted, now with a type
+    (``DECISIONS.md`` D-012).
+
+    This is the country-neutral half of the contract even though its *values*
+    name a country: it carries no report data, so unlike every other returned
+    model it is a row *about* a registry rather than a document *from* one.
+    """
+
+    country: str = Field(description="ISO-3166-1 alpha-2, upper-case, e.g. 'NO'.")
+    registry: str = Field(description="Registry slug, e.g. 'brreg'.")
+    name: str = Field(description="Human-readable register name.")
+    id_scheme: str = Field(
+        description="What the national identifier is called locally, e.g. 'organisasjonsnummer'."
+    )
+    id_example: str = Field(
+        description="A real, valid identifier the caller can use to smoke-test the service."
+    )
+    id_description: str = Field(description="One sentence describing the identifier's format.")
+    source_url: str = Field(description="Base URL of the upstream registry API, for citation.")
+    license: str = Field(description="Licence of the upstream data, e.g. 'NLOD 2.0'.")
+    is_stub: bool = Field(
+        default=False,
+        description=(
+            "True for example/template modules, which are hidden from the public list "
+            "unless stubs are explicitly requested."
+        ),
+    )
+
+    @field_validator("country")
+    @classmethod
+    def _upper_country(cls, v: str) -> str:
+        return v.upper()
+
+
+class CountriesResponse(_Base):
+    """The answer to "which countries can you answer for?".
+
+    The only shape the discovery operation returns, on both surfaces
+    (``DECISIONS.md`` D-012): REST ``GET /v1/countries`` and the MCP tool
+    ``list_countries``. Before D-012 each surface re-derived this envelope from
+    ``Registry.describe()`` on its own, which is how the two could have drifted
+    — REST validated the dict through a private model that silently *dropped* an
+    unrecognised key while MCP passed the raw dict through and *kept* it.
+    """
+
+    countries: list[CountryInfo] = Field(
+        default_factory=list,
+        description="One row per registry that can answer right now, sorted by country code.",
     )
 
 

@@ -41,6 +41,7 @@ from typing import ClassVar
 
 from registry_mcp.core.models import (
     CompanyReport,
+    CountryInfo,
     Deadline,
     DeadlineReport,
     ErrorCode,
@@ -223,7 +224,8 @@ class Registry(ABC):
             formatted=self.format_id(normalized),
             reason=(
                 f"Well-formed {self.id_scheme or 'identifier'} for {self.country}. "
-                "A valid identifier does not mean the entity exists — call lookup to find out."
+                "A valid identifier does not mean the entity exists — call lookup_company "
+                "(MCP) or GET /v1/{country}/company/{id} (REST) to find out."
             ),
         )
 
@@ -245,19 +247,47 @@ class Registry(ABC):
         """
         return f"No rules documentation available for {self.country}."
 
+    async def aclose(self) -> None:
+        """Release anything this registry holds open — HTTP clients, pools.
+
+        Concrete and a no-op by default, so a country module that owns no
+        resources implements nothing and the ABC stays four methods wide
+        (``DECISIONS.md`` D-008, D-014). A module that keeps a shared
+        ``httpx.AsyncClient`` **must** override this, because the surface calls
+        it on process shutdown and there is no other hook: without an override
+        the client is dropped rather than closed and the sockets leak.
+        """
+        return None
+
+    def country_info(self) -> CountryInfo:
+        """This registry as the typed discovery row both surfaces return.
+
+        The single builder behind ``GET /v1/countries`` and the MCP
+        ``list_countries`` tool (``DECISIONS.md`` D-012) — the same rule D-010
+        applies to ``validate``/``deadline_report``: a surface calls this, it
+        never assembles the row itself.
+        """
+        return CountryInfo(
+            country=self.country,
+            registry=self.registry,
+            name=self.name,
+            id_scheme=self.id_scheme,
+            id_example=self.id_example,
+            id_description=self.id_description,
+            source_url=self.source_url,
+            license=self.license,
+            is_stub=self.is_stub,
+        )
+
     def describe(self) -> dict[str, str | bool]:
-        """Metadata row for ``GET /v1/countries`` and the MCP ``list_countries`` tool."""
-        return {
-            "country": self.country,
-            "registry": self.registry,
-            "name": self.name,
-            "id_scheme": self.id_scheme,
-            "id_example": self.id_example,
-            "id_description": self.id_description,
-            "source_url": self.source_url,
-            "license": self.license,
-            "is_stub": self.is_stub,
-        }
+        """Metadata row for ``GET /v1/countries`` and the MCP ``list_countries`` tool.
+
+        Kept as a plain dict for the surfaces that already call it; it is now
+        derived from :meth:`country_info` so there is exactly one definition of
+        the row. New code should call :meth:`country_info` and let
+        ``CountriesResponse`` do the serialising (D-012).
+        """
+        return dict(self.country_info().model_dump(mode="json"))
 
 
 # ---------------------------------------------------------------------------

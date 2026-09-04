@@ -12,6 +12,8 @@ import pytest
 from registry_mcp.core.models import (
     CompanyReport,
     CompanyStatus,
+    CountriesResponse,
+    CountryInfo,
     Deadline,
     DeadlineRecurrence,
     ErrorCode,
@@ -228,3 +230,61 @@ def test_validate_is_inherited_by_a_stub_country(example_registry: Registry) -> 
     assert ok.normalized == "12345678"
     assert ok.formatted is None  # XX declares no local grouping convention
     assert example_registry.validate("nope").valid is False
+
+
+def test_validate_success_reason_names_a_concrete_next_call(brreg: Registry) -> None:
+    """D-007's "name the next call" standard applies to ``reason`` too (D-013).
+
+    The success sentence used to end "call lookup to find out", and ``lookup``
+    is not a callable name on either surface.
+    """
+    reason = brreg.validate("923609016").reason
+    assert reason is not None
+    assert "lookup_company" in reason
+    assert "/company/" in reason
+
+
+# ---------------------------------------------------------------------------
+# D-012 — the discovery row has a model
+# ---------------------------------------------------------------------------
+
+
+def test_country_info_is_the_single_definition_of_the_discovery_row(brreg: Registry) -> None:
+    info = brreg.country_info()
+    assert isinstance(info, CountryInfo)
+    assert info.country == "NO"
+    assert info.registry == "brreg"
+    assert info.is_stub is False
+    # `describe()` is kept for the surfaces that already call it, but is now
+    # derived from `country_info()` — one row, one definition.
+    assert brreg.describe() == info.model_dump(mode="json")
+
+
+def test_country_info_is_inherited_by_a_stub_country(example_registry: Registry) -> None:
+    """D-008: a country folder gets the discovery row for free, like the other documents."""
+    assert example_registry.country_info().is_stub is True
+
+
+def test_countries_response_forbids_an_unrecognised_key() -> None:
+    """The point of D-012: an extra key fails loudly on *both* surfaces at once.
+
+    Before the model existed, REST validated the dict through a private model
+    that silently dropped an unknown key while MCP passed the raw dict straight
+    through and kept it — the two surfaces disagreeing by omission.
+    """
+    row = get_registry("NO").describe()
+    assert CountryInfo.model_validate(row).country == "NO"
+    with pytest.raises(ValueError):
+        CountryInfo.model_validate({**row, "currency": "NOK"})
+
+
+def test_countries_response_round_trips(brreg: Registry) -> None:
+    response = CountriesResponse(countries=[r.country_info() for r in list_registries()])
+    dumped = response.model_dump(mode="json")
+    assert [row["country"] for row in dumped["countries"]] == list_countries()
+    assert brreg.country_info().model_dump(mode="json") in dumped["countries"]
+
+
+async def test_aclose_is_a_no_op_a_country_may_override(example_registry: Registry) -> None:
+    """D-014: the shutdown hook exists on every registry, so a surface can just call it."""
+    await example_registry.aclose()
