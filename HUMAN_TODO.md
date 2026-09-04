@@ -101,7 +101,11 @@ Two schema constraints that will bite an edit:
       See `NAMES.md` for the full name/competitor audit.
 - [ ] PyPI account + project names `registry-mcp` and the alias `brreg-mcp`.
       **Both free on PyPI as of 2026-09-04.**
-- [ ] npm account + package name `registry-mcp` (**free**) and the alias.
+- [x] **npm published 2026-09-04** as user `foretak` (2FA via passkey):
+      `registry-mcp@0.1.0` and `@foretak/brreg-mcp@0.1.0`. Note: `npx registry-mcp`
+      shells out to `uvx registry-mcp`, so it only works once the **PyPI** package
+      exists — publish PyPI next. Original note kept below for the record.
+- [x] ~~npm account + package name `registry-mcp` (**free**) and the alias.~~
       ⚠️ **`brreg-mcp` on npm is already taken** — by `hellosverre`, v0.1.1,
       published 2026-04-23 (`github.com/hellosverre/brreg-mcp`), an unrelated
       Norwegian brreg MCP server. T11 has prepared the npm alias as
