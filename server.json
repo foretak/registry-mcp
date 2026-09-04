@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.foretak/registry-mcp",
   "title": "registry-mcp — national company registries",
-  "description": "The company registry MCP: national business registries. Norway: brreg, orgnr, VAT, deadlines.",
-  "version": "0.1.0",
+  "description": "The company registry MCP: UK Companies House company number, Norway brreg orgnr, deadlines.",
+  "version": "0.2.0",
   "websiteUrl": "https://api.foretak.dev",
   "repository": {
     "url": "https://github.com/foretak/registry-mcp",
@@ -14,7 +14,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "registry-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
@@ -35,6 +35,13 @@
           "isRequired": false,
           "isSecret": false,
           "placeholder": "./data/cache.sqlite3"
+        },
+        {
+          "name": "COMPANIES_HOUSE_API_KEY",
+          "description": "Companies House REST API key, required for the United Kingdom (GB). Free from developer.company-information.service.gov.uk. Unset means GB lookups return an upstream_error naming this variable; every other country still answers.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     },
@@ -42,7 +49,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "registry-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -55,6 +62,13 @@
           "isRequired": false,
           "isSecret": false,
           "placeholder": "you@example.com"
+        },
+        {
+          "name": "COMPANIES_HOUSE_API_KEY",
+          "description": "Companies House REST API key, required for the United Kingdom (GB). Free from developer.company-information.service.gov.uk. Unset means GB lookups return an upstream_error naming this variable; every other country still answers.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
@@ -67,7 +81,7 @@
   ],
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
-      "tool": "registry-mcp T05",
+      "tool": "registry-mcp T15c",
       "schemaFetchedAt": "2026-09-03",
       "keywords": [
         "brreg",
@@ -80,10 +94,19 @@
         "norway company lookup",
         "norwegian business registry",
         "foretak",
+        "companies house",
+        "companies house api",
+        "company number",
+        "company registration number",
+        "uk company lookup",
+        "uk company search",
+        "confirmation statement",
         "company registry",
+        "company registry mcp",
         "mcp"
       ],
       "countries": [
+        "GB",
         "NO"
       ],
       "documentation": {
@@ -92,7 +115,7 @@
         "openapi": "https://api.foretak.dev/openapi.json"
       },
       "license": "MIT",
-      "dataLicense": "NLOD 2.0 (Enhetsregisteret, Brønnøysundregistrene)"
+      "dataLicense": "NLOD 2.0 (Enhetsregisteret, Brønnøysundregistrene); Crown copyright, free to re-use (Companies House public register)"
     }
   }
 }

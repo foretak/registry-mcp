@@ -1,4 +1,4 @@
-# registry-mcp — full reference for LLM readers
+# registry-mcp — the company registry MCP: full reference for LLM readers
 
 Company data for AI agents, any country. One shape, many national registries.
 This document is written for a model deciding which call to make. Every section
@@ -13,7 +13,9 @@ Short version of this file: https://api.foretak.dev/llms.txt
 
 Aliases you may be searching for: brreg, Brønnøysund, Brønnøysundregistrene,
 Enhetsregisteret, organisasjonsnummer, orgnr, org.nr, Norway company lookup,
-Norwegian business registry, foretak, company registry, MCP.
+Norwegian business registry, foretak, Companies House, Companies House API,
+company number, company registration number, CRN, UK company lookup, UK company
+search, confirmation statement, company registry, company registry MCP, MCP.
 
 
 ## 0. The one thing to know first
@@ -34,11 +36,26 @@ Country codes are ISO-3166-1 alpha-2, upper-case.
 
 | Country | Code | Register | Identifier | Example |
 |---|---|---|---|---|
-| Norway | `NO` | Enhetsregisteret (Brønnøysundregistrene), slug `brreg` | organisasjonsnummer | `923609016` |
+| Norway | `NO` | Enhetsregisteret (Brønnøysundregistrene), slug `brreg` | organisasjonsnummer (orgnr) | `923609016` |
+| United Kingdom | `GB` | Companies House, slug `companies-house` | company number (company registration number, CRN) | `00445790` |
 
 Do not hard-code this table — call `list_countries()` / `GET /v1/countries`.
 Countries are added as separate modules; the list grows without the tool shape
 changing.
+
+**The United Kingdom is `GB`, never `UK`.** Country codes are ISO-3166-1
+alpha-2 with no alias table, so `GB` is the only code that routes; `UK` returns
+`404 unsupported_country` with a hint naming the supported codes. Write "UK" to
+a user, send `GB` to this API.
+
+**Companies House needs a credential.** `GB` is the first module whose upstream
+requires an API key, so every `CountryInfo` row carries `requires_api_key` and
+`api_key_env`. On the hosted service at api.foretak.dev the key is configured
+and `GB` answers. On a self-hosted deployment with no
+`COMPANIES_HOUSE_API_KEY`, `GB` calls return `502 upstream_error` naming that
+variable while every other country keeps answering — the flag tells you a key
+is *needed*, not whether this deployment *has* one, so read the error when one
+arrives rather than pre-judging from the flag.
 
 
 ## 2. Choosing a call
@@ -54,6 +71,11 @@ changing.
 Never guess an identifier. If `search_company` returns several hits, show the
 user the candidates with their `confidence` and `confidence_basis` rather than
 picking one silently.
+
+Pick the country code before the call, not after: `NO` for a Norwegian
+organisasjonsnummer (nine digits), `GB` for a UK company number (eight
+characters, digits or two letters and six digits). A user saying "this UK
+supplier" means `country="GB"`.
 
 
 ## 3. REST endpoints
@@ -74,6 +96,19 @@ response today, not an excerpt:
     {
       "countries": [
         {
+          "country": "GB",
+          "registry": "companies-house",
+          "name": "Companies House (United Kingdom)",
+          "id_scheme": "company number",
+          "id_example": "00445790",
+          "id_description": "A UK company registration number (CRN): 8 characters, either 8 digits or a two-letter prefix and 6 digits. Shorter numbers are zero-padded, so 445790 is written 00445790. There is no check digit.",
+          "source_url": "https://api.company-information.service.gov.uk",
+          "license": "Crown copyright — Companies House public register, free to re-use",
+          "is_stub": false,
+          "requires_api_key": true,
+          "api_key_env": "COMPANIES_HOUSE_API_KEY"
+        },
+        {
           "country": "NO",
           "registry": "brreg",
           "name": "Enhetsregisteret (Brønnøysundregistrene)",
@@ -82,7 +117,9 @@ response today, not an excerpt:
           "id_description": "A Norwegian organisasjonsnummer (orgnr): nine digits, the ninth a MOD11 check digit. Written '923 609 016' or '923609016'; a VAT number adds 'MVA'.",
           "source_url": "https://data.brreg.no/enhetsregisteret/api",
           "license": "NLOD 2.0",
-          "is_stub": false
+          "is_stub": false,
+          "requires_api_key": false,
+          "api_key_env": null
         }
       ]
     }
@@ -92,7 +129,14 @@ a country you have not called before, rather than guessing one. `is_stub` marks
 example/template modules, which are hidden from this list unless stubs are
 explicitly requested; a row you can see is a registry that answers.
 
-MCP `list_countries` returns this identical document.
+`requires_api_key` says the *upstream register* needs a credential, and
+`api_key_env` names the environment variable that carries it (`null` when none
+is needed). It is a declaration about the register, never a health check on
+this deployment: a row with `requires_api_key: true` is still listed whether or
+not the key is set here. If a `GB` call then fails with `502 upstream_error`,
+its `hint` names `COMPANIES_HOUSE_API_KEY` and where to get a free one.
+
+MCP `list_countries` returns this identical document, both keys included.
 
 Errors: none expected. A 500 means a bug here — retry once, then tell the user.
 
@@ -176,6 +220,89 @@ Response (abridged — every field is documented in §5):
 Identifier input is normalised for you: `923 609 016`, `923.609.016`,
 `NO923609016MVA` and `NO 923 609 016 MVA` all resolve to `923609016`.
 
+The same call for the United Kingdom, and the same document shape:
+
+    curl https://api.foretak.dev/v1/GB/company/00445790
+
+Response (abridged the same way; MCP
+`lookup_company("00445790", country="GB")` returns this identical document):
+
+    {
+      "country": "GB",
+      "registry": "companies-house",
+      "id": "00445790",
+      "id_formatted": null,
+      "id_scheme": "company number",
+      "name": "TESCO PLC",
+      "previous_names": ["TESCO STORES (HOLDINGS) PUBLIC LIMITED COMPANY",
+                         "TESCO STORES (HOLDINGS) LIMITED"],
+      "legal_form_code": "plc",
+      "legal_form": "Public limited company",
+      "legal_form_local": "Public limited company",
+      "limited_liability": true,
+      "has_board_duty": true,
+      "has_annual_accounts_duty": true,
+      "status": "active",
+      "status_detail": "Active on the Companies House register.",
+      "is_active": true,
+      "registered_at": "1947-11-27",
+      "founded_at": "1947-11-27",
+      "vat_registered": null,
+      "vat_number": null,
+      "registers": {"charges": false, "insolvency": false},
+      "employees": null,
+      "employees_reported": false,
+      "industry_codes": [
+        {"code": "47110", "description": null, "scheme": "SIC 2007", "rank": 1}
+      ],
+      "share_capital": null,
+      "business_address": {
+        "lines": ["Tesco House, Shire Park", "Kestrel Way"],
+        "postal_code": "AL7 1GA", "city": "Welwyn Garden City",
+        "municipality": null, "municipality_code": null,
+        "country_code": "GB", "country_name": "United Kingdom"
+      },
+      "last_annual_accounts_year": 2026,
+      "published_deadlines": [
+        {"kind": "annual_accounts", "due_date": "2027-08-26",
+         "period_start": "2026-03-01", "period_end": "2027-02-26",
+         "overdue": false, "source": "accounts.next_accounts.due_on"},
+        {"kind": "confirmation_statement", "due_date": "2027-07-02",
+         "period_start": null, "period_end": "2027-06-18",
+         "overdue": false, "source": "confirmation_statement.next_due"}
+      ],
+      "confidence": 1.0,
+      "confidence_basis": "exact identifier lookup in the Companies House register",
+      "cached": false,
+      "fetched_at": "2026-09-04T16:56:06Z",
+      "source": "Companies House (UK)",
+      "source_url": "https://find-and-update.company-information.service.gov.uk/company/00445790",
+      "license": "Crown copyright — Companies House public register, free to re-use",
+      "notes": []
+    }
+
+UK identifier input is normalised too, but differently: a short number is
+zero-padded and a letter prefix upper-cased, so `445790` → `00445790` and
+`oc303675` → `OC303675`. `id_formatted` is `null` because UK company numbers
+have no conventional grouping — that is honesty, not a missing feature.
+
+**What Companies House does not publish, and therefore returns as `null`:**
+`vat_registered`, `vat_registered_at` and `vat_number` (UK VAT is HMRC's
+separate register, and a VAT number is not derivable from a company number);
+`employees` — the UK register carries no employee count at all, for any
+company, so `employees_reported` is always `false` for `GB`; `share_capital`
+(it lives in the confirmation statement, not the profile); `purpose`,
+`website`, `email`, `phone`, `sector`. Norway publishes most of these, the UK
+publishes none of them: same shape, different coverage. Do not read a `null`
+here as "this company has no employees" or "not VAT-registered" — read it as
+"this register does not say".
+
+`industry_codes` for `GB` are SIC 2007 codes with `description: null`;
+Companies House returns the code only. `registers` for `GB` has two boolean
+keys, `charges` and `insolvency`, from the register's own `has_charges` and
+`has_insolvency_history` flags. `source_url` points at the human-readable
+Companies House record, which is the link to hand a user.
+
 Errors:
 - `400 invalid_id` — the identifier fails the country's checksum or format.
   Do **not** retry the same string. Either fix the digits or call
@@ -189,6 +316,15 @@ Errors:
   then tell the user the register is unavailable. Do not loop.
 - `429 rate_limited` — you exceeded 60 requests/minute per IP. Back off for the
   number of seconds in `details.retry_after` and batch your calls.
+
+Two of these read differently for `GB`. A `404 not_found` hint adds that **sole
+traders and ordinary partnerships are not registered at Companies House at
+all** — a UK business can be entirely real and never appear here, which is not
+true of Norway, where a sole proprietorship (ENK) has an organisasjonsnummer.
+And `502 upstream_error` on `GB` has a second cause besides an upstream
+outage: no Companies House API key configured on this deployment. Its `message`
+says so and its `hint` names `COMPANIES_HOUSE_API_KEY`; that one is not fixed
+by retrying, so tell the user rather than looping.
 
 ### 3.3 GET /v1/{country}/search?q={name}
 
@@ -245,6 +381,48 @@ Errors:
   you to try a shorter or differently spelled name. Norwegian names are
   registered upper-case and often contain `AS`, `ASA` or `NUF` — try dropping
   the suffix before concluding a company does not exist.
+
+For the United Kingdom:
+
+    curl "https://api.foretak.dev/v1/GB/search?q=tesco&limit=3"
+
+    {
+      "country": "GB",
+      "registry": "companies-house",
+      "query": "tesco",
+      "hits": [
+        {
+          "country": "GB", "registry": "companies-house",
+          "id": "00445790", "name": "TESCO PLC",
+          "legal_form_code": "plc", "legal_form": "Public limited company",
+          "status": "active", "city": "Welwyn Garden City",
+          "municipality": null, "registered_at": "1947-11-27",
+          "is_subunit": false,
+          "confidence": 0.8,
+          "confidence_basis": "search hit title starts with the query",
+          "source_url": "https://find-and-update.company-information.service.gov.uk/company/00445790"
+        }
+      ],
+      "total": 356,
+      "truncated": true,
+      "cached": false,
+      "fetched_at": "2026-09-04T16:58:41Z",
+      "hint": "356 companies match. Call lookup_company with the id of the right hit for the full report."
+    }
+
+Two things to know about `GB` search specifically. **Hits come back in the
+register's own relevance order, not sorted by `confidence`** — the real
+three-hit response above also contained an unrelated `ltd` at `0.4` ranked
+above a `0.8` hit. Read every hit's `confidence` and `confidence_basis`; do not
+assume the first row is the best one. And **a UK search result is the only
+place `status` can be missing upstream** — those come back as
+`"status": "unknown"` rather than a missing key, so branch on the value, not on
+the key's presence.
+
+Zero hits for `GB` says the same thing in UK terms: sole traders and ordinary
+partnerships are not on the Companies House register, so no spelling of the
+name will find them. UK names usually end in `LIMITED`, `LTD`, `PLC` or `LLP` —
+drop the suffix before concluding a company does not exist.
 
 ### 3.4 GET /v1/{country}/company/{id}/deadlines?today=YYYY-MM-DD
 
@@ -316,6 +494,96 @@ Norwegian obligations covered: `annual_accounts` (Årsregnskap),
 `vat_return` (Mva-melding, bimonthly), `payroll_report` (A-melding, monthly).
 Advance tax (forskuddsskatt) is deliberately not covered yet — do not infer it.
 
+**The United Kingdom.** Two obligations, both at Companies House:
+`annual_accounts` (the annual accounts filing) and `confirmation_statement`
+(the CS01). Same envelope, same keys:
+
+    curl "https://api.foretak.dev/v1/GB/company/00445790/deadlines?today=2026-09-04"
+
+    {
+      "country": "GB",
+      "registry": "companies-house",
+      "company_id": "00445790",
+      "company_name": "TESCO PLC",
+      "today": "2026-09-04",
+      "deadlines": [
+        {
+          "country": "GB", "registry": "companies-house",
+          "kind": "confirmation_statement",
+          "name": "Confirmation statement",
+          "local_name": "Confirmation statement (CS01)",
+          "authority": "Companies House",
+          "statutory_date": "2027-07-02",
+          "due_date": "2027-07-02",
+          "rolled_forward": false,
+          "period_label": "review period ending 2027-06-18",
+          "period_start": "2026-06-19",
+          "period_end": "2027-06-18",
+          "recurrence": "annual",
+          "mandatory": true,
+          "applies_because": "Companies House publishes this date for the company itself; it is the register's own figure, not a calculation.",
+          "days_until": 301,
+          "source_url": "https://www.gov.uk/guidance/confirmation-statement-guidance"
+        },
+        {
+          "country": "GB", "registry": "companies-house",
+          "kind": "annual_accounts",
+          "name": "Annual accounts filing",
+          "local_name": "Annual accounts",
+          "authority": "Companies House",
+          "statutory_date": "2027-08-26",
+          "due_date": "2027-08-26",
+          "rolled_forward": false,
+          "period_label": "period ending 2027-02-26",
+          "period_start": "2026-03-01",
+          "period_end": "2027-02-26",
+          "recurrence": "annual",
+          "mandatory": true,
+          "applies_because": "Companies House publishes this date for the company itself; it is the register's own figure, not a calculation.",
+          "days_until": 356,
+          "source_url": "https://www.gov.uk/government/publications/life-of-a-company-annual-requirements/life-of-a-company-part-1-accounts"
+        }
+      ],
+      "notes": []
+    }
+
+MCP `company_deadlines("00445790", country="GB", today="2026-09-04")` returns
+this identical document.
+
+Four differences from Norway, all deliberate:
+
+- **Quoted, not computed, wherever possible.** Companies House publishes each
+  company's own due dates, and those are taken verbatim. `applies_because`
+  tells you which you got: *"the register's own figure, not a calculation"*, or
+  a sentence naming the statutory period this tool applied instead (9 months
+  after the accounting reference date for a private company, 6 for a public
+  one, 14 days after the review period for the confirmation statement). Quote
+  it. A quoted date already accounts for shortened, extended and amended
+  accounting periods that the profile does not otherwise expose.
+- **Nothing rolls forward.** A UK filing deadline that lands on a Sunday or a
+  bank holiday is still that date in law, so `due_date == statutory_date` and
+  `rolled_forward` is always `false` for `GB`. There is no UK holiday table,
+  by design.
+- **`days_until` goes negative, routinely.** Companies House leaves an overdue
+  due date in the past rather than rolling it to the next cycle, so a live
+  active company can show `"days_until": -21` on its confirmation statement.
+  That is an overdue filing, not a stale response — say so to the user.
+- **Deadlines are emitted only when `status` is `"active"`.** Stricter than
+  Norway, where a company under liquidation keeps its list: the UK register
+  publishes one status that cannot distinguish voluntary from compulsory
+  liquidation, so nothing is guessed. A dissolved, liquidating, administered
+  or voluntary-arrangement company returns `"deadlines": []` with a `notes`
+  entry explaining that what remains to be filed is the insolvency
+  practitioner's or the registrar's to decide.
+
+Corporation tax is **not** included for `GB`, and neither is the first-accounts
+deadline after incorporation. Both rules are real and both are stated in
+`registry://rules/GB`, but the inputs they need — HMRC's accounting period,
+whether the entity is within the charge to corporation tax, whether it pays by
+quarterly instalment — are not on the Companies House register. Do not infer
+them from what this endpoint returns. An LLP is tax-transparent and files no
+CT600 at all.
+
 Errors: `400 invalid_id`, `400 bad_request` (unparseable `today`),
 `404 not_found`, `404 unsupported_country`, `429`, `502`, `504` — handle as in
 §3.2. For `bad_request` on `today`, send `YYYY-MM-DD` and retry once.
@@ -374,10 +642,38 @@ well-known example of a string that looks right and is not: it fails MOD11 and
 no such entity exists. Follow a successful validation with `lookup_company` if
 you need facts.
 
+For the United Kingdom this endpoint is a **normaliser first and a checker
+second**, because a UK company number has no check digit:
+
+    curl https://api.foretak.dev/v1/GB/validate/445790
+
+    {
+      "country": "GB",
+      "registry": "companies-house",
+      "id_scheme": "company number",
+      "input": "445790",
+      "valid": true,
+      "normalized": "00445790",
+      "formatted": null,
+      "reason": "Well-formed company number for GB. A valid identifier does not mean the entity exists — call lookup_company (MCP) or GET /v1/{country}/company/{id} (REST) to find out.",
+      "hint": null
+    }
+
+MCP `validate_company_id("445790", country="GB")` returns the same document.
+Use it exactly as you would for Norway — on a spreadsheet column, before
+spending real lookups — but read `valid: true` for `GB` as *the shape is
+right*, and nothing more. Norway's MOD11 rejects a transposed digit; the UK has
+no such check, so a mistyped company number is well-formed and will simply come
+back `404 not_found` from `lookup_company`. `normalized` is the value to feed
+onward: `445790` becomes `00445790`, `oc303675` becomes `OC303675`.
+`formatted` is `null` because there is no UK grouping convention.
+
 ### 3.6 GET /health
 
-Liveness for monitoring: `{"status": "ok", "version": "0.1.0"}`. Not part of
-the data API; do not call it in a loop.
+Liveness for monitoring:
+`{"status": "ok", "version": "0.2.0", "countries": ["GB", "NO"]}`. Not part of
+the data API; do not call it in a loop — `GET /v1/countries` is the discovery
+document, this is only a heartbeat.
 
 
 ## 4. MCP tools
@@ -401,6 +697,13 @@ shape per operation across both surfaces. In particular `company_deadlines`
 returns the `DeadlineReport` object of §3.4, not a bare array of deadlines, and
 `validate_company_id` returns the `ValidationResult` object of §3.5 with
 `valid: false` rather than raising on a bad identifier.
+
+`country` defaults to `"NO"` on every tool that takes it, so a UK call must
+pass it explicitly — `lookup_company("00445790", country="GB")`,
+`search_company("tesco", country="GB")`,
+`company_deadlines("00445790", country="GB", today="2026-09-04")`,
+`validate_company_id("445790", country="GB")`. The value is `"GB"`; `"UK"`
+raises `unsupported_country`.
 
 Resource `registry://rules/{country}` — the country's identifier rules, legal
 forms and deadline rules as a document you can read once and reason with,
@@ -444,7 +747,15 @@ Groups, in the order they appear:
   `postal_code`, `city`, `municipality`, `municipality_code`, `country_code`,
   `country_name`), `website`, `email`, `phone`.
 - **Structure** — `parent_id`, `is_subunit`, `in_group`.
-- **Accounts** — `last_annual_accounts_year`.
+- **Accounts** — `last_annual_accounts_year`, plus `published_deadlines`: the
+  filing dates the *register itself* publishes for this company, each with
+  `kind`, `due_date`, `period_start`, `period_end`, the register's own
+  `overdue` flag and a `source` string naming the upstream field it came from.
+  It is `[]` for a register that publishes no such dates (Norway computes all
+  of its own), and populated for `GB`. You rarely need it directly —
+  `company_deadlines` already merges it with the computed rules and says which
+  is which in `applies_because` — but it is there when you want the raw quoted
+  figure and its provenance without a second call.
 - **Provenance** — `confidence` (0.0–1.0), `confidence_basis`, `cached`,
   `fetched_at`, `source`, `source_url`, `license`, `notes`.
 
@@ -460,8 +771,19 @@ the *original* `fetched_at`, so staleness is visible. Cached data is at most 24
 hours old (1 hour for negative results). If a decision depends on today's
 state, say when the data was fetched.
 
+Coverage differs by country, and that is what `null` is for. Norway publishes
+VAT registration, employees, share capital, sector and a purpose clause; the UK
+publishes none of those, and the UK publishes charge and insolvency flags and
+its own filing due dates, which Norway does not. Read `null` as "this register
+does not say" and never as a fact about the company. `notes` is where a country
+module explains anything that a bare `null` would understate.
+
 Attribution: Norwegian data is published under NLOD 2.0 and attribution is
-required. Cite `source` and `source_url` when you present the data to a user.
+required. UK data comes from the Companies House public register, Crown
+copyright, free to re-use with no attribution condition — cite it anyway.
+Cite `source` and `source_url` whenever you present the data to a user; for
+`GB`, `source_url` is the human-readable Companies House record, so it is a
+link the user can open.
 
 
 ## 6. Errors
@@ -502,6 +824,33 @@ in the document — read it before deciding what to do.
 Error codes are stable strings and are never renamed. Branch on `code`, not on
 `message`.
 
+Two `GB` cases worth recognising by their `message` rather than their `code`,
+since both arrive as `502 upstream_error`:
+
+    {
+      "error": {
+        "code": "upstream_error",
+        "message": "This deployment has no Companies House API key, so UK company data cannot be fetched.",
+        "hint": "Call list_countries to see which countries can answer right now. If you run this server yourself, set the COMPANIES_HOUSE_API_KEY environment variable — a key is free from https://developer.company-information.service.gov.uk/get-started — and restart it.",
+        "country": "GB",
+        "registry": "companies-house",
+        "details": {}
+      }
+    }
+
+and *"Companies House rejected the configured API key."* for a wrong or revoked
+one. **Neither is fixed by retrying** — unlike a genuine upstream outage, which
+shares the same code. If the `message` or `hint` names
+`COMPANIES_HOUSE_API_KEY`, stop calling `GB` and tell the user the deployment
+is not configured for the United Kingdom; the other countries in
+`list_countries` still work.
+
+`GB` also has a rate limit of its own, upstream of ours: Companies House allows
+600 requests per five minutes per key, and a `429 rate_limited` from `GB`
+carries a `hint` with the wait derived from the register's own `Retry-After` or
+rate-limit-reset header. Wait that long; parallelising harder makes it worse
+for every user of the same key.
+
 
 ## 7. Limits and etiquette
 
@@ -512,15 +861,26 @@ Error codes are stable strings and are never renamed. Branch on `code`, not on
 - Set `REGISTRY_MCP_CONTACT_EMAIL` when running locally. It goes into the
   `User-Agent` we send upstream; Brønnøysundregistrene asks for a contactable
   client and may block anonymous ones.
+- Set `COMPANIES_HOUSE_API_KEY` when running locally if you want `GB` to
+  answer. A key is free and instant from
+  https://developer.company-information.service.gov.uk/get-started. Without it
+  every other country still works; only `GB` returns `upstream_error`.
+- Companies House allows 600 requests per five minutes **per key**, and that
+  budget is shared with anything else using the same key. The 24 h cache is
+  what keeps a spreadsheet-sized job inside it.
 - Data is company data — public, non-personal. Sole proprietorships (ENK) are
   registered in a person's name, so treat those records with the care you would
-  give personal data.
+  give personal data. UK sole traders are not on the register at all, so a
+  missing UK business is often a real business rather than a bad identifier.
 
 
 ## 8. Adding a country
 
 A country is one folder under `src/registry_mcp/registries/` implementing four
 methods, plus one import line. Nothing country-neutral changes, and every tool
-above starts working for the new code immediately. The template folder `xx/`
-carries the six-step recipe:
+above starts working for the new code immediately. The United Kingdom is the
+proof: `registries/gb/` was added in one folder, with one import line, and
+`GB` appeared in `list_countries`, in every tool, in `/openapi.json` and in
+`registry://rules/GB` with no change to any tool's shape. The template folder
+`xx/` carries the six-step recipe:
 https://github.com/foretak/registry-mcp

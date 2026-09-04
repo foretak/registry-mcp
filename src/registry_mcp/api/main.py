@@ -185,6 +185,23 @@ class HealthResponse(BaseModel):
 _COUNTRIES_EXAMPLE = {
     "countries": [
         {
+            "country": "GB",
+            "registry": "companies-house",
+            "name": "Companies House (United Kingdom)",
+            "id_scheme": "company number",
+            "id_example": "00445790",
+            "id_description": (
+                "A UK company registration number (CRN): 8 characters, either 8 digits "
+                "or a two-letter prefix and 6 digits. Shorter numbers are zero-padded, "
+                "so 445790 is written 00445790. There is no check digit."
+            ),
+            "source_url": "https://api.company-information.service.gov.uk",
+            "license": "Crown copyright — Companies House public register, free to re-use",
+            "is_stub": False,
+            "requires_api_key": True,
+            "api_key_env": "COMPANIES_HOUSE_API_KEY",
+        },
+        {
             "country": "NO",
             "registry": "brreg",
             "name": "Enhetsregisteret (Brønnøysundregistrene)",
@@ -192,12 +209,15 @@ _COUNTRIES_EXAMPLE = {
             "id_example": "923609016",
             "id_description": (
                 "A Norwegian organisasjonsnummer (orgnr): nine digits, the ninth a "
-                "MOD11 check digit."
+                "MOD11 check digit. Written '923 609 016' or '923609016'; a VAT number "
+                "adds 'MVA'."
             ),
             "source_url": "https://data.brreg.no/enhetsregisteret/api",
             "license": "NLOD 2.0",
             "is_stub": False,
-        }
+            "requires_api_key": False,
+            "api_key_env": None,
+        },
     ]
 }
 
@@ -333,11 +353,19 @@ _HEALTH_EXAMPLE = {"status": "ok", "version": __version__, "countries": ["NO"]}
 # ---------------------------------------------------------------------------
 
 _DESCRIPTION = (
-    "Company data for AI agents, any country. One JSON shape, many national business "
-    "registries — a `CompanyReport` from this REST API is byte-identical to the one the MCP "
-    "tools return. First module: Norway's Enhetsregisteret (Brønnøysundregistrene, slug "
-    "`brreg`), looked up by organisasjonsnummer (orgnr, org.nr). Also searchable as: "
-    "brreg, brønnøysund, business registry, company registry, MCP.\n\n"
+    "The company registry MCP: company data for AI agents, any country. One JSON shape, "
+    "many national business registries — a `CompanyReport` from this REST API is "
+    "byte-identical to the one the MCP tools return.\n\n"
+    "Two countries answer today. **Norway** (`/v1/NO/…`) — Enhetsregisteret "
+    "(Brønnøysundregistrene, slug `brreg`), looked up by organisasjonsnummer (orgnr, "
+    "org.nr), with MVA/VAT registration status. **United Kingdom** (`/v1/GB/…`) — "
+    "Companies House, looked up by company number (company registration number, CRN) such "
+    "as `00445790`, with annual accounts and confirmation statement deadlines. The code is "
+    "`GB`; `/v1/UK/…` is a `404 unsupported_country`. `GET /v1/countries` is the live list "
+    "and names any registry that needs a credential (`requires_api_key`, `api_key_env`).\n\n"
+    "Also searchable as: brreg, brønnøysund, enhetsregisteret, organisasjonsnummer, "
+    "norway company lookup, Companies House, company number, uk company lookup, "
+    "uk company search, confirmation statement, business registry, company registry, MCP.\n\n"
     "`GET /llms-full.txt` is the complete reference for an LLM caller: every endpoint, "
     "every error code and what to do about it, and the full `CompanyReport` field list."
 )

@@ -1,6 +1,6 @@
 {
   "name": "@foretak/brreg-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for brreg — look up Norwegian companies in Brønnøysundregistrene / Enhetsregisteret by organisasjonsnummer (orgnr, org.nr): status, VAT (MVA) registration and filing deadlines. Alias package for registry-mcp.",
   "keywords": [
     "brreg",

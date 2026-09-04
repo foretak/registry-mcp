@@ -188,12 +188,12 @@ Two schema constraints that will bite an edit:
 
 ## 6. Posting the articles (`content/`)
 
-Four articles, three versions each, all written and ready in `content/`. Full
+Five articles, three versions each, all written and ready in `content/`. Full
 version of this schedule, plus the rules for whoever posts, is in
 `content/README.md`.
 
 **One article every two days. dev.to first, Reddit r/mcp the same day, kode24
-two days later.** Never post all four at once.
+two days later.** Never post them all at once.
 
 **Status 2026-09-04 (dev.to account `fargeroddotcom`, API key in `~/secrets/registry-mcp/`):**
 
@@ -203,6 +203,7 @@ two days later.** Never post all four at once.
 | 2 | draft id `4575628` — Every filing deadline a Norwegian AS faces this quarter | draft | **2026-09-06** |
 | 3 | draft id `4575623` — Validate and enrich a spreadsheet of Norwegian orgnrs | draft | **2026-09-08** |
 | 4 | draft id `4575624` — Add your country's registry in an afternoon | draft | **2026-09-10** |
+| 5 | not yet uploaded — Check a UK supplier at Companies House from Claude Code | `content/05-uk-companies-house/devto.md` | **2026-09-12** |
 
 Publish a draft with one command (or the *Publish* button in the dev.to dashboard):
 
@@ -219,29 +220,42 @@ Reddit and kode24 versions are not automated — post them by hand on the days a
 | 5 | `03-enrich-spreadsheet` | `03-enrich-spreadsheet` | `02-deadlines` |
 | 7 | `04-add-your-country` | `04-add-your-country` | `03-enrich-spreadsheet` |
 | 9 | — | — | `04-add-your-country` |
+| 11 | `05-uk-companies-house` | `05-uk-companies-house` | — |
+| 13 | — | — | `05-uk-companies-house` |
 
 - [ ] Accounts needed before day 1: dev.to, a Reddit account with enough karma
       to self-post in r/mcp, and a kode24 contact (they take contributed
       pieces; email the editor rather than waiting for a form).
 - [ ] **Replace the placeholders first.** Every article contains
       `api.foretak.dev` and `github.com/foretak/registry-mcp`. If §1's domain
-      or GitHub org came out different, fix all twelve files before posting.
+      or GitHub org came out different, fix all fifteen files before posting.
 - [ ] **Re-run the output blocks if the server has changed since they were
-      written.** Enhetsregisteret is live data — `employees` counts and
-      addresses move. `content/README.md` has the two commands; do not patch a
-      JSON block by hand.
+      written.** Both registers are live data — Norwegian `employees` counts
+      and addresses move, and every UK `due_date`/`days_until` in article 05
+      was true on `today=2026-09-04` and drifts as Companies House rolls each
+      filing cycle. `content/README.md` has the commands; do not patch a JSON
+      block by hand. Article 05's `GB` blocks need `COMPANIES_HOUSE_API_KEY`
+      on the server that produces them.
+- [ ] **Article 05 needs a dev.to draft creating** — the other four are already
+      uploaded. Use `content/publish_devto.py` the same way, from
+      `content/05-uk-companies-house/devto.md`.
 - [ ] Post the Reddit text as a self-post and put the dev.to link in the first
       comment, not the body.
 - [ ] Reply to every comment within 24 h and log the substance in
       `FEEDBACK.md` — those comments are the Phase 4 decision-gate input.
-- [ ] `04-add-your-country` is the recruiting article. Post it last, and pin
-      the "open an issue with your country code and claim it" line. Denmark
-      (CVR) and Sweden (Bolagsverket) are named there as first targets, which
-      matches guide Step 12.
+- [ ] `04-add-your-country` is the recruiting article. Pin the "open an issue
+      with your country code and claim it" line. Denmark (CVR) and Sweden
+      (Bolagsverket) are named there as first targets, which matches guide
+      Step 12.
+- [ ] `05-uk-companies-house` is the proof behind article 04's claim, and the
+      first article aimed at a non-Norwegian audience. Post it two days after
+      04, and consider a UK-developer venue alongside r/mcp.
 
 Note for copy-editors: each article deliberately carries `brreg`,
 `organisasjonsnummer` and `orgnr` in its title or first paragraph
-(`KEYWORDS.md` §2, last row). Do not edit those terms out.
+(`KEYWORDS.md` §2, last row); article 05 carries `Companies House`,
+`company number` and `company registration number` there too (`KEYWORDS.md`
+§GB). Do not edit those terms out.
 
 ---
 

@@ -57,10 +57,37 @@ uv run uvicorn registry_mcp.api.main:app --port 8080   # REST + /mcp
 
 ## Add your country
 
-**Norway is one folder.** So is yours. Nothing in `core/`, `api/` or `mcp/`
-changes — both surfaces, `list_countries`, the OpenAPI document and the rules
-resource all light up for your country automatically once the module registers
-itself.
+**Norway is one folder. So is the United Kingdom, and so is yours.** Nothing in
+`core/`, `api/` or `mcp/` changes — both surfaces, `list_countries`, the
+OpenAPI document and the rules resource all light up for your country
+automatically once the module registers itself.
+
+That is a claim worth checking rather than believing, so here is the receipt.
+The UK module is [`src/registry_mcp/registries/gb/`](src/registry_mcp/registries/gb/):
+four files — `__init__.py`, `client.py`, `mapping.py`, `rules.py` — plus one
+line in `registries/__init__.py`. It is the second country and it was built
+from a specification ([`UK_SPEC.md`](UK_SPEC.md)) written against live upstream
+JSON, not from Norway's code. The moment it registered itself, `GB` appeared in
+`GET /v1/countries`, in `list_countries`, on all five REST routes, in
+`/openapi.json` and at `registry://rules/GB`, with no change to any tool's
+signature or response shape.
+
+Companies House is also as unlike Brønnøysundregistrene as two company
+registers get, which is what makes it a real test rather than a rehearsal. It
+needs an API key; it publishes no VAT status, no employee count and no share
+capital at all; its identifiers have no check digit; its deadlines are
+published by the register rather than computed by us, and they do not roll
+forward off a weekend. Every one of those differences is expressed inside
+`registries/gb/` — as `null`s the mapping is honest about, as notes on the
+report, as a `rules.py` that quotes before it computes.
+
+**One thing `core/` did gain**, and it is worth knowing why. GB was the first
+registry needing a credential, so `Registry` grew two class attributes with
+defaults — `requires_api_key` and `api_key_env` — and `CountryInfo` grew the
+two matching fields, so an agent can discover in advance that a register needs
+a key ([`DECISIONS.md`](DECISIONS.md) D-017). No existing module changed. If
+your register needs something the interface cannot express, that is the same
+kind of finding: say it in the PR rather than working around it.
 
 **Before you start: [open a "new country" issue](https://github.com/foretak/registry-mcp/issues/new?template=new_country.yml)**
 so two people don't build the same module. Say which register you are wrapping
@@ -86,15 +113,31 @@ cp -r src/registry_mcp/registries/xx src/registry_mcp/registries/dk
 3. **`lookup` and `search`** in a `client.py` next to the module. Reuse the
    contract in `NORBIZ_SPEC.md` §6 — 5 s timeout, one retry, a descriptive
    `User-Agent` carrying a contact address — and the 24 h SQLite cache (D-006).
+   If your register needs a credential, read it from the environment **at call
+   time, never at import time** (a missing key must not break
+   `import registry_mcp.registries`), set `requires_api_key` and `api_key_env`
+   on the class, and raise `upstream_error` with a hint naming the variable.
+   `registries/gb/` is the worked example.
 4. **`deadlines`** in a `rules.py`, importing the date helpers from
    `core.rules.common`. Pure function of `(report, today)`. Weekend and public
-   holiday roll-forward belongs here, not in `core`.
+   holiday roll-forward belongs here, not in `core` — and it is optional: UK
+   deadlines are legally due on the date they fall, weekend or not, so
+   `registries/gb/` ships no holiday table and never calls `roll_forward`. If
+   your register publishes its own due dates, quote them and compute only what
+   a cited statute lets you compute, saying which you did in `applies_because`
+   (D-016).
 5. **Register it**: add `from registry_mcp.registries import dk as dk` to
-   `registries/__init__.py`. That is the one line outside your folder.
+   `registries/__init__.py`. That is the one line outside your folder — the
+   same one line `gb` needed.
 6. **Tests.** Write your country's own numbered rules list in the style of
-   `NORBIZ_SPEC.md` §5 and a test per entry, plus fixture-backed client tests.
-   Record at least one real upstream response as a fixture under
-   `tests/fixtures/` — no hand-written JSON standing in for the register.
+   `NORBIZ_SPEC.md` §5 (or `UK_SPEC.md`, which is the more recent worked
+   example) and a test per entry, plus fixture-backed client tests. Record at
+   least one real upstream response as a fixture under `tests/fixtures/` — no
+   hand-written JSON standing in for the register. The UK module shipped with
+   sixteen, chosen so that every branch of its spec has a real payload behind
+   it; eight places where the published schema disagreed with the live API were
+   found that way, and two of them would have produced a wrong answer rather
+   than a crash.
 
 Checklist for the PR:
 
@@ -142,6 +185,7 @@ reason, or add a dependency to do something the standard library does.
 |---|---|
 | [`DECISIONS.md`](DECISIONS.md) | Interface and schema decisions, numbered D-001… Read before changing any model. |
 | [`NORBIZ_SPEC.md`](NORBIZ_SPEC.md) | The Norwegian module in detail, incl. the numbered rules test list |
+| [`UK_SPEC.md`](UK_SPEC.md) | The UK module in detail — the most recent country spec, and the closest model for a new one |
 | [`KEYWORDS.md`](KEYWORDS.md) | The canonical alias vocabulary and where each term must appear |
 | [`legal/terms.md`](legal/terms.md) | Data licensing and attribution obligations |
 

@@ -1,6 +1,6 @@
 # content/ — worked examples
 
-Four articles, three versions each. Every JSON and CSV block in them is real
+Five articles, three versions each. Every JSON and CSV block in them is real
 output from a locally running server, and the exact command that produced it is
 in an HTML comment directly above the block.
 
@@ -10,6 +10,7 @@ in an HTML comment directly above the block.
 | `02-deadlines/` | Every filing deadline a Norwegian AS faces this quarter | `company_deadlines` |
 | `03-enrich-spreadsheet/` | Validate and enrich a spreadsheet of Norwegian org.nrs | `validate_company_id` + `lookup_company` |
 | `04-add-your-country/` | Add your country's company registry in an afternoon | `list_countries`, the `Registry` ABC |
+| `05-uk-companies-house/` | Check a UK supplier at Companies House from Claude Code — and the same tool works for Norway | `lookup_company`, `company_deadlines`, `validate_company_id` |
 
 Each folder has `devto.md` (≤600 words, the long form), `reddit.md` (≤150
 words, for r/mcp) and `no.md` (Norwegian, for kode24 and Norwegian dev
@@ -17,8 +18,10 @@ communities). `03-enrich-spreadsheet/` also has `suppliers.csv`,
 `suppliers-enriched.csv` and `enrich.py`.
 
 Every article names `brreg`, `organisasjonsnummer` and `orgnr` in its title or
-first paragraph (`KEYWORDS.md` §2). The articles are search surface, not only
-prose — do not edit those terms out when copy-editing.
+first paragraph (`KEYWORDS.md` §2); article 05 adds `Companies House`,
+`company number` and `company registration number` in the same places
+(`KEYWORDS.md` §GB). The articles are search surface, not only prose — do not
+edit those terms out when copy-editing.
 
 ## Reproducing the output blocks
 
@@ -31,10 +34,17 @@ uv run python content/call.py lookup_company '{"id": "833285602"}'
 the same shape an agent sees, including the `{"error": {...}}` envelope on
 failure. The `XX` blocks in `04-add-your-country/` need
 `REGISTRY_MCP_INCLUDE_STUBS=1` on the server as well; their comments say so.
+The `GB` blocks in `05-uk-companies-house/` need a Companies House key on the
+server: add `COMPANIES_HOUSE_API_KEY=…` to the same command line. Never put the
+key in a `content/` file, a shell history you commit, or an article.
 
-Re-run these before publishing if the server has changed. Enhetsregisteret is
-live data: `employees` and addresses move, so refresh the blocks rather than
-patching them by hand.
+Re-run these before publishing if the server has changed. Both registers are
+live data: Norwegian `employees` and addresses move, and every UK `due_date`
+and `days_until` in article 05 was true on `today=2026-09-04` and will drift as
+Companies House rolls each company's filing cycle forward. Refresh the blocks
+rather than patching them by hand — and re-check the prose around a
+`days_until` that has gone from negative to positive, or the point of the
+paragraph is gone.
 
 ## Posting schedule
 
@@ -49,6 +59,8 @@ article *n+1*, and the run never has a silent day after day 1.
 | 5 | 03 Enrich spreadsheet | 03 Enrich spreadsheet | 02 Deadlines |
 | 7 | 04 Add your country | 04 Add your country | 03 Enrich spreadsheet |
 | 9 | — | — | 04 Add your country |
+| 11 | 05 UK Companies House | 05 UK Companies House | — |
+| 13 | — | — | 05 UK Companies House |
 
 Rules for whoever posts:
 
@@ -58,8 +70,11 @@ Rules for whoever posts:
   self-post; put the dev.to link in the first comment, not the body.
 - **Reply to every comment within 24 h.** The comments are the point — they are
   the `FEEDBACK.md` input the Phase 4 decision gate reads.
-- **Article 4 is the recruiting one.** Post it last, when the other three have
-  shown the thing works, and pin the "open an issue with your country code"
-  line.
+- **Article 4 is the recruiting one.** Post it after the first three have shown
+  the thing works, and pin the "open an issue with your country code" line.
+- **Article 5 is the proof.** It ships two days after article 4 on purpose: it
+  is the country-two evidence for article 4's claim that a country is one
+  folder, and it is the first article whose audience is not Norwegian. Post it
+  to r/mcp as usual, and consider a UK-developer venue as well.
 - Replace `api.foretak.dev` and `github.com/foretak/registry-mcp` everywhere if
   the real domain or org differs, before the first post.

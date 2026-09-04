@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>registry-mcp — the company registry MCP server</title>
-<meta name="description" content="MCP server and REST API over national business registries. Norway first: Brønnøysundregistrene / Enhetsregisteret — organisasjonsnummer (orgnr) lookup, VAT status, filing deadlines.">
-<meta name="keywords" content="brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, company registry, mcp, mcp server, model context protocol">
+<meta name="description" content="The company registry MCP: an MCP server and REST API over national business registries. Norway — Brønnøysundregistrene / Enhetsregisteret, organisasjonsnummer (orgnr) lookup and VAT status. United Kingdom — Companies House, company number (CRN) lookup, accounts and confirmation statement deadlines.">
+<meta name="keywords" content="brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, company registry, company registry mcp, mcp, mcp server, model context protocol">
 <link rel="canonical" href="https://api.foretak.dev/">
 <style>
   :root {
@@ -62,7 +62,7 @@
 <main>
 
 <h1>registry-mcp — the company registry MCP</h1>
-<p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries; first module Norway (Brønnøysundregistrene / Enhetsregisteret).</p>
+<p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries. Live now: Norway (Brønnøysundregistrene / Enhetsregisteret) and the United Kingdom (Companies House).</p>
 
 <h2>Add to an MCP client</h2>
 <pre><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code></pre>
@@ -70,11 +70,18 @@
 npx registry-mcp    # local stdio server (Node)</code></pre>
 
 <h2>Or call it directly</h2>
+<p>Norway, by organisasjonsnummer (orgnr):</p>
 <pre><code>curl https://api.foretak.dev/v1/NO/company/923609016</code></pre>
 <pre><code>curl "https://api.foretak.dev/v1/NO/search?q=equinor&amp;limit=5"
 curl "https://api.foretak.dev/v1/NO/company/923609016/deadlines?today=2026-01-15"
 curl https://api.foretak.dev/v1/NO/validate/923609016
 curl https://api.foretak.dev/v1/countries</code></pre>
+<p>The United Kingdom, by company number (CRN) — same routes, same JSON shape. The code is <code>GB</code>, not <code>UK</code>:</p>
+<pre><code>curl https://api.foretak.dev/v1/GB/company/00445790</code></pre>
+<pre><code>curl "https://api.foretak.dev/v1/GB/search?q=tesco&amp;limit=5"
+curl "https://api.foretak.dev/v1/GB/company/00445790/deadlines?today=2026-09-04"
+curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
+<p>Companies House publishes each company's own filing dates, so a UK <code>deadlines</code> call quotes the register where it can and computes only from a cited statute where it cannot — every deadline says which in its <code>applies_because</code>.</p>
 
 <h2>Tools</h2>
 <table>
@@ -100,7 +107,7 @@ curl https://api.foretak.dev/v1/countries</code></pre>
   "@type": "WebAPI",
   "name": "registry-mcp",
   "alternateName": ["brreg-mcp", "Foretak Company Registry API"],
-  "description": "MCP server and REST API for company data from national business registries. First module: Norway — Enhetsregisteret / Brønnøysundregistrene (brreg). Look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines.",
+  "description": "The company registry MCP: an MCP server and REST API for company data from national business registries. Norway — Enhetsregisteret / Brønnøysundregistrene (brreg): look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines. United Kingdom — Companies House: look up a company number (company registration number, CRN), search by name, and read the annual accounts and confirmation statement deadlines.",
   "url": "https://api.foretak.dev/",
   "documentation": "https://api.foretak.dev/llms-full.txt",
   "termsOfService": "https://github.com/foretak/registry-mcp/blob/main/legal/terms.md",
@@ -113,12 +120,11 @@ curl https://api.foretak.dev/v1/countries</code></pre>
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
   "inLanguage": "en",
-  "areaServed": {
-    "@type": "Country",
-    "name": "Norway",
-    "identifier": "NO"
-  },
-  "keywords": "brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, company registry, mcp",
+  "areaServed": [
+    {"@type": "Country", "name": "Norway", "identifier": "NO"},
+    {"@type": "Country", "name": "United Kingdom", "identifier": "GB"}
+  ],
+  "keywords": "brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, company registry, company registry mcp, mcp",
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
@@ -135,7 +141,7 @@ curl https://api.foretak.dev/v1/countries</code></pre>
 
 <footer>
 <p>Source, issues and the country-module template: <a href="https://github.com/foretak/registry-mcp">github.com/foretak/registry-mcp</a> — MIT licensed.</p>
-<p>Norwegian data comes from Enhetsregisteret (Brønnøysundregistrene), published under NLOD 2.0. Attribution required; every response carries <code>source</code>, <code>source_url</code> and <code>license</code>.</p>
+<p>Norwegian data comes from Enhetsregisteret (Brønnøysundregistrene), published under NLOD 2.0 — attribution required. UK data comes from the Companies House public register, Crown copyright, free to re-use. Every response carries <code>source</code>, <code>source_url</code> and <code>license</code>, so the citation travels with the data. Not affiliated with or endorsed by Brønnøysundregistrene or Companies House.</p>
 </footer>
 
 </main>

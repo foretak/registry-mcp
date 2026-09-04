@@ -39,6 +39,35 @@ Norwegian ones and never replaced by them: `company-data`, `business-registry`,
 
 ---
 
+## §GB — United Kingdom aliases
+
+Rows 1–10 are Norway's. The UK module (`registries/gb/`, T15) adds its own set,
+governed by the same rules: they go in prose, they go beside the Norwegian
+terms rather than instead of them, and the umbrella rows 11, 11a and 12 still
+lead every headline.
+
+| # | Keyword | Why an agent generates it |
+|---|---|---|
+| GB-1 | `companies house` | The register's name, and the term an LLM produces first for UK company data |
+| GB-2 | `company number` | The identifier's everyday name on the UK register |
+| GB-3 | `company registration number` | The formal name; abbreviated CRN on invoices and contracts |
+| GB-4 | `uk company lookup` | The English task phrase, mirroring row 8 |
+| GB-5 | `uk company search` | The other half of the task phrase — a name, not a number |
+| GB-6 | `confirmation statement` | The UK-specific filing obligation, and the one deadline term with no Norwegian analogue |
+| GB-7 | `companies house api` | What a developer searches for when they already know the upstream |
+
+**`UK` is a keyword, never a country code.** D-015 makes `GB` the only accepted
+code: `get_registry("UK")` raises `unsupported_country`. The alias lives here,
+in prose an agent reads while *finding* the tool, and never in the routing.
+Every surface that carries these terms writes "United Kingdom (GB)" at least
+once so the code is learnable from the same sentence as the alias.
+
+`Companies House` is capitalised as two words in prose and lower-cased only in
+machine keyword arrays (`server.json`, PyPI/npm `keywords`), which are
+case-folded by every index that reads them.
+
+---
+
 ## 2. Where each keyword must appear
 
 | Surface | Which keywords | Rule | Owner |
@@ -48,7 +77,8 @@ Norwegian ones and never replaced by them: `company-data`, `business-registry`,
 | npm `package.json` description + `keywords` | 1–12 + ASCII fallbacks | Mirror PyPI exactly, so a search on either index hits. | T11 |
 | `README.md` first line | 11, 12, then 1, 4, 5, 6 by the third line | An agent reading the repo card sees "company registry" and "MCP" immediately, and "brreg / Enhetsregisteret / organisasjonsnummer (orgnr)" before the fold. | T11 |
 | GitHub repo topics | `mcp`, `mcp-server`, `model-context-protocol`, `brreg`, `bronnoysund`, `enhetsregisteret`, `organisasjonsnummer`, `orgnr`, `norway`, `company-data`, `business-registry`, `ai-agents` | Topics are ASCII and hyphenated only — use the fallback spellings. Max 20 topics. | T11 (human clicks) |
-| MCP tool docstrings (`lookup_company`, `search_company`, `company_deadlines`, `validate_company_id`) | 1–9 in the Norwegian tools' first two sentences | Written as prose an agent reads, not a keyword dump: *"Look up a Norwegian company in Brønnøysundregistrene / Enhetsregisteret by organisasjonsnummer (orgnr, org.nr)."* Country-neutral tools stay neutral — do not push Norway into `list_countries`. | T07 |
+| MCP tool docstrings (`lookup_company`, `search_company`, `company_deadlines`, `validate_company_id`) | 1–9 and GB-1…GB-7 in the per-country tools' first two sentences | Written as prose an agent reads, not a keyword dump: *"Look up a company by its national identifier — a Norwegian organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene / Enhetsregisteret (brreg), or a UK company number (CRN) at Companies House."* One sentence per country, Norway first. Country-neutral tools stay neutral — do not push a country into `list_countries`. | T07, T15c |
+| FastMCP `instructions` and `api/main.py :: _DESCRIPTION` | 11a first, then 1–9 and GB-1…GB-7 | Both lead with "the company registry MCP" (row 11a), then name the live countries with their aliases in one sentence each. These two strings are the first thing a client model reads. | T15c |
 | REST OpenAPI endpoint descriptions | 1, 4, 5, 6 on `/v1/{country}/…` routes | Same prose rule. `/openapi.json` is crawled. | T06 |
 | `server.json` (`description`, `_meta…/keywords`) | `description` is capped at **100 characters** by the schema, so it carries 1, 5/6, 11 only; the full list lives in `_meta.io.modelcontextprotocol.registry/publisher-provided.keywords` | Done in this repo's `server.json`. | T05 (done) |
 | `static/llms.txt` | 1–6 in the opening paragraph | Done. | T05 (done) |

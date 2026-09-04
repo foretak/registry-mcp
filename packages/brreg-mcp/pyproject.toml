@@ -1,6 +1,6 @@
 [project]
 name = "brreg-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server for brreg — look up Norwegian companies in Brønnøysundregistrene / Enhetsregisteret by organisasjonsnummer (orgnr, org.nr): status, VAT (MVA) registration and filing deadlines. Alias package for registry-mcp."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -51,7 +51,7 @@ classifiers = [
 ]
 
 # The whole point of this distribution: install registry-mcp.
-dependencies = ["registry-mcp==0.1.0"]
+dependencies = ["registry-mcp==0.2.0"]
 
 [project.urls]
 Homepage = "https://api.foretak.dev"

@@ -142,13 +142,20 @@ mcp: FastMCP = FastMCP(
     name="registry-mcp",
     version=__version__,
     instructions=(
-        "Company data for AI agents, any country. One JSON shape, many national business "
-        "registries — a lookup_company report here is byte-identical to the REST API's. "
-        "First module: Norway's Enhetsregisteret (Brønnøysundregistrene, brreg), looked up "
-        "by organisasjonsnummer (orgnr, org.nr). Call list_countries first if you are unsure "
-        "a country is supported. Every tool error is JSON: {\"error\": {\"code\", "
-        "\"message\", \"hint\"}} — parse it for what to do next rather than treating it as "
-        "an opaque failure."
+        "The company registry MCP: company data for AI agents, any country. One JSON shape, "
+        "many national business registries — a lookup_company report here is byte-identical "
+        "to the REST API's.\n\n"
+        "Two countries answer today. Norway is country=\"NO\": Enhetsregisteret / "
+        "Brønnøysundregistrene (brreg), looked up by organisasjonsnummer (orgnr, org.nr), "
+        "with MVA/VAT registration. The United Kingdom is country=\"GB\": Companies House, "
+        "looked up by company number (company registration number, CRN) such as 00445790, "
+        "with annual accounts and confirmation statement deadlines. Use \"GB\" — \"UK\" is "
+        "not a country code here and is rejected. Call list_countries first if you are "
+        "unsure a country is supported; it also tells you which registries need an API key "
+        "(requires_api_key, api_key_env) — Companies House does, and a self-hosted "
+        "deployment without COMPANIES_HOUSE_API_KEY set will answer for Norway only.\n\n"
+        "Every tool error is JSON: {\"error\": {\"code\", \"message\", \"hint\"}} — parse it "
+        "for what to do next rather than treating it as an opaque failure."
     ),
 )
 
@@ -160,17 +167,23 @@ mcp: FastMCP = FastMCP(
 
 @mcp.tool
 async def lookup_company(id: str, country: str = "NO") -> dict[str, Any]:
-    """Look up a Norwegian company in Brønnøysundregistrene / Enhetsregisteret (brreg) by
-    organisasjonsnummer (orgnr, org.nr). This is the norway company lookup tool for the
-    norwegian business registry: it returns the full CompanyReport — legal form, status,
-    address, VAT registration, board and accounts duties, employees, and more.
+    """Look up a company by its national identifier and get the full CompanyReport — legal
+    form, status, address, VAT registration where the register publishes it, board and
+    accounts duties, employees, and more.
+
+    `country="NO"` is the norway company lookup for the norwegian business registry:
+    Brønnøysundregistrene / Enhetsregisteret (brreg), by organisasjonsnummer (orgnr,
+    org.nr). `country="GB"` is the uk company lookup at Companies House, by company number
+    (company registration number, CRN) — eight characters, digits or a two-letter prefix
+    and six digits, e.g. 00445790 or OC303675; short numbers are zero-padded for you, and
+    "UK" is not a country code here, use "GB".
 
     Use it once you have the identifier — from the user, an invoice, a contract, or a
     `search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and
-    a VAT suffix ('NO...MVA') are all accepted. Only `country="NO"` is implemented today;
-    call `list_countries` first if you are unsure a country is supported. Read the
-    returned `notes` before acting on the result — it carries caveats such as bankruptcy,
-    a deleted entity, or an unclassified legal form.
+    a Norwegian VAT suffix ('NO...MVA') are all accepted. Call `list_countries` if you are
+    unsure a country is supported. Read the returned `notes` before acting on the result —
+    it carries caveats such as bankruptcy, dissolution, a deleted entity, or an
+    unclassified legal form.
 
     On error, this tool raises with the error text `{"error": {"code", "message",
     "hint"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —
@@ -190,17 +203,24 @@ async def lookup_company(id: str, country: str = "NO") -> dict[str, Any]:
 
 @mcp.tool
 async def search_company(name: str, country: str = "NO", limit: int = 10) -> dict[str, Any]:
-    """Search Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian companies by
-    name, when you have a name rather than an organisasjonsnummer (orgnr, org.nr). This is
-    the norway company lookup tool for the norwegian business registry when the identifier
-    is not yet known.
+    """Search a national company register by name, when you have a name rather than an
+    identifier.
+
+    `country="NO"` searches Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian
+    companies — the norway company lookup tool for the norwegian business registry when the
+    organisasjonsnummer (orgnr, org.nr) is not yet known. `country="GB"` is the uk company
+    search: Companies House by company name, returning each hit's company number
+    (company registration number, CRN).
 
     Use it when a user gives you a company name, then call `lookup_company` with the `id`
     of the right hit for the full report — a search hit is deliberately thin (name, legal
     form, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).
-    Zero hits is not an error: `hits` is `[]`, `total` is `0`, and `hint` says what to try
-    next — Norwegian names are registered upper-case and often carry an 'AS', 'ASA' or
-    'NUF' suffix worth dropping before concluding a company does not exist.
+    Hits arrive in the register's own relevance order, so read each hit's `confidence`
+    rather than assuming the first row is the best one. Zero hits is not an error: `hits`
+    is `[]`, `total` is `0`, and `hint` says what to try next — Norwegian names are
+    registered upper-case and often carry an 'AS', 'ASA' or 'NUF' suffix, and UK names a
+    'LIMITED', 'LTD', 'PLC' or 'LLP' one, worth dropping before concluding a company does
+    not exist.
 
     On error, this tool raises with the error text `{"error": {"code", "message",
     "hint"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and
@@ -219,19 +239,27 @@ async def search_company(name: str, country: str = "NO", limit: int = 10) -> dic
 async def company_deadlines(
     id: str, country: str = "NO", today: str | None = None
 ) -> dict[str, Any]:
-    """Compute the next occurrence of every Norwegian filing deadline (Regnskapsregisteret,
-    Skatteetaten) a company faces, looked up by organisasjonsnummer (orgnr, org.nr) in
-    Brønnøysundregistrene / Enhetsregisteret (brreg). This is the norway company lookup
-    companion tool for the norwegian business registry's statutory calendar.
+    """Give the next occurrence of each statutory filing deadline a company faces.
 
-    Deadlines are computed, never fetched, so the same entity and `today` always produce
-    the same list — pass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to
-    the server's current UTC date. Quote `due_date`, not `statutory_date` — it already
-    accounts for weekends and public holidays; each deadline's `applies_because` states
-    the legal form or flag (and any assumption) behind it, quote it rather than presenting
-    a date as unconditional fact. An empty `deadlines` list is a real answer for a
-    bankrupt, deleted or compulsorily-liquidated entity, or a branch/sub-unit — `notes`
-    explains why.
+    `country="NO"` covers the Norwegian calendar (Regnskapsregisteret, Skatteetaten) for a
+    company looked up by organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene /
+    Enhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,
+    aksjonærregisteroppgaven, mva-melding, a-melding. `country="GB"` covers the two
+    Companies House obligations for a company number (CRN): the annual accounts filing and
+    the confirmation statement (CS01).
+
+    Pass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's
+    current UTC date. Quote `due_date`, not `statutory_date`. Each deadline's
+    `applies_because` states where the date came from — quote it rather than presenting a
+    date as unconditional fact: for Norway it names the legal form or flag and any
+    assumption behind a computed date, and for the UK it says whether the date is
+    Companies House's own published figure or one this tool computed from the statutory
+    period. UK dates never roll forward off a weekend or bank holiday, so `due_date`
+    equals `statutory_date` there; `days_until` goes negative for a filing Companies House
+    still shows as overdue rather than rolling it to the next cycle. An empty `deadlines`
+    list is a real answer — for Norway a bankrupt, deleted or compulsorily-liquidated
+    entity or a branch/sub-unit, and for the UK any company whose status is not active —
+    and `notes` explains why.
 
     On error, this tool raises with the error text `{"error": {"code", "message",
     "hint"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and
@@ -249,11 +277,18 @@ async def company_deadlines(
 
 @mcp.tool
 def validate_company_id(id: str, country: str = "NO") -> dict[str, Any]:
-    """Check whether a Norwegian organisasjonsnummer (orgnr, org.nr) is well-formed for
-    Brønnøysundregistrene / Enhetsregisteret (brreg) — no network call. This is the cheap
-    norway company lookup pre-check for the norwegian business registry: use it on user
-    input or a spreadsheet column before spending a real `lookup_company` call, since it
-    is instant and free.
+    """Check whether a national company identifier is well-formed — no network call.
+
+    `country="NO"` checksum-checks a Norwegian organisasjonsnummer (orgnr, org.nr) for
+    Brønnøysundregistrene / Enhetsregisteret (brreg); this is the cheap norway company
+    lookup pre-check for the norwegian business registry. `country="GB"` shape-checks and
+    normalises a UK company number (company registration number, CRN) for Companies House:
+    it zero-pads a short number ('445790' → '00445790') and upper-cases a prefix
+    ('oc303675' → 'OC303675'). A CRN has no check digit, so a GB `valid: true` means the
+    shape is right and nothing more.
+
+    Use it on user input or a spreadsheet column before spending a real `lookup_company`
+    call, since it is instant and free.
 
     Returns a ValidationResult and never raises for a malformed identifier: `valid: false`
     comes with `reason` (what failed) and `hint` (what to do next) rather than a tool
@@ -276,8 +311,9 @@ def validate_company_id(id: str, country: str = "NO") -> dict[str, Any]:
 @mcp.tool
 def list_countries() -> dict[str, Any]:
     """List every national company registry this service can answer for right now, plus
-    each one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL
-    and licence.
+    each one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL,
+    licence, and whether the upstream register needs a credential (`requires_api_key`, and
+    `api_key_env` naming the environment variable that must be set for it).
 
     Call this before your first lookup in a country you have not used here before, or
     whenever a user names a country you are unsure is supported — never hard-code a
