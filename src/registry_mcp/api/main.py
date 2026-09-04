@@ -38,6 +38,7 @@ from registry_mcp.api.dashboard import dashboard_router
 from registry_mcp.api.errors import install_error_handlers
 from registry_mcp.api.ratelimit import RateLimitMiddleware
 from registry_mcp.api.stats import stats_router
+from registry_mcp.api.status import status_router
 from registry_mcp.core import log
 from registry_mcp.core.models import (
     CompanyReport,
@@ -423,6 +424,7 @@ app.add_middleware(RateLimitMiddleware)
 install_error_handlers(app)
 app.include_router(stats_router)
 app.include_router(dashboard_router)
+app.include_router(status_router)
 app.mount("/mcp", _mcp_app)
 
 
