@@ -165,8 +165,11 @@ def _deleted_error(response: httpx.Response) -> RegistryError:
 
 
 def _rate_limited_error() -> RegistryError:
+    # DECISIONS.md D-019: rate_limited (429), not upstream_error (502) — the
+    # register is not broken, it will succeed shortly, and only the former
+    # tells an agent that.
     return RegistryError(
-        ErrorCode.UPSTREAM_ERROR,
+        ErrorCode.RATE_LIMITED,
         "Brønnøysundregistrene rate-limited this request (429).",
         hint="Wait about a minute, then retry the same call.",
         country="NO",

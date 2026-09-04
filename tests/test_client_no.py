@@ -424,6 +424,19 @@ async def test_95_user_agent_header_contains_contact_email(monkeypatch: pytest.M
 
 
 @respx.mock
+async def test_429_is_rate_limited_not_retried() -> None:
+    """DECISIONS.md D-019: brreg's 429 maps to `rate_limited` (429), the same
+    code Britain uses, not `upstream_error` (502) — the register is not
+    broken, the call will succeed shortly. Never retried."""
+    route = respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(429))
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.lookup("923609016")
+    assert excinfo.value.code is ErrorCode.RATE_LIMITED
+    assert excinfo.value.hint
+    assert route.call_count == 1
+
+
+@respx.mock
 async def test_timeout_retried_once_then_error() -> None:
     route = respx.get(f"{BASE_URL}/enheter/923609016").mock(
         side_effect=httpx.TimeoutException("timed out")
@@ -470,6 +483,11 @@ async def test_search_maps_hal_envelope() -> None:
     assert result.total == 1
     assert result.hits[0].id == "923609016"
     assert result.hint is not None
+    # D-020: `SearchResult.hits` is always confidence-descending, enforced by
+    # a `core/models.py` validator — pinned for Norway too, alongside GB's
+    # equivalent (`tests/test_client_gb.py::test_90_search_tesco_envelope`).
+    confidences = [hit.confidence for hit in result.hits]
+    assert confidences == sorted(confidences, reverse=True)
 
 
 async def test_search_limit_out_of_range_raises_bad_request() -> None:

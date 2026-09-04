@@ -275,7 +275,7 @@ Real obligations, deliberately left out of the first release because getting the
 | 200 | Map and return |
 | 404 on `/enheter` | Retry once against `/underenheter/{orgnr}`; if that is also 404 → `RegistryError(not_found)` |
 | 410 | `RegistryError(not_found)` with `details={"deleted": true}` and the `slettedato` if the body carries one. Defensive: confirmed 2026-09-03 that live deleted entities actually answer `200` with `slettedato` set (see §1.1), not `410` — this row is kept for records outside the API's retention window, unconfirmed |
-| 429 | `RegistryError(upstream_error)`, hint says to retry in a minute |
+| 429 | `RegistryError(rate_limited)`, hint says to retry in a minute (`DECISIONS.md` D-019 — aligned to the same code Britain uses; not retried) |
 | 5xx (after the retry) | `RegistryError(upstream_error)` |
 | timeout (after the retry) | `RegistryError(upstream_timeout)` |
 

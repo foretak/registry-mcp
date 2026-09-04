@@ -27,10 +27,12 @@ from fastmcp.exceptions import ToolError
 
 from registry_mcp.api.main import app
 from registry_mcp.mcp.server import mcp
+from registry_mcp.registries.gb import client as gb_client_module
 from registry_mcp.registries.no import client as client_module
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = client_module.BASE_URL
+GB_BASE_URL = gb_client_module.BASE_URL
 
 
 def _load_fixture(name: str) -> dict[str, Any]:
@@ -39,6 +41,7 @@ def _load_fixture(name: str) -> dict[str, Any]:
 
 
 EQUINOR = _load_fixture("brreg_923609016.json")
+TESCO = _load_fixture("ch_00445790.json")
 
 
 @pytest.fixture(autouse=True)
@@ -52,8 +55,16 @@ def _isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
 @pytest.fixture(autouse=True)
 async def _reset_http_client() -> AsyncIterator[None]:
     client_module._client = None
+    gb_client_module._client = None
     yield
     await client_module.aclose()
+    await gb_client_module.aclose()
+
+
+@pytest.fixture(autouse=True)
+def _gb_api_key(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    monkeypatch.setenv("COMPANIES_HOUSE_API_KEY", "test-key-for-mcp-tests")
+    yield
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +199,17 @@ async def test_list_countries_hides_stub() -> None:
     async with Client(mcp) as client:
         result = await client.call_tool("list_countries", {})
     codes = {row["country"] for row in result.data["countries"]}
-    assert codes == {"NO"}
+    assert codes == {"GB", "NO"}
+
+
+async def test_list_countries_gb_requires_api_key() -> None:
+    async with Client(mcp) as client:
+        result = await client.call_tool("list_countries", {})
+    rows = {row["country"]: row for row in result.data["countries"]}
+    assert rows["GB"]["requires_api_key"] is True
+    assert rows["GB"]["api_key_env"] == "COMPANIES_HOUSE_API_KEY"
+    assert rows["NO"]["requires_api_key"] is False
+    assert rows["NO"]["api_key_env"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +220,15 @@ async def test_list_countries_hides_stub() -> None:
 async def test_rules_resource_no_is_non_empty() -> None:
     async with Client(mcp) as client:
         contents = await client.read_resource("registry://rules/NO")
+    assert len(contents) == 1
+    text = contents[0].text
+    assert isinstance(text, str)
+    assert len(text.strip()) > 0
+
+
+async def test_rules_resource_gb_is_non_empty() -> None:
+    async with Client(mcp) as client:
+        contents = await client.read_resource("registry://rules/GB")
     assert len(contents) == 1
     text = contents[0].text
     assert isinstance(text, str)
@@ -272,6 +302,38 @@ def test_rest_and_mcp_lookup_company_are_identical(monkeypatch: pytest.MonkeyPat
     }
 
 
+@respx.mock
+def test_rest_and_mcp_lookup_company_are_identical_gb(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Same D-004 guarantee as `test_rest_and_mcp_lookup_company_are_identical`,
+    for the second country — the one whose surfaces have a second thing to
+    agree on (`requires_api_key`), and whose cache stores a different payload
+    shape internally (`registries/gb/client.py`'s raw-JSON cache)."""
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_DISABLED", "1")
+    respx.get(f"{GB_BASE_URL}/company/00445790").mock(
+        return_value=httpx.Response(200, json=TESCO)
+    )
+
+    with TestClient(app) as rest_client:
+        rest_body = rest_client.get(
+            "/v1/GB/company/00445790", headers={"X-Forwarded-For": "203.0.113.97"}
+        ).json()
+
+    async def _mcp_call() -> dict[str, Any]:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "lookup_company", {"id": "00445790", "country": "GB"}
+            )
+            data: dict[str, Any] = result.data
+            return data
+
+    mcp_body = anyio.run(_mcp_call)
+
+    volatile = {"fetched_at"}
+    assert {k: v for k, v in rest_body.items() if k not in volatile} == {
+        k: v for k, v in mcp_body.items() if k not in volatile
+    }
+
+
 def test_rest_and_mcp_list_countries_are_identical() -> None:
     """`DECISIONS.md` D-012: `CountriesResponse`/`Registry.country_info()` is
     the one shared builder behind both `GET /v1/countries` and the MCP
@@ -292,7 +354,7 @@ def test_rest_and_mcp_list_countries_are_identical() -> None:
 
     mcp_body = anyio.run(_mcp_call)
     assert rest_body == mcp_body
-    assert {row["country"] for row in rest_body["countries"]} == {"NO"}
+    assert {row["country"] for row in rest_body["countries"]} == {"GB", "NO"}
 
 
 # ---------------------------------------------------------------------------

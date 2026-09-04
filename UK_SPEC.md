@@ -296,7 +296,7 @@ noted. Anything the JSON omits stays `None` — never `""`, never `0`, never a g
 | `previous_names` | `previous_company_names[].name` | `list[str]` | **Newest first.** The API's array is already newest-first (confirmed on `00445790` and `SC090312`, both with two entries), but sort by `ceased_on` descending anyway — it costs a line and makes the guarantee ours rather than theirs |
 | `legal_form_code` | `type` | `str` | The raw enum value, e.g. `"ltd"`. §7 |
 | `legal_form` | derived, §7 | `str` | English label. When `subtype` is present it is appended, e.g. `"Private limited company (community interest company)"` |
-| `legal_form_local` | — | `str \| None` | The register is already in English, so there is no separate local label. Set it to the same English label rather than `None`, so an agent that reads `legal_form_local` for display gets something. `VERIFY` with T15c whether that is more helpful than `None` |
+| `legal_form_local` | — | `None` | **Ruled** (T15c product feedback, post-T15e): always `None`. The register is already in English, so there is no separate *local* label distinct from `legal_form` — copying `legal_form` into it manufactured a second field that always agreed with the first, which is worse than leaving it honestly absent (D-004's "unknown is `None`") |
 | `limited_liability` | derived, §7 | `bool \| None` | |
 | `has_board_duty` | derived, §7 | `bool \| None` | `None` for LLPs: an LLP has designated members, not a board (§7) |
 | `has_annual_accounts_duty` | derived, §7 | `bool \| None` | |
@@ -896,8 +896,11 @@ omitting them. Each needs a source check before it ships.
 ```
 
 That `message` is a Java framework string, not something to show an agent, and `timestamp` would
-make our output non-deterministic. Put `request_id` in `RegistryError.details` when present — it is
-what Companies House support asks for — and write our own message and hint (D-007).
+make our output non-deterministic. **Ruled** (product feedback, post-T15e): do not forward
+`request_id`, or anything else from this body, into `RegistryError.details` either — it is
+Companies House's own support-ticket handle, not something a caller of this service can act on, and
+`details` is documented as minimal and ours (D-007), not a pass-through for whatever an upstream
+error body happens to contain. Write our own message and hint, and leave `details` empty here.
 
 A 429 maps to `rate_limited` (HTTP 429) rather than to `upstream_error` (HTTP 502). This differs
 from `registries/no/client.py`, which maps brreg's 429 to `upstream_error`. `rate_limited` is the
@@ -1377,8 +1380,9 @@ Subject is an active `ltd` unless stated. `today` is given per test.
 98. A 401 returning the live body of `ch_401.json` raises `upstream_error` whose hint names
     `COMPANIES_HOUSE_API_KEY`; a 403 does the same. Neither is retried.
 99. A 404 returning the live body of `ch_404.json` raises `not_found` whose hint mentions both
-    `search_company` and sole traders, whose `details` carries the upstream `request_id`, and whose
-    `message` contains **none** of the upstream body's text. The mock was called exactly **once**.
+    `search_company` and sole traders, whose `details` is empty (product ruling, post-T15e: the
+    upstream `request_id` is never forwarded), and whose `message` contains **none** of the upstream
+    body's text. The mock was called exactly **once**.
 100. A 429 carrying `Retry-After: 300` raises `rate_limited` whose hint contains `300`; a 429
     carrying only `x-ratelimit-reset` renders a wait from it; a 429 with neither still raises
     `rate_limited` with a usable hint. Never retried — the mock was called exactly once.
