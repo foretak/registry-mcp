@@ -195,6 +195,23 @@ version of this schedule, plus the rules for whoever posts, is in
 **One article every two days. dev.to first, Reddit r/mcp the same day, kode24
 two days later.** Never post all four at once.
 
+**Status 2026-09-04 (dev.to account `fargeroddotcom`, API key in `~/secrets/registry-mcp/`):**
+
+| # | dev.to | State | Publish on |
+|---|---|---|---|
+| 1 | https://dev.to/fargeroddotcom/check-a-norwegian-supplier-is-vat-registered-before-you-pay-the-invoice-pb9 | **PUBLISHED** 2026-09-04 | — |
+| 2 | draft id `4575628` — Every filing deadline a Norwegian AS faces this quarter | draft | **2026-09-06** |
+| 3 | draft id `4575623` — Validate and enrich a spreadsheet of Norwegian orgnrs | draft | **2026-09-08** |
+| 4 | draft id `4575624` — Add your country's registry in an afternoon | draft | **2026-09-10** |
+
+Publish a draft with one command (or the *Publish* button in the dev.to dashboard):
+
+```bash
+DEVTO_API_KEY=$(cat ~/secrets/registry-mcp/devto-api-key.txt) python content/publish_devto.py publish 4575628
+```
+
+Reddit and kode24 versions are not automated — post them by hand on the days above.
+
 | Day | dev.to (`devto.md`) | r/mcp (`reddit.md`) | kode24 (`no.md`) |
 |---|---|---|---|
 | 1 | `01-vat-check` | `01-vat-check` | — |
