@@ -1,0 +1,135 @@
+{
+  "serverInfo": {
+    "name": "registry-mcp",
+    "version": "0.1.0"
+  },
+  "authentication": {
+    "required": false,
+    "schemes": []
+  },
+  "tools": [
+    {
+      "name": "lookup_company",
+      "description": "Look up a Norwegian company in Brønnøysundregistrene / Enhetsregisteret (brreg) by\norganisasjonsnummer (orgnr, org.nr). This is the norway company lookup tool for the\nnorwegian business registry: it returns the full CompanyReport — legal form, status,\naddress, VAT registration, board and accounts duties, employees, and more.\n\nUse it once you have the identifier — from the user, an invoice, a contract, or a\n`search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and\na VAT suffix ('NO...MVA') are all accepted. Only `country=\"NO\"` is implemented today;\ncall `list_countries` first if you are unsure a country is supported. Read the\nreturned `notes` before acting on the result — it carries caveats such as bankruptcy,\na deleted entity, or an unclassified legal form.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —\nfix it or call `search_company` with the company name instead of retrying the same\nstring. `not_found` means the identifier is well-formed but no such entity exists —\ncall `search_company`. `unsupported_country` means no module exists for that country\nyet — call `list_countries`. `upstream_error`/`upstream_timeout` means the national\nregister is unavailable; it has already been retried once here, so wait roughly a\nminute before trying again yourself.",
+      "inputSchema": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "country": {
+            "default": "NO",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search_company",
+      "description": "Search Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian companies by\nname, when you have a name rather than an organisasjonsnummer (orgnr, org.nr). This is\nthe norway company lookup tool for the norwegian business registry when the identifier\nis not yet known.\n\nUse it when a user gives you a company name, then call `lookup_company` with the `id`\nof the right hit for the full report — a search hit is deliberately thin (name, legal\nform, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).\nZero hits is not an error: `hits` is `[]`, `total` is `0`, and `hint` says what to try\nnext — Norwegian names are registered upper-case and often carry an 'AS', 'ASA' or\n'NUF' suffix worth dropping before concluding a company does not exist.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and\nretry. `unsupported_country` means call `list_countries` first.\n`upstream_error`/`upstream_timeout` means the national register is unavailable; wait\nroughly a minute and retry at most once more.",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "country": {
+            "default": "NO",
+            "type": "string"
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "company_deadlines",
+      "description": "Compute the next occurrence of every Norwegian filing deadline (Regnskapsregisteret,\nSkatteetaten) a company faces, looked up by organisasjonsnummer (orgnr, org.nr) in\nBrønnøysundregistrene / Enhetsregisteret (brreg). This is the norway company lookup\ncompanion tool for the norwegian business registry's statutory calendar.\n\nDeadlines are computed, never fetched, so the same entity and `today` always produce\nthe same list — pass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to\nthe server's current UTC date. Quote `due_date`, not `statutory_date` — it already\naccounts for weekends and public holidays; each deadline's `applies_because` states\nthe legal form or flag (and any assumption) behind it, quote it rather than presenting\na date as unconditional fact. An empty `deadlines` list is a real answer for a\nbankrupt, deleted or compulsorily-liquidated entity, or a branch/sub-unit — `notes`\nexplains why.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and\nretry. Any `lookup_company` error code (`invalid_id`, `not_found`,\n`unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,\nsince this tool looks the entity up first — follow that code's hint.",
+      "inputSchema": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "country": {
+            "default": "NO",
+            "type": "string"
+          },
+          "today": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "validate_company_id",
+      "description": "Check whether a Norwegian organisasjonsnummer (orgnr, org.nr) is well-formed for\nBrønnøysundregistrene / Enhetsregisteret (brreg) — no network call. This is the cheap\nnorway company lookup pre-check for the norwegian business registry: use it on user\ninput or a spreadsheet column before spending a real `lookup_company` call, since it\nis instant and free.\n\nReturns a ValidationResult and never raises for a malformed identifier: `valid: false`\ncomes with `reason` (what failed) and `hint` (what to do next) rather than a tool\nerror — this tool answers a question, it does not fail on bad input\n(`DECISIONS.md` D-010). A valid identifier does not mean the entity exists; follow it\nwith `lookup_company` if you need facts.\n\nThe only real error here is `unsupported_country` (no module for that country yet —\ncall `list_countries`), raised with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`.",
+      "inputSchema": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "country": {
+            "default": "NO",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_countries",
+      "description": "List every national company registry this service can answer for right now, plus\neach one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL\nand licence.\n\nCall this before your first lookup in a country you have not used here before, or\nwhenever a user names a country you are unsure is supported — never hard-code a\ncountry list of your own, since it grows as registry modules are added with no change\nto any other tool's shape. Stub/example modules are hidden; only registries that\nactually answer are listed. This tool has no error mode; a failure here is a bug, not\nsomething to retry differently.",
+      "inputSchema": {
+        "properties": {},
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  ],
+  "resources": [],
+  "prompts": [
+    {
+      "name": "explain_company",
+      "description": "Explain one company for a non-expert reader: call lookup + deadlines and summarise.",
+      "arguments": [
+        {
+          "name": "id",
+          "description": "National company identifier, e.g. a Norwegian organisasjonsnummer.",
+          "required": true
+        },
+        {
+          "name": "country",
+          "description": "ISO-3166-1 alpha-2 country code. Defaults to NO.",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+name: New country
+description: Claim a country, or request one. One folder, four methods, one import line.
+title: "[country] "
+labels: ["new country", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Open this before you write code**, so two people don't build the same
+        module. Read [Add your country](../blob/main/CONTRIBUTING.md#add-your-country)
+        first — it is six steps and the template does most of them.
+
+        The single most useful thing in this issue is **one real API response**
+        for one real company. That response is what decides whether the mapping
+        is honest, and reviewing it early saves a rewrite later.
+
+  - type: input
+    id: country
+    attributes:
+      label: Country
+      description: Name and ISO-3166-1 alpha-2 code.
+      placeholder: "Denmark (DK)"
+    validations:
+      required: true
+
+  - type: input
+    id: register
+    attributes:
+      label: Register
+      description: The authority and the register, in its own language and in English.
+      placeholder: "Det Centrale Virksomhedsregister (CVR) — Erhvervsstyrelsen"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: intent
+    attributes:
+      label: Are you building it?
+      options:
+        - "Yes — claiming this one, I will open a PR"
+        - "Maybe — I want to, but I have questions first"
+        - "No — requesting it, someone else should build it"
+    validations:
+      required: true
+
+  - type: input
+    id: api
+    attributes:
+      label: API base URL and docs
+      placeholder: "https://cvrapi.dk/ — docs at https://cvrapi.dk/documentation"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: access
+    attributes:
+      label: Access model
+      description: If it needs a key or a contract, say so here — it changes whether we can host it.
+      options:
+        - Open, no registration
+        - Free, requires registration for a key
+        - Free tier with a paid tier above it
+        - Paid only
+        - Unclear — needs checking
+    validations:
+      required: true
+
+  - type: input
+    id: licence
+    attributes:
+      label: Data licence
+      description: >
+        And whether it permits programmatic access and redistribution of the
+        fields we return. Norway's is NLOD 2.0, which requires attribution — we
+        carry it in every response.
+      placeholder: "e.g. CC BY 4.0, or a link to the terms"
+    validations:
+      required: true
+
+  - type: input
+    id: identifier
+    attributes:
+      label: Identifier scheme
+      description: Its local name, its length, and its checksum (if any).
+      placeholder: "CVR-nummer — 8 digits, modulus-11 weighted 2,7,6,5,4,3,2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: One real response
+      description: >
+        A single real company, fetched live, pasted raw. Trim long arrays but do
+        not edit field names or invent values. Include the request URL above it.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: deadlines
+    attributes:
+      label: Statutory filing deadlines
+      description: >
+        Which obligations should `company_deadlines` compute, which authority
+        each is filed with, and the statute or official page that fixes each
+        date. Say which depend on legal form, VAT registration or employees —
+        and which depend on facts the register does not publish.
+      placeholder: |
+        - Annual accounts (årsrapport) — Erhvervsstyrelsen, 5 months after year end, § …
+        - VAT return (momsangivelse) — quarterly or half-yearly depending on turnover (not published)
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything that will not fit
+      description: >
+        Fields with no equivalent in `CompanyReport`, a status this country has
+        that ours does not, an identifier that is not stable. This is the useful
+        part — a country that does not fit the abstraction is a bug in `core/`,
+        and we would rather hear about it now.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked no open issue or PR already claims this country.
+          required: true
+        - label: I read `CONTRIBUTING.md` § Add your country.
+          required: true
+        - label: The sample response above is real, fetched from the live API.
+          required: true

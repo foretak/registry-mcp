@@ -1,0 +1,62 @@
+{
+  "name": "registry-mcp",
+  "version": "0.1.0",
+  "mcpName": "io.github.foretak/registry-mcp",
+  "description": "Company data for AI agents, any country. MCP server and REST API over national business registries — first module: Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, company lookup by organisasjonsnummer, orgnr or org.nr).",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "modelcontextprotocol",
+    "model-context-protocol",
+    "ai-agents",
+    "company-data",
+    "company-registry",
+    "company-lookup",
+    "business-registry",
+    "brreg",
+    "brønnøysund",
+    "brønnøysundregistrene",
+    "bronnoysund",
+    "bronnoysundregistrene",
+    "enhetsregisteret",
+    "organisasjonsnummer",
+    "orgnr",
+    "org.nr",
+    "foretak",
+    "norway",
+    "norway-company-lookup",
+    "norwegian-business-registry",
+    "vat",
+    "mva"
+  ],
+  "homepage": "https://github.com/foretak/registry-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/foretak/registry-mcp/issues"
+  },
+  "license": "MIT",
+  "author": "Kim",
+  "type": "commonjs",
+  "bin": {
+    "registry-mcp": "bin/registry-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foretak/registry-mcp.git",
+    "directory": "packages/npm/registry-mcp"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -36,9 +36,13 @@ grep -rn --exclude-dir=.git --exclude-dir=.venv -i -e 'foretak' -e 'api\.foretak
 
 Two known inconsistencies to fix in the same pass:
 
-- `README.md` currently says `https://api.example.dev` in the add-to-Claude-Code
-  and curl examples. It should say `https://api.foretak.dev` (or the final
-  domain). **T11 owns `README.md`** — T05 did not edit it.
+- ~~`README.md` says `https://api.example.dev`~~ — **fixed by T11 (2026-09-04)**;
+  it now says `https://api.foretak.dev` throughout, so it is covered by the same
+  search-replace as everything else. Note that `README.md`'s **first line** is
+  the MCP registry's PyPI ownership marker
+  `<!-- mcp-name: io.github.foretak/registry-mcp -->` — if the GitHub org
+  changes, that line, `packages/npm/registry-mcp/package.json`'s `mcpName` and
+  `server.json`'s `name` must all change together or publishing is rejected.
 - `pyproject.toml` `[project.urls]` already points at `github.com/foretak/…`, so
   it is covered by the same replace.
 
@@ -59,8 +63,13 @@ that GitHub namespace. A mismatch is rejected at publish time, not later.
 | Result | `ok -- validation done` |
 | Recorded in | `server.json` `$schema`, and `_meta.io.modelcontextprotocol.registry/publisher-provided.schemaFetchedAt` |
 
-**Before publishing (T11), re-check the schema version.** The MCP registry
-publishes dated schemas and rotates them; re-run the probe above and re-validate.
+**T11 re-checked this on 2026-09-04: `2025-12-11` is still current.** Probed
+`static.modelcontextprotocol.io` for `2026-01-15`, `2026-03-01`, `2026-06-01`,
+`2026-07-01` and `2026-09-01` → all 404; `2025-12-11` → 200; and a live
+`GET https://registry.modelcontextprotocol.io/v0/servers?limit=1` still returns
+entries carrying that `$schema`. `server.json` needs no change. Re-run the probe
+anyway if more than a month passes before you publish.
+
 Two schema constraints that will bite an edit:
 
 - `description` is capped at **100 characters**. The full keyword list therefore
@@ -79,26 +88,44 @@ Two schema constraints that will bite an edit:
       public. Repo topics per `KEYWORDS.md` §2 — topics can only be set through
       the web UI or an authenticated `gh` call.
 - [ ] PyPI account + project names `registry-mcp` and the alias `brreg-mcp`.
-- [ ] npm account + package names `registry-mcp` and the alias `brreg-mcp`.
+      **Both free on PyPI as of 2026-09-04.**
+- [ ] npm account + package name `registry-mcp` (**free**) and the alias.
+      ⚠️ **`brreg-mcp` on npm is already taken** — by `hellosverre`, v0.1.1,
+      published 2026-04-23 (`github.com/hellosverre/brreg-mcp`), an unrelated
+      Norwegian brreg MCP server. T11 has prepared the npm alias as
+      **`@foretak/brreg-mcp`**, which is publishable today; the installed
+      command is still `brreg-mcp`. Creating the free npm org `@foretak`
+      (<https://www.npmjs.com/org/create>) is a prerequisite. Alternatives and
+      the trade-offs are in `SUBMISSIONS.md` § Prerequisites — **decide before
+      publishing.** Note also that this means **a competing brreg MCP server
+      already exists** with a five-month head start; read it before launch.
 - [ ] A contact inbox that a human reads: `hello@<domain>`. It goes into the
       JSON-LD and, via `REGISTRY_MCP_CONTACT_EMAIL`, into the `User-Agent` we
       send to Brønnøysundregistrene — they may block anonymous clients.
 - [ ] VPS (Hetzner Helsinki or Norwegian), smallest instance.
 - [ ] Official MCP registry publish: needs a GitHub login for the namespace
-      check on `io.github.foretak/registry-mcp`.
-- [ ] Smithery, Glama, PulseMCP, mcp.so, MCP Market — each needs a login. T11
-      prepares the submission files and `SUBMISSIONS.md`.
+      check on `io.github.foretak/registry-mcp`. The account must own or admin
+      the `foretak` org — see §7 for the command sequence.
+- [ ] Smithery, Glama, mcp.so, MCP Market — each needs a login. **PulseMCP is
+      closed to submissions** as of 2026-09-04 and ingests from the official
+      registry instead, so #1 covers it. T11 has prepared every manifest and
+      written the exact steps per registry in **`SUBMISSIONS.md`**.
+- [ ] **A 400×400 PNG icon.** Cline's marketplace requires one, and Smithery,
+      mcp.so and the appcypher awesome list all take one. It is the only thing
+      blocking the Cline listing (`SUBMISSIONS.md` §10).
 
 ---
 
 ## 4. Content that must exist before the homepage goes live
 
-- [ ] **`legal/terms.md`** — `static/index.html`'s JSON-LD `termsOfService`
-      points at `https://github.com/foretak/registry-mcp/blob/main/legal/terms.md`.
-      The `legal/` folder is currently empty, so that link 404s until the file
-      is written. Either write it or change the JSON-LD field. It must at
-      minimum state the NLOD 2.0 attribution requirement for Enhetsregisteret
-      data and that the service gives no warranty of accuracy.
+- [x] **`legal/terms.md`** — **written by T11.** It covers the NLOD 2.0
+      attribution condition (and that the obligation passes to the user), the
+      no-warranty and no-affiliation statements, the calendar-year caveat on
+      computed deadlines, the 60/min rate limit and bulk-download etiquette, and
+      personal data in register records. `static/index.html`'s JSON-LD
+      `termsOfService` link now resolves. **One thing still to do:** the contact
+      line says `hello@foretak.dev` and is marked as a placeholder — replace it
+      with the real inbox from §3 before launch.
 - [ ] **NLOD 2.0 attribution** is a licence condition, not a courtesy. Every
       response already carries `source`, `source_url` and `license`; keep the
       footer line on the homepage too.
@@ -158,3 +185,98 @@ two days later.** Never post all four at once.
 Note for copy-editors: each article deliberately carries `brreg`,
 `organisasjonsnummer` and `orgnr` in its title or first paragraph
 (`KEYWORDS.md` §2, last row). Do not edit those terms out.
+
+---
+
+## 7. Publishing and registry submissions (T11)
+
+Everything is built and verified locally; **nothing has been published or
+pushed**. `SUBMISSIONS.md` is the full runbook — one section per registry, with
+what each one actually takes as of 2026-09-04. This section is only the parts
+that are pure "human runs a command".
+
+### 7.1 Publish the packages (do this first)
+
+The official MCP registry validates that the packages in `server.json` exist and
+carry ownership markers, so PyPI and npm come before every registry submission.
+
+```bash
+# PyPI — canonical, then the alias
+uv build
+uvx twine upload dist/registry_mcp-0.1.0*
+(cd packages/brreg-mcp && uv build && uvx twine upload dist/brreg_mcp-0.1.0*)
+
+# npm — canonical, then the alias (scoped; see §3 for why)
+# Create the free org @foretak at https://www.npmjs.com/org/create first.
+(cd packages/npm/registry-mcp && npm publish --access public)
+(cd packages/npm/brreg-mcp    && npm publish --access public)   # @foretak/brreg-mcp
+```
+
+Then re-run the done-check against what is actually on the indexes, from a
+machine that has never seen this repo:
+
+```bash
+uvx registry-mcp          < tests/fixtures/tools_list.jsonl   # 5 tools
+uvx brreg-mcp             < tests/fixtures/tools_list.jsonl   # same 5 tools
+npx -y registry-mcp       < tests/fixtures/tools_list.jsonl
+npx -y @foretak/brreg-mcp < tests/fixtures/tools_list.jsonl
+```
+
+**Ownership markers — do not remove them.** `README.md`'s first line is
+`<!-- mcp-name: io.github.foretak/registry-mcp -->` and
+`packages/npm/registry-mcp/package.json` carries
+`"mcpName": "io.github.foretak/registry-mcp"`. Both must match `server.json`'s
+`name` exactly, so if the GitHub org changes, all three change together (§1).
+
+### 7.2 Official MCP registry
+
+```bash
+brew install mcp-publisher            # or the curl installer in SUBMISSIONS.md §1
+
+mcp-publisher validate server.json    # NOT `init` — that would overwrite it
+mcp-publisher login github            # ← browser, GitHub device flow, foretak org
+mcp-publisher publish
+
+curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=registry-mcp" | head -c 800
+```
+
+### 7.3 GitHub repo topics, description and labels
+
+Topics cannot be set by a `git push` — it is the web UI or an authenticated
+`gh` call. ASCII and hyphenated only, max 20 (`KEYWORDS.md` §2):
+
+```bash
+gh repo edit foretak/registry-mcp \
+  --add-topic mcp --add-topic mcp-server --add-topic model-context-protocol \
+  --add-topic brreg --add-topic bronnoysund --add-topic enhetsregisteret \
+  --add-topic organisasjonsnummer --add-topic orgnr --add-topic norway \
+  --add-topic company-data --add-topic business-registry --add-topic ai-agents
+
+gh repo edit foretak/registry-mcp \
+  --description "Company data for AI agents, any country. MCP server and REST API over national business registries — Norway first (brreg / Enhetsregisteret, orgnr lookup)." \
+  --homepage "https://api.foretak.dev"
+
+gh label create "good first issue" --color 7057ff --description "Good for newcomers" --force
+gh label create "new country"      --color 0e8a16 --description "A new national registry module" --force
+gh label create "norway"           --color 1d76db --description "The NO module" --force
+```
+
+Optional extra topics within the cap: `bronnoysundregistrene`,
+`company-registry`, `foretak`, `open-data`, `rest-api`, `fastapi`, `python`,
+`vat`.
+
+- [ ] File the three drafts in `.github/SEED_ISSUES.md` as issues, labelled
+      `good first issue`. The bodies are ready to paste.
+
+### 7.4 Two decisions only you can make
+
+- [ ] **Does the alias get its own MCP-registry entry?** `brreg-mcp` is already
+      an alias on PyPI and npm, where keyword search is the discovery mechanism.
+      A second registry entry (`io.github.foretak/brreg-mcp`) would double the
+      surface but lists the same server twice, which the registry's moderation
+      policy discourages. T11's recommendation is **one entry**. Reasoning in
+      `SUBMISSIONS.md` §1.
+- [ ] **`glama.json`'s `maintainers` is `["foretak"]`**, the org slug, but
+      Glama's docs describe the field as GitHub *usernames*. If the claim flow
+      does not recognise it, put the personal username there and re-run the
+      claim flow — Glama only re-reads the file when you do.

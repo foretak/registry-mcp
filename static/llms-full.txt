@@ -247,12 +247,13 @@ Errors:
 explicitly whenever you want a reproducible answer, or when reasoning about a
 date that is not today.
 
-Response:
+Response — a `DeadlineReport` document, never a bare list:
 
     {
       "country": "NO",
       "registry": "brreg",
-      "id": "923609016",
+      "company_id": "923609016",
+      "company_name": "EQUINOR ASA",
       "today": "2026-01-15",
       "deadlines": [
         {
@@ -265,14 +266,27 @@ Response:
           "due_date": "2026-02-02",
           "rolled_forward": true,
           "period_label": "2025",
+          "period_start": "2025-01-01",
+          "period_end": "2025-12-31",
           "recurrence": "annual",
           "mandatory": true,
-          "applies_because": "An ASA must file the shareholder register statement for the preceding income year. Assumes a calendar-year accounting period.",
-          "days_until": 18
+          "applies_because": "An ASA company must file the shareholder register statement (RF-1086) with Skatteetaten. Assumes a calendar-year accounting period.",
+          "days_until": 18,
+          "source_url": null
         }
       ],
-      "notes": ["Annual dates assume a calendar-year accounting period; the register does not publish deviating accounting years."]
+      "notes": ["Filing deadlines are computed assuming a calendar-year accounting period. A company with a deviating accounting year (avvikende regnskapsår) will have different actual dates, and Enhetsregisteret does not publish which companies those are."]
     }
+
+The `deadlines` array is truncated to one entry above. The real call for
+923609016 on 2026-01-15 returns six, sorted by `due_date`:
+`shareholder_register_statement` (2026-02-02), `payroll_report` (2026-02-05),
+`vat_return` (2026-02-10), `tax_return` (2026-06-01), `general_meeting`
+(2026-06-30), `annual_accounts` (2026-07-31).
+
+MCP `company_deadlines` returns this identical document — same keys, same
+`company_id`/`company_name`/`today`/`notes` envelope. Do not expect a bare
+array on either surface.
 
 How to read it:
 - `statutory_date` is the date in the statute. `due_date` is the date to act
@@ -305,24 +319,47 @@ lookups. Cheap and instant — prefer it to a speculative lookup.
 
     curl https://api.foretak.dev/v1/NO/validate/923609016
 
-Response:
+Response — a `ValidationResult` document:
 
     {
       "country": "NO",
       "registry": "brreg",
+      "id_scheme": "organisasjonsnummer",
       "input": "923 609 016",
       "valid": true,
-      "normalised": "923609016",
+      "normalized": "923609016",
       "formatted": "923 609 016",
-      "id_scheme": "organisasjonsnummer",
-      "reason": "Nine digits with a valid MOD11 check digit."
+      "reason": "Well-formed organisasjonsnummer for NO. A valid identifier does not mean the entity exists — call lookup to find out.",
+      "hint": null
     }
 
-An invalid identifier returns `200` with `"valid": false` and a `reason` — this
-endpoint answers a question rather than failing. `404 unsupported_country` is
-the only common error.
+Note the key is `normalized`, spelled with a `z`, in every response on both
+surfaces. `input` is echoed back exactly as you sent it, punctuation and all;
+`normalized` is the digits-only form to feed to a lookup, and `formatted` is
+the country's own typography (Norway groups the nine digits in threes).
+`formatted` is `null` for a country with no such convention.
 
-Valid format does **not** mean the company exists. `833286602` is a
+An invalid identifier returns `200` with `"valid": false` — this endpoint
+answers a question rather than failing, and is the one deliberate exception to
+the raise-on-failure rule in §6. `reason` says what is wrong and `hint` says
+what to call instead:
+
+    {
+      "country": "NO",
+      "registry": "brreg",
+      "id_scheme": "organisasjonsnummer",
+      "input": "833286602",
+      "valid": false,
+      "normalized": null,
+      "formatted": null,
+      "reason": "'833286602' is not a valid Norwegian organisasjonsnummer.",
+      "hint": "An organisasjonsnummer is nine digits with a MOD11 check digit, e.g. 923609016. If you have a company name instead, call search_company."
+    }
+
+`404 unsupported_country` is the only common error. MCP `validate_company_id`
+returns the same document.
+
+Valid format does **not** mean the company exists. `833286602` above is a
 well-known example of a string that looks right and is not: it fails MOD11 and
 no such entity exists. Follow a successful validation with `lookup_company` if
 you need facts.
@@ -345,9 +382,15 @@ or run it locally over stdio with `uvx registry-mcp` / `npx registry-mcp`.
 |---|---|---|---|
 | `lookup_company` | `(id: str, country: str = "NO")` | `CompanyReport` | §3.2 |
 | `search_company` | `(name: str, country: str = "NO", limit: int = 10)` | `SearchResult` | §3.3 |
-| `company_deadlines` | `(id: str, country: str = "NO", today: str \| None = None)` | `list[Deadline]` | §3.4 |
-| `validate_company_id` | `(id: str, country: str = "NO")` | validation result | §3.5 |
+| `company_deadlines` | `(id: str, country: str = "NO", today: str \| None = None)` | `DeadlineReport` | §3.4 |
+| `validate_company_id` | `(id: str, country: str = "NO")` | `ValidationResult` | §3.5 |
 | `list_countries` | `()` | supported countries | §3.1 |
+
+Every tool returns byte-for-byte the same JSON document as its REST twin — one
+shape per operation across both surfaces. In particular `company_deadlines`
+returns the `DeadlineReport` object of §3.4, not a bare array of deadlines, and
+`validate_company_id` returns the `ValidationResult` object of §3.5 with
+`valid: false` rather than raising on a bad identifier.
 
 Resource `registry://rules/{country}` — the country's identifier rules, legal
 forms and deadline rules as a document you can read once and reason with,

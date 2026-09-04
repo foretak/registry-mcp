@@ -1,0 +1,102 @@
+name: Bug report
+description: Something returned the wrong answer, failed, or contradicts the docs.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. The most useful bug report contains **one identifier
+        and one command** we can paste into a terminal.
+
+        Please do not include API keys, tokens, or the contents of your `.env`.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit it?
+      options:
+        - MCP tool (stdio — uvx / npx)
+        - MCP tool (hosted — https://api.foretak.dev/mcp)
+        - REST API (hosted)
+        - REST API (self-hosted / docker compose)
+        - Python library
+        - Documentation (README, llms.txt, llms-full.txt, OpenAPI)
+    validations:
+      required: true
+
+  - type: input
+    id: country
+    attributes:
+      label: Country
+      description: ISO-3166-1 alpha-2 code. `NO` unless you are working on a new module.
+      placeholder: "NO"
+      value: "NO"
+    validations:
+      required: true
+
+  - type: input
+    id: identifier
+    attributes:
+      label: Company identifier
+      description: >
+        The organisasjonsnummer (or your country's equivalent) that reproduces it.
+        A public company is fine — everything we read is open data.
+      placeholder: "923609016"
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Exact command or tool call
+      description: The curl, the CLI invocation, or the MCP tool call with its arguments.
+      render: shell
+      placeholder: |
+        curl "https://api.foretak.dev/v1/NO/company/923609016/deadlines?today=2026-01-15"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What came back
+      description: Paste the response, or the error envelope. Trim it if it is long, but do not paraphrase it.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead, and why
+      description: >
+        If a field is wrong, say what the register itself says — a link to the
+        entity on data.brreg.no (or your register's equivalent) settles it fastest.
+        If a deadline is wrong, cite the statute or the tax authority's page.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`uvx registry-mcp --version`, the npm package version, or the hosted API's `/health` output."
+      placeholder: "0.1.0"
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, and the MCP client if relevant (Claude Code, Cursor, Claude Desktop…).
+      placeholder: |
+        macOS 15.3, Python 3.12.8, uv 0.5.11, Claude Code
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: The identifier above is real and reproduces the problem.
+        - label: I have removed any credentials from the pasted output.
+          required: true

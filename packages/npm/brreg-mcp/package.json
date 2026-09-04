@@ -1,0 +1,61 @@
+{
+  "name": "@foretak/brreg-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for brreg — look up Norwegian companies in Brønnøysundregistrene / Enhetsregisteret by organisasjonsnummer (orgnr, org.nr): status, VAT (MVA) registration and filing deadlines. Alias package for registry-mcp.",
+  "keywords": [
+    "brreg",
+    "brønnøysund",
+    "brønnøysundregistrene",
+    "bronnoysund",
+    "bronnoysundregistrene",
+    "enhetsregisteret",
+    "organisasjonsnummer",
+    "orgnr",
+    "org.nr",
+    "foretak",
+    "norway",
+    "norway-company-lookup",
+    "norwegian-business-registry",
+    "company-registry",
+    "company-lookup",
+    "company-data",
+    "business-registry",
+    "vat",
+    "mva",
+    "mcp",
+    "mcp-server",
+    "modelcontextprotocol",
+    "model-context-protocol",
+    "ai-agents"
+  ],
+  "homepage": "https://github.com/foretak/registry-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/foretak/registry-mcp/issues"
+  },
+  "license": "MIT",
+  "author": "Kim",
+  "type": "commonjs",
+  "bin": {
+    "brreg-mcp": "bin/brreg-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foretak/registry-mcp.git",
+    "directory": "packages/npm/brreg-mcp"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

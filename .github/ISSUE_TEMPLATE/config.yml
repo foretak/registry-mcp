@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Add your country
+    url: https://github.com/foretak/registry-mcp/blob/main/CONTRIBUTING.md#add-your-country
+    about: Six steps and a template. Open a "New country" issue to claim one first.
+  - name: Machine-readable docs (what an agent reads)
+    url: https://api.foretak.dev/llms-full.txt
+    about: Endpoint-by-endpoint documentation, response shapes and error handling.
+  - name: Data source and terms
+    url: https://github.com/foretak/registry-mcp/blob/main/legal/terms.md
+    about: Where the data comes from, the NLOD 2.0 attribution condition, and the limits of what we warrant.
