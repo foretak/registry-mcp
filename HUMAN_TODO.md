@@ -203,6 +203,7 @@ two days later.** Never post them all at once.
 | 2 | draft id `4575628` — Every filing deadline a Norwegian AS faces this quarter | draft | **2026-09-06** |
 | 3 | draft id `4575623` — Validate and enrich a spreadsheet of Norwegian orgnrs | draft | **2026-09-08** |
 | 4 | draft id `4575624` — Add your country's registry in an afternoon | draft | **2026-09-10** |
+| 5 | draft id `4576602` — Check a UK supplier at Companies House (and the same tool works for Norway) | draft | **2026-09-14** |
 | 5 | not yet uploaded — Check a UK supplier at Companies House from Claude Code | `content/05-uk-companies-house/devto.md` | **2026-09-12** |
 
 Publish a draft with one command (or the *Publish* button in the dev.to dashboard):
