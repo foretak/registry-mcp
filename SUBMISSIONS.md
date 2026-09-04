@@ -329,6 +329,9 @@ about a month after launch. **No login needed** while it is closed.
 - **Backing repo:** [`chatmcp/mcpso`](https://github.com/chatmcp/mcpso) —
   "directory for Awesome MCP Servers", homepage `https://mcp.so`, issues open
   (3,101 open at time of writing: that is where submissions land)
+- **Status:** submitted 2026-09-04 via Route A —
+  <https://github.com/chatmcp/mcpso/issues/3927> (open; no issue template on
+  the repo, body as below plus the official-registry name).
 
 Two routes; the GitHub issue is free and is the one we use.
 
@@ -401,6 +404,10 @@ before the listing goes live.
 - **Repo:** <https://github.com/punkpeye/awesome-mcp-servers> (the big one)
 - **Rules:** its `CONTRIBUTING.md`
 - **Process:** fork → edit `README.md` → PR
+- **Status:** PR opened 2026-09-04 —
+  <https://github.com/punkpeye/awesome-mcp-servers/pull/13631> (open; from fork
+  `foretak/awesome-mcp-servers`, branch `add-registry-mcp`, inserted between
+  `flox-foundation/flox-mcp` and `Fund-z/fundzwatch-mcp`).
 
 ### Rules that actually get PRs merged here
 
@@ -452,6 +459,13 @@ it; that is out of our hands.
 - **Rules:** its `CONTRIBUTING.md` — search for duplicates first, **one PR per
   suggestion**, add to the **bottom of the relevant category**, keep it
   alphabetical, mind spelling and trailing whitespace.
+- **Status:** blocked 2026-09-04 — the repo is **archived** (last push
+  2026-05-06; `gh api repos/appcypher/awesome-mcp-servers` → `archived: true`),
+  so GitHub refuses new PRs. The change is ready on fork
+  `foretak/awesome-mcp-servers-1`, branch `add-registry-mcp`
+  (<https://github.com/foretak/awesome-mcp-servers-1/tree/add-registry-mcp>);
+  open the PR only if the repo is ever unarchived. No successor list is named in
+  its README.
 
 Different house style from #7: entries lead with a small `<img>` favicon, then
 the bold-free `[Name](url)`, then ` - ` and the description. Descriptions here
