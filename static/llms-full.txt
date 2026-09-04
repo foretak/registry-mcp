@@ -67,7 +67,9 @@ country you have not used here before.
 
     curl https://api.foretak.dev/v1/countries
 
-Response (abridged):
+Response — a `CountriesResponse` document, one `CountryInfo` row per registry
+that can answer right now, sorted by country code. This is the complete
+response today, not an excerpt:
 
     {
       "countries": [
@@ -79,10 +81,18 @@ Response (abridged):
           "id_example": "923609016",
           "id_description": "A Norwegian organisasjonsnummer (orgnr): nine digits, the ninth a MOD11 check digit. Written '923 609 016' or '923609016'; a VAT number adds 'MVA'.",
           "source_url": "https://data.brreg.no/enhetsregisteret/api",
-          "license": "NLOD 2.0"
+          "license": "NLOD 2.0",
+          "is_stub": false
         }
       ]
     }
+
+`id_example` is a real, valid identifier — use it to smoke-test the service in
+a country you have not called before, rather than guessing one. `is_stub` marks
+example/template modules, which are hidden from this list unless stubs are
+explicitly requested; a row you can see is a registry that answers.
+
+MCP `list_countries` returns this identical document.
 
 Errors: none expected. A 500 means a bug here — retry once, then tell the user.
 
@@ -329,7 +339,7 @@ Response — a `ValidationResult` document:
       "valid": true,
       "normalized": "923609016",
       "formatted": "923 609 016",
-      "reason": "Well-formed organisasjonsnummer for NO. A valid identifier does not mean the entity exists — call lookup to find out.",
+      "reason": "Well-formed organisasjonsnummer for NO. A valid identifier does not mean the entity exists — call lookup_company (MCP) or GET /v1/{country}/company/{id} (REST) to find out.",
       "hint": null
     }
 
