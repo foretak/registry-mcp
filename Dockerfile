@@ -54,7 +54,12 @@ USER app
 
 EXPOSE 8080
 
+# Railway injects its own `PORT` at runtime and routes/health-checks against
+# it; docker-compose (see docker-compose.yml/Caddyfile, which hardcode
+# `api:8080`) never sets it, so both fall back to 8080. Shell form (or an
+# explicit `sh -c`, for CMD) is required for `${PORT:-8080}` to expand —
+# exec-form JSON arrays don't run through a shell.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -fsS http://localhost:8080/health || exit 1
+    CMD curl -fsS "http://localhost:${PORT:-8080}/health" || exit 1
 
-CMD ["uvicorn", "registry_mcp.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["sh", "-c", "uvicorn registry_mcp.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

@@ -1,0 +1,31 @@
+# Railway deploy config for registry-mcp (Config as Code).
+# See deploy-railway.md for the full deployment walkthrough.
+#
+# Note (2026-09-04): Railway's docs mark this file format "deprecated" in
+# favour of "Infrastructure as Code" (railway.json/.toml keep working for
+# existing services until 2026-12-01 per docs.railway.com). Config as Code
+# is still the current, documented way to configure a service as of this
+# writing and is what `railway up` picks up automatically from the repo
+# root — revisit if the 2026-12-01 cutover date approaches.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Amsterdam / EU West — closest Railway region to Norway.
+#
+# numReplicas MUST stay 1. The SQLite cache file (DECISIONS.md D-006) lives
+# on a single Railway volume mounted at /app/data. SQLite has no
+# multi-writer story: two replicas opening/writing the same
+# cache.sqlite3 file concurrently would race on the file lock ("database is
+# locked" errors) and can produce corrupt reads. If this service ever needs
+# horizontal scaling, the cache has to move to a shared store (e.g.
+# Postgres/Redis) before numReplicas can go above 1.
+[deploy.multiRegionConfig.europe-west4-drams3a]
+numReplicas = 1
