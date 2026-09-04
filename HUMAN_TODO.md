@@ -280,3 +280,42 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
       Glama's docs describe the field as GitHub *usernames*. If the claim flow
       does not recognise it, put the personal username there and re-run the
       claim flow — Glama only re-reads the file when you do.
+
+---
+
+## 8. Go-to-market outreach — PLACEHOLDER (T14)
+
+`BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in
+`MULTI_AGENT_BUILD_GUIDE.md`) was **never delivered** to the orchestrator, so
+the outreach list that T14 was meant to lift from it does not exist in this
+repo. When the file arrives:
+
+- [ ] Drop it in the repo root.
+- [ ] Copy its outreach list here as §8.1 — who to contact, in what order,
+      with the one-line pitch per segment.
+- [ ] Cross-check its pricing assumptions against `BRREG_MCP_BUILD_PLAN.md`
+      Phase 5 (free MCP stdio forever; charge for hosted volume; first
+      customer 10–30k NOK/month for roadmap input).
+
+Until then, the build plan's own Phase 4 rule applies: **no feature work for
+two weeks after launch.** Read the stats dashboard every morning
+(`https://api.<domain>/v1/stats/dashboard?key=<REGISTRY_MCP_ADMIN_KEY>`),
+log every inbound question in `FEEDBACK.md`, and contact any client with
+more than 100 calls (user agent, GitHub issues) to ask what they'd pay for.
+Decision gate is day 45 — see `BRREG_MCP_BUILD_PLAN.md` §4.3.
+
+---
+
+## 9. Sequence — the shortest path from here to "an agent found us"
+
+1. §3 names: domain, GitHub org, PyPI, npm org (`@foretak`), inbox, VPS.
+   Write them into `NAMES.md`. Decide the npm alias question (§3).
+2. §1 search-replace if anything differs from `foretak`.
+3. Push the repo, set topics/labels (§7.3), file the three seed issues.
+4. Deploy: follow `deploy.md` on the VPS; set `REGISTRY_MCP_CONTACT_EMAIL`,
+   `REGISTRY_MCP_ADMIN_KEY`, `REGISTRY_MCP_DOMAIN`. Smoke-test from your phone:
+   `https://api.<domain>/v1/NO/company/923609016` and `/status`.
+5. Publish packages (§7.1), then the official registry (§7.2), then the rest
+   per `SUBMISSIONS.md`.
+6. Post the articles on the §6 schedule.
+7. Two weeks of watching. Then the day-45 decision gate.
