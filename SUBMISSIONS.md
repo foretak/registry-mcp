@@ -269,6 +269,8 @@ each release; it re-scans the endpoint.
 
 ## 3. Glama
 
+**Status (2026-09-04): submitted for review by Kim** (name `registry-mcp`). Awesome-mcp-servers PR #13631 is gated on the Glama listing + score badge — see §7.
+
 - **Site:** <https://glama.ai/mcp/servers>
 - **Manifest:** [`glama.json`](glama.json) — **created by T11**
 

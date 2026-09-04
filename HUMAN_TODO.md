@@ -144,7 +144,8 @@ Two schema constraints that will bite an edit:
       https://smithery.ai/servers/fargerod/registry-mcp
 - [x] **mcp.so — submission issue open** chatmcp/mcpso#3927 (2026-09-04); **awesome-mcp-servers
       (punkpeye) — PR #13631 open**; appcypher list is archived (skip).
-- [ ] Glama (claim flow, GitHub sign-in) and MCP Market (web form) — browser-only, still yours.
+- [~] **Glama — submitted for review 2026-09-04** by Kim (name `registry-mcp`, repo foretak/registry-mcp). When it appears, the orchestrator adds the Glama score badge to awesome-mcp-servers PR #13631 (their bot requires it before merge). Optional: also list the hosted endpoint at https://glama.ai/mcp/connectors.
+- [ ] MCP Market (web form) — browser-only, still yours.
 - [ ] ~~Smithery, Glama, mcp.so, MCP Market — each needs a login.~~ **PulseMCP is
       closed to submissions** as of 2026-09-04 and ingests from the official
       registry instead, so #1 covers it. T11 has prepared every manifest and
