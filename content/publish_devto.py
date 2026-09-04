@@ -15,11 +15,12 @@ import json
 import os
 import sys
 import urllib.request
+from typing import Any
 
 API = "https://dev.to/api"
 
 
-def _req(method: str, path: str, payload: dict | None = None) -> object:
+def _req(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
     key = os.environ.get("DEVTO_API_KEY")
     if not key:
         sys.exit("DEVTO_API_KEY is not set")
@@ -41,13 +42,13 @@ def _req(method: str, path: str, payload: dict | None = None) -> object:
 
 def main(argv: list[str]) -> int:
     if len(argv) >= 2 and argv[1] == "list":
-        for a in _req("GET", "/articles/me/all?per_page=50"):  # type: ignore[union-attr]
+        for a in _req("GET", "/articles/me/all?per_page=50"):
             state = "PUBLISHED" if a["published"] else "draft"
             print(f'{a["id"]}  {state:9}  {a["title"]}\n           {a["url"]}')
         return 0
     if len(argv) == 3 and argv[1] == "publish":
         a = _req("PUT", f"/articles/{argv[2]}", {"article": {"published": True}})
-        print("published:", a["url"])  # type: ignore[index]
+        print("published:", a["url"])
         return 0
     print(__doc__)
     return 2
