@@ -785,7 +785,13 @@ class SearchResult(_Base):
     country: str = Field(description="ISO-3166-1 alpha-2, upper-case.")
     registry: str = Field(description="Registry slug.")
     query: str = Field(description="The name that was searched for.")
-    hits: list[SearchHit] = Field(default_factory=list, description="Best matches, best first.")
+    hits: list[SearchHit] = Field(
+        default_factory=list,
+        description=(
+            "Best matches, best first: always sorted by `confidence` descending. Hits that "
+            "score equally keep the order the upstream register returned them in."
+        ),
+    )
     total: int = Field(
         default=0, ge=0, description="Total matches upstream, which may exceed len(hits)."
     )
@@ -803,6 +809,27 @@ class SearchResult(_Base):
     @classmethod
     def _upper_country(cls, v: str) -> str:
         return v.upper()
+
+    @field_validator("hits")
+    @classmethod
+    def _best_first(cls, v: list[SearchHit]) -> list[SearchHit]:
+        """Enforce the ordering the ``hits`` description promises (``DECISIONS.md`` D-020).
+
+        The sort lives here, not in a country module, because "best first" is
+        part of the shape both surfaces emit (D-004) and ``search`` is abstract
+        — there is no concrete wrapper to hang it on the way ``validate`` and
+        ``deadline_report`` have one (D-010). A country that forgets to sort is
+        therefore impossible rather than merely tested for, and because this is
+        a validator it also fires on ``SearchResult.model_validate`` of a cached
+        payload, so a cached result and a fresh one cannot disagree about order.
+
+        **Stable, so the register's own relevance order is the tie-break.**
+        D-005's confidence anchors are coarse (0.95/0.8/0.6/0.4) and routinely
+        tie several hits; within a tie the upstream ranking is real information
+        we have no better substitute for. We re-rank by our confidence, we do
+        not discard theirs.
+        """
+        return sorted(v, key=lambda hit: hit.confidence, reverse=True)
 
 
 # ---------------------------------------------------------------------------

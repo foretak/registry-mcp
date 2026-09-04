@@ -236,3 +236,43 @@ Scope is deliberately narrow: this is about an error *code*, not about retry pol
 No existing test asserts Norway's current behaviour, so the change is three lines in `registries/no/client.py` (the code, and a hint that names the wait) plus the `429` row of `NORBIZ_SPEC.md:278`. Owner: the T15b implementer, as a follow-up to T15e; non-blocking for the GB module.
 Reason: two countries answering the same upstream condition with two different error codes is a contract that means nothing to an agent, and the whole point of `core/models.py`'s `ErrorCode` enum is that the agent never has to know which country it is talking to. The second country is the moment such a divergence is cheapest to close — waiting for the third makes it a migration.
 Applies to tasks: T15b, T15e, T16
+
+### D-020 — `SearchResult.hits` is sorted by confidence descending, stably, in `core/models.py` — because the contract already says so
+Date: 2026-09-04
+Decision: `core/models.py :: SearchResult` gains a validator that sorts `hits` by `confidence` **descending, stably**, so the register's own relevance order survives as the tie-break within each confidence tier. No country module sorts; no surface sorts.
+
+The decision is smaller than it looks, because the field is already documented as sorted: `SearchResult.hits` is described as **"Best matches, best first."** (`core/models.py:788`). So this is not a new contract — it is `registries/gb/` failing the existing one, exposed by T15c's real output for `search_company("tesco", country="GB")`: confidences `0.8, 0.4, 0.8`, with a 0.4 hit sitting above a 0.8 hit. Norway passes today only by luck, because brreg's relevance order happens to agree with our scoring; the moment it does not, NO has the same bug and no test would catch it either.
+
+**Why the model and not the country module, or a `Registry.search` wrapper.** D-004's guarantee is that one shape means one thing on both surfaces, and an ordering promise is part of a shape when the field description makes a promise about order. Pushing the sort into each country makes it a rule every future country must remember and no test enforces — which is exactly how it was got wrong here on the first try. There is no concrete `Registry.search` wrapper to hang it on (unlike `validate`/`deadline_report`, D-010): `search` is abstract and returns the model directly, so the model *is* the only country-neutral chokepoint. Putting it in a validator has a second payoff the wrapper would not have had: it also fires on `SearchResult.model_validate(...)` when a search is served from cache (`registries/gb/client.py:373`), so a cached result and a fresh one cannot disagree about order.
+
+**Stable, and descending only.** `sorted(hits, key=lambda h: -h.confidence)` is stable in Python, so hits that score identically stay in the order the register returned them. That matters: D-005's anchors are coarse (0.95/0.8/0.6/0.4) and will routinely tie three or four hits, and within a tie the register's relevance ranking is real information we have no better substitute for. We are re-ranking by our own confidence, not discarding theirs.
+
+Declined: "the contract says register relevance order, read `confidence`". It would require rewriting the `hits` description to promise less, it makes every agent that renders the first hit render a worse one, and it optimises for the caller who reads all ten results over the caller who reads one — which is the opposite of how a tool-calling agent behaves.
+
+Owner: **Opus A (architect)** — `core/models.py` is the architect's file by the D-017/D-018 precedent. Queued to land alongside D-018's `published_deadlines` so the two `core/` edits reach T15b as one re-run. `registries/gb/` and `registries/no/` need no edit; T15b adds one assertion to `UK_SPEC.md` test 90 (hits are non-increasing in `confidence`) and the same to `tests/test_client_no.py`, so the promise is enforced for every country from now on.
+Reason: a field whose description promises an order and whose producer does not deliver it is a contract that lies, and the cheapest place to make it true for every country at once — including on the cache path — is the model that carries the promise.
+Applies to tasks: T15b, T15c, T16
+
+### D-021 — An unrecognised identifier prefix stays `valid: true` and says so in `reason`, never in `hint`
+Date: 2026-09-04
+Decision: `validate_company_id("ZZ12", "GB")` keeps returning `valid: true, normalized: "ZZ000012"`, and gains one sentence in **`reason`**: that `ZZ` is not in the Companies House prefix list this module knows as of 2026-09, and that only `lookup_company` can confirm whether the number exists. The coordinator's middle path, with one correction: the signal goes in `reason`, **not** `hint`.
+
+The correction is not cosmetic. D-013 already ruled that `hint` stays `None` when `valid is True` — moving a caveat into `hint` on a success would contradict D-010, and `tests/test_api.py:128` and `tests/test_interface.py:214` assert the null. `reason` is the field D-010 defines as "why it is valid, or what failed", it is already populated on success, and it already carries a caveat of exactly this species ("a valid identifier does not mean the entity exists"). Appending a second, more specific caveat to it is the change that fits the contract we have.
+
+**The hook, because `core/` cannot know about prefixes.** `Registry` gains one optional method beside `format_id`, the existing precedent for "a country may refine this, and the default is silence":
+
+```python
+def id_caveat(self, id: str) -> str | None:
+    """A caveat about an already-normalised, well-formed identifier. Default: none."""
+    return None
+```
+
+`Registry.validate` (`core/registry.py:234-247`) appends its return value to the success `reason` when it is not `None`. `registries/no/` and `registries/xx/` inherit `None` and are untouched; `registries/gb/rules.py` implements it against the §5.1.2 prefix table.
+
+**This does not make the prefix table a gate, and D-015 is unchanged.** The whole point of D-015 was that rejecting an unknown prefix turns a real company into an `invalid_id` the day Companies House adds one — `OE` arrived with ECTEA 2022 and would have been rejected by any validator written in 2021. `valid` stays `true`, `normalized` stays populated, `UK_SPEC.md` test 25 (`"QQ000001"` is accepted) still passes unchanged, and the *only* thing that changes is that we say out loud what we know and what we do not. That is the honest reading of D-009 applied to an identifier: we are not guessing that `ZZ12` is invalid, we are stating that we cannot vouch for the prefix and naming the call that can. The sentence must carry the as-of date, so a reader can tell a stale table from a bad number.
+
+The requesting use case — a spreadsheet of supplier numbers run through `validate_company_id` before a bulk lookup — is served exactly by this: the row is not rejected, the operator gets a column they can filter on, and the fix for a false signal is one lookup rather than a support ticket about a real company we called invalid.
+
+Owner: **Opus A (architect)** for the `Registry.id_caveat` hook and the two-line change in `Registry.validate`; **T15b** for `registries/gb/rules.py`'s prefix set and sentence, a `UK_SPEC.md` §14 test asserting `valid is True` **and** the caveat present for `"ZZ12"`, and one asserting a known prefix (`"SC090312"`) gets **no** caveat. `hint` must still be `None` in both cases.
+Reason: the failure mode worth designing against is not "an agent trusted a well-formed number", it is "we told an agent a real company was invalid because our table was a year old" — so the answer is to widen what we say, not to narrow what we accept, and to say it in the field the contract has already reserved for saying it.
+Applies to tasks: T15b, T15c, T16

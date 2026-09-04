@@ -231,6 +231,15 @@ class Registry(ABC):
                 reason=exc.message,
                 hint=exc.hint,
             )
+        reason = (
+            f"Well-formed {self.id_scheme or 'identifier'} for {self.country}. "
+            "A valid identifier does not mean the entity exists — call lookup_company "
+            "(MCP) or GET /v1/{country}/company/{id} (REST) to find out."
+        )
+        caveat = self.id_caveat(normalized)
+        if caveat:
+            reason = f"{reason} {caveat}"
+
         return ValidationResult(
             country=self.country,
             registry=self.registry,
@@ -239,11 +248,7 @@ class Registry(ABC):
             valid=True,
             normalized=normalized,
             formatted=self.format_id(normalized),
-            reason=(
-                f"Well-formed {self.id_scheme or 'identifier'} for {self.country}. "
-                "A valid identifier does not mean the entity exists — call lookup_company "
-                "(MCP) or GET /v1/{country}/company/{id} (REST) to find out."
-            ),
+            reason=reason,
         )
 
     # -- optional helpers ----------------------------------------------------
@@ -253,6 +258,34 @@ class Registry(ABC):
 
         Takes an already-normalised identifier. Returns ``None`` when the
         country has no conventional grouping — the default.
+        """
+        return None
+
+    def id_caveat(self, id: str) -> str | None:
+        """Something true and worth saying about an identifier that **passed**.
+
+        Takes an already-normalised, already-valid identifier and returns one
+        sentence to append to :attr:`ValidationResult.reason`, or ``None`` —
+        the default, and what every country gets until it opts in
+        (``DECISIONS.md`` D-021).
+
+        This is for the case where the shape is right but our knowledge is
+        incomplete: a UK company number carrying a prefix that is not in the
+        Companies House prefix list this module knows about, say. Rejecting
+        such a number is the worse error — Companies House adds prefixes (``OE``
+        arrived with ECTEA 2022), and a validator written a year too early turns
+        a real company into an ``invalid_id`` (D-015). So ``valid`` stays
+        ``True`` and we say what we do not know instead, naming the call that
+        settles it.
+
+        Two rules, both load-bearing:
+
+        * The result goes in ``reason``, never in ``hint``. ``hint`` stays
+          ``None`` whenever ``valid is True`` (D-010, restated by D-013), and a
+          caveat is not a next action.
+        * It must never read as a rejection. Date the claim ("not in the list
+          this module knows as of …") so a reader can tell a stale table from a
+          bad number, and name ``lookup_company`` as the thing that confirms.
         """
         return None
 

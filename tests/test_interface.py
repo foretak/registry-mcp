@@ -84,13 +84,13 @@ def test_no_registry_is_registered(brreg: Registry) -> None:
 
 
 def test_public_country_list_hides_stubs() -> None:
-    assert list_countries() == ["NO"]
-    assert list_countries(include_stubs=True) == ["NO", "XX"]
-    assert [r.country for r in list_registries(include_stubs=True)] == ["NO", "XX"]
+    assert list_countries() == ["GB", "NO"]
+    assert list_countries(include_stubs=True) == ["GB", "NO", "XX"]
+    assert [r.country for r in list_registries(include_stubs=True)] == ["GB", "NO", "XX"]
 
 
 def test_stub_country_visible_via_env(include_stubs: None) -> None:
-    assert list_countries() == ["NO", "XX"]
+    assert list_countries() == ["GB", "NO", "XX"]
     assert get_registry("XX").country == "XX"
 
 
@@ -106,7 +106,7 @@ def test_unsupported_country_hint_lists_supported() -> None:
     err = excinfo.value
     assert err.code is ErrorCode.UNSUPPORTED_COUNTRY
     assert "NO" in err.hint
-    assert err.details["supported"] == ["NO"]
+    assert err.details["supported"] == ["GB", "NO"]
 
 
 def test_second_country_needs_no_core_edit(example_registry: Registry) -> None:
@@ -288,3 +288,127 @@ def test_countries_response_round_trips(brreg: Registry) -> None:
 async def test_aclose_is_a_no_op_a_country_may_override(example_registry: Registry) -> None:
     """D-014: the shutdown hook exists on every registry, so a surface can just call it."""
     await example_registry.aclose()
+
+
+# ---------------------------------------------------------------------------
+# D-020 — `SearchResult.hits` is sorted best-first by the model itself
+# ---------------------------------------------------------------------------
+
+
+def _hit(id: str, confidence: float) -> SearchHit:
+    return SearchHit(
+        country="XX", registry="example", id=id, name=f"HIT {id}", confidence=confidence
+    )
+
+
+def test_search_hits_are_sorted_by_confidence_descending() -> None:
+    """D-020: `hits` promises "best first", so the model delivers it.
+
+    The producer that exposed this returned 0.8, 0.4, 0.8 in the register's
+    relevance order — a 0.4 hit above a 0.8 hit, on the field an agent reads
+    first. `search` is abstract, so there is no D-010-style wrapper to sort in;
+    the model is the only country-neutral chokepoint.
+    """
+    result = SearchResult(
+        country="XX",
+        registry="example",
+        query="tesco",
+        hits=[_hit("a", 0.8), _hit("b", 0.4), _hit("c", 0.8)],
+    )
+    assert [h.confidence for h in result.hits] == [0.8, 0.8, 0.4]
+
+
+def test_search_hits_sort_is_stable_so_register_order_breaks_ties() -> None:
+    """Equal confidence keeps the upstream order: we re-rank by our confidence,
+    we do not discard the register's relevance ranking (D-005's anchors are
+    coarse enough that ties are the common case, not the edge case)."""
+    result = SearchResult(
+        country="XX",
+        registry="example",
+        query="tesco",
+        hits=[_hit("a", 0.4), _hit("b", 0.8), _hit("c", 0.4), _hit("d", 0.8)],
+    )
+    assert [h.id for h in result.hits] == ["b", "d", "a", "c"]
+
+
+def test_search_hits_are_sorted_on_revalidation_too() -> None:
+    """It is a validator, not a constructor step, so a cached payload replayed
+    through `model_validate` cannot disagree with a fresh result about order."""
+    payload = {
+        "country": "XX",
+        "registry": "example",
+        "query": "tesco",
+        "hits": [
+            _hit("a", 0.4).model_dump(mode="json"),
+            _hit("b", 0.95).model_dump(mode="json"),
+        ],
+    }
+    assert [h.id for h in SearchResult.model_validate(payload).hits] == ["b", "a"]
+
+
+# ---------------------------------------------------------------------------
+# D-021 — `Registry.id_caveat`: say what we do not know, without rejecting
+# ---------------------------------------------------------------------------
+
+
+def test_id_caveat_defaults_to_silence(example_registry: Registry) -> None:
+    """Every country inherits `None` and its `reason` is unchanged, so the hook
+    costs a country that does not want it exactly nothing (D-008)."""
+    assert example_registry.id_caveat("12345678") is None
+    ok = example_registry.validate("12345678")
+    assert ok.valid is True
+    assert ok.reason is not None and ok.reason.endswith("to find out.")
+    assert ok.hint is None
+
+
+def test_id_caveat_is_appended_to_reason_and_never_to_hint(example_registry: Registry) -> None:
+    """D-021: a well-shaped identifier we cannot fully vouch for stays
+    `valid=True` and says so in `reason`. `hint` stays `None` on success
+    (D-010, restated by D-013), so the caveat may not go there.
+    """
+
+    class CaveatRegistry(type(example_registry)):  # type: ignore[misc]
+        country = "XY"
+        registry = "example-caveat"
+        is_stub = True
+
+        def id_caveat(self, id: str) -> str | None:
+            if id.startswith("9"):
+                return (
+                    "Prefix '9' is not in the list this module knows as of 2026-09; "
+                    "call lookup_company to confirm the number exists."
+                )
+            return None
+
+    reg = CaveatRegistry()
+
+    flagged = reg.validate("91234567")
+    assert flagged.valid is True
+    assert flagged.normalized == "91234567"
+    assert flagged.reason is not None
+    assert "2026-09" in flagged.reason and "lookup_company" in flagged.reason
+    assert flagged.hint is None
+
+    plain = reg.validate("12345678")
+    assert plain.valid is True
+    assert plain.reason is not None and "2026-09" not in plain.reason
+    assert plain.hint is None
+
+
+def test_id_caveat_never_fires_on_an_invalid_identifier(example_registry: Registry) -> None:
+    """The hook takes an *already-valid, already-normalised* identifier, so the
+    failure branch of `validate` is untouched and a caveat can never be mistaken
+    for the reason something was rejected."""
+
+    class AlwaysCaveat(type(example_registry)):  # type: ignore[misc]
+        country = "XZ"
+        registry = "example-always"
+        is_stub = True
+
+        def id_caveat(self, id: str) -> str | None:
+            return "CAVEAT"
+
+    bad = AlwaysCaveat().validate("nope")
+    assert bad.valid is False
+    assert bad.reason is not None and "CAVEAT" not in bad.reason
+    assert bad.hint is not None
