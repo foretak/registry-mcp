@@ -31,8 +31,8 @@ Completed phases are rolled up to one line each; the full done-check trails live
 
 | id | owner | status | done-check | blocker |
 |---|---|---|---|---|
-| T15a | Opus A | review | 2026-09-04: `UK_SPEC.md` (16 sections, 109-test list); D-015 (`GB` strict, no `UK` alias), D-016 (UK deadline policy — CH-published dates authoritative, compute only from a sourced rule, no roll-forward, corporation tax documented not computed), D-017 (`Registry.requires_api_key`/`api_key_env` surfaced by `country_info()`, defaults leave NO/XX untouched). Key arrived mid-task → **16 live payloads saved to `tests/fixtures/ch_*.json`**, resolving all but 5 `VERIFY` markers and finding 8 places the published schema is wrong (§1.6). `uv run pytest -q -m "not live"` 273 passed / 1 deselected; mypy clean; ruff clean. | — |
-| T15b | Sonnet | todo | — | Blocked on T15a review. `COMPANIES_HOUSE_API_KEY` received 2026-09-04 (secrets dir + Railway, verified live) — but **fixtures already exist**, so only tests 106–109 (`@pytest.mark.live`) need it |
+| T15a | Opus A | done | 2026-09-04: `UK_SPEC.md` (16 sections, 109-test list); D-015 (`GB` strict, no `UK` alias), D-016 (UK deadline policy — CH-published dates authoritative, compute only from a sourced rule, no roll-forward, corporation tax documented not computed), D-017 (`Registry.requires_api_key`/`api_key_env` surfaced by `country_info()`, defaults leave NO/XX untouched). Key arrived mid-task → **16 live payloads saved to `tests/fixtures/ch_*.json`**, resolving all but 5 `VERIFY` markers and finding 8 places the published schema is wrong (§1.6). `uv run pytest -q -m "not live"` 273 passed / 1 deselected; mypy clean; ruff clean. | — |
+| T15b | Sonnet | doing | — | Blocked on T15a review. `COMPANIES_HOUSE_API_KEY` received 2026-09-04 (secrets dir + Railway, verified live) — but **fixtures already exist**, so only tests 106–109 (`@pytest.mark.live`) need it |
 | T15c | Opus B | todo | — | Blocked on T15b |
 | T15d | Sonnet 4 | todo | — | Blocked on T15b, T15c |
 | T15e | Opus A | todo | — | Blocked on T15b–d |
