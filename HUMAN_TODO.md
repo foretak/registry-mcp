@@ -200,10 +200,10 @@ two days later.** Never post them all at once.
 | # | dev.to | State | Publish on |
 |---|---|---|---|
 | 1 | https://dev.to/fargeroddotcom/check-a-norwegian-supplier-is-vat-registered-before-you-pay-the-invoice-pb9 | **PUBLISHED** 2026-09-04 | — |
-| 2 | draft id `4575628` — Every filing deadline a Norwegian AS faces this quarter | draft | **2026-09-06** |
-| 3 | draft id `4575623` — Validate and enrich a spreadsheet of Norwegian orgnrs | draft | **2026-09-08** |
-| 4 | draft id `4575624` — Add your country's registry in an afternoon | draft | **2026-09-10** |
-| 5 | draft id `4576602` — Check a UK supplier at Companies House (and the same tool works for Norway) | draft | **2026-09-14** |
+| 2 | https://dev.to/fargeroddotcom/every-filing-deadline-a-norwegian-as-faces-this-quarter-in-one-tool-call-29gc | **PUBLISHED** 2026-09-04 | — |
+| 3 | https://dev.to/fargeroddotcom/validate-and-enrich-a-spreadsheet-of-norwegian-orgnrs-with-one-mcp-server-1fei | **PUBLISHED** 2026-09-04 | — |
+| 4 | https://dev.to/fargeroddotcom/add-your-countrys-company-registry-to-registry-mcp-in-an-afternoon-1pei | **PUBLISHED** 2026-09-04 | — |
+| 5 | https://dev.to/fargeroddotcom/check-a-uk-supplier-at-companies-house-from-claude-code-and-the-same-tool-works-for-norway-4mk8 | **PUBLISHED** 2026-09-04 | — |
 | 5 | not yet uploaded — Check a UK supplier at Companies House from Claude Code | `content/05-uk-companies-house/devto.md` | **2026-09-12** |
 
 Publish a draft with one command (or the *Publish* button in the dev.to dashboard):
@@ -212,7 +212,7 @@ Publish a draft with one command (or the *Publish* button in the dev.to dashboar
 DEVTO_API_KEY=$(cat ~/secrets/registry-mcp/devto-api-key.txt) python content/publish_devto.py publish 4575628
 ```
 
-Reddit and kode24 versions are not automated — post them by hand on the days above.
+Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-day cadence). Reddit r/mcp and kode24 versions are not automated — post them by hand, ideally spread over the next week.
 
 | Day | dev.to (`devto.md`) | r/mcp (`reddit.md`) | kode24 (`no.md`) |
 |---|---|---|---|
