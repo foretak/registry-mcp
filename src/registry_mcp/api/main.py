@@ -48,6 +48,7 @@ from registry_mcp.core.models import (
     ValidationResult,
 )
 from registry_mcp.core.registry import get_registry, list_countries, list_registries
+from registry_mcp.mcp.server import mcp as mcp_server
 
 logger = logging.getLogger(__name__)
 
@@ -367,6 +368,18 @@ _TAGS_METADATA = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# MCP surface (T07). `mcp.http_app(path="/")` builds a Starlette app whose own
+# root *is* the Streamable HTTP endpoint; mounting that at "/mcp" below is
+# what makes the final route "/mcp" rather than "/mcp/mcp". Its lifespan
+# starts/stops the session manager and must be composed into this app's own
+# lifespan (`_lifespan` below) — FastAPI does not run a mounted sub-app's
+# lifespan on its own.
+# ---------------------------------------------------------------------------
+
+_mcp_app = mcp_server.http_app(path="/")
+
+
 async def _close_registry_clients() -> None:
     """Close any HTTP client a registry module owns, on shutdown.
 
@@ -399,7 +412,8 @@ async def _close_registry_clients() -> None:
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _warn_if_static_missing()
-    yield
+    async with _mcp_app.lifespan(_app):
+        yield
     await _close_registry_clients()
 
 
@@ -414,6 +428,7 @@ app = FastAPI(
 )
 app.add_middleware(RateLimitMiddleware)
 install_error_handlers(app)
+app.mount("/mcp", _mcp_app)
 
 
 # ---------------------------------------------------------------------------

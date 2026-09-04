@@ -55,9 +55,8 @@ dev = [
     "respx>=0.21",
 ]
 
-# NOTE (T07 owns this): console scripts for the stdio server land here.
-#   [project.scripts]
-#   registry-mcp = "registry_mcp.mcp.stdio:main"
+[project.scripts]
+registry-mcp = "registry_mcp.mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
