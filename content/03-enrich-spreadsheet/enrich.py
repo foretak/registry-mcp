@@ -40,7 +40,8 @@ COLUMNS = [
 
 
 async def main(src: str, dst: str) -> None:
-    rows = list(csv.DictReader(open(src, encoding="utf-8")))
+    with open(src, encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
     out: list[dict[str, object]] = []
 
     async with Client(URL) as client:
