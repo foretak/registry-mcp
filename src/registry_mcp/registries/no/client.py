@@ -125,10 +125,11 @@ async def _fetch(path: str, *, params: dict[str, Any] | None = None) -> httpx.Re
 
 
 def _not_found_error(orgnr: str) -> RegistryError:
+    # N2 (T10 review): `hint` must not repeat `message` — it carries only the
+    # next action, since `message` already said what went wrong.
     hint = (
-        f"No entity with organisasjonsnummer {orgnr} exists in Enhetsregisteret. The number "
-        "is well-formed, so it may never have been issued or the entity may have been "
-        "deleted. Call search_company with the company name instead."
+        "The number is well-formed, so it may never have been issued or the entity may "
+        "have been deleted. Call search_company with the company name instead."
     )
     return RegistryError(
         ErrorCode.NOT_FOUND,

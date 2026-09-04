@@ -74,6 +74,19 @@ class BrregRegistry(Registry):
         result: str = mapping.format_orgnr(id)
         return result
 
+    async def aclose(self) -> None:
+        """Close the shared ``httpx.AsyncClient`` (``registries/no/client.py``, T03).
+
+        Overrides the ``Registry`` no-op (``DECISIONS.md`` D-014): this module
+        keeps one module-level client across every request, so something has
+        to close it on shutdown or the sockets leak. Delegates to
+        ``client.aclose()`` in the same lazy-import style as the other
+        delegates above.
+        """
+        from registry_mcp.registries.no import client
+
+        await client.aclose()
+
     def rules_markdown(self) -> str:
         """Served as the MCP resource ``registry://rules/NO``. Filled in by T02."""
         try:

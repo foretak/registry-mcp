@@ -208,8 +208,20 @@ def map_entity(
         notes.extend(form_info.notes)
 
     vat_registered = bool(data.get("registrertIMvaregisteret", False))
-    employees_reported = bool(data.get("harRegistrertAntallAnsatte", False))
-    employees = data.get("antallAnsatte") if employees_reported else None
+    employees_flag = bool(data.get("harRegistrertAntallAnsatte", False))
+    employees = data.get("antallAnsatte")
+    # D-011: `employees_reported` means "a figure is present", not "brreg set
+    # the flag" — deriving it this way makes `employees_reported is True =>
+    # employees is not None` a real invariant. `employees` itself always stays
+    # `None` when brreg gives no number, even if the flag says one was
+    # reported (confirmed live on 833285602, EL ANSARI KONSULT): never
+    # synthesise `0`.
+    employees_reported = employees_flag and employees is not None
+    if employees_flag and employees is None:
+        notes.append(
+            "Brønnøysundregistrene flagged an employee count for this entity but did not "
+            "return the number; treat the employee count as unknown rather than zero."
+        )
 
     kapital = data.get("kapital") or {}
     last_year_raw = data.get("sisteInnsendteAarsregnskap")
