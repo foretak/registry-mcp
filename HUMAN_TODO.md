@@ -116,3 +116,45 @@ Two schema constraints that will bite an edit:
 - Route shapes are country-scoped (`/v1/{country}/…`), not the build plan's
   `/v1/company/{id}`. The multi-agent guide and `DECISIONS.md` win where the
   build plan disagrees.
+
+---
+
+## 6. Posting the articles (`content/`)
+
+Four articles, three versions each, all written and ready in `content/`. Full
+version of this schedule, plus the rules for whoever posts, is in
+`content/README.md`.
+
+**One article every two days. dev.to first, Reddit r/mcp the same day, kode24
+two days later.** Never post all four at once.
+
+| Day | dev.to (`devto.md`) | r/mcp (`reddit.md`) | kode24 (`no.md`) |
+|---|---|---|---|
+| 1 | `01-vat-check` | `01-vat-check` | — |
+| 3 | `02-deadlines` | `02-deadlines` | `01-vat-check` |
+| 5 | `03-enrich-spreadsheet` | `03-enrich-spreadsheet` | `02-deadlines` |
+| 7 | `04-add-your-country` | `04-add-your-country` | `03-enrich-spreadsheet` |
+| 9 | — | — | `04-add-your-country` |
+
+- [ ] Accounts needed before day 1: dev.to, a Reddit account with enough karma
+      to self-post in r/mcp, and a kode24 contact (they take contributed
+      pieces; email the editor rather than waiting for a form).
+- [ ] **Replace the placeholders first.** Every article contains
+      `api.foretak.dev` and `github.com/foretak/registry-mcp`. If §1's domain
+      or GitHub org came out different, fix all twelve files before posting.
+- [ ] **Re-run the output blocks if the server has changed since they were
+      written.** Enhetsregisteret is live data — `employees` counts and
+      addresses move. `content/README.md` has the two commands; do not patch a
+      JSON block by hand.
+- [ ] Post the Reddit text as a self-post and put the dev.to link in the first
+      comment, not the body.
+- [ ] Reply to every comment within 24 h and log the substance in
+      `FEEDBACK.md` — those comments are the Phase 4 decision-gate input.
+- [ ] `04-add-your-country` is the recruiting article. Post it last, and pin
+      the "open an issue with your country code and claim it" line. Denmark
+      (CVR) and Sweden (Bolagsverket) are named there as first targets, which
+      matches guide Step 12.
+
+Note for copy-editors: each article deliberately carries `brreg`,
+`organisasjonsnummer` and `orgnr` in its title or first paragraph
+(`KEYWORDS.md` §2, last row). Do not edit those terms out.

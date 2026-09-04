@@ -1,0 +1,7 @@
+org_nr,supplier_name,valid,normalized,name,legal_form,status,vat_registered,vat_number,employees,city,problem
+923609016,Equinor,True,923609016,EQUINOR ASA,Public limited company,active,True,NO923609016MVA,21239,STAVANGER,
+833285602,El Ansari Konsult,True,833285602,EL ANSARI KONSULT,Sole proprietorship,active,True,NO833285602MVA,,OSLO,
+974760673,Registerenheten i Brønnøysund,True,974760673,REGISTERENHETEN I BRØNNØYSUND,Organisational unit of a public body,active,False,,492,BRØNNØYSUND,not VAT-registered — do not accept MVA on an invoice
+833286602,Nordvik Regnskap,False,,,,,,,,,'833286602' is not a valid Norwegian organisasjonsnummer.
+999999999,Fjord Design,True,999999999,,,,,,,,not_found: No entity with organisasjonsnummer 999999999 exists in Enhetsregisteret.
+923 609 016,Equinor (duplicate row),True,923609016,EQUINOR ASA,Public limited company,active,True,NO923609016MVA,21239,STAVANGER,
