@@ -99,8 +99,10 @@ Two schema constraints that will bite an edit:
       https://github.com/foretak/registry-mcp (public), 12 topics set, labels
       created, seed issues #1–#3 filed. `gh` token now has `workflow` scope.
       See `NAMES.md` for the full name/competitor audit.
-- [ ] PyPI account + project names `registry-mcp` and the alias `brreg-mcp`.
-      **Both free on PyPI as of 2026-09-04.**
+- [x] **PyPI published 2026-09-04** as user `foretak` (2FA passkey, account-scoped
+      token stored in `~/secrets/registry-mcp/`): `registry-mcp 0.1.0` and the
+      alias `brreg-mcp 0.1.0`. For future releases, replace the account-scoped
+      token with two project-scoped ones (PyPI → project → Settings → tokens).
 - [x] **npm published 2026-09-04** as user `foretak` (2FA via passkey):
       `registry-mcp@0.1.0` and `@foretak/brreg-mcp@0.1.0`. Note: `npx registry-mcp`
       shells out to `uvx registry-mcp`, so it only works once the **PyPI** package
