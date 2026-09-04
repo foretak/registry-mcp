@@ -1,13 +1,12 @@
-# T09 wiring: app.include_router(dashboard_router) in api/main.py
 """`GET /v1/stats/dashboard` — a human-readable usage dashboard (T09).
 
 One URL a human opens each morning: a single self-contained HTML page (inline
 CSS/JS only, no external URLs, no CDN) rendered from `core/stats.py::summary()`
 plus `core/ua_classify.py::classify()`.
 
-This router is intentionally **not** mounted anywhere: another agent is
-concurrently editing `api/main.py`. Wiring it in is one line, left for the
-step after that lands (see the module-level comment above, meant literally).
+Mounted on the real app via `app.include_router(dashboard_router)` in
+`api/main.py`. `include_in_schema=False`, for the same reason `api/stats.py`
+is: an admin/debugging page, not part of the versioned public data API.
 
 Auth mirrors `api/stats.py` exactly: `?key=` must equal the
 `REGISTRY_MCP_ADMIN_KEY` env var. Missing key, wrong key, or the env var
@@ -67,7 +66,7 @@ def _forbidden() -> JSONResponse:
     return JSONResponse(status_code=err.http_status, content=err.to_dict())
 
 
-@dashboard_router.get("/v1/stats/dashboard", response_model=None)
+@dashboard_router.get("/v1/stats/dashboard", response_model=None, include_in_schema=False)
 def get_dashboard(key: str | None = None) -> HTMLResponse | JSONResponse:
     """Render the usage dashboard when `key` matches; else a 403 envelope."""
     admin_key = os.environ.get(_ADMIN_KEY_ENV, "")

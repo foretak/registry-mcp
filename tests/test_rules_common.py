@@ -9,12 +9,16 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
+from registry_mcp.core.models import ErrorCode, RegistryError
 from registry_mcp.core.rules.common import (
     add_months,
     is_business_day,
     last_day_of_month,
     next_occurrence,
     next_weekday,
+    parse_iso_date,
     roll_forward,
 )
 
@@ -101,3 +105,35 @@ def test_49_add_months_clamps_day() -> None:
 
 def test_50_add_months_rolls_year_over() -> None:
     assert add_months(date(2026, 12, 10), 2) == date(2027, 2, 10)
+
+
+# ---------------------------------------------------------------------------
+# `parse_iso_date` — added for T08 (shared REST/MCP `today` parsing, see
+# `DECISIONS.md` D-007 and `PROGRESS.md`'s T08 row). Not part of
+# `NORBIZ_SPEC.md`'s numbered §13.D list above, hence unnumbered names.
+# ---------------------------------------------------------------------------
+
+
+def test_parse_iso_date_none_defaults_to_today() -> None:
+    from datetime import UTC, datetime
+
+    assert parse_iso_date(None) == datetime.now(UTC).date()
+
+
+def test_parse_iso_date_parses_valid_string() -> None:
+    assert parse_iso_date("2026-01-15") == date(2026, 1, 15)
+
+
+def test_parse_iso_date_invalid_raises_bad_request() -> None:
+    with pytest.raises(RegistryError) as excinfo:
+        parse_iso_date("not-a-date")
+    exc = excinfo.value
+    assert exc.code is ErrorCode.BAD_REQUEST
+    assert exc.http_status == 400
+    assert "today" in exc.hint
+
+
+def test_parse_iso_date_custom_field_name_in_hint() -> None:
+    with pytest.raises(RegistryError) as excinfo:
+        parse_iso_date("nope", field="since")
+    assert "since" in excinfo.value.hint

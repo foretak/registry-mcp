@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import calendar
 from collections.abc import Iterable
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+
+from registry_mcp.core.models import ErrorCode, RegistryError
 
 __all__ = [
     "add_months",
@@ -22,6 +24,7 @@ __all__ = [
     "last_day_of_month",
     "next_occurrence",
     "next_weekday",
+    "parse_iso_date",
     "roll_forward",
 ]
 
@@ -90,6 +93,39 @@ def next_occurrence(month: int, day: int, today: date) -> date:
 def last_day_of_month(year: int, month: int) -> date:
     """The last calendar day of ``year``/``month``, leap years included."""
     return date(year, month, calendar.monthrange(year, month)[1])
+
+
+def parse_iso_date(value: str | None, *, field: str = "today") -> date:
+    """Parse a caller-supplied ``YYYY-MM-DD`` date, or default to today's UTC date.
+
+    Shared by every surface's date-taking endpoint/tool (REST
+    ``GET /v1/{country}/company/{id}/deadlines``'s ``today`` query param, MCP
+    ``company_deadlines``'s ``today`` argument) so the error text cannot drift
+    between them (`DECISIONS.md` D-007) — added for T08 after T06 and T07 had
+    each grown their own copy of this exact parsing/error logic.
+
+    Args:
+        value: The caller-supplied date string, or ``None`` to use today.
+        field: Name of the parameter, quoted in the error hint.
+
+    Returns:
+        ``datetime.now(UTC).date()`` when ``value`` is ``None``, else the
+        parsed date.
+
+    Raises:
+        RegistryError: ``bad_request`` when ``value`` is not ``None`` and not
+            a valid ISO-8601 date.
+    """
+    if value is None:
+        return datetime.now(UTC).date()
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise RegistryError(
+            ErrorCode.BAD_REQUEST,
+            f"{value!r} is not a valid date.",
+            hint=f"Send `{field}` as YYYY-MM-DD, e.g. 2026-01-15, and retry.",
+        ) from exc
 
 
 def add_months(d: date, months: int) -> date:

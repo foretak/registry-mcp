@@ -1,10 +1,10 @@
-# T08 wiring: app.include_router(stats_router) in api/main.py
 """`GET /v1/stats` — usage stats behind an admin key (`NORBIZ_SPEC.md` §11, T08).
 
-This router is intentionally **not** mounted anywhere: another agent is
-concurrently editing `api/main.py`, so wiring it in is left for the step
-after that lands (see the module-level comment above, meant literally as the
-one line the wiring step adds).
+Mounted on the real app via `app.include_router(stats_router)` in
+`api/main.py`. `include_in_schema=False`: this is an admin/debugging
+endpoint, not part of the versioned public data API `/openapi.json`
+describes (the same reasoning `api/main.py`'s four static discovery routes
+already use).
 
 Auth: `?key=` must equal the `REGISTRY_MCP_ADMIN_KEY` env var. Missing key,
 wrong key, or the env var being unset at all -> 403. There is deliberately no
@@ -41,7 +41,7 @@ _ADMIN_KEY_ENV = "REGISTRY_MCP_ADMIN_KEY"
 stats_router = APIRouter()
 
 
-@stats_router.get("/v1/stats")
+@stats_router.get("/v1/stats", include_in_schema=False)
 def get_stats(key: str | None = None) -> JSONResponse:
     """Return `core/stats.py::summary()` when `key` matches; else a 403 envelope."""
     admin_key = os.environ.get(_ADMIN_KEY_ENV, "")

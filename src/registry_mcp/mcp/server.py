@@ -30,16 +30,20 @@ from __future__ import annotations
 import json
 import logging
 import time
-from collections.abc import Callable
-from datetime import UTC, date, datetime
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ResourceError, ToolError
+from fastmcp.server.dependencies import get_http_headers
 
 from registry_mcp import __version__
-from registry_mcp.core.models import ErrorCode, RegistryError, Surface
+from registry_mcp.core import log
+from registry_mcp.core.models import RegistryError, Surface
 from registry_mcp.core.registry import get_registry, list_registries
+from registry_mcp.core.rules.common import parse_iso_date
 
 logger = logging.getLogger(__name__)
 
@@ -47,47 +51,77 @@ __all__ = ["main", "mcp"]
 
 # ---------------------------------------------------------------------------
 # T08's logging hook (`NORBIZ_SPEC.md` §11), identical in signature to
-# `api/main.py`'s `record_call`. A no-op until T08 replaces the pointer:
-#
-#     from registry_mcp.core import log
-#     registry_mcp.mcp.server.record_call = log.log_call
-#
-# — no tool below changes.
+# `api/main.py`'s `record_call` — both point at the same `core/log.py::log_call`.
 # ---------------------------------------------------------------------------
 
-
-def _noop_record_call(**_: Any) -> None:
-    """Default `record_call`. Does nothing until T08 replaces it."""
+record_call: Callable[..., None] = log.log_call
 
 
-record_call: Callable[..., None] = _noop_record_call
+def _current_user_agent() -> str:
+    """The client's `User-Agent` on Streamable HTTP; `"stdio"` otherwise.
+
+    `get_http_headers()` never raises — it returns `{}` when there is no live
+    HTTP request (stdio transport, or a background task with no captured
+    request), which we fold into the same `"stdio"` fallback as "no header at
+    all", since either way there is no real user agent to report.
+    """
+    return get_http_headers().get("user-agent", "stdio")
 
 
-def _record(
-    *,
-    operation: str,
-    country: str | None,
-    query: str | None,
-    started: float,
-    ok: bool,
-    error_code: str | None = None,
-    cached: bool | None = None,
-) -> None:
-    """Best-effort call into :data:`record_call`. Logging must never break a tool call."""
+@dataclass
+class _CallOutcome:
+    """Mutable result the `_call_context` caller fills in as it learns more."""
+
+    ok: bool = True
+    error_code: str | None = None
+    cached: bool | None = None
+
+
+@contextmanager
+def _call_context(
+    *, operation: str, country: str | None, query: str | None
+) -> Iterator[_CallOutcome]:
+    """Time a tool body, turn a `RegistryError` into a `ToolError`, and always
+    log via :data:`record_call` in a ``finally`` — the one place every tool
+    below shares this shape (T08), instead of five copies of the same
+    try/except/record boilerplate.
+
+    Usage::
+
+        with _call_context(operation="lookup_company", country=country, query=id) as outcome:
+            report = await registry.lookup(id)
+            outcome.cached = report.cached
+        return report.model_dump(mode="json")
+
+    A `RegistryError` raised inside the block is recorded as a failure and
+    re-raised as a `ToolError` whose text is the D-007 JSON envelope; success
+    is recorded as-is, with whatever the caller set on `outcome` (`error_code`
+    for `validate_company_id`'s non-raising `invalid_id` case, `cached` for
+    `lookup_company`/`search_company`).
+    """
+    started = time.monotonic()
+    outcome = _CallOutcome()
     try:
-        record_call(
-            surface=Surface.MCP,
-            operation=operation,
-            country=country,
-            query=query,
-            user_agent=None,
-            latency_ms=int((time.monotonic() - started) * 1000),
-            ok=ok,
-            error_code=error_code,
-            cached=cached,
-        )
-    except Exception:  # pragma: no cover - defensive; the hook must never raise
-        logger.exception("record_call hook raised; ignoring")
+        yield outcome
+    except RegistryError as exc:
+        outcome.ok = False
+        outcome.error_code = exc.code.value
+        raise _tool_error(exc) from exc
+    finally:
+        try:
+            record_call(
+                surface=Surface.MCP,
+                operation=operation,
+                country=country.upper() if country else None,
+                query=query,
+                user_agent=_current_user_agent(),
+                latency_ms=int((time.monotonic() - started) * 1000),
+                ok=outcome.ok,
+                error_code=outcome.error_code,
+                cached=outcome.cached,
+            )
+        except Exception:  # pragma: no cover - defensive; the hook must never raise
+            logger.exception("record_call hook raised; ignoring")
 
 
 def _tool_error(exc: RegistryError) -> ToolError:
@@ -98,22 +132,6 @@ def _tool_error(exc: RegistryError) -> ToolError:
 def _resource_error(exc: RegistryError) -> ResourceError:
     """The D-007 error envelope, as a FastMCP resource error rather than a traceback."""
     return ResourceError(json.dumps(exc.to_dict()))
-
-
-def _parse_today(today: str | None, *, country: str) -> date:
-    """Same parsing/error shape as `api/main.py::get_deadlines` — kept local because
-    `core/` (owned by other tasks) has no shared date-parsing hook to call instead."""
-    if today is None:
-        return datetime.now(UTC).date()
-    try:
-        return date.fromisoformat(today)
-    except ValueError as exc:
-        raise RegistryError(
-            ErrorCode.BAD_REQUEST,
-            f"{today!r} is not a valid date.",
-            hint="Send `today` as YYYY-MM-DD, e.g. 2026-01-15, and retry.",
-            country=country.upper(),
-        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -163,20 +181,10 @@ async def lookup_company(id: str, country: str = "NO") -> dict[str, Any]:
     register is unavailable; it has already been retried once here, so wait roughly a
     minute before trying again yourself.
     """
-    started = time.monotonic()
-    try:
+    with _call_context(operation="lookup_company", country=country, query=id) as outcome:
         registry = get_registry(country)
         report = await registry.lookup(id)
-    except RegistryError as exc:
-        _record(
-            operation="lookup_company", country=country.upper(), query=id,
-            started=started, ok=False, error_code=exc.code.value,
-        )
-        raise _tool_error(exc) from exc
-    _record(
-        operation="lookup_company", country=report.country, query=id,
-        started=started, ok=True, cached=report.cached,
-    )
+        outcome.cached = report.cached
     return report.model_dump(mode="json")
 
 
@@ -200,20 +208,10 @@ async def search_company(name: str, country: str = "NO", limit: int = 10) -> dic
     `upstream_error`/`upstream_timeout` means the national register is unavailable; wait
     roughly a minute and retry at most once more.
     """
-    started = time.monotonic()
-    try:
+    with _call_context(operation="search_company", country=country, query=name) as outcome:
         registry = get_registry(country)
         result = await registry.search(name, limit)
-    except RegistryError as exc:
-        _record(
-            operation="search_company", country=country.upper(), query=name,
-            started=started, ok=False, error_code=exc.code.value,
-        )
-        raise _tool_error(exc) from exc
-    _record(
-        operation="search_company", country=result.country, query=name,
-        started=started, ok=True, cached=result.cached,
-    )
+        outcome.cached = result.cached
     return result.model_dump(mode="json")
 
 
@@ -241,22 +239,11 @@ async def company_deadlines(
     `unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,
     since this tool looks the entity up first — follow that code's hint.
     """
-    started = time.monotonic()
-    try:
+    with _call_context(operation="company_deadlines", country=country, query=id):
         registry = get_registry(country)
-        today_date = _parse_today(today, country=country)
+        today_date = parse_iso_date(today, field="today")
         report = await registry.lookup(id)
-    except RegistryError as exc:
-        _record(
-            operation="company_deadlines", country=country.upper(), query=id,
-            started=started, ok=False, error_code=exc.code.value,
-        )
-        raise _tool_error(exc) from exc
-    result = registry.deadline_report(report, today_date)
-    _record(
-        operation="company_deadlines", country=result.country, query=id,
-        started=started, ok=True,
-    )
+        result = registry.deadline_report(report, today_date)
     return result.model_dump(mode="json")
 
 
@@ -278,20 +265,11 @@ def validate_company_id(id: str, country: str = "NO") -> dict[str, Any]:
     call `list_countries`), raised with the error text `{"error": {"code", "message",
     "hint"}}`.
     """
-    started = time.monotonic()
-    try:
+    with _call_context(operation="validate_company_id", country=country, query=id) as outcome:
         registry = get_registry(country)
         result = registry.validate(id)
-    except RegistryError as exc:
-        _record(
-            operation="validate_company_id", country=country.upper(), query=id,
-            started=started, ok=False, error_code=exc.code.value,
-        )
-        raise _tool_error(exc) from exc
-    _record(
-        operation="validate_company_id", country=result.country, query=id,
-        started=started, ok=True, error_code=None if result.valid else "invalid_id",
-    )
+        if not result.valid:
+            outcome.error_code = "invalid_id"
     return result.model_dump(mode="json")
 
 
@@ -308,9 +286,8 @@ def list_countries() -> dict[str, Any]:
     actually answer are listed. This tool has no error mode; a failure here is a bug, not
     something to retry differently.
     """
-    started = time.monotonic()
-    rows = [dict(r.describe()) for r in list_registries()]
-    _record(operation="list_countries", country=None, query=None, started=started, ok=True)
+    with _call_context(operation="list_countries", country=None, query=None):
+        rows = [dict(r.describe()) for r in list_registries()]
     return {"countries": rows}
 
 

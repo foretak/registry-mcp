@@ -27,17 +27,18 @@ import os
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from registry_mcp import __version__
+from registry_mcp.api.dashboard import dashboard_router
 from registry_mcp.api.errors import install_error_handlers
 from registry_mcp.api.ratelimit import RateLimitMiddleware
+from registry_mcp.api.stats import stats_router
+from registry_mcp.core import log
 from registry_mcp.core.models import (
     CompanyReport,
     DeadlineReport,
@@ -48,6 +49,7 @@ from registry_mcp.core.models import (
     ValidationResult,
 )
 from registry_mcp.core.registry import get_registry, list_countries, list_registries
+from registry_mcp.core.rules.common import parse_iso_date
 from registry_mcp.mcp.server import mcp as mcp_server
 
 logger = logging.getLogger(__name__)
@@ -55,25 +57,16 @@ logger = logging.getLogger(__name__)
 __all__ = ["app", "record_call"]
 
 # ---------------------------------------------------------------------------
-# T08's logging hook (`NORBIZ_SPEC.md` §11).
-#
-# `core/log.py::log_call` does not exist yet (T08 builds it). Rather than have
-# every route below wait on that, or need editing once it lands, each route
-# calls `record_call(...)` with exactly the keyword shape `log_call` will
-# have. Until T08 wires it up, this is a no-op. T08's whole job here is:
-#
-#     from registry_mcp.core import log
-#     registry_mcp.api.main.record_call = log.log_call
-#
-# — no route in this file changes.
+# T08's logging hook (`NORBIZ_SPEC.md` §11): every route below calls
+# `record_call(...)` with exactly `core/log.py::log_call`'s keyword shape, so
+# wiring it in is this one assignment — no route changes. Static routes (`/`,
+# `/llms.txt`, `/llms-full.txt`, `/server.json`) and `/health` deliberately
+# never call `_record`/`record_call` at all (`NORBIZ_SPEC.md` §15): they are
+# crawler/monitoring reads, not API calls, and logging them would drown the
+# per-agent signal `/v1/stats` exists to show.
 # ---------------------------------------------------------------------------
 
-
-def _noop_record_call(**_: Any) -> None:
-    """Default `record_call`. Does nothing until T08 replaces it."""
-
-
-record_call: Callable[..., None] = _noop_record_call
+record_call: Callable[..., None] = log.log_call
 
 
 def _record(
@@ -428,6 +421,8 @@ app = FastAPI(
 )
 app.add_middleware(RateLimitMiddleware)
 install_error_handlers(app)
+app.include_router(stats_router)
+app.include_router(dashboard_router)
 app.mount("/mcp", _mcp_app)
 
 
@@ -620,19 +615,7 @@ async def get_deadlines(
 ) -> DeadlineReport:
     started = time.monotonic()
     registry = get_registry(country)
-
-    if today is None:
-        today_date = datetime.now(UTC).date()
-    else:
-        try:
-            today_date = date.fromisoformat(today)
-        except ValueError as exc:
-            raise RegistryError(
-                ErrorCode.BAD_REQUEST,
-                f"{today!r} is not a valid date.",
-                hint="Send `today` as YYYY-MM-DD, e.g. 2026-01-15, and retry.",
-                country=country.upper(),
-            ) from exc
+    today_date = parse_iso_date(today, field="today")
 
     try:
         report = await registry.lookup(id)
