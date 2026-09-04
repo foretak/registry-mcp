@@ -103,7 +103,18 @@ Two schema constraints that will bite an edit:
 - [ ] A contact inbox that a human reads: `hello@<domain>`. It goes into the
       JSON-LD and, via `REGISTRY_MCP_CONTACT_EMAIL`, into the `User-Agent` we
       send to Brønnøysundregistrene — they may block anonymous clients.
-- [ ] VPS (Hetzner Helsinki or Norwegian), smallest instance.
+- [x] ~~VPS (Hetzner Helsinki or Norwegian)~~ → **deployed on Railway
+      2026-09-04** (project `registry-mcp`, region EU west, one replica, volume
+      at `/app/data`): **https://registry-mcp-production.up.railway.app** —
+      `/health`, lookups, cache persistence, `/mcp` (connects from Claude Code),
+      `/v1/stats` all verified live. `deploy-railway.md` is the runbook.
+      - The admin key is only in Railway: `railway variable` (or the dashboard)
+        — copy it somewhere safe; it unlocks `/v1/stats` and the dashboard.
+      - Until `foretak.dev` is bought and `api.foretak.dev` CNAMEd to Railway
+        (`railway domain api.foretak.dev`), the live URL is the Railway one.
+        `server.json`'s remote URL and every doc still say `api.foretak.dev` —
+        do the domain **before** the MCP-registry publish, or swap the URL.
+      - Railway Hobby is ~$5/mo + volume; check the billing page once.
 - [ ] Official MCP registry publish: needs a GitHub login for the namespace
       check on `io.github.foretak/registry-mcp`. The account must own or admin
       the `foretak` org — see §7 for the command sequence.

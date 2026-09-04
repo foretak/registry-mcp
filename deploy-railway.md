@@ -100,8 +100,20 @@ effect — no separate restart needed, but see step 5.
 railway variable set \
   REGISTRY_MCP_CONTACT_EMAIL=you@example.com \
   REGISTRY_MCP_ADMIN_KEY="$(openssl rand -hex 32)" \
-  REGISTRY_MCP_CACHE_PATH=/app/data/cache.sqlite3
+  REGISTRY_MCP_CACHE_PATH=/app/data/cache.sqlite3 \
+  RAILWAY_RUN_UID=0
 ```
+
+**`RAILWAY_RUN_UID=0` is required, not optional** (found on the real first
+deploy, 2026-09-04): Railway mounts the volume owned by root, so the
+Dockerfile's non-root `app` user cannot open `/app/data/cache.sqlite3` —
+every cache read/write and every `log_call` fails silently (by design,
+D-006), which shows up as `cached: false` on repeated lookups and
+`total_calls: 0` in `/v1/stats`, with `sqlite3.OperationalError: unable to
+open database file` in `railway logs`. Setting `RAILWAY_RUN_UID=0` makes
+Railway start the container as root; the variable triggers a redeploy on
+its own. (The Compose/Caddy path is unaffected — Docker named volumes
+inherit the image's `chown`.)
 
 (`railway variable` is the canonical command; `variables`, `vars`, and
 `var` are all accepted aliases, so `railway variables set ...` — as you
