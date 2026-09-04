@@ -26,3 +26,14 @@ Completed phases are rolled up to one line each; the full done-check trails live
 - Seven tests hard-code the country list and `test_unsupported_country` uses `SE` — the test suite, not `core/`, is what country #2 must edit (T10 note).
 - `content/04-add-your-country` names Denmark (CVR) / Sweden (Bolagsverket) as first targets.
 - npm launcher has no offline/dev fallback; it always resolves `registry-mcp` from PyPI.
+
+## Phase 5 — Second country (started 2026-09-04, Kim: "go uk, full autonomy")
+
+| id | owner | status | done-check | blocker |
+|---|---|---|---|---|
+| T15a | Opus A | doing | — | — |
+| T15b | Sonnet | todo | — | Blocked on T15a; live fixtures need `COMPANIES_HOUSE_API_KEY` from Kim |
+| T15c | Opus B | todo | — | Blocked on T15b |
+| T15d | Sonnet 4 | todo | — | Blocked on T15b, T15c |
+| T15e | Opus A | todo | — | Blocked on T15b–d |
+| T16 | — | todo | — | Denmark CVR: access application to be started by Kim (Erhvervsstyrelsen) |
