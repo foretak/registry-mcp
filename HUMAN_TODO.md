@@ -132,9 +132,14 @@ Two schema constraints that will bite an edit:
         `server.json`'s remote URL and every doc still say `api.foretak.dev` —
         do the domain **before** the MCP-registry publish, or swap the URL.
       - Railway Hobby is ~$5/mo + volume; check the billing page once.
-- [ ] Official MCP registry publish: needs a GitHub login for the namespace
-      check on `io.github.foretak/registry-mcp`. The account must own or admin
-      the `foretak` org — see §7 for the command sequence.
+- [x] **Official MCP registry — published 2026-09-04**: `io.github.foretak/registry-mcp`
+      v0.1.0. NOT via `mcp-publisher login github` from a laptop — that path
+      currently refuses org namespaces even for a public Owner with app
+      restrictions removed (registry issues #1468/#1527/#1537/#1551). It was
+      published by `.github/workflows/publish-mcp.yml` using **GitHub OIDC**,
+      which authenticates as the org. **Future releases:** bump `server.json`
+      (3 version fields) + PyPI/npm, then either push a `v*` tag or run the
+      workflow from the Actions tab. §7.2 below is superseded by this.
 - [ ] Smithery, Glama, mcp.so, MCP Market — each needs a login. **PulseMCP is
       closed to submissions** as of 2026-09-04 and ingests from the official
       registry instead, so #1 covers it. T11 has prepared every manifest and
