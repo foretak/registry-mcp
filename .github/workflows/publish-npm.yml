@@ -1,0 +1,50 @@
+name: Publish npm packages
+
+# Publishes packages/npm/registry-mcp and packages/npm/brreg-mcp to npm using
+# npm Trusted Publishing (OIDC) — no tokens, no one-time codes. Requires the
+# trusted publisher to be configured once per package on npmjs.com:
+#   package → Settings → Trusted Publisher → GitHub Actions
+#   owner: foretak, repository: registry-mcp, workflow: publish-npm.yml
+# See HUMAN_TODO.md §7.5. npm ≥ 11.5 (Node 24) is needed for --provenance via OIDC.
+#
+# Trigger: push a v* tag (same tag that publishes to the MCP registry), or run
+# manually from the Actions tab. The version in each package.json must already
+# be bumped; publishing an existing version fails harmlessly.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC for npm trusted publishing + provenance
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [registry-mcp, brreg-mcp]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: npm version
+        run: npm --version
+
+      - name: Publish ${{ matrix.package }}
+        working-directory: packages/npm/${{ matrix.package }}
+        run: npm publish --access public --provenance
+
+      - name: Verify
+        working-directory: packages/npm/${{ matrix.package }}
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          sleep 15
+          npm view "$NAME@$VERSION" version

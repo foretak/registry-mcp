@@ -299,6 +299,27 @@ npx -y @foretak/brreg-mcp < tests/fixtures/tools_list.jsonl
 `"mcpName": "io.github.foretak/registry-mcp"`. Both must match `server.json`'s
 `name` exactly, so if the GitHub org changes, all three change together (§1).
 
+### 7.5 npm without codes — Trusted Publishing (one-time setup, 2 minutes)
+
+Publishing from a laptop needs a passkey approval every time, and npm is
+retiring 2FA-bypass tokens for direct publish in January 2027. The
+`.github/workflows/publish-npm.yml` workflow publishes both packages via OIDC
+instead — once you register it as a trusted publisher **for each package**:
+
+- [ ] https://www.npmjs.com/package/registry-mcp/access → **Trusted Publisher**
+      → GitHub Actions → Organization or user: `foretak` · Repository:
+      `registry-mcp` · Workflow filename: `publish-npm.yml` · Environment: leave
+      empty → Save.
+- [ ] Same at https://www.npmjs.com/package/@foretak/brreg-mcp/access
+- [ ] Then delete the granular tokens `registry-mcp-publish*` at
+      https://www.npmjs.com/settings/foretak/tokens (the one stored in
+      `~/secrets/registry-mcp/npm-token.txt` never had "Bypass 2FA" and expires
+      in 90 days anyway).
+
+After that a release is: bump versions → `git tag v0.x.y && git push --tags` →
+both npm packages and the MCP-registry entry publish themselves; PyPI still
+uses the token in `~/secrets/registry-mcp/pypi-token.txt` (`uv publish`).
+
 ### 7.2 Official MCP registry
 
 ```bash
