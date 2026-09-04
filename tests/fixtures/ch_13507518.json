@@ -1,0 +1,62 @@
+{
+    "accounts": {
+        "accounting_reference_date": {
+            "day": "30",
+            "month": "07"
+        },
+        "last_accounts": {
+            "made_up_to": "2025-07-31",
+            "period_end_on": "2025-07-31",
+            "period_start_on": "2024-08-01",
+            "type": "unaudited-abridged"
+        },
+        "next_accounts": {
+            "due_on": "2027-04-30",
+            "overdue": false,
+            "period_end_on": "2026-07-30",
+            "period_start_on": "2025-08-01"
+        },
+        "next_due": "2027-04-30",
+        "next_made_up_to": "2026-07-30",
+        "overdue": false
+    },
+    "can_file": true,
+    "company_name": "COMMUNITY INTEREST CARE CIC",
+    "company_number": "13507518",
+    "company_status": "active",
+    "confirmation_statement": {
+        "last_made_up_to": "2026-07-12",
+        "next_due": "2027-07-26",
+        "next_made_up_to": "2027-07-12",
+        "overdue": false
+    },
+    "date_of_creation": "2021-07-13",
+    "etag": "9c27f72a209f07e6f8c1429e9a3f3d196d5cf840",
+    "has_charges": false,
+    "has_insolvency_history": false,
+    "is_community_interest_company": true,
+    "jurisdiction": "england-wales",
+    "links": {
+        "persons_with_significant_control": "/company/13507518/persons-with-significant-control",
+        "persons_with_significant_control_statements": "/company/13507518/persons-with-significant-control-statements",
+        "self": "/company/13507518",
+        "filing_history": "/company/13507518/filing-history",
+        "officers": "/company/13507518/officers"
+    },
+    "registered_office_address": {
+        "address_line_1": "Neyland Community Hub",
+        "address_line_2": "John Street",
+        "country": "United Kingdom",
+        "locality": "Neyland",
+        "postal_code": "SA73 1TH",
+        "region": "Pembrokeshire"
+    },
+    "registered_office_is_in_dispute": false,
+    "sic_codes": [
+        "88100"
+    ],
+    "subtype": "community-interest-company",
+    "type": "private-limited-guarant-nsc",
+    "undeliverable_registered_office_address": false,
+    "has_super_secure_pscs": false
+}

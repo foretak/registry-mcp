@@ -1,0 +1,24 @@
+{
+    "branch_company_details": {
+        "business_activity": "Real Estate Consulting",
+        "parent_company_name": "CALL IT CLOSED INTERNATIONAL REALTY",
+        "parent_company_number": "FC041146"
+    },
+    "can_file": false,
+    "company_name": "CIC INTERNATIONAL REALTY",
+    "company_number": "BR026263",
+    "company_status": "open",
+    "date_of_creation": "2023-10-18",
+    "etag": "5af25806da6cef1150abaef8608e3c7dbb936fef",
+    "links": {
+        "self": "/company/BR026263",
+        "overseas": "/company/FC041146"
+    },
+    "registered_office_address": {
+        "address_line_1": "93 Lady Meers Road",
+        "locality": "Cherry Willingham",
+        "postal_code": "LN3 4BW"
+    },
+    "type": "uk-establishment",
+    "has_super_secure_pscs": false
+}

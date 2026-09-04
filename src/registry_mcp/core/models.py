@@ -238,6 +238,21 @@ class CountryInfo(_Base):
             "unless stubs are explicitly requested."
         ),
     )
+    requires_api_key: bool = Field(
+        default=False,
+        description=(
+            "True when this registry's upstream API needs a credential the operator must "
+            "supply. A self-hosted deployment that has not set it gets upstream_error on "
+            "every call to this country (DECISIONS.md D-017)."
+        ),
+    )
+    api_key_env: str | None = Field(
+        default=None,
+        description=(
+            "Name of the environment variable holding that credential, e.g. "
+            "'COMPANIES_HOUSE_API_KEY'. None when no key is needed. Never the key itself."
+        ),
+    )
 
     @field_validator("country")
     @classmethod

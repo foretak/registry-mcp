@@ -102,6 +102,23 @@ class Registry(ABC):
     is_stub: ClassVar[bool] = False
     """True for example/skeleton modules that must stay out of the public country list."""
 
+    requires_api_key: ClassVar[bool] = False
+    """True when the upstream API needs a credential the operator must supply.
+
+    Declarative, not a health check: it says *this registry cannot work without a
+    key*, never *this deployment has one*. A module that sets it must still raise
+    ``RegistryError(UPSTREAM_ERROR)`` with a hint naming :attr:`api_key_env` when
+    the variable is unset — the flag makes that discoverable in advance, it does
+    not replace the error (``DECISIONS.md`` D-017).
+    """
+
+    api_key_env: ClassVar[str] = ""
+    """Environment variable holding that credential, e.g. ``"COMPANIES_HOUSE_API_KEY"``.
+
+    Empty when no key is needed. **Never the key itself** — this value is
+    published by ``GET /v1/countries`` and the MCP ``list_countries`` tool.
+    """
+
     # -- required operations -------------------------------------------------
 
     @abstractmethod
@@ -277,6 +294,8 @@ class Registry(ABC):
             source_url=self.source_url,
             license=self.license,
             is_stub=self.is_stub,
+            requires_api_key=self.requires_api_key,
+            api_key_env=self.api_key_env or None,
         )
 
     def describe(self) -> dict[str, str | bool]:

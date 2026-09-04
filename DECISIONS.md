@@ -133,3 +133,58 @@ Two follow-ups this does not fix by itself:
 - **T06** — `src/registry_mcp/api/main.py:405-410`: `await _close_registry_clients()` sits after the `async with _mcp_app.lifespan(_app)` block rather than in a `finally`, so a shutdown that raises skips cleanup entirely. Wrap the `yield` in `try/finally`.
 Reason: `api/main.py:376-392` already documents, at length and correctly, that it is doing a "generic, best-effort probe rather than a real interface method" because the ABC gave it nothing to call. When a surface has to write a paragraph apologising for a `getattr`, the interface is missing a method.
 Applies to tasks: T03, T06, T10
+
+### D-015 — The United Kingdom is `GB`, strictly. No `UK` alias.
+Date: 2026-09-04
+Decision: `registries/gb/`, `country = "GB"`. `get_registry("UK")` raises `unsupported_country` like any other unknown code, and the REST path `/v1/UK/company/{id}` is a 404. No alias table is added to `core/registry.py`, and none is added at the API layer either.
+
+Considered and declined, deliberately, because the argument for an alias is real: `UK` is what a human writes, it is the internet ccTLD, and an LLM composing a call from a user's "look up this UK supplier" will reach for it. Three things decide it the other way.
+
+(a) **`core/registry.py` has one rule and it is ISO-3166-1 alpha-2** — `register()` enforces `len == 2 and isalpha()`, `CountryInfo.country` and every model's `country` field are documented as alpha-2, and `D-008` says nothing may hard-code a country code. An alias table is a country-specific exception living in `core/`, which is exactly what D-001 forbids. There is no country-neutral version of it: the next request is `EN`, then `UK` meaning Ukraine to somebody, then `GB` vs `GBR`.
+
+(b) **The error is already the fix.** `get_registry` raises `unsupported_country` with a hint that lists the supported codes and names `list_countries` / `GET /v1/countries` (D-007). An agent that tries `UK` is told, in the same response, that `GB` exists. That is one wasted call, once, and the agent learns. An alias would save that call and cost us a permanent ambiguity in the contract.
+
+(c) **The discovery surfaces are where this belongs.** `KEYWORDS.md` §GB, the tool docstrings and `llms-full.txt` (T15c) all say "United Kingdom (GB)" and "UK" in prose, so the retrieval path an agent actually uses to *find* the tool is not narrowed by the strictness of the *identifier*. Synonyms are a documentation problem, not a routing problem.
+
+If telemetry after launch shows `UK` attempts are common and are not self-correcting from the hint, revisit — but revisit it as a general alias mechanism in `core/`, with evidence, not as a one-country special case.
+Reason: a country code that means two things is a contract that means nothing. The cost of strictness is one recoverable error with a hint that names the right answer; the cost of the alias is a permanent country-specific branch in the module D-001 exists to keep country-free.
+Applies to tasks: T15a, T15b, T15c
+
+### D-016 — UK deadline policy: the register's own dates are authoritative; we compute only what is sourced; nothing rolls forward
+Date: 2026-09-04
+Decision: `registries/gb/rules.py` emits exactly two deadline kinds, `annual_accounts` and `confirmation_statement`, under three rules.
+
+**(a) Published beats computed.** Unlike Brønnøysundregistrene, Companies House publishes the dates itself — `accounts.next_accounts.due_on` and `confirmation_statement.next_due`. Those are taken verbatim whenever present, and a computation is used only when the register is silent. This inverts the Norwegian design on purpose: CH's figures already account for accounting-reference-date changes, shortened and extended periods, and administrative extensions that we cannot see, and they are what the filing system will actually judge lateness against. `applies_because` says which of the two it was, in every deadline, so an agent can tell a quoted fact from a derived one.
+
+**(b) Compute only from a sourced rule applied to a published input.** The fallback rungs are: accounts = `next_accounts.period_end_on` + 9 months (private) or 6 months (public), per Companies Act 2006 s.442 as stated in GOV.UK's *Life of a company — Part 1 Accounts*; confirmation statement = `next_made_up_to` + 14 days, per GOV.UK's confirmation statement guidance. Both were verified against live payloads on 2026-09-04 — five independent proofs each, across `ltd`, `plc`, `llp` and `private-limited-guarant-nsc`, in two jurisdictions (`UK_SPEC.md` §1.5). A legal form outside the confirmed private/public buckets gets no computed date at all, only the register's own, and an unclassified `type` gets nothing whatever (D-009(a) applied to Britain).
+
+Three things are therefore **documented but not computed**, and this is the part that matters: **first accounts after incorporation** (21 months private / 18 months public from incorporation, or 3 months from the accounting reference date, whichever is longer — sourced, but picking the right *year* for a first ARD from a bare `{day, month}` is ambiguous once a company has shortened or extended its first period, and CH publishes `due_on` for a company from the day it is incorporated, so the ladder's first rung already answers it correctly); and both **corporation tax** dates. The CT rules are sourced — 12 months after the accounting period ends for the CT600, 9 months and a day for payment — but three inputs are not: HMRC's accounting period is not the Companies House accounting reference period and is not published; whether the entity is within the charge to corporation tax at all depends on the legal form, and an LLP is tax-transparent and files no CT600; and the 9-months-and-a-day payment date does not apply to companies in the quarterly-instalment regime, which turns on a profit figure Companies House does not publish. Corporation tax is HMRC's, not Companies House's. `rules_markdown()` states all three rules in prose, with sources, so an agent that knows the missing input can apply them; the module emits no date.
+
+**(c) No roll-forward, anywhere.** GOV.UK: "If your filing deadline falls on a Sunday or a bank holiday, it is still a legal requirement to file your accounts by that date." So every GB `Deadline` has `statutory_date == due_date` and `rolled_forward is False`, `registries/gb/` ships **no** holiday table, and `core/rules/common.py::roll_forward` is never called — not called with an empty holiday set, not called at all. `core/` needs no change for this: `roll_forward` was already a helper a country may use, not a step in a pipeline every country runs through.
+
+Two consequences worth naming. Deadlines are emitted **only** when `status is ACTIVE`, which is stricter than Norway, where `UNDER_LIQUIDATION` keeps its list — CH's `company_status` does not distinguish voluntary from compulsory liquidation, so the distinction Norway's rule depends on is not available to us, and D-009's "never guess a duty" decides it. And `days_until` is negative for a real, common case: CH leaves an overdue due date in the past rather than rolling it to the next cycle (confirmed live on DELOITTE LLP), so the upstream `overdue` flag is corroboration and `days_until < 0` is the answer.
+Reason: the differentiator is deadlines, and the way to keep that differentiator trustworthy across countries is a rule about *provenance* rather than a rule about arithmetic. "Quote the register where it speaks, compute only from a cited statute applied to a published input, and say which you did" generalises to country three; "nine months after the ARD" does not.
+Applies to tasks: T15a, T15b, T15c
+
+### D-017 — A registry declares its credential: `requires_api_key` / `api_key_env` on `Registry`, surfaced by `country_info()`
+Date: 2026-09-04
+Decision: Companies House is the first upstream that needs a credential, and the discovery surface had no way to say so. `core/registry.py :: Registry` gains two class attributes and `core/models.py :: CountryInfo` gains the two matching fields, **both with defaults, so `registries/no/` and `registries/xx/` are untouched and every existing test still passes** (verified: 273 passed after the change, mypy and ruff clean).
+
+```python
+requires_api_key: ClassVar[bool] = False
+api_key_env:      ClassVar[str]  = ""     # "" means none needed
+```
+
+`country_info()` emits `requires_api_key=self.requires_api_key` and `api_key_env=self.api_key_env or None` — the `or None` following the same precedent as `validate()`'s `id_scheme=self.id_scheme or None`, so the model field is `str | None` and D-004's "unknown is `None`, never `''`" holds on the wire while the class attribute stays a plain `str` like every other one.
+
+**Declarative, never a health check.** The attributes say *this registry cannot work without a key*; they never say *this deployment has one*. A `configured: bool` computed from the environment was considered and declined: `country_info()` would then read `os.environ` at call time, making a discovery document depend on deployment state and on when it was called, and the question it answers ("can GB answer right now?") is already answered — correctly and with a next action — by the `upstream_error` and its hint (D-007). A module with `requires_api_key = True` must still raise that error when the variable is unset; the flag makes the constraint discoverable in advance, it does not replace the error.
+
+**Never the key, only its name.** `api_key_env` is published by `GET /v1/countries` and by the MCP `list_countries` tool. It holds the variable's *name*. Nothing anywhere publishes, logs or puts a key value in a `RegistryError.details`; `UK_SPEC.md` test 104 asserts it.
+
+Follow-ups this does not fix by itself, both for **T15c**, both cosmetic rather than functional (the model's defaults mean nothing breaks meanwhile):
+- `src/registry_mcp/api/main.py:185 _COUNTRIES_EXAMPLE` is an OpenAPI example dict, not a validated model, so it now advertises fewer keys than `/v1/countries` returns. Add `"requires_api_key": false, "api_key_env": null` to the NO row and a GB row alongside it.
+- `static/llms-full.txt`'s `/v1/countries` example needs the same two keys, and the sentence that says the MCP `list_countries` tool returns an identical document has to stay true.
+
+The `Registry` ABC stays four abstract methods wide (D-008): these are class attributes with defaults, like `name` and `license`, so `registries/xx/` needs no edit and a third country inherits them for free.
+Reason: `tasks/T15.md` set the rule that a `core/` edit forced by the second country is itself the finding. This is that finding, and it is the good kind: the thing missing from the interface was not country-specific, it was *credential*-specific, and Denmark's CVR (T16, application pending) will need exactly the same two attributes. The alternative — leaving it out — means the only way an agent can learn that a self-hosted deployment cannot answer for GB is to call it and read the error, which is the one thing D-007's hints exist to make unnecessary in advance.
+Applies to tasks: T15a, T15b, T15c, T16

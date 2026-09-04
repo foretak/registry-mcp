@@ -1,0 +1,71 @@
+{
+    "accounts": {
+        "accounting_reference_date": {
+            "day": "31",
+            "month": "03"
+        },
+        "last_accounts": {
+            "made_up_to": "2026-03-31",
+            "period_end_on": "2026-03-31",
+            "period_start_on": "2025-04-01",
+            "type": "micro-entity"
+        },
+        "next_accounts": {
+            "due_on": "2027-12-31",
+            "overdue": false,
+            "period_end_on": "2027-03-31",
+            "period_start_on": "2026-04-01"
+        },
+        "next_due": "2027-12-31",
+        "next_made_up_to": "2027-03-31",
+        "overdue": false
+    },
+    "can_file": true,
+    "company_name": "AMICUS SUPPORT SERVICES LTD",
+    "company_number": "13948759",
+    "company_status": "active",
+    "confirmation_statement": {
+        "last_made_up_to": "2026-03-01",
+        "next_due": "2027-03-15",
+        "next_made_up_to": "2027-03-01",
+        "overdue": false
+    },
+    "date_of_creation": "2022-03-02",
+    "etag": "f3b5e2886440ee7977364b8f11a1bf7cd5e5df05",
+    "has_charges": false,
+    "has_insolvency_history": false,
+    "jurisdiction": "england-wales",
+    "links": {
+        "persons_with_significant_control": "/company/13948759/persons-with-significant-control",
+        "self": "/company/13948759",
+        "filing_history": "/company/13948759/filing-history",
+        "officers": "/company/13948759/officers"
+    },
+    "previous_company_names": [
+        {
+            "ceased_on": "2025-11-11",
+            "effective_from": "2023-01-24",
+            "name": "COMMUNITY WELFARE SERVICES LTD"
+        },
+        {
+            "ceased_on": "2023-01-24",
+            "effective_from": "2022-03-02",
+            "name": "TWO SWORDS - KURDISH PROJECT LTD"
+        }
+    ],
+    "registered_office_address": {
+        "address_line_1": "Unit 82 A James Carter Road",
+        "address_line_2": "Mildenhall",
+        "country": "United Kingdom",
+        "locality": "Bury St. Edmunds",
+        "postal_code": "IP28 7DE"
+    },
+    "registered_office_is_in_dispute": false,
+    "sic_codes": [
+        "74300",
+        "88990"
+    ],
+    "type": "private-limited-guarant-nsc",
+    "undeliverable_registered_office_address": false,
+    "has_super_secure_pscs": false
+}

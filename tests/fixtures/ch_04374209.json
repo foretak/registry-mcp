@@ -1,0 +1,61 @@
+{
+    "accounts": {
+        "accounting_reference_date": {
+            "day": "31",
+            "month": "03"
+        },
+        "last_accounts": {
+            "made_up_to": "2023-03-31",
+            "period_end_on": "2023-03-31",
+            "period_start_on": "2022-04-01",
+            "type": "micro-entity"
+        },
+        "next_accounts": {
+            "due_on": "2024-12-31",
+            "overdue": true,
+            "period_end_on": "2024-03-31",
+            "period_start_on": "2023-04-01"
+        },
+        "next_due": "2024-12-31",
+        "next_made_up_to": "2024-03-31",
+        "overdue": true
+    },
+    "can_file": true,
+    "company_name": "COMMUNITY ACCOUNTANCY SELF HELP",
+    "company_number": "04374209",
+    "company_status": "liquidation",
+    "confirmation_statement": {
+        "last_made_up_to": "2024-01-29",
+        "next_due": "2025-02-12",
+        "next_made_up_to": "2025-01-29",
+        "overdue": true
+    },
+    "date_of_creation": "2002-02-14",
+    "etag": "f3a05ea5066e7d31bae024f52cb2175250308825",
+    "has_been_liquidated": false,
+    "has_charges": false,
+    "has_insolvency_history": true,
+    "jurisdiction": "england-wales",
+    "links": {
+        "persons_with_significant_control": "/company/04374209/persons-with-significant-control",
+        "persons_with_significant_control_statements": "/company/04374209/persons-with-significant-control-statements",
+        "self": "/company/04374209",
+        "filing_history": "/company/04374209/filing-history",
+        "insolvency": "/company/04374209/insolvency",
+        "officers": "/company/04374209/officers"
+    },
+    "registered_office_address": {
+        "address_line_1": "6 Bevington Road",
+        "address_line_2": "Bevington Road",
+        "country": "England",
+        "locality": "London",
+        "postal_code": "W10 5TN"
+    },
+    "registered_office_is_in_dispute": false,
+    "sic_codes": [
+        "69201"
+    ],
+    "type": "private-limited-guarant-nsc-limited-exemption",
+    "undeliverable_registered_office_address": false,
+    "has_super_secure_pscs": false
+}

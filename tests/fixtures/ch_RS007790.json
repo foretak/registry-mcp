@@ -1,0 +1,15 @@
+{
+    "can_file": false,
+    "company_name": "COMMUNITY ACTIVATION LIMITED",
+    "company_number": "RS007790",
+    "etag": "c354d20752cbd4e5a82b89ff388006b681116f80",
+    "has_charges": false,
+    "has_insolvency_history": false,
+    "links": {
+        "self": "/company/RS007790"
+    },
+    "registered_office_is_in_dispute": false,
+    "type": "registered-society-non-jurisdictional",
+    "undeliverable_registered_office_address": false,
+    "partial_data_available": "full-data-available-from-financial-conduct-authority-mutuals-public-register"
+}

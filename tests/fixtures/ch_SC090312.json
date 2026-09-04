@@ -1,0 +1,71 @@
+{
+    "accounts": {
+        "accounting_reference_date": {
+            "day": "31",
+            "month": "12"
+        },
+        "last_accounts": {
+            "made_up_to": "2025-12-31",
+            "period_end_on": "2025-12-31",
+            "period_start_on": "2025-01-01",
+            "type": "group"
+        },
+        "next_accounts": {
+            "due_on": "2027-06-30",
+            "overdue": false,
+            "period_end_on": "2026-12-31",
+            "period_start_on": "2026-01-01"
+        },
+        "next_due": "2027-06-30",
+        "next_made_up_to": "2026-12-31",
+        "overdue": false
+    },
+    "can_file": true,
+    "company_name": "NATWEST MARKETS PLC",
+    "company_number": "SC090312",
+    "company_status": "active",
+    "confirmation_statement": {
+        "last_made_up_to": "2026-08-31",
+        "next_due": "2027-09-14",
+        "next_made_up_to": "2027-08-31",
+        "overdue": false
+    },
+    "date_of_creation": "1984-10-31",
+    "etag": "48dff78b1b61520b567f3940021db9945ac64321",
+    "has_been_liquidated": false,
+    "has_charges": false,
+    "has_insolvency_history": false,
+    "jurisdiction": "scotland",
+    "last_full_members_list_date": "2016-01-03",
+    "links": {
+        "persons_with_significant_control": "/company/SC090312/persons-with-significant-control",
+        "self": "/company/SC090312",
+        "charges": "/company/SC090312/charges",
+        "filing_history": "/company/SC090312/filing-history",
+        "officers": "/company/SC090312/officers"
+    },
+    "previous_company_names": [
+        {
+            "ceased_on": "2018-04-29",
+            "effective_from": "1985-09-30",
+            "name": "THE ROYAL BANK OF SCOTLAND PUBLIC LIMITED COMPANY"
+        },
+        {
+            "ceased_on": "1985-09-30",
+            "effective_from": "1984-10-31",
+            "name": "RBSG PUBLIC LIMITED COMPANY"
+        }
+    ],
+    "registered_office_address": {
+        "address_line_1": "36 St Andrew Square",
+        "address_line_2": "Edinburgh",
+        "postal_code": "EH2 2YB"
+    },
+    "registered_office_is_in_dispute": false,
+    "sic_codes": [
+        "66190"
+    ],
+    "type": "plc",
+    "undeliverable_registered_office_address": false,
+    "has_super_secure_pscs": false
+}

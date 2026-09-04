@@ -1,0 +1,72 @@
+{
+    "accounts": {
+        "last_accounts": {
+            "made_up_to": "2013-12-31",
+            "period_end_on": "2013-12-31",
+            "type": "null"
+        },
+        "next_accounts": {
+            "overdue": false,
+            "period_end_on": "2014-12-31"
+        },
+        "next_made_up_to": "2014-12-31",
+        "overdue": false
+    },
+    "can_file": false,
+    "company_name": "CIC PRIVATE DEBT",
+    "company_number": "FC032315",
+    "company_status": "active",
+    "date_of_creation": "2015-01-01",
+    "etag": "d86a8bccd461938640d528dcaa06688de2687fcd",
+    "external_registration_number": "503110595",
+    "foreign_company_details": {
+        "accounting_requirement": {
+            "foreign_account_type": "accounting-requirements-of-originating-country-apply",
+            "terms_of_account_publication": "accounts-publication-date-supplied-by-company"
+        },
+        "accounts": {
+            "account_period_from": {
+                "day": "1",
+                "month": "1"
+            },
+            "account_period_to": {
+                "day": "31",
+                "month": "12"
+            },
+            "must_file_within": {
+                "months": "5"
+            }
+        },
+        "is_a_credit_financial_institution": true,
+        "originating_registry": {
+            "country": "FRANCE",
+            "name": "Rcs Paris (Registre Du Commerce Et Des Societes)"
+        },
+        "registration_number": "503110595",
+        "legal_form": "Societe Par Actions Simplifiee (Private Limited Company)"
+    },
+    "has_charges": false,
+    "has_insolvency_history": false,
+    "jurisdiction": "united-kingdom",
+    "links": {
+        "self": "/company/FC032315",
+        "filing_history": "/company/FC032315/filing-history",
+        "officers": "/company/FC032315/officers",
+        "uk_establishments": "/company/FC032315/uk-establishments"
+    },
+    "previous_company_names": [
+        {
+            "ceased_on": "2021-08-18",
+            "effective_from": "2015-01-26",
+            "name": "CM-CIC PRIVATE DEBT"
+        }
+    ],
+    "registered_office_address": {
+        "address_line_1": "Branch Registration",
+        "address_line_2": "Refer To Parent Registry"
+    },
+    "registered_office_is_in_dispute": false,
+    "type": "oversea-company",
+    "undeliverable_registered_office_address": false,
+    "has_super_secure_pscs": false
+}

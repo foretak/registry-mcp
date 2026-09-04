@@ -1,0 +1,16 @@
+{
+    "can_file": false,
+    "company_name": "COMMUNITY ACCOMMODATION GROUP",
+    "company_number": "CE020555",
+    "etag": "a52f57312d73e89364fd849f9f7cb13e0d60dae2",
+    "external_registration_number": "1187753",
+    "has_charges": false,
+    "has_insolvency_history": false,
+    "jurisdiction": "england-wales",
+    "links": {
+        "self": "/company/CE020555"
+    },
+    "registered_office_is_in_dispute": false,
+    "type": "charitable-incorporated-organisation",
+    "undeliverable_registered_office_address": false
+}
