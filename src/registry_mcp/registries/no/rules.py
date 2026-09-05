@@ -482,9 +482,19 @@ def deadline_exemption_note(report: CompanyReport) -> str | None:
     return None
 
 
-def _annual_accounts(today: date, holidays: frozenset[date], code: str) -> Deadline:
+def _annual_accounts(today: date, code: str) -> Deadline:
+    """31 July, and it does **not** roll forward (`DECISIONS.md` D-022(b)).
+
+    Regnskapsloven § 8-3(1) charges a late fee unless the accounts are
+    "avsendt før 1. august" — dispatched *before* 1 August — so 31 July is the
+    last safe day. Rolling that onto the next business day would always land
+    on or after 1 August, i.e. on a date the fee is already running. Neither
+    regnskapsloven nor aksjeloven references domstolloven §§ 148-149, so there
+    is no chain that would make a roll lawful here (contrast `_tax_return`
+    etc., reached by skatteforvaltningsloven § 5-5). No ``holidays`` parameter:
+    a date that never moves has no use for a holiday table.
+    """
     statutory = next_occurrence(7, 31, today)
-    due = roll_forward(statutory, holidays)
     period = statutory.year - 1
     return Deadline(
         country="NO",
@@ -494,23 +504,32 @@ def _annual_accounts(today: date, holidays: frozenset[date], code: str) -> Deadl
         local_name="Årsregnskap",
         authority="Regnskapsregisteret",
         statutory_date=statutory,
-        due_date=due,
-        rolled_forward=due != statutory,
+        due_date=statutory,
+        rolled_forward=False,
         period_label=str(period),
         period_start=date(period, 1, 1),
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
-            f"{_article(code)} {code} must file annual accounts with Regnskapsregisteret."
-            + _CALENDAR_YEAR_ASSUMPTION
+            f"{_article(code)} {code} must file annual accounts with Regnskapsregisteret; "
+            "regnskapsloven § 8-3(1) starts a late fee unless they are dispatched before 1 "
+            "August, so 31 July is the last safe day and the date does not move off a "
+            "weekend or holiday. Assumes a calendar-year accounting period — a financial "
+            "year ending between 1 January and 30 June has a 1 February deadline instead."
         ),
-        days_until=(due - today).days,
+        days_until=(statutory - today).days,
     )
 
 
-def _general_meeting(today: date, holidays: frozenset[date], code: str) -> Deadline:
+def _general_meeting(today: date, code: str) -> Deadline:
+    """30 June, and it does **not** roll forward (`DECISIONS.md` D-022(b)).
+
+    Aksjeloven § 5-5(1)'s six months is an outer limit, not a deadline a
+    closed office enforces, and a general meeting may lawfully be held on a
+    Saturday — ``authority`` is literally "no external filing". No
+    ``holidays`` parameter, for the same reason as `_annual_accounts`.
+    """
     statutory = next_occurrence(6, 30, today)
-    due = roll_forward(statutory, holidays)
     period = statutory.year - 1
     return Deadline(
         country="NO",
@@ -520,17 +539,21 @@ def _general_meeting(today: date, holidays: frozenset[date], code: str) -> Deadl
         local_name="Ordinær generalforsamling",
         authority="Company shareholders (no external filing)",
         statutory_date=statutory,
-        due_date=due,
-        rolled_forward=due != statutory,
+        due_date=statutory,
+        rolled_forward=False,
         period_label=str(period),
         period_start=date(period, 1, 1),
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
-            f"{_article(code)} {code} company must hold an ordinary general meeting within "
-            "six months of the financial year end." + _CALENDAR_YEAR_ASSUMPTION
+            f"{_article(code)} {code} must hold its ordinary general meeting within six "
+            "months of the financial year end (aksjeloven § 5-5(1)), and the annual "
+            "accounts must be adopted in the same six months (regnskapsloven § 3-1(2))."
+            + _CALENDAR_YEAR_ASSUMPTION
+            + " Six months is an outer limit, so this date does not move off a weekend or "
+            "holiday."
         ),
-        days_until=(due - today).days,
+        days_until=(statutory - today).days,
     )
 
 
@@ -554,7 +577,7 @@ def _tax_return(today: date, holidays: frozenset[date], code: str) -> Deadline:
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
             f"{_article(code)} {code} must file a tax return (skattemelding) with "
-            "Skatteetaten." + _CALENDAR_YEAR_ASSUMPTION
+            "Skatteetaten (skatteforvaltningsforskriften § 8-2-3(1)(a))."
         ),
         days_until=(due - today).days,
     )
@@ -580,7 +603,7 @@ def _shareholder_register_statement(today: date, holidays: frozenset[date], code
         recurrence=DeadlineRecurrence.ANNUAL,
         applies_because=(
             f"{_article(code)} {code} company must file the shareholder register statement "
-            "(RF-1086) with Skatteetaten." + _CALENDAR_YEAR_ASSUMPTION
+            "(RF-1086) with Skatteetaten (skatteforvaltningsforskriften § 7-7-4(1))."
         ),
         days_until=(due - today).days,
     )
@@ -615,7 +638,10 @@ def _vat_return(today: date, holidays: frozenset[date]) -> Deadline:
         recurrence=DeadlineRecurrence.BIMONTHLY,
         applies_because=(
             "This entity is registered in Merverdiavgiftsregisteret and must file a VAT "
-            "return (mva-melding) with Skatteetaten."
+            "return (mva-melding) with Skatteetaten (skatteforvaltningsforskriften "
+            "§ 8-3-10(1); periods § 8-3-1). Assumes the ordinary two-month cycle — annual "
+            "filing by consent (§ 8-3-3) or for primary industries (§ 8-3-7) is not "
+            "published in Enhetsregisteret."
         ),
         days_until=(due - today).days,
     )
@@ -649,7 +675,7 @@ def _payroll_report(today: date, holidays: frozenset[date]) -> Deadline:
         recurrence=DeadlineRecurrence.MONTHLY,
         applies_because=(
             "This entity has reported employees and must file the monthly payroll report "
-            "(a-melding) with NAV/Skatteetaten."
+            "(a-melding) with NAV/Skatteetaten (a-opplysningsforskriften § 2-1)."
         ),
         days_until=(due - today).days,
     )
@@ -678,9 +704,9 @@ def deadlines_for(report: CompanyReport, today: date) -> list[Deadline]:
         has_accounts_duty = legal_form_info(code).has_annual_accounts_duty
 
     if has_accounts_duty:
-        deadlines.append(_annual_accounts(today, holidays, code))
+        deadlines.append(_annual_accounts(today, code))
     if code in {"AS", "ASA"}:
-        deadlines.append(_general_meeting(today, holidays, code))
+        deadlines.append(_general_meeting(today, code))
     if code in _TAX_RETURN_FORMS:
         deadlines.append(_tax_return(today, holidays, code))
     if code in {"AS", "ASA"}:
@@ -726,9 +752,29 @@ def rules_markdown() -> str:
         "(May-Jun) is due 31 August, not 10 August.\n"
         "- `payroll_report` — monthly, the 5th of the following month, for "
         "entities with reported employees (A-melding).\n\n"
-        "All annual deadlines assume a calendar-year accounting period, and a "
-        "statutory date falling on a weekend or Norwegian public holiday rolls "
-        "forward to the next working day. Bankrupt, deleted or compulsorily "
-        "liquidated entities, and sub-units (BEDR, AAFY), get no deadlines. "
-        "See NORBIZ_SPEC.md for the full, numbered rule set."
+        "## Roll-forward\n"
+        "Roll-forward is decided per deadline, from that deadline's own legal "
+        "source — it is not a blanket country rule (`DECISIONS.md` D-022). "
+        "`tax_return`, `shareholder_register_statement` and `vat_return` roll "
+        "forward to the next working day under skatteforvaltningsloven § 5-5, "
+        "which applies domstolloven § 149; `payroll_report` rolls forward "
+        "under a-opplysningsforskriften § 2-1 directly. `annual_accounts` and "
+        "`general_meeting` do **not** roll forward: regnskapsloven § 8-3(1) "
+        "charges a late fee unless the accounts are dispatched before 1 "
+        "August, so moving the date to the next business day would land on "
+        "or after the fee's start; aksjeloven § 5-5(1)'s six months is an "
+        "outer limit and a general meeting may lawfully fall on a Saturday. "
+        "Where a source is silent, the date does not move.\n\n"
+        "## Calendar-year assumption\n"
+        "`annual_accounts` and `general_meeting` assume a calendar-year "
+        "accounting period, because Enhetsregisteret does not publish the "
+        "real one. A financial year ending between 1 January and 30 June has "
+        "a 1 February deadline instead of 31 July (regnskapsloven § "
+        "8-3(1)), and the Ministry may postpone the accounts deadline by up "
+        "to one month by regulation. `tax_return` and "
+        "`shareholder_register_statement` do not carry this caveat — their "
+        "dates run from the tax period, not the accounting year.\n\n"
+        "Bankrupt, deleted or compulsorily liquidated entities, and "
+        "sub-units (BEDR, AAFY), get no deadlines. See NORBIZ_SPEC.md for "
+        "the full, numbered rule set."
     )

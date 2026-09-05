@@ -68,6 +68,10 @@ They assume a **calendar-year accounting period** — the register does not
 publish which companies have a deviating one (*avvikende regnskapsår*), so a
 company that does will have different real dates. Each deadline states its
 assumption in `applies_because`, and each report repeats the caveat in `notes`.
+Every computed Norwegian deadline also names its own statutory basis in
+`applies_because`; two of the six — the annual accounts filing and the
+ordinary general meeting — deliberately never move off a weekend or public
+holiday, because the law behind them has no rule that would allow it.
 Read them before quoting a date to anyone.
 
 Deadlines are not tax, accounting or legal advice.

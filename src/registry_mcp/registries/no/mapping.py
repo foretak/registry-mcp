@@ -61,14 +61,24 @@ __all__ = [
 #: Norwegian sub-unit legal-form codes (`NORBIZ_SPEC.md` §2, `is_subunit`).
 _SUBUNIT_FORMS = frozenset({"BEDR", "AAFY"})
 
-#: `NORBIZ_SPEC.md` §5.4 / `DECISIONS.md` D-010: "lookup adds a notes entry"
-#: whenever it returns any annual deadline, because Enhetsregisteret does not
-#: publish a company's actual accounting-year end, so every annual deadline
-#: assumes a calendar year.
+#: `NORBIZ_SPEC.md` §5.4 / `DECISIONS.md` D-010, wording corrected 2026-09-05
+#: (R01 §3, D-023): "lookup adds a notes entry" whenever it returns any annual
+#: deadline, because Enhetsregisteret does not publish a company's actual
+#: accounting-year end, so every annual deadline assumes a calendar year. The
+#: note must say a deviating year selects a *different rule* (regnskapsloven
+#: § 8-3(1)'s 1 February branch), not just a shifted date, and must name the
+#: ministerial-postponement caveat and Regnskapsregisteret rather than imply
+#: nobody publishes the accounting period (D-023(c) — Brønnøysundregistrene
+#: does, at `GET https://data.brreg.no/regnskapsregisteret/regnskap/{orgnr}`,
+#: just not reads it yet, per D-023(d)).
 _CALENDAR_YEAR_ASSUMPTION_NOTE = (
     "Filing deadlines are computed assuming a calendar-year accounting period. "
-    "A company with a deviating accounting year (avvikende regnskapsår) will have "
-    "different actual dates, and Enhetsregisteret does not publish which companies those are."
+    "Enhetsregisteret does not publish a company's accounting year. For a financial year "
+    "ending between 1 January and 30 June, regnskapsloven § 8-3(1) sets a different "
+    "deadline — 1 February, not 31 July — so a deviating year changes which rule "
+    "applies, not just the date. The Ministry may also postpone the accounts deadline "
+    "by up to one month by regulation (§ 8-3(1)). Verify against Regnskapsregisteret "
+    "before relying on an annual date."
 )
 
 #: An arbitrary, fixed anchor date used only to ask "would any *kind* of annual

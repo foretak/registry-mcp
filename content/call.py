@@ -33,7 +33,13 @@ async def main() -> None:
     args = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
     async with Client(URL) as client:
         try:
-            data = (await client.call_tool(tool, args)).data
+            # `.data` re-validates structured_content through a schema-derived
+            # dynamic type (`fastmcp.utilities.json_schema_type`) and returns a
+            # live object, not a plain dict — not JSON-serialisable as-is on
+            # current fastmcp. `.structured_content` is the exact JSON object
+            # the server sent (`SomeModel.model_dump(mode="json")`), so use
+            # that instead; it is what an agent actually receives on the wire.
+            data = (await client.call_tool(tool, args)).structured_content
         except Exception as exc:  # the D-007 envelope arrives as the error text
             try:
                 data = json.loads(str(exc))

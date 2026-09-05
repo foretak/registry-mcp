@@ -274,10 +274,15 @@ def test_mapping_deleted_and_bankrupt_entities_get_no_deadlines() -> None:
 
 def test_calendar_year_assumption_note_present_when_any_annual_deadline_applies() -> None:
     """Equinor (ASA, active, annual-accounts duty) gets annual deadlines, so
-    the calendar-year assumption must be surfaced in `notes`."""
+    the calendar-year assumption must be surfaced in `notes`. Corrected
+    2026-09-05 (R01 §3, D-023): the note must say a deviating year selects a
+    different rule (the 1 February branch), not just a shifted date, and must
+    point at Regnskapsregisteret rather than claim nobody publishes the
+    accounting period."""
     report = mapping.map_entity(EQUINOR, source_url="https://example/enheter/923609016")
     assert any("calendar-year" in note for note in report.notes)
-    assert any("avvikende regnskapsår" in note for note in report.notes)
+    assert any("1 February" in note for note in report.notes)
+    assert any("Regnskapsregisteret" in note for note in report.notes)
 
 
 def test_no_calendar_year_note_when_no_annual_deadline_applies() -> None:

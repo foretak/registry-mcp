@@ -372,13 +372,31 @@ def test_57_annual_accounts_no_roll() -> None:
     assert d.period_label == "2025"
 
 
-def test_58_annual_accounts_rolled_forward() -> None:
+def test_58_annual_accounts_no_roll_even_on_saturday() -> None:
+    """Corrected 2026-09-05 (R01, D-022(b)): regnskapsloven § 8-3(1) charges a
+    late fee unless the accounts are dispatched before 1 August, so rolling
+    31 July (a Saturday, in 2027) onto Monday 2 August would return a date on
+    which the fee is already running. The date does not move off the
+    weekend. (The previous version of this test asserted
+    `due_date == date(2027, 8, 2)` and `rolled_forward is True`; that was the
+    bug.)"""
     deadlines = deadlines_for(_report(), date(2026, 8, 1))
     d = _by_kind(deadlines, "annual_accounts")
     assert d.statutory_date == date(2027, 7, 31)
-    assert d.due_date == date(2027, 8, 2)
-    assert d.rolled_forward is True
+    assert d.due_date == date(2027, 7, 31)
+    assert d.rolled_forward is False
     assert d.period_label == "2026"
+
+
+def test_58b_annual_accounts_no_roll_sunday_lands_on_aug1() -> None:
+    """Added 2026-09-05 (R01, D-022(b)). The Sunday case: rolling 31 July 2033
+    forward would land on 1 August itself — the exact date the late fee
+    starts running."""
+    deadlines = deadlines_for(_report(), date(2033, 1, 15))
+    d = _by_kind(deadlines, "annual_accounts")
+    assert d.statutory_date == date(2033, 7, 31)
+    assert d.due_date == date(2033, 7, 31)
+    assert d.rolled_forward is False
 
 
 def test_59_tax_return_rolled_forward() -> None:
@@ -416,6 +434,30 @@ def test_63_general_meeting_no_roll() -> None:
     d = _by_kind(deadlines, "general_meeting")
     assert d.due_date == date(2026, 6, 30)
     assert d.rolled_forward is False
+
+
+def test_63b_general_meeting_no_roll_saturday() -> None:
+    """Added 2026-09-05 (R01, D-022(b)). Aksjeloven § 5-5(1)'s six months is
+    an outer limit and a general meeting may lawfully be held on a Saturday,
+    so rolling 30 June 2029 (a Saturday) to 2 July would be late."""
+    deadlines = deadlines_for(_report(), date(2029, 1, 15))
+    d = _by_kind(deadlines, "general_meeting")
+    assert d.statutory_date == date(2029, 6, 30)
+    assert d.due_date == date(2029, 6, 30)
+    assert d.rolled_forward is False
+
+
+def test_63c_annual_accounts_and_general_meeting_never_roll_2026_2040() -> None:
+    """Added 2026-09-05 (R01, D-022(b)). Regression guard: a future change to
+    a shared helper (e.g. `roll_forward`, or a rewrite of `deadlines_for`)
+    must not reintroduce roll-forward on these two deadlines for any year in
+    this range."""
+    for year in range(2026, 2041):
+        deadlines = deadlines_for(_report(), date(year, 1, 15))
+        for kind in ("annual_accounts", "general_meeting"):
+            d = _by_kind(deadlines, kind)
+            assert d.rolled_forward is False, f"{kind} rolled forward for today year {year}"
+            assert d.statutory_date == d.due_date, f"{kind} dates differ for today year {year}"
 
 
 def test_64_vat_term_3_summer_exception() -> None:

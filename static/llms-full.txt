@@ -458,12 +458,12 @@ Response — a `DeadlineReport` document, never a bare list:
           "period_end": "2025-12-31",
           "recurrence": "annual",
           "mandatory": true,
-          "applies_because": "An ASA company must file the shareholder register statement (RF-1086) with Skatteetaten. Assumes a calendar-year accounting period.",
+          "applies_because": "An ASA company must file the shareholder register statement (RF-1086) with Skatteetaten (skatteforvaltningsforskriften § 7-7-4(1)).",
           "days_until": 18,
           "source_url": null
         }
       ],
-      "notes": ["Filing deadlines are computed assuming a calendar-year accounting period. A company with a deviating accounting year (avvikende regnskapsår) will have different actual dates, and Enhetsregisteret does not publish which companies those are."]
+      "notes": ["Filing deadlines are computed assuming a calendar-year accounting period. Enhetsregisteret does not publish a company's accounting year. For a financial year ending between 1 January and 30 June, regnskapsloven § 8-3(1) sets a different deadline — 1 February, not 31 July — so a deviating year changes which rule applies, not just the date. The Ministry may also postpone the accounts deadline by up to one month by regulation (§ 8-3(1)). Verify against Regnskapsregisteret before relying on an annual date."]
     }
 
 The `deadlines` array is truncated to one entry above. The real call for
@@ -478,12 +478,22 @@ array on either surface.
 
 How to read it:
 - `statutory_date` is the date in the statute. `due_date` is the date to act
-  on, after weekends and public holidays. Quote `due_date`.
-- `rolled_forward: true` means the two differ — worth mentioning to the user.
+  on. Quote `due_date`.
+- `rolled_forward: true` means the two differ because this deadline's own
+  legal source rolls a weekend/holiday date to the next working day.
+  Roll-forward is decided per deadline, not as a blanket rule: four of the
+  six Norwegian deadlines roll (`tax_return`, `shareholder_register_statement`,
+  `vat_return` under skatteforvaltningsloven § 5-5 / domstolloven § 149,
+  `payroll_report` under a-opplysningsforskriften § 2-1); `annual_accounts`
+  and `general_meeting` never do, because rolling would land past the actual
+  legal deadline (regnskapsloven § 8-3(1)'s "before 1 August", aksjeloven
+  § 5-5(1)'s six-month outer limit) — `rolled_forward` is always `false` for
+  those two.
 - One entry per `kind`, always the **next** occurrence, sorted by `due_date`.
 - `days_until` is negative if the date has passed relative to `today`.
-- `applies_because` states the assumption behind the date. Quote it rather
-  than presenting a date as unconditional fact.
+- `applies_because` names the provision the date comes from and any
+  assumption behind it. Quote it rather than presenting a date as
+  unconditional fact.
 - An empty list is a real answer: bankrupt, deleted and compulsorily liquidated
   entities have no filing deadlines, and neither do branches/sub-units. `notes`
   says why, and for a sub-unit points you at `parent_id`.
