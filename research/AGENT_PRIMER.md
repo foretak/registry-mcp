@@ -15,10 +15,10 @@ regulation drivers · **04** MCP and agent ecosystem · **05** competitors ·
 
 ## 1. What the product is, in the words the evidence supports
 
-registry-mcp is *the company registry MCP*: five read-only tools
+registry-mcp is *the company registry MCP*: five read-only registry tools
 (`lookup_company`, `search_company`, `validate_company_id`,
 `company_deadlines`, `list_countries`) that return one JSON shape for every
-country. Live: Norway (Brønnøysundregistrene, keyless) and the UK (Companies
+country, plus two ChatGPT connector aliases (`search`, `fetch`; D-031, 2026-09-05). Live: Norway (Brønnøysundregistrene, keyless) and the UK (Companies
 House, free key). Denmark applied for (Erhvervsstyrelsen sagsnummer 177481,
 answer due ~2026-09-23). Hosted at `api.foretak.dev` with an anonymous MCP
 endpoint, and as `uvx registry-mcp` / `npx registry-mcp`. MIT.
