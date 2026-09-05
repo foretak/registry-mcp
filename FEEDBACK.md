@@ -19,9 +19,9 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 | awesome-mcp-servers | punkpeye#13631 | 2026-09-04 | Glama badge added 2026-09-05; waiting for bot re-check and a Glama score |
 | Erhvervsstyrelsen | cvrselvbetjening@erst.dk (T16) | 2026-09-05 | application sent, acknowledged as sagsnummer 177481; reply due ~2026-09-23 |
 
-## Stats reset — proposed 2026-09-05 ~16:10Z, pending Kim's go
+## Stats baseline — reset considered and declined 2026-09-05 (Kim: "leave it, it's fine")
 
-The usage log (`calls` table in the production SQLite on the Railway volume) is to be emptied at Kim's request because our own smoke tests, probes and browser checks made up nearly all of the 252 rows. The rows are backed up to `~/secrets/registry-mcp/calls_backup_2026-09-05.json` (outside the repo). **Day zero for real traffic becomes the moment of the reset; until then the counters still include our own traffic.** Rule from here: the orchestrator's daily read touches only `/health` and `/v1/stats` (not logged as calls); any functional check runs against a local or Docker server, never production; never look up the invalid example 833286602 live.
+The usage log (`calls` table in the production SQLite on the Railway volume) keeps its rows. As of 2026-09-05 ~16:15Z it holds **252 calls, all our own** (smoke tests, probes, browser checks); read every later figure as a delta from that baseline. It was going to be emptied because our own smoke tests, probes and browser checks made up nearly all of the 252 rows. The rows are backed up to `~/secrets/registry-mcp/calls_backup_2026-09-05.json` (outside the repo). **Baseline: 252 rows / 248 REST + 4 MCP at 2026-09-05 16:15Z, none external.** Rule from here: the orchestrator's daily read touches only `/health` and `/v1/stats` (not logged as calls); any functional check runs against a local or Docker server, never production; never look up the invalid example 833286602 live.
 
 ## Entries
 
