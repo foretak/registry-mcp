@@ -11,6 +11,7 @@ line is the only shared file a new country touches, and it is outside ``core/``
 # Each import registers its country with core.registry.register() as a side effect.
 from registry_mcp.registries import gb as gb
 from registry_mcp.registries import no as no
+from registry_mcp.registries import se as se
 from registry_mcp.registries import xx as xx
 
 __all__: list[str] = []

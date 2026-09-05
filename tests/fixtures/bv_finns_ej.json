@@ -1,0 +1,81 @@
+{
+  "_VERIFY": "SHAPE ONLY — assembled from Bolagsverket's published OpenAPI examples and code lists, not recorded from a live call. Re-record with the curl recipe in tests/fixtures/README.md when credentials arrive (T26d), then delete this key.",
+  "organisationer": [
+    {
+      "organisationsidentitet": null,
+      "namnskyddslopnummer": null,
+      "organisationsnamn": {
+        "organisationsnamnLista": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "registreringsland": null,
+      "reklamsparr": null,
+      "organisationsform": {
+        "kod": null,
+        "klartext": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "avregistreradOrganisation": {
+        "avregistreringsdatum": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "avregistreringsorsak": {
+        "kod": null,
+        "klartext": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": {
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "juridiskForm": null,
+      "verksamOrganisation": null,
+      "organisationsdatum": {
+        "registreringsdatum": null,
+        "infortHosScb": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      },
+      "naringsgrenOrganisation": null,
+      "postadressOrganisation": {
+        "postadress": null,
+        "fel": {
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
+          "typ": "ORGANISATION_FINNS_EJ"
+        },
+        "dataproducent": "Bolagsverket"
+      }
+    }
+  ]
+}

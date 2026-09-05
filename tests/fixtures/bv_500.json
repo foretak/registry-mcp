@@ -1,0 +1,9 @@
+{
+  "type": "about:blank",
+  "instance": "server.error",
+  "timestamp": "2024-09-18T09:32:24Z",
+  "requestId": "f628a504-4631-4c04-8358-f17fc370ac79",
+  "status": 500,
+  "title": "Internal Server Error",
+  "detail": "Ett ohanterat fel har uppstått."
+}

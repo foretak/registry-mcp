@@ -1,0 +1,108 @@
+{
+  "_VERIFY": "SHAPE ONLY — assembled from Bolagsverket's published OpenAPI examples and code lists, not recorded from a live call. Re-record with the curl recipe in tests/fixtures/README.md when credentials arrive (T26d), then delete this key.",
+  "organisationer": [
+    {
+      "organisationsidentitet": {
+        "identitetsbeteckning": "5567223705",
+        "typ": {
+          "kod": "ORGANISATIONSNUMMER",
+          "klartext": "Organisationsnummer"
+        }
+      },
+      "namnskyddslopnummer": null,
+      "organisationsnamn": {
+        "organisationsnamnLista": [
+          {
+            "registreringsdatum": "2020-03-15",
+            "namn": "Cykelbolaget AB",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          },
+          {
+            "registreringsdatum": "2024-03-15",
+            "namn": "Mopedbolaget AB",
+            "organisationsnamntyp": {
+              "kod": "SARSKILT_FORETAGSNAMN",
+              "klartext": "Särskilt företagsnamn"
+            },
+            "verksamhetsbeskrivningSarskiltForetagsnamn": "Att bedriva handel med mopeder."
+          },
+          {
+            "registreringsdatum": "2020-04-01",
+            "namn": "Bicycle expert",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN_PA_FRAMMANDE_SPRAK",
+              "klartext": "Företagsnamn på främmande språk"
+            },
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ],
+        "fel": null,
+        "dataproducent": "Bolagsverket"
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": {
+        "kod": "JA",
+        "fel": null,
+        "dataproducent": "SCB"
+      },
+      "organisationsform": null,
+      "avregistreradOrganisation": null,
+      "avregistreringsorsak": null,
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": null,
+      "juridiskForm": {
+        "kod": "49",
+        "klartext": "Övriga aktiebolag",
+        "fel": null,
+        "dataproducent": "SCB"
+      },
+      "verksamOrganisation": {
+        "kod": "JA",
+        "fel": null,
+        "dataproducent": "SCB"
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "2000-01-23",
+        "fel": null,
+        "dataproducent": "Bolagsverket",
+        "infortHosScb": "2000-02-03"
+      },
+      "verksamhetsbeskrivning": {
+        "fel": null,
+        "dataproducent": "Bolagsverket",
+        "beskrivning": "Bedriva handel med cyklar och tillbehör till cyklar"
+      },
+      "naringsgrenOrganisation": {
+        "fel": null,
+        "dataproducent": "Bolagsverket",
+        "sni": [
+          {
+            "kod": "47642",
+            "klartext": "Specialiserad butikshandel med cyklar"
+          },
+          {
+            "kod": "45400",
+            "klartext": "EU-mopeder, reservdelar och tillbehör, handel med"
+          }
+        ]
+      },
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "12345",
+          "utdelningsadress": "Jobbstigen 2",
+          "land": "Sverige",
+          "coAdress": "C/o Annat företag",
+          "postort": "Grönköping"
+        },
+        "fel": null,
+        "dataproducent": "SCB"
+      }
+    }
+  ]
+}

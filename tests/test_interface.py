@@ -84,13 +84,13 @@ def test_no_registry_is_registered(brreg: Registry) -> None:
 
 
 def test_public_country_list_hides_stubs() -> None:
-    assert list_countries() == ["GB", "NO"]
-    assert list_countries(include_stubs=True) == ["GB", "NO", "XX"]
-    assert [r.country for r in list_registries(include_stubs=True)] == ["GB", "NO", "XX"]
+    assert list_countries() == ["GB", "NO", "SE"]
+    assert list_countries(include_stubs=True) == ["GB", "NO", "SE", "XX"]
+    assert [r.country for r in list_registries(include_stubs=True)] == ["GB", "NO", "SE", "XX"]
 
 
 def test_stub_country_visible_via_env(include_stubs: None) -> None:
-    assert list_countries() == ["GB", "NO", "XX"]
+    assert list_countries() == ["GB", "NO", "SE", "XX"]
     assert get_registry("XX").country == "XX"
 
 
@@ -106,7 +106,7 @@ def test_unsupported_country_hint_lists_supported() -> None:
     err = excinfo.value
     assert err.code is ErrorCode.UNSUPPORTED_COUNTRY
     assert "NO" in err.hint
-    assert err.details["supported"] == ["GB", "NO"]
+    assert err.details["supported"] == ["GB", "NO", "SE"]
 
 
 def test_second_country_needs_no_core_edit(example_registry: Registry) -> None:

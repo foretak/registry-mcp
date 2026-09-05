@@ -1505,7 +1505,8 @@
           "op": "equals_set",
           "value": [
             "GB",
-            "NO"
+            "NO",
+            "SE"
           ]
         },
         {
@@ -1763,7 +1764,8 @@
           "op": "equals_set",
           "value": [
             "rules:GB",
-            "rules:NO"
+            "rules:NO",
+            "rules:SE"
           ]
         },
         {

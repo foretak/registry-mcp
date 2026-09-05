@@ -1,0 +1,9 @@
+{
+  "type": "about:blank",
+  "instance": "client.error",
+  "timestamp": "2024-09-18T09:32:24Z",
+  "requestId": "f628a504-4631-4c04-8358-f17fc370ac79",
+  "status": 403,
+  "title": "Forbidden",
+  "detail": "Anroparen saknar behörighet till resursen."
+}

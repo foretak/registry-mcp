@@ -177,7 +177,7 @@ async def test_lookup_company_returns_company_report() -> None:
 async def test_lookup_company_unsupported_country_is_json_error() -> None:
     async with Client(mcp) as client:
         with pytest.raises(ToolError) as excinfo:
-            await client.call_tool("lookup_company", {"id": "1", "country": "SE"})
+            await client.call_tool("lookup_company", {"id": "1", "country": "ZZ"})
     payload = json.loads(str(excinfo.value))
     assert payload["error"]["code"] == "unsupported_country"
     assert payload["error"]["hint"]
@@ -270,7 +270,7 @@ async def test_list_countries_hides_stub() -> None:
     async with Client(mcp) as client:
         result = await client.call_tool("list_countries", {})
     codes = {row["country"] for row in result.structured_content["countries"]}
-    assert codes == {"GB", "NO"}
+    assert codes == {"GB", "NO", "SE"}
 
 
 async def test_list_countries_gb_requires_api_key() -> None:
@@ -281,6 +281,14 @@ async def test_list_countries_gb_requires_api_key() -> None:
     assert rows["GB"]["api_key_env"] == "COMPANIES_HOUSE_API_KEY"
     assert rows["NO"]["requires_api_key"] is False
     assert rows["NO"]["api_key_env"] is None
+
+
+async def test_list_countries_se_requires_api_key() -> None:
+    async with Client(mcp) as client:
+        result = await client.call_tool("list_countries", {})
+    rows = {row["country"]: row for row in result.structured_content["countries"]}
+    assert rows["SE"]["requires_api_key"] is True
+    assert rows["SE"]["api_key_env"] == "BOLAGSVERKET_CLIENT_ID"
 
 
 # ---------------------------------------------------------------------------
@@ -306,12 +314,21 @@ async def test_rules_resource_gb_is_non_empty() -> None:
     assert len(text.strip()) > 0
 
 
+async def test_rules_resource_se_is_non_empty() -> None:
+    async with Client(mcp) as client:
+        contents = await client.read_resource("registry://rules/SE")
+    assert len(contents) == 1
+    text = contents[0].text
+    assert isinstance(text, str)
+    assert len(text.strip()) > 0
+
+
 #: The English country name each live registry's `rules_markdown()` opens
-#: with (`# Norway — ...`, `# United Kingdom — ...`) — used only to assert
-#: the *content* of a resource read, never to decide which resources exist
-#: (that walk is `list_countries()`/`list_registries()`, per
+#: with (`# Norway — ...`, `# United Kingdom — ...`, `# Sweden — ...`) — used
+#: only to assert the *content* of a resource read, never to decide which
+#: resources exist (that walk is `list_countries()`/`list_registries()`, per
 #: `research/07-product-improvements.md` item 9).
-_LIVE_COUNTRY_NAMES = {"NO": "Norway", "GB": "United Kingdom"}
+_LIVE_COUNTRY_NAMES = {"NO": "Norway", "GB": "United Kingdom", "SE": "Sweden"}
 
 
 async def test_resources_list_shows_concrete_rules_resource_per_live_country() -> None:
@@ -326,7 +343,7 @@ async def test_resources_list_shows_concrete_rules_resource_per_live_country() -
         resources = await client.list_resources()
     by_uri = {str(r.uri): r for r in resources}
     expected_uris = {f"registry://rules/{cc}" for cc in list_countries()}
-    assert expected_uris == {"registry://rules/GB", "registry://rules/NO"}
+    assert expected_uris == {"registry://rules/GB", "registry://rules/NO", "registry://rules/SE"}
     assert set(by_uri) == expected_uris
     for cc in list_countries():
         row = by_uri[f"registry://rules/{cc}"]
@@ -366,7 +383,7 @@ async def test_rules_resource_unsupported_country_is_json_error() -> None:
 
     async with Client(mcp) as client:
         with pytest.raises(MCPError) as excinfo:
-            await client.read_resource("registry://rules/SE")
+            await client.read_resource("registry://rules/ZZ")
     payload = json.loads(str(excinfo.value))
     assert payload["error"]["code"] == "unsupported_country"
 
@@ -478,7 +495,7 @@ def test_rest_and_mcp_list_countries_are_identical() -> None:
 
     mcp_body = anyio.run(_mcp_call)
     assert rest_body == mcp_body
-    assert {row["country"] for row in rest_body["countries"]} == {"GB", "NO"}
+    assert {row["country"] for row in rest_body["countries"]} == {"GB", "NO", "SE"}
 
 
 # ---------------------------------------------------------------------------

@@ -220,14 +220,14 @@ def test_countries(client: TestClient, ip: str) -> None:
     resp = client.get("/v1/countries", headers={"X-Forwarded-For": ip})
     assert resp.status_code == 200
     codes = {row["country"] for row in resp.json()["countries"]}
-    assert codes == {"GB", "NO"}  # XX is a stub, hidden by default (D-008)
+    assert codes == {"GB", "NO", "SE"}  # XX is a stub, hidden by default (D-008)
 
 
 def test_health(client: TestClient, ip: str) -> None:
     resp = client.get("/health", headers={"X-Forwarded-For": ip})
     assert resp.status_code == 200
     body = resp.json()
-    assert body == {"status": "ok", "version": __version__, "countries": ["GB", "NO"]}
+    assert body == {"status": "ok", "version": __version__, "countries": ["GB", "NO", "SE"]}
 
 
 # ---------------------------------------------------------------------------

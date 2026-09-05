@@ -356,12 +356,17 @@ async def test_search_registry_name_substring_restricts_fanout_to_gb() -> None:
 
 @respx.mock
 async def test_search_zero_hits_returns_rules_documents_not_a_fabricated_company() -> None:
+    """SE contributes `rules:SE` here too, with no mock of its own needed:
+    its `search` raises `not_implemented` before any HTTP request (§4), so
+    the D-031 fan-out drops it silently and the zero-hit fallback still
+    lists it (`_rules_rows()` walks `list_registries()`, not the fan-out's
+    survivors) — SWEDEN_SPEC.md §4, D-031(c)."""
     _mock_no_search_empty()
     _mock_gb_search_empty()
     async with Client(mcp) as client:
         result = await client.call_tool("search", {"query": "Zzzqqx Holdings"})
     rows = result.structured_content["results"]
-    assert {row["id"] for row in rows} == {"rules:GB", "rules:NO"}
+    assert {row["id"] for row in rows} == {"rules:GB", "rules:NO", "rules:SE"}
     assert all("Zzzqqx" not in row["title"] for row in rows)
     assert all(row["url"] == "https://api.foretak.dev/v1/countries" for row in rows)
 
