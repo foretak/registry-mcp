@@ -11,7 +11,7 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 
 | Channel | Where | Since | Status |
 |---|---|---|---|
-| Reddit r/mcp | https://www.reddit.com/r/mcp/comments/1w7u6j0/ | 2026-09-05 | live, no comments yet |
+| Reddit r/mcp | https://www.reddit.com/r/mcp/comments/1w7u6j0/ | 2026-09-05 | **removed by Reddit's automatic filter** minutes after posting (short body + 2 links, young account); modmail to r/mcp mods requested 2026-09-05 |
 | dev.to | five articles under https://dev.to/fargeroddotcom | 2026-09-04 | no comments yet |
 | GitHub | https://github.com/foretak/registry-mcp/issues | 2026-09-04 | only our 3 seed issues |
 | mcp.so | chatmcp/mcpso#3927 | 2026-09-04 | no reply |
