@@ -244,8 +244,7 @@ Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-da
       block by hand. Article 05's `GB` blocks need `COMPANIES_HOUSE_API_KEY`
       on the server that produces them.
 - [x] ~~Article 05 needs a dev.to draft creating~~ — published 2026-09-04 (table above).
-- [ ] Post the Reddit text as a self-post and put the dev.to link in the first
-      comment, not the body.
+- [~] Reddit r/mcp: **post 1 live 2026-09-05** — https://www.reddit.com/r/mcp/comments/1w7u6j0/ (text post, dev.to link in the first comment; `content/reddit-r-mcp-post-01.md`). Reply to every comment within 24 h; log the substance in `FEEDBACK.md`. Further posts only if this one draws comments: r/ClaudeAI (usage angle) ~2026-09-07, a UK developer sub later.
 - [ ] Reply to every comment within 24 h and log the substance in
       `FEEDBACK.md` — those comments are the Phase 4 decision-gate input.
 - [ ] `04-add-your-country` is the recruiting article. Pin the "open an issue

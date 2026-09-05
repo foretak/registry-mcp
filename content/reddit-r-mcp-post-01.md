@@ -1,5 +1,9 @@
 # r/mcp post 1 — posted via Claude in Chrome, 2026-09-05
 
+**Live:** https://www.reddit.com/r/mcp/comments/1w7u6j0/my_agent_can_now_check_a_supplier_actually_exists/
+
+The posted version was a further revision made in the Chrome session (title "My agent can now check a supplier actually exists…"), in Kim's voice, without the one-man-company line and with the concrete Norwegian deadline dates. The text below is the orchestrator's last draft before that revision; the live thread is the source of truth.
+
 Combines articles 05 (UK) and 04 (add your country) into one launch post for
 r/mcp: problem first, one real output, honest limits, a question at the end so
 the comments carry the thread. Text post; the dev.to link goes in the first
