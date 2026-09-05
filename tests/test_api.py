@@ -256,6 +256,21 @@ def test_static_routes_200(
     assert len(resp.text) > 0
 
 
+def test_homepage_has_playground_and_never_the_invalid_example(
+    client: TestClient, ip: str
+) -> None:
+    """T24: the homepage's "try it" playground must actually render (its form
+    is present by id) and must never surface `833286602` — the orgnr that
+    fails MOD11 and is used elsewhere as the negative fixture
+    (`NORBIZ_SPEC.md` §41, `tests/test_rules_no.py::test_09_833286602_is_invalid`).
+    A live playground must not invite a visitor to look up a number chosen
+    specifically because it does not exist."""
+    resp = client.get("/", headers={"X-Forwarded-For": ip})
+    assert resp.status_code == 200
+    assert 'id="playground-form"' in resp.text
+    assert "833286602" not in resp.text
+
+
 def test_robots_txt_allows_everything(client: TestClient, ip: str) -> None:
     resp = client.get("/robots.txt", headers={"X-Forwarded-For": ip})
     assert resp.status_code == 200

@@ -57,6 +57,39 @@
   ul { margin: 0 0 1rem; padding-left: 1.15rem; }
   li { margin-bottom: .3rem; }
   footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .875rem; }
+
+  /* Playground (T24) — every rule below reuses the tokens above, so light
+     and dark both stay readable with no separate dark-mode overrides. */
+  .pg-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+  .pg-row label { font-size: .8rem; color: var(--muted); }
+  .pg-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  #pg-country, #pg-id {
+    font: inherit; font-size: .9rem; padding: .4rem .55rem;
+    border: 1px solid var(--rule); border-radius: 6px;
+    background: var(--bg); color: var(--fg);
+  }
+  #pg-id { flex: 1 1 14rem; min-width: 10rem; }
+  #pg-submit, .pg-copy {
+    font: inherit; font-size: .85rem; padding: .45rem .9rem; cursor: pointer;
+    border: 1px solid var(--link); border-radius: 6px; background: var(--link); color: var(--bg);
+  }
+  #pg-submit:disabled { opacity: .6; cursor: default; }
+  .pg-copy { padding: .2rem .55rem; font-size: .75rem; }
+  .pg-output { margin: 1rem 0 1.5rem; }
+  .pg-step { margin-bottom: 1rem; }
+  .pg-req { font-size: .8rem; color: var(--muted); margin: 0 0 .3rem; }
+  .pg-note { color: var(--muted); font-style: italic; }
+  .pg-hits { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: .4rem; }
+  .pg-hit {
+    font: inherit; font-size: .8rem; padding: .3rem .6rem; cursor: pointer;
+    border: 1px solid var(--rule); border-radius: 999px; background: var(--code-bg); color: var(--fg);
+  }
+  .pg-hit:hover { border-color: var(--link); }
+  .pg-install { margin: 1.25rem 0 2rem; }
+  .pg-install-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .6rem; }
+  .pg-install-line code { flex: 1 1 auto; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: .5rem .7rem; }
+  .pg-badges { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+  .pg-badges img { display: block; height: 1.4rem; width: auto; }
 </style>
 </head>
 <body>
@@ -64,6 +97,33 @@
 
 <h1>registry-mcp — the company registry MCP</h1>
 <p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries. Live now: Norway (Brønnøysundregistrene / Enhetsregisteret) and the United Kingdom (Companies House).</p>
+
+<h2>Try it</h2>
+<p>Real calls against the live API below, not canned examples. Keep the pre-filled identifier or paste your own company number or name.</p>
+<noscript><p>The playground needs JavaScript. Every <code>curl</code> example further down works with none.</p></noscript>
+<form id="playground-form" action="/" method="get">
+  <div class="pg-row">
+    <label for="pg-country">Country</label>
+    <select id="pg-country" name="country">
+      <option value="NO">NO — Norway</option>
+      <option value="GB">GB — United Kingdom</option>
+    </select>
+    <label for="pg-id" class="pg-sr">Company number or name</label>
+    <input id="pg-id" name="q" type="text" value="923609016" autocomplete="off" spellcheck="false" placeholder="Company number or name">
+    <button id="pg-submit" type="submit">Look up</button>
+  </div>
+</form>
+<div id="pg-output" class="pg-output" hidden aria-live="polite"></div>
+<div class="pg-install">
+  <p>Same server, in your own agent:</p>
+  <p class="pg-install-line"><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code><button type="button" class="pg-copy" data-copy="claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp">Copy</button></p>
+  <p class="pg-install-line"><code>uvx registry-mcp</code><button type="button" class="pg-copy" data-copy="uvx registry-mcp">Copy</button></p>
+  <p class="pg-badges">
+    <a href="https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D"><img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&amp;label=Install%20Server&amp;color=0098FF" alt="Install in VS Code"></a>
+    <a href="https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D"><img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&amp;label=Install%20Server&amp;color=24bfa5"></a>
+    <a href="https://cursor.com/en/install-mcp?name=registry-mcp&amp;config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D"><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor"></a>
+  </p>
+</div>
 
 <h2>Add to an MCP client</h2>
 <pre><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code></pre>
@@ -147,5 +207,227 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
 </footer>
 
 </main>
+
+<script>
+(function () {
+  "use strict";
+
+  var DEFAULT_IDS = { NO: "923609016", GB: "00445790" };
+
+  var form = document.getElementById("playground-form");
+  var countrySelect = document.getElementById("pg-country");
+  var idInput = document.getElementById("pg-id");
+  var submitBtn = document.getElementById("pg-submit");
+  var output = document.getElementById("pg-output");
+
+  if (!form || !countrySelect || !idInput || !submitBtn || !output) {
+    return;
+  }
+
+  var userEditedId = false;
+  idInput.addEventListener("input", function () {
+    userEditedId = true;
+  });
+
+  countrySelect.addEventListener("change", function () {
+    if (!userEditedId) {
+      var fallback = DEFAULT_IDS[countrySelect.value];
+      if (fallback) {
+        idInput.value = fallback;
+      }
+    }
+  });
+
+  // Live country list, read once at load (not a user action, but explicitly
+  // read-only and cheap). On any failure — network error, non-200, empty
+  // list — the NO/GB <option>s already in the markup above keep working, and
+  // this is the only call the page ever makes without a user action.
+  fetch("/v1/countries")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      var rows = data && Array.isArray(data.countries) ? data.countries : [];
+      rows = rows.filter(function (c) { return c && typeof c.country === "string" && c.country; });
+      if (rows.length === 0) {
+        return;
+      }
+      var previous = countrySelect.value;
+      countrySelect.innerHTML = "";
+      rows.forEach(function (c) {
+        var opt = document.createElement("option");
+        opt.value = c.country;
+        opt.textContent = c.name ? c.country + " — " + c.name : c.country;
+        countrySelect.appendChild(opt);
+      });
+      if (rows.some(function (c) { return c.country === previous; })) {
+        countrySelect.value = previous;
+      }
+    })
+    .catch(function () {
+      /* NO/GB fallback options already in the markup keep working. */
+    });
+
+  function jsonBlock(value) {
+    var pre = document.createElement("pre");
+    var code = document.createElement("code");
+    code.textContent = JSON.stringify(value, null, 2);
+    pre.appendChild(code);
+    return pre;
+  }
+
+  function addStep(url, value) {
+    var step = document.createElement("div");
+    step.className = "pg-step";
+    var reqLine = document.createElement("p");
+    reqLine.className = "pg-req";
+    reqLine.appendChild(document.createTextNode("Request: "));
+    var code = document.createElement("code");
+    code.textContent = "GET " + url;
+    reqLine.appendChild(code);
+    step.appendChild(reqLine);
+    step.appendChild(jsonBlock(value));
+    output.appendChild(step);
+  }
+
+  function addNote(text) {
+    var p = document.createElement("p");
+    p.className = "pg-note";
+    p.textContent = text;
+    output.appendChild(p);
+  }
+
+  function addHits(country, hits) {
+    var ul = document.createElement("ul");
+    ul.className = "pg-hits";
+    hits.forEach(function (hit) {
+      if (!hit || !hit.id) {
+        return;
+      }
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pg-hit";
+      btn.textContent = hit.name ? hit.id + " — " + hit.name : hit.id;
+      btn.addEventListener("click", function () {
+        idInput.value = hit.id;
+        userEditedId = true;
+        runLookup(country, hit.id);
+      });
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+    if (ul.children.length > 0) {
+      output.appendChild(ul);
+    }
+  }
+
+  async function getJson(path) {
+    var res = await fetch(path);
+    var body = null;
+    try {
+      body = await res.json();
+    } catch (e) {
+      body = null;
+    }
+    return { url: location.origin + path, body: body };
+  }
+
+  var inFlight = false;
+
+  async function runLookup(country, rawInput) {
+    if (inFlight) {
+      return;
+    }
+    var id = String(rawInput || "").trim();
+    output.innerHTML = "";
+    output.hidden = false;
+    if (!id) {
+      addNote("Enter a company number or name first.");
+      return;
+    }
+
+    inFlight = true;
+    submitBtn.disabled = true;
+    try {
+      var c = encodeURIComponent(country);
+      var validate = await getJson("/v1/" + c + "/validate/" + encodeURIComponent(id));
+      addStep(validate.url, validate.body);
+      if (!validate.body || validate.body.error) {
+        return;
+      }
+
+      if (validate.body.valid) {
+        var lookupId = encodeURIComponent(validate.body.normalized || id);
+        var companyPath = "/v1/" + c + "/company/" + lookupId;
+        var company = await getJson(companyPath);
+        addStep(company.url, company.body);
+        if (!company.body || company.body.error) {
+          return;
+        }
+        var deadlines = await getJson(companyPath + "/deadlines");
+        addStep(deadlines.url, deadlines.body);
+        return;
+      }
+
+      var search = await getJson("/v1/" + c + "/search?q=" + encodeURIComponent(id));
+      addStep(search.url, search.body);
+      if (
+        search.body &&
+        !search.body.error &&
+        Array.isArray(search.body.hits) &&
+        search.body.hits.length > 0
+      ) {
+        addHits(country, search.body.hits);
+      }
+    } catch (e) {
+      addNote("The request failed before the API answered — check your connection and try again.");
+    } finally {
+      inFlight = false;
+      submitBtn.disabled = false;
+    }
+  }
+
+  form.addEventListener("submit", function (evt) {
+    evt.preventDefault();
+    runLookup(countrySelect.value, idInput.value);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".pg-copy"), function (btn) {
+    btn.addEventListener("click", function () {
+      var text = btn.getAttribute("data-copy") || "";
+      var original = btn.textContent;
+      function done() {
+        btn.textContent = "Copied";
+        setTimeout(function () {
+          btn.textContent = original;
+        }, 1500);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () {
+          fallbackCopy(text, done);
+        });
+      } else {
+        fallbackCopy(text, done);
+      }
+    });
+  });
+
+  function fallbackCopy(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand("copy");
+      done();
+    } catch (e) {
+      /* clipboard unavailable; the line is still selectable by hand */
+    }
+    document.body.removeChild(ta);
+  }
+})();
+</script>
 </body>
 </html>
