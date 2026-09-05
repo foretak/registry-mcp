@@ -19,10 +19,10 @@ if more than a month has passed.
 | 3 | [Glama](#3-glama) | `glama.json` + root `Dockerfile` (stdio when `PORT` unset) | **Yes** — GitHub OAuth | **Pending** — submitted 2026-09-04, not yet listed |
 | 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1 |
 | 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending** — chatmcp/mcpso#3927, no reply yet |
-| 6 | [MCP Market](#6-mcp-market) | — | **Yes** — MCPmarket account | Open — Kim's browser form |
+| 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** — auto-indexed as https://mcpmarket.com/server/registry-10 ("Registry"); resubmission 2026-09-05 answered "already listed" |
 | 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **Pending** — PR #13631 open, bot wants the Glama badge (#3) |
 | 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo archived |
-| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | Open — form values below |
+| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **Submitted 2026-09-05** (free, Finance; review "within 12 hours", e-mail to hello@foretak.dev) |
 | 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**missing**) | **Yes** — GitHub | Blocked on icon + a README-only install test in Cline |
 | — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Done** — 12 topics set 2026-09-04 |
 

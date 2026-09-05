@@ -92,8 +92,8 @@ Two schema constraints that will bite an edit:
 - [x] **Bare `foretak.dev` → 301 → `api.foretak.dev`** (done 2026-09-04 via the
       Cloudflare API: proxied dummy `A @ 192.0.2.1` + a Single Redirect rule,
       path and query preserved). `https://foretak.dev/llms.txt` now lands on the
-      real file. **Delete the Cloudflare API token** at
-      https://dash.cloudflare.com/profile/api-tokens — nothing needs it any more.
+      real file. ~~Delete the Cloudflare API token~~ — **deleted 2026-09-05**
+      (token "Edit zone DNS"; the account now has no API tokens).
 - [x] GitHub organisation `foretak` and repo `registry-mcp` — **done 2026-09-04**:
       https://github.com/foretak/registry-mcp (public), 12 topics set, labels
       created, seed issues #1–#3 filed. `gh` token now has `workflow` scope.
@@ -147,7 +147,12 @@ Two schema constraints that will bite an edit:
       (punkpeye) — PR #13631 open**; appcypher list is archived (skip).
 - [~] **Glama — submitted for review 2026-09-04** by Kim (name `registry-mcp`, repo foretak/registry-mcp). When it appears, the orchestrator adds the Glama score badge to awesome-mcp-servers PR #13631 (their bot requires it before merge). Optional: also list the hosted endpoint at https://glama.ai/mcp/connectors.
       - [x] **Dockerfile for Glama's check — done 2026-09-05.** Glama builds the repo's own `Dockerfile` (methodology page) and runs it with no environment, speaking MCP over stdio. The root `Dockerfile` is now dual-mode: `PORT` set → uvicorn (Railway/compose), `PORT` unset → stdio `registry-mcp`. Verified locally both ways (5 tools over stdio; `/health` over HTTP) and redeployed to Railway. `Dockerfile.glama` was removed again. If Glama's UI still offers a Dockerfile field after the claim, paste the root `Dockerfile` as is.
-- [ ] MCP Market (web form) — browser-only, still yours.
+- [x] **MCP Market — already live** (found 2026-09-05 when submitting): auto-indexed
+      from GitHub as https://mcpmarket.com/server/registry-10 under the name
+      "Registry". Optional: claim it there to fix the name to `registry-mcp`.
+- [x] **mcpservers.org — submitted 2026-09-05** (free listing, category Finance,
+      contact hello@foretak.dev; "reviewed within 12 hours", confirmation by
+      e-mail).
 - [ ] ~~Smithery, Glama, mcp.so, MCP Market — each needs a login.~~ **PulseMCP is
       closed to submissions** as of 2026-09-04 and ingests from the official
       registry instead, so #1 covers it. T11 has prepared every manifest and
