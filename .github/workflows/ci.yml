@@ -33,3 +33,6 @@ jobs:
 
       - name: Pytest
         run: uv run pytest -q --cov -m "not live"
+
+      - name: Agent eval (golden, offline cases)
+        run: uv run python evals/run.py --golden

@@ -84,6 +84,15 @@ dev = [
 [project.scripts]
 registry-mcp = "registry_mcp.mcp.server:main"
 
+[dependency-groups]
+# `evals/run.py --agent` only. Deliberately not a runtime dependency and not
+# in `[project.optional-dependencies]`: `uv sync --all-extras --locked` (CI,
+# and every other `uv sync`) never installs it. Run `uv run --group eval
+# python evals/run.py --agent` to get it. See `evals/README.md`.
+eval = [
+    "anthropic>=0.40",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -131,7 +140,7 @@ disallow_any_generics = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["fastmcp.*", "respx.*"]
+module = ["fastmcp.*", "respx.*", "anthropic.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

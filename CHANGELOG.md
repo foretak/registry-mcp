@@ -29,6 +29,24 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   UUID4.
 - `CHANGELOG.md` and `SECURITY.md`.
 
+### Added (later the same day)
+- Concrete `registry://rules/NO` and `registry://rules/GB` resources so the
+  per-country rules document appears in `resources/list` (the template still
+  works).
+- A `notes` entry on Norwegian sole proprietorships (ENK) saying the record
+  contains a natural person's published data.
+- "Does not screen" statements (no sanctions/PEP/adverse-media screening, no
+  bank-account verification) in the README, `llms-full.txt`, the terms and the
+  `lookup_company` tool description.
+- A 400×400 icon at `GET /icon.png`, referenced from the homepage JSON-LD and
+  `server.json`'s `icons`.
+- `evals/`: a 26-case agent eval harness — golden mode (no model; offline
+  cases run in CI) and an opt-in agent mode driven by the Anthropic SDK
+  (`uv run --group eval python evals/run.py --agent`).
+- README section "Why an agent checks a company" and `llms-full.txt` §9: the
+  regulatory reasons (Finanstilsynet Rundskriv 15/2019, Norway B2B
+  e-invoicing 2027, EU AMLR 2027) and the honest limits.
+
 ### Fixed
 - Norwegian `annual_accounts` and `general_meeting` deadlines no longer roll
   forward off a weekend or holiday: no provision grants that, and
