@@ -125,6 +125,17 @@ API), Netherlands (eligibility and redistribution unknown), Belgium
 (bulk-only), Poland (no English, statuses inferred), Austria/Italy
 (fees or national ID), Spain (gazette replay), US (fifty-one registers).
 
+United States, surveyed state by state on 2026-09-05 (08): seven states
+publish the register as free keyless open data (CO, TX, PA, OR, CT, VA, NY);
+Connecticut publishes a per-company annual-report due date, the second
+register after Companies House to do so; no US identifier has a check digit;
+FinCEN's final rule of 11 Aug 2026 exempts US companies from beneficial-
+ownership reporting for good; `sec-edgar-mcp` alone out-downloads the whole
+company-registry MCP field, and no MCP server exists for any state register.
+Verdict: **do not now** — Sweden → Finland → Ireland stands; if a named user
+asks, US-CT first, then US-CO, Texas third (`license: null`). D-027's
+sub-national key fits unamended.
+
 Do three cheap things before country 4 (02): a nullable `euid` on
 `CompanyReport`; GLEIF LEI as a cross-cutting CC0 join key, not a country;
 an advertising-protection marking field (Danish CVR-loven § 19 makes marking
@@ -140,9 +151,15 @@ returns an as-of date; Swedish sole-trader numbers are not unique to one
 business. Every check-digit rule marked VERIFY in 02 must be read from an
 official spec before implementation.
 
-Sweden is a separate decision, not a fourth folder: Bokio buys its data from
-the credit bureau UC, and the free HVD API's fit for our use is unverified
-(06, 02).
+Sweden was decided on 2026-09-05: Kim ordered the module built (T26,
+`SWEDEN_SPEC.md`, D-032…D-039) and the recon in `02b-sweden-api-shape-and-law.md`
+holds the real OpenAPI document. Read `02b` before `02-sweden-bolagsverket.md`:
+the token host is `portal.api.bolagsverket.se`, the API has **no search
+endpoint**, the seven-month rule is ÅRL 8 kap. 6 § (not 8:3), unknown
+companies come back as HTTP 200 with `fel.typ = ORGANISATION_FINNS_EJ`, sole
+traders are looked up by a 12-digit personnummer, and the check-digit
+algorithm is still unsourced. Bokio's UC dependency (06) is about credit
+data, not the register, and no longer bears on the decision.
 
 ## 5. Distribution: what to do and what to stop
 
