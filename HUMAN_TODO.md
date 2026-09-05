@@ -388,11 +388,14 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
 
 ## 7.6 Denmark (T16) — CVR access application
 
-- [ ] **Send the Gmail draft** "Ansøgning om system-til-system adgang til CVR-data –
-      registry-mcp (open source)" to `cvrselvbetjening@erst.dk` (drafted 2026-09-05,
-      cc `hello@foretak.dev`). Erhvervsstyrelsen replies with access details and a
-      declaration to sign (protected entities); processing is up to 12 business
-      days. Source: datahub.virk.dk dataset "System-til-system adgang til CVR-data".
+- [x] **Application sent 2026-09-05** from fargerod@gmail.com to
+      `cvrselvbetjening@erst.dk` (cc `hello@foretak.dev`), subject "Ansøgning om
+      system-til-system adgang til CVR-data". It asks two questions: whether a
+      Norwegian ENK without a Danish CVR number qualifies, and whether IP
+      whitelisting is required. Erhvervsstyrelsen replies with access details and
+      a declaration to sign (protected entities); processing is up to 12 business
+      days → expect an answer by about **2026-09-23**. Source: datahub.virk.dk
+      dataset "System-til-system adgang til CVR-data".
 - [ ] When the reply arrives: sign the declaration, store the credentials in
       `~/secrets/registry-mcp/cvr-*.txt`, and tell the orchestrator so T16 can
       be specced (Opus A) the same way as `UK_SPEC.md`.
