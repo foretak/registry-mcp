@@ -11,6 +11,7 @@ htmlcov/
 .coverage
 dist/
 build/
+*.mcpb
 
 # Runtime data
 *.db

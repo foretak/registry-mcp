@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "registry-mcp": {
+      "type": "http",
+      "url": "https://api.foretak.dev/mcp"
+    }
+  }
+}

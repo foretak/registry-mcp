@@ -1,0 +1,77 @@
+{
+  "manifest_version": "0.3",
+  "name": "registry-mcp",
+  "display_name": "registry-mcp — national company registries",
+  "version": "0.2.0",
+  "description": "Company data for AI agents: Norway (Brønnøysundregistrene / brreg) and the UK (Companies House), read-only, one JSON shape.",
+  "long_description": "registry-mcp is a read-only MCP server over national business registers: Norway's Enhetsregisteret (Brønnøysundregistrene, looked up by organisasjonsnummer/orgnr) and the United Kingdom's Companies House (looked up by company number). Five tools return one JSON shape across both countries: lookup_company, search_company, company_deadlines (statutory filing deadlines, cited to the rule that produced them), validate_company_id and list_countries. Nothing here writes to a register or anywhere else, and no caller credentials are required; this extension launches the published `registry-mcp` package with `uvx`, so no separate install step is needed beyond Python 3.12+ and uv.",
+  "author": {
+    "name": "Kim",
+    "email": "hello@foretak.dev",
+    "url": "https://github.com/foretak/registry-mcp"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/foretak/registry-mcp"
+  },
+  "homepage": "https://api.foretak.dev",
+  "documentation": "https://api.foretak.dev/llms-full.txt",
+  "support": "https://github.com/foretak/registry-mcp/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": [
+    "company-registry",
+    "company-lookup",
+    "brreg",
+    "brønnøysundregistrene",
+    "enhetsregisteret",
+    "organisasjonsnummer",
+    "companies-house",
+    "company-number",
+    "norway",
+    "uk"
+  ],
+  "server": {
+    "type": "python",
+    "entry_point": "../src/registry_mcp/mcp/server.py",
+    "mcp_config": {
+      "command": "uvx",
+      "args": ["registry-mcp"],
+      "env": {
+        "REGISTRY_MCP_CONTACT_EMAIL": "${user_config.contact_email}",
+        "REGISTRY_MCP_CACHE_PATH": "${user_config.cache_path}",
+        "COMPANIES_HOUSE_API_KEY": "${user_config.companies_house_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "companies_house_api_key": {
+      "type": "string",
+      "title": "Companies House API key",
+      "description": "Enables United Kingdom (GB) lookups. Free and instant from developer.company-information.service.gov.uk. Leave blank to use Norway only — GB calls then return upstream_error naming this variable, and every other country keeps working.",
+      "sensitive": true,
+      "required": false
+    },
+    "contact_email": {
+      "type": "string",
+      "title": "Contact email",
+      "description": "Sent in the User-Agent to the national registry, as Brønnøysundregistrene asks of API clients. Unset means an anonymous client, which may be throttled or blocked upstream.",
+      "sensitive": false,
+      "required": false
+    },
+    "cache_path": {
+      "type": "string",
+      "title": "Cache file path",
+      "description": "Path to the local SQLite response cache (24 h TTL). Defaults to ./data/cache.sqlite3 if left blank.",
+      "sensitive": false,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.12"
+    }
+  }
+}

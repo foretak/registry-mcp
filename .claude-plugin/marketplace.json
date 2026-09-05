@@ -1,0 +1,39 @@
+{
+  "name": "foretak",
+  "owner": {
+    "name": "Kim",
+    "email": "hello@foretak.dev",
+    "url": "https://github.com/foretak"
+  },
+  "metadata": {
+    "description": "Self-hosted Claude Code plugin marketplace for foretak's registry-mcp."
+  },
+  "plugins": [
+    {
+      "name": "registry-mcp",
+      "source": "./plugins/registry-mcp",
+      "displayName": "registry-mcp — national company registries",
+      "description": "Company data for AI agents: Norway (Brønnøysundregistrene / brreg) and the UK (Companies House), read-only, one JSON shape. Adds the hosted registry-mcp MCP server: lookup_company, search_company, company_deadlines, validate_company_id, list_countries.",
+      "version": "0.2.0",
+      "author": {
+        "name": "Kim",
+        "email": "hello@foretak.dev"
+      },
+      "homepage": "https://api.foretak.dev",
+      "repository": "https://github.com/foretak/registry-mcp",
+      "license": "MIT",
+      "category": "data",
+      "keywords": [
+        "mcp",
+        "company-registry",
+        "company-lookup",
+        "brreg",
+        "brønnøysundregistrene",
+        "enhetsregisteret",
+        "companies-house",
+        "norway",
+        "uk"
+      ]
+    }
+  ]
+}

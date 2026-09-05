@@ -34,6 +34,8 @@ One-click install, for a remote streamable-HTTP server:
 [<img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&label=Install%20Server&color=24bfa5">](https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D)
 [<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=registry-mcp&config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D)
 
+Other clients (Claude Desktop, Cursor, VS Code, Cline, plain JSON configs): see [docs/clients.md](docs/clients.md).
+
 > Status: `0.2.0`. The five tools and their response shapes are frozen; the hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: Norway (brreg), United Kingdom (Companies House) — see [below](#tools) for both countries' identifier formats and example calls.
 
 ## Add to Claude Code

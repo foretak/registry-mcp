@@ -1,0 +1,24 @@
+{
+  "name": "registry-mcp",
+  "displayName": "registry-mcp — national company registries",
+  "description": "Company data for AI agents: Norway (Brønnøysundregistrene / brreg) and the UK (Companies House), read-only, one JSON shape. Adds the hosted registry-mcp MCP server over Streamable HTTP: lookup_company, search_company, company_deadlines, validate_company_id, list_countries.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Kim",
+    "email": "hello@foretak.dev",
+    "url": "https://github.com/foretak/registry-mcp"
+  },
+  "homepage": "https://api.foretak.dev",
+  "repository": "https://github.com/foretak/registry-mcp",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "company-registry",
+    "company-lookup",
+    "brreg",
+    "companies-house",
+    "norway",
+    "uk"
+  ],
+  "mcpServers": "./.mcp.json"
+}
