@@ -17,6 +17,12 @@ changed. `uv run pytest -q -m "not live"` re-run after writing: **422 passed, 5 
 personal-data note among them, which is R-8's precondition (1) arriving early). This task's
 own footprint is two files: the `DECISIONS.md` append and this one.
 
+**D-031 is scheduled elsewhere, on purpose.** The ChatGPT connector aliases (`search`, `fetch`)
+are the one outstanding decision that changes **no** `core/` file — no model, no `Registry`
+method, no response shape — so they are not blocked by the reasoning in "What must already be
+true before R-1 starts" below, and they do not take an `R`-number. Their spec is
+[`CONNECTOR_SPEC.md`](CONNECTOR_SPEC.md).
+
 ---
 
 ## 1. Recommended order
