@@ -13,10 +13,11 @@ name: Publish npm packages
 
 on:
   workflow_dispatch:
-  # Enable the tag trigger once the trusted publisher is registered on npmjs.com
-  # for both packages (HUMAN_TODO.md §7.5); until then a tag would just fail here.
-  # push:
-  #   tags: ["v*"]
+  # Tag trigger enabled 2026-09-05: the trusted publisher is registered on
+  # npmjs.com for both packages (HUMAN_TODO.md §7.5) and verified by run
+  # 33949808903 (OIDC auth OK for both; refused only as "already published").
+  push:
+    tags: ["v*"]
 
 jobs:
   publish:

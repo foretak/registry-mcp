@@ -307,11 +307,16 @@ retiring 2FA-bypass tokens for direct publish in January 2027. The
 `.github/workflows/publish-npm.yml` workflow publishes both packages via OIDC
 instead — once you register it as a trusted publisher **for each package**:
 
-- [ ] https://www.npmjs.com/package/registry-mcp/access → **Trusted Publisher**
+- [x] https://www.npmjs.com/package/registry-mcp/access → **Trusted Publisher**
       → GitHub Actions → Organization or user: `foretak` · Repository:
       `registry-mcp` · Workflow filename: `publish-npm.yml` · Environment: leave
-      empty → Save.
-- [ ] Same at https://www.npmjs.com/package/@foretak/brreg-mcp/access
+      empty · **"Allow npm publish" ticked** (the form cannot be edited after
+      creation) → Save. **Done 2026-09-05.**
+- [x] Same at https://www.npmjs.com/package/@foretak/brreg-mcp/access — **done 2026-09-05.**
+      Verified the same day: a manual run of `publish-npm.yml` authenticated via
+      OIDC for both packages and was refused only with "cannot publish over the
+      previously published versions: 0.2.0" (run 33949808903). Tag trigger
+      re-enabled in the workflow.
 - [ ] Then delete the granular tokens `registry-mcp-publish*` at
       https://www.npmjs.com/settings/foretak/tokens (the one stored in
       `~/secrets/registry-mcp/npm-token.txt` never had "Bypass 2FA" and expires
