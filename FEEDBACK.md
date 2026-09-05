@@ -15,7 +15,7 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 | dev.to | five articles under https://dev.to/fargeroddotcom | 2026-09-04 | no comments yet |
 | GitHub | https://github.com/foretak/registry-mcp/issues | 2026-09-04 | only our 3 seed issues |
 | mcp.so | chatmcp/mcpso#3927 | 2026-09-04 | no reply |
-| Glama | https://glama.ai/mcp/servers/foretak/registry-mcp | 2026-09-05 | listed; needs Kim's claim + Dockerfile paste for checks/score |
+| Glama | https://glama.ai/mcp/servers/foretak/registry-mcp | 2026-09-05 | live, claimed, build + checks passed 14:36Z, score badge renders |
 | awesome-mcp-servers | punkpeye#13631 | 2026-09-04 | Glama badge added 2026-09-05; waiting for bot re-check and a Glama score |
 | Erhvervsstyrelsen | cvrselvbetjening@erst.dk (T16) | 2026-09-05 | application sent, acknowledged as sagsnummer 177481; reply due ~2026-09-23 |
 

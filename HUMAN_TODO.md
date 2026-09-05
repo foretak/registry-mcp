@@ -145,11 +145,7 @@ Two schema constraints that will bite an edit:
       https://smithery.ai/servers/fargerod/registry-mcp
 - [x] **mcp.so — submission issue open** chatmcp/mcpso#3927 (2026-09-04); **awesome-mcp-servers
       (punkpeye) — PR #13631 open**; appcypher list is archived (skip).
-- [~] **Glama — approved and listed 2026-09-05** (https://glama.ai/mcp/servers/foretak/registry-mcp). The orchestrator added the score badge to awesome-mcp-servers PR #13631 the same day. **Two clicks left for Kim, in a browser signed in to Glama with GitHub:**
-      1. On the server page, open the admin settings and **Claim** the server (glama.json names `fargerod-dotcom` and `foretak` as maintainers).
-      2. Open https://glama.ai/mcp/servers/foretak/registry-mcp/admin/dockerfile and paste the repo's root `Dockerfile` as is. Glama builds it for its safety and quality checks; only servers that pass appear in Glama search, and the score badge (and so the awesome-list PR) depends on it.
-      Optional afterwards: list the hosted endpoint at https://glama.ai/mcp/connectors.
-      - [x] **Dockerfile for Glama's check — done 2026-09-05.** Glama builds the repo's own `Dockerfile` (methodology page) and runs it with no environment, speaking MCP over stdio. The root `Dockerfile` is now dual-mode: `PORT` set → uvicorn (Railway/compose), `PORT` unset → stdio `registry-mcp`. Verified locally both ways (5 tools over stdio; `/health` over HTTP) and redeployed to Railway. `Dockerfile.glama` was removed again. If Glama's UI still offers a Dockerfile field after the claim, paste the root `Dockerfile` as is.
+- [x] **Glama — live, claimed, checks passed 2026-09-05** (https://glama.ai/mcp/servers/foretak/registry-mcp). Approved 13:45Z; Kim claimed it and saved the build spec in the admin form (Python 3.12, build steps `uv sync --locked --no-dev` + `mkdir -p /app/data`, CMD `/app/.venv/bin/registry-mcp`, placeholder params `{}`); the retry build succeeded 14:36Z and a release was created. Score badge is in awesome-mcp-servers PR #13631 (its bot's last comment asked for exactly this). Optional: list the hosted endpoint at https://glama.ai/mcp/connectors.
 - [x] **MCP Market — already live** (found 2026-09-05 when submitting): auto-indexed
       from GitHub as https://mcpmarket.com/server/registry-10 under the name
       "Registry". Optional: claim it there to fix the name to `registry-mcp`.
