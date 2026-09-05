@@ -28,4 +28,5 @@ _(none yet — day one, 2026-09-05)_
 - 2026-09-05 · GitHub · nordio-ai/brreg-mcp-server#7 (feature request for 8 dropped brreg fields, author fmogensen) · commented with the field-for-field mapping to `CompanyReport`, offered `mapping.py`/`NORBIZ_SPEC.md` §3 under MIT, agreed with their eval finding and mentioned the roll-forward correction · https://github.com/nordio-ai/brreg-mcp-server/issues/7#issuecomment-5552901312 · watch for a reply.
 - 2026-09-05 · awesome-mcp-servers PR #13631 · told the maintainers the Glama checks passed · no human reply yet.
 - 2026-09-05 · Erhvervsstyrelsen · CVR access application, sagsnummer 177481 · reply due ~2026-09-23.
+- 2026-09-05 · Weavio (Nodaro Technologies AB, Fortnox marketplace MCP vendor) · peer email drafted in Kim's Gmail to support@weavio.se asking what a Swedish user wants checked at supplier creation and whether they would compose a registry tool · Kim to send.
 - 2026-09-05 · kode24 · pitch drafted in Kim's Gmail to ole@kode24.no (cc hei@kode24.no), VAT article inline · Kim to send.
