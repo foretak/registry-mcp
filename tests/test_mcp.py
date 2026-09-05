@@ -34,6 +34,7 @@ from registry_mcp.core.models import (
     SearchResult,
     ValidationResult,
 )
+from registry_mcp.core.registry import list_countries, list_registries
 from registry_mcp.mcp.server import mcp
 from registry_mcp.registries.gb import client as gb_client_module
 from registry_mcp.registries.no import client as client_module
@@ -295,6 +296,56 @@ async def test_rules_resource_gb_is_non_empty() -> None:
     text = contents[0].text
     assert isinstance(text, str)
     assert len(text.strip()) > 0
+
+
+#: The English country name each live registry's `rules_markdown()` opens
+#: with (`# Norway — ...`, `# United Kingdom — ...`) — used only to assert
+#: the *content* of a resource read, never to decide which resources exist
+#: (that walk is `list_countries()`/`list_registries()`, per
+#: `research/07-product-improvements.md` item 9).
+_LIVE_COUNTRY_NAMES = {"NO": "Norway", "GB": "United Kingdom"}
+
+
+async def test_resources_list_shows_concrete_rules_resource_per_live_country() -> None:
+    """Item 9: a `@mcp.resource("registry://rules/{country}")` *template*
+    (`rules_resource` above) never appears in `resources/list` — only in
+    `resources/templates/list` — so a client that calls `resources/list` and
+    nothing else never learned this resource existed. `mcp/server.py`
+    registers one concrete resource per `list_registries()` row at import
+    time; this asserts both live countries show up there, with no country
+    hard-coded on either side of the check."""
+    async with Client(mcp) as client:
+        resources = await client.list_resources()
+    by_uri = {str(r.uri): r for r in resources}
+    expected_uris = {f"registry://rules/{cc}" for cc in list_countries()}
+    assert expected_uris == {"registry://rules/GB", "registry://rules/NO"}
+    assert set(by_uri) == expected_uris
+    for cc in list_countries():
+        row = by_uri[f"registry://rules/{cc}"]
+        assert row.title
+        assert row.description
+
+
+async def test_resources_templates_list_still_has_the_general_pattern() -> None:
+    """The concrete resources are additive — the template a country not yet
+    imported would still match stays advertised."""
+    async with Client(mcp) as client:
+        templates = await client.list_resource_templates()
+    assert any(str(t.uri_template) == "registry://rules/{country}" for t in templates)
+
+
+async def test_concrete_rules_resources_read_non_empty_and_name_the_country() -> None:
+    """Reading each concrete resource returns the same non-empty markdown the
+    template serves, naming the country in plain English — not just its
+    ISO code or the registry's own local name."""
+    async with Client(mcp) as client:
+        for registry in list_registries():
+            contents = await client.read_resource(f"registry://rules/{registry.country}")
+            assert len(contents) == 1
+            text = contents[0].text
+            assert isinstance(text, str)
+            assert len(text.strip()) > 0
+            assert _LIVE_COUNTRY_NAMES[registry.country] in text
 
 
 async def test_rules_resource_unsupported_country_is_json_error() -> None:

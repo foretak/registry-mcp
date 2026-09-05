@@ -13,6 +13,7 @@ D-010) — an invalid identifier is HTTP 200 with `valid: false`, not an error.
 from __future__ import annotations
 
 import json
+import struct
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
@@ -261,6 +262,24 @@ def test_robots_txt_allows_everything(client: TestClient, ip: str) -> None:
     assert resp.text == "User-agent: *\nAllow: /\n"
 
 
+def test_icon_png_200_and_is_a_400x400_png(client: TestClient, ip: str) -> None:
+    """Backlog item C: `static/icon.png` served the same way `/robots.txt`
+    is (`_serve_static_bytes`, its binary sibling), so the Cline marketplace
+    (which requires an icon) and directories that read one (Smithery, Glama,
+    mcp.so) have something to show. Width/height are read straight out of
+    the PNG's IHDR chunk (stdlib `struct`) rather than via Pillow, which is a
+    one-off generation-time tool only (`DECISIONS.md`) and is not a runtime
+    or test dependency of this project."""
+    resp = client.get("/icon.png", headers={"X-Forwarded-For": ip})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/png"
+    body = resp.content
+    assert body[:8] == b"\x89PNG\r\n\x1a\n"  # PNG magic bytes
+    assert body[12:16] == b"IHDR"
+    width, height = struct.unpack(">II", body[16:24])
+    assert (width, height) == (400, 400)
+
+
 def test_well_known_server_card_version_matches_package(client: TestClient, ip: str) -> None:
     """Backlog item 6(a): the Smithery-style server card is regenerated from
     the real server, not hand-maintained — its `serverInfo.version` must
@@ -441,5 +460,6 @@ def test_openapi_has_descriptions_on_every_path() -> None:
         "/server.json",
         "/robots.txt",
         "/.well-known/mcp/server-card.json",
+        "/icon.png",
     ):
         assert hidden not in schema["paths"]

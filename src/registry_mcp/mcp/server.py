@@ -51,7 +51,7 @@ from registry_mcp.core.models import (
     Surface,
     ValidationResult,
 )
-from registry_mcp.core.registry import get_registry, list_registries
+from registry_mcp.core.registry import Registry, get_registry, list_registries
 from registry_mcp.core.rules.common import parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -288,6 +288,10 @@ async def lookup_company(
     it carries caveats such as bankruptcy, dissolution, a deleted entity, or an
     unclassified legal form.
 
+    This tool does not perform sanctions, PEP or adverse-media screening, and it does not
+    verify bank account details — it returns identity and filing data from the national
+    register only, never a compliance clearance or a confirmed payment detail.
+
     On error, this tool raises with the error text `{"error": {"code", "message",
     "hint"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —
     fix it or call `search_company` with the company name instead of retrying the same
@@ -518,6 +522,61 @@ def rules_resource(country: str) -> str:
     except RegistryError as exc:
         raise _resource_error(exc) from exc
     return registry.rules_markdown()
+
+
+# ---------------------------------------------------------------------------
+# Concrete per-country rules resources (`research/07-product-improvements.md`
+# item 9). `resources/list` only ever enumerates concrete resources, never
+# templates — a client that calls it and nothing else never learns
+# `rules_resource` above exists at all, template matching only happens on a
+# `resources/read` for a URI nothing concrete claims. Registering one
+# concrete resource per country closes that without retiring the template:
+# FastMCP tries concrete resources before templates (same URI, same result),
+# and `resources/templates/list` still advertises the general pattern for any
+# country added after this module was imported.
+# ---------------------------------------------------------------------------
+
+
+def _rules_reader(target: Registry) -> Callable[[], str]:
+    """A zero-argument function bound to one registry.
+
+    A concrete `@mcp.resource` is exactly a URI with no `{param}` *and* a
+    function with no parameters (FastMCP's own rule — see `rules_resource`'s
+    docstring above); the closure is what lets one country's registration
+    below read `target` without taking it as an argument.
+    """
+
+    def _read() -> str:
+        return target.rules_markdown()
+
+    return _read
+
+
+def _register_concrete_rules_resources() -> None:
+    """Register `registry://rules/{cc}` concretely for every live registry.
+
+    ``list_registries()`` already hides stub modules (D-008), so this walks
+    exactly the countries `list_countries()` advertises — no country string
+    is hard-coded here. Called once, at import time: a second or third
+    country lights up in `resources/list` the moment its module registers
+    itself, with no edit to this file.
+    """
+    for target in list_registries():
+        mcp.resource(
+            f"registry://rules/{target.country}",
+            name=f"rules_{target.country.lower()}",
+            title=f"{target.name} rules ({target.country})",
+            description=(
+                f"Identifier rules, legal forms and filing-deadline rules for "
+                f"{target.name} ({target.country}) — the same document the "
+                "registry://rules/{country} template serves for this country, "
+                "listed concretely so it appears in resources/list."
+            ),
+            mime_type="text/markdown",
+        )(_rules_reader(target))
+
+
+_register_concrete_rules_resources()
 
 
 # ---------------------------------------------------------------------------

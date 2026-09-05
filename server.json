@@ -5,6 +5,13 @@
   "description": "The company registry MCP: UK Companies House company number, Norway brreg orgnr, deadlines.",
   "version": "0.2.0",
   "websiteUrl": "https://api.foretak.dev",
+  "icons": [
+    {
+      "src": "https://api.foretak.dev/icon.png",
+      "mimeType": "image/png",
+      "sizes": ["400x400"]
+    }
+  ],
   "repository": {
     "url": "https://github.com/foretak/registry-mcp",
     "source": "github"

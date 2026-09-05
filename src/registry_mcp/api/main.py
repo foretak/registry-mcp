@@ -134,14 +134,27 @@ _MISSING_STATIC_HINT = (
 )
 
 
+def _missing_static_response(path: Path) -> JSONResponse:
+    err = RegistryError(
+        ErrorCode.NOT_FOUND, f"{path.name} is not available on this instance.",
+        hint=_MISSING_STATIC_HINT,
+    )
+    return JSONResponse(status_code=err.http_status, content=err.to_dict())
+
+
 def _serve_static(path: Path, media_type: str) -> Response:
     if not path.is_file():
-        err = RegistryError(
-            ErrorCode.NOT_FOUND, f"{path.name} is not available on this instance.",
-            hint=_MISSING_STATIC_HINT,
-        )
-        return JSONResponse(status_code=err.http_status, content=err.to_dict())
+        return _missing_static_response(path)
     return Response(content=path.read_text(encoding="utf-8"), media_type=media_type)
+
+
+def _serve_static_bytes(path: Path, media_type: str) -> Response:
+    """Binary sibling of :func:`_serve_static`, for an asset that is not
+    UTF-8 text — currently just `icon.png` (backlog item C, the Cline
+    marketplace / Smithery / Glama / mcp.so icon)."""
+    if not path.is_file():
+        return _missing_static_response(path)
+    return Response(content=path.read_bytes(), media_type=media_type)
 
 
 def _warn_if_static_missing() -> None:
@@ -537,6 +550,16 @@ async def server_json() -> Response:
 @app.get("/robots.txt", include_in_schema=False)
 async def robots_txt() -> Response:
     return _serve_static(_static_dir() / "robots.txt", "text/plain; charset=utf-8")
+
+
+@app.get("/icon.png", include_in_schema=False)
+async def icon_png() -> Response:
+    """400x400 PNG mark (`static/icon.png`) — same static mechanism as
+    `/robots.txt` above, just binary. Referenced from `static/index.html`'s
+    JSON-LD `image` and from `server.json`'s `icons`, and is what a directory
+    that reads either (Smithery, Glama, mcp.so) or the Cline marketplace
+    (which requires one) shows next to this server's listing."""
+    return _serve_static_bytes(_static_dir() / "icon.png", "image/png")
 
 
 @app.get("/.well-known/mcp/server-card.json", include_in_schema=False)

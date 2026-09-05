@@ -13,6 +13,11 @@ they say, in one shape, over a REST API and an MCP server. It adds no facts of
 its own. Filing deadlines are the one thing it *computes* rather than reads —
 see [Computed deadlines](#computed-deadlines) below.
 
+**This service does not perform sanctions, PEP or adverse-media screening, and
+it does not verify bank account details.** It returns identity and filing data
+from the national register only; do not treat a successful lookup as a
+compliance clearance or a confirmed payment detail.
+
 ## Where the data comes from
 
 Norwegian data comes from **Enhetsregisteret**, published as open data by

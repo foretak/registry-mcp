@@ -161,6 +161,30 @@ def test_el_ansari_has_annual_accounts_duty_is_none_not_false() -> None:
     assert report.has_board_duty is False
 
 
+def test_el_ansari_enk_gets_personal_data_note() -> None:
+    """`research/07-product-improvements.md` item 10(1): an ENK's record *is*
+    a record about its proprietor, a natural person — the registered name
+    and address are often theirs personally, not a trading identity. The
+    mapping layer states this on the report itself (D-010: prose about a
+    country's data lives in that country's module), citing Enhetsregisteret
+    as the source, rather than leaving the caveat only in the docs."""
+    report = mapping.map_entity(EL_ANSARI, source_url="https://example/enheter/833285602")
+    assert report.legal_form_code == "ENK"
+    matches = [note for note in report.notes if "personal data" in note]
+    assert len(matches) == 1
+    note = matches[0]
+    assert "sole proprietorship" in note
+    assert "natural person" in note
+    assert "Enhetsregisteret" in note
+
+
+def test_non_enk_report_gets_no_personal_data_note() -> None:
+    """Equinor is an ASA, not an ENK — the caveat must not leak onto every
+    report regardless of legal form."""
+    report = mapping.map_entity(EQUINOR, source_url="https://example/enheter/923609016")
+    assert not any("personal data" in note for note in report.notes)
+
+
 def test_el_ansari_employees_flag_true_but_count_absent_is_not_reported() -> None:
     """**D-011**: this live payload has `harRegistrertAntallAnsatte: true`
     with no `antallAnsatte` key at all (brreg appears to omit the field

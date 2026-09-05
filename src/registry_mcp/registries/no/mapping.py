@@ -81,6 +81,22 @@ _CALENDAR_YEAR_ASSUMPTION_NOTE = (
     "before relying on an annual date."
 )
 
+#: `research/07-product-improvements.md` item 10(1) — the honest-caveat trio,
+#: first entry. An ENK's record *is* a record about its proprietor: brreg
+#: publishes the entity's "name" as the proprietor's own name and its
+#: address as often a home address, not a trading address. `legal/terms.md`
+#: and `llms-full.txt` already say this in general terms about ENKs as a
+#: class; this puts the same fact on the individual report, where an agent
+#: reading only the JSON — not the docs — still sees it (D-010: prose about a
+#: country's data is written once, in that country's module).
+_ENK_PERSONAL_DATA_NOTE = (
+    "This is a sole proprietorship (enkeltpersonforetak, ENK). Its registered name and "
+    "address are published by Enhetsregisteret (Brønnøysundregistrene, data.brreg.no) as "
+    "the proprietor's own name and, often, a home address rather than a business one — "
+    "this record contains personal data about a natural person and should be handled "
+    "accordingly."
+)
+
 #: An arbitrary, fixed anchor date used only to ask "would any *kind* of annual
 #: deadline apply to this report at all?" — never to compute an actual due
 #: date. Which deadline *kinds* `rules.deadlines_for` returns depends only on
@@ -216,6 +232,8 @@ def map_entity(
     notes: list[str] = list(status_info.notes)
     if form_info is not None:
         notes.extend(form_info.notes)
+    if legal_form_code == "ENK":
+        notes.append(_ENK_PERSONAL_DATA_NOTE)
 
     vat_registered = bool(data.get("registrertIMvaregisteret", False))
     employees_flag = bool(data.get("harRegistrertAntallAnsatte", False))

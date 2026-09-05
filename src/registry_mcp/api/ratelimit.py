@@ -5,10 +5,11 @@ the first value of ``X-Forwarded-For`` since we run behind Caddy (a reverse
 proxy) — the socket peer would otherwise always be the proxy.
 
 The static discovery routes (``/``, ``/llms.txt``, ``/llms-full.txt``,
-``/server.json``, ``/robots.txt``, ``/.well-known/mcp/server-card.json``) are
-exempt: `NORBIZ_SPEC.md` §15 is explicit that a crawler must never get a 429
-on the one request we most want to succeed, and the latter two exist
-specifically for crawlers and directory scanners (backlog item 6).
+``/server.json``, ``/robots.txt``, ``/.well-known/mcp/server-card.json``,
+``/icon.png``) are exempt: `NORBIZ_SPEC.md` §15 is explicit that a crawler
+must never get a 429 on the one request we most want to succeed, and the
+latter three exist specifically for crawlers and directory scanners (backlog
+items 6 and C).
 
 This is intentionally a single in-process bucket dict, not a shared store —
 fine for one worker process; a multi-worker deployment would need a shared
@@ -38,6 +39,7 @@ EXEMPT_PATHS = frozenset(
         "/server.json",
         "/robots.txt",
         "/.well-known/mcp/server-card.json",
+        "/icon.png",
     }
 )
 
