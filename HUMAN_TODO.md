@@ -387,7 +387,7 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
 
 ## 7.6 Denmark (T16) — CVR access application
 
-- [x] **Application sent 2026-09-05** from fargerod@gmail.com to
+- [x] **Application sent 2026-09-05** (ERST auto-reply the same morning: **sagsnummer #177481**; quote it in any follow-up) from fargerod@gmail.com to
       `cvrselvbetjening@erst.dk` (cc `hello@foretak.dev`), subject "Ansøgning om
       system-til-system adgang til CVR-data". It asks two questions: whether a
       Norwegian ENK without a Danish CVR number qualifies, and whether IP

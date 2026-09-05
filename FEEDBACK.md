@@ -16,7 +16,7 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 | GitHub | https://github.com/foretak/registry-mcp/issues | 2026-09-04 | only our 3 seed issues |
 | mcp.so | chatmcp/mcpso#3927 | 2026-09-04 | no reply |
 | awesome-mcp-servers | punkpeye#13631 | 2026-09-04 | bot comment only (Glama badge) |
-| Erhvervsstyrelsen | cvrselvbetjening@erst.dk (T16) | 2026-09-05 | application sent, reply due ~2026-09-23 |
+| Erhvervsstyrelsen | cvrselvbetjening@erst.dk (T16) | 2026-09-05 | application sent, acknowledged as sagsnummer 177481; reply due ~2026-09-23 |
 
 ## Entries
 
