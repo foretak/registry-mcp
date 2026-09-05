@@ -176,6 +176,7 @@ Two schema constraints that will bite an edit:
       personal data in register records. `static/index.html`'s JSON-LD
       `termsOfService` link now resolves. The contact line's placeholder marker
       was removed 2026-09-04 once `hello@foretak.dev` went live (§3).
+- [ ] **Privacy policy — draft written 2026-09-05 at `legal/privacy.md`, needs Kim's read-through** before it is linked from `mcpb/manifest.json` (`privacy_policies`), the Connectors Directory submission and the homepage. It states only what the software does today (usage log without IPs, 24 h cache, no accounts/cookies, registers as the only third parties). Two choices in it are Kim's: the 12-month usage-log retention sentence, and naming EL ANSARI KONSULT as operator. Serving it at `/privacy` on the API is a two-line route for the next implementer task.
 - [ ] **NLOD 2.0 attribution** is a licence condition, not a courtesy. Every
       response already carries `source`, `source_url` and `license`; keep the
       footer line on the homepage too.
