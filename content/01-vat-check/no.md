@@ -30,6 +30,8 @@ claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
     "foretaksregisteret": false,
     "mvaregisteret": true
   },
+  "cached": false,
+  "fetched_at": "2026-09-05T14:44:24.836394Z",
   "source_url": "https://data.brreg.no/enhetsregisteret/api/enheter/833285602",
   "license": "NLOD 2.0"
 }
@@ -43,6 +45,17 @@ Fire felter avgjør saken:
 - **`vat_registered_at: "2024-04-15"`** — en faktura datert før dette krevde inn mva leverandøren ikke hadde adgang til å kreve.
 
 `status: "active"` svarer på andre halvdel av spørsmålet. Er foretaket konkurs eller slettet, kommer det en annen `status` og en `notes`-linje som sier hvorfor. Dokumentasjonen til verktøyet er tydelig på det: les `notes` før du handler på svaret.
+
+## Hva det koster å la være
+
+Kontrollen stopper ikke fakturasvindel: ved betalingsomdirigering er leverandøren reell og registrert, og det er kontonummeret som er feil. Det den stopper, er fradrag for mva som aldri kunne kreves. Norge har satt tall på det:
+
+- Skatteklagenemnda [NS 116/2018](https://www.skatteetaten.no/rettskilder/type/vedtak/skatteklagenemnda/etterberegning-av-inngaende-merverdiavgift-pa-bakgrunn-av-at-selger-ikke-var-registrert-i-merverdiavgiftsregisteret/), 15. september 2018: kr 691 100 i inngående merverdiavgift nektet fradragsført, og kr 138 220 i tilleggsavgift, fordi kjøper fradragsførte mva på fakturaer fra en selger som ikke var registrert i Merverdiavgiftsregisteret.
+- Skatteklagenemnda [NS 27/2019](https://www.skatteetaten.no/en/rettskilder/type/vedtak/skatteklagenemnda/etterberegning-av-inngaende-merverdiavgift-nar-selger-ikke-er-registrert-i-merverdiavgiftsregisteret.-skjerpet-tilleggsskatt/), 20. mars 2019: kr 492 541 etterberegnet, pluss 20 % tilleggsskatt og ytterligere 20 % skjerpet tilleggsskatt, kr 98 508 hver. Nemnda skrev: «Skattepliktige skulle selv ha kontrollert hvorfor selger utsteder fakturaer inkludert merverdiavgift når det ikke står MVA bak org nr.»
+
+Begge hviler på [bokføringsforskriften § 5-1-2](https://lovdata.no/dokument/SF/forskrift/2004-12-01-1558/KAPITTEL_5-1): «Dersom selger er registrert i Merverdiavgiftsregisteret, skal organisasjonsnummer etterfølges av bokstavene MVA.»
+
+Finanstilsynets [rundskriv 15/2019](https://www.finanstilsynet.no/nyhetsarkiv/rundskriv/2019/veiledning-om-regnskapsforeres-og-regnskapsforerselskapers-etterlevelse-av-hvitvaskingsregelverket/) punkt 4.4.1 godtar et oppslag mot Enhetsregisteret som ikke er eldre enn tre måneder, og setter én måned der kontrollen må baseres på firmaopplysninger som fremlegges av kunden. Det krever i tillegg notoritet om selve oppslaget: hva som ble slått opp, og når. `fetched_at`, `cached` og `source_url` er den dokumentasjonen, i et format du kan lagre ved siden av bilaget. Ingenting serveres eldre enn 24 timer.
 
 ## De to måtene dette sier nei på
 

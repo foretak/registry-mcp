@@ -26,7 +26,7 @@ What makes it worth a tool slot:
 - **Never more than 24 hours stale, and it says so.** Every response carries `cached` and `fetched_at`. OpenCorporates' own knowledge base tells users to ["allow 30 days"](https://knowledge.opencorporates.com/knowledge-base/the-data-on-opencorporates-is-out-of-date/) for a correction to reach its site — a 30× freshness gap, stated by the incumbent about itself.
 - **Five tools, not fifty.** Tool-selection accuracy [degrades past 30-50 tools loaded into an agent's context](https://code.claude.com/docs/en/agent-sdk/tool-search), and some clients cap around 40. Five tools is roughly 12% of that budget, next to competitors in this space shipping 23 to 78 tools for the same job.
 
-**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Two named upstreams, and nothing else is ever called: `data.brreg.no` and `api.company-information.service.gov.uk`. No personal data beyond what each national register already publishes about the entity itself. Details: [SECURITY.md](SECURITY.md).
+**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Two named upstreams, and nothing else is ever called: `data.brreg.no` and `api.company-information.service.gov.uk`. No personal data beyond what each national register already publishes about the entity itself. This service does not perform sanctions, PEP or adverse-media screening, and it does not verify bank account details. Details: [SECURITY.md](SECURITY.md).
 
 One-click install, for a remote streamable-HTTP server:
 
@@ -116,6 +116,16 @@ Where Companies House publishes a date, it is quoted; where it does not, the dat
 | `list_countries()` | Which national registries are supported right now |
 
 Plus the resource `registry://rules/{country}` (identifier rules, legal forms, deadline rules — read once instead of validating in a loop) and the prompt `explain_company`.
+
+`parent_id` and `in_group` on a Norwegian `CompanyReport` describe Enhetsregisteret's own parent/sub-unit relation for that entity — nothing more. There is no group-walk tool: following a corporate group upward means calling `lookup_company` again on `parent_id`, repeatedly, and that walk answers "what does the register list as this entity's parent?", not "who beneficially owns or controls this company?" — a different question this service does not answer. See [`llms-full.txt`](static/llms-full.txt) §5.
+
+## Why an agent checks a company
+
+Three rules make this a duty rather than a nicety. Finanstilsynet's [Rundskriv 15/2019](https://www.finanstilsynet.no/nyhetsarkiv/rundskriv/2019/veiledning-om-regnskapsforeres-og-regnskapsforerselskapers-etterlevelse-av-hvitvaskingsregelverket/) § 4.4.1 accepts an *oppslag* against Enhetsregisteret no older than three months, one month where the check rests on company details the customer supplied, and asks for *notoritet* about the lookup: what was consulted, and when. From [1 January 2027](https://www.regjeringen.no/no/aktuelt/nye-lovregler-om-e-fakturering-i-naringslivet-og-enkelte-andre-lovendringer-pa-finansmarkedsomradet-settes-i-kraft/) Norwegian bookkeeping-obliged businesses must invoice each other by e-invoice, and the receiver is resolved in ELMA as [`0192:` plus organisasjonsnummer](https://www.anskaffelser.no/verktoy/veiledere/mottakere-av-ehf-og-peppol-bis), the identifier these tools already take. From 10 July 2027, [AMLR](https://eur-lex.europa.eu/eli/reg/2024/1624/oj/eng) Article 23(4) requires "valid proof of registration or a recently issued excerpt of the register" for every new business relationship with a legal entity.
+
+That is what `source_url`, `fetched_at`, `cached`, `license` and `applies_because` are for: which record was consulted, when it was read, whether it came from the 24 h cache, the terms it travels under, and whether a deadline was quoted from the register or computed from a named rule.
+
+The limits, stated rather than implied: no sanctions or PEP screening; no bank-account verification, and the commonest invoice fraud is payment redirection, where the supplier is real and only the account number is wrong; and no beneficial owners, which brreg [releases on application only](https://www.brreg.no/bruke-data-fra-bronnoysundregistrene/datasett-og-api/data-om-reelle-rettighetshavere/), to categories of applicant that do not include a product vendor. Fuller version in [`llms-full.txt`](static/llms-full.txt) §9.
 
 ## Configuration
 

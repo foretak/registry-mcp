@@ -769,7 +769,7 @@ Groups, in the order they appear:
 - **Provenance** — `confidence` (0.0–1.0), `confidence_basis`, `cached`,
   `fetched_at`, `source`, `source_url`, `license`, `notes`.
 
-Two fields deserve special attention:
+Three fields deserve special attention:
 
 `notes` is a list of plain-English caveats meant to be surfaced to the user, not
 swallowed. If a company is bankrupt, or its legal form is unclassified, or a
@@ -780,6 +780,22 @@ on a report.**
 the *original* `fetched_at`, so staleness is visible. Cached data is at most 24
 hours old (1 hour for negative results). If a decision depends on today's
 state, say when the data was fetched.
+
+`parent_id` and `in_group` describe Enhetsregisteret's own parent/sub-unit
+relation for this entity (`overordnetEnhet`, `erIKonsern`) — nothing more.
+There is no group-structure tool here: walking a corporate group upward means
+calling `lookup_company` again on `parent_id`, repeatedly, with your own cycle
+guard and depth cap, since each hop is a separate (already-cached) lookup, not
+one call that returns a tree. That walk tells you the register's own reporting
+hierarchy. **It is not a beneficial-ownership answer.** Who ultimately owns or
+controls an entity is a different question this service does not answer here:
+Norway's *Register over reelle rettighetshavere* (beneficial owners) is a
+separate, authorisation-gated register, and the United Kingdom's PSC (persons
+with significant control) register is a separate regime again — neither is
+`parent_id`. `GB`'s `CompanyReport` carries no `parent_id` at all: Companies
+House publishes no parent or group field on the company profile, so it is
+always `null` for the United Kingdom, and a UK group has to be inferred from
+ownership filings this endpoint does not return.
 
 Coverage differs by country, and that is what `null` is for. Norway publishes
 VAT registration, employees, share capital, sector and a purpose clause; the UK
@@ -882,6 +898,13 @@ for every user of the same key.
   registered in a person's name, so treat those records with the care you would
   give personal data. UK sole traders are not on the register at all, so a
   missing UK business is often a real business rather than a bad identifier.
+- **This service does not perform sanctions, PEP or adverse-media screening,
+  and it does not verify bank account details.** It returns identity and
+  filing data from the national register only. A clean `lookup_company`
+  result is not a compliance clearance — feed `name`, `previous_names` and
+  `id` to a dedicated screening or verification tool if you need one, rather
+  than inferring "not sanctioned" or "bank details confirmed" from the
+  absence of a flag here.
 
 
 ## 8. Adding a country
@@ -894,3 +917,78 @@ proof: `registries/gb/` was added in one folder, with one import line, and
 `registry://rules/GB` with no change to any tool's shape. The template folder
 `xx/` carries the six-step recipe:
 https://github.com/foretak/registry-mcp
+
+
+## 9. Why an agent checks a company, and what this cannot answer
+
+Three rules make a register lookup something a business has to do rather than
+something it may do. Cite them when a user asks why the check matters.
+
+**Norway, in force now.** Finanstilsynet's Rundskriv 15/2019 § 4.4.2 requires
+that an accounting firm obtain *and confirm* the client's organisasjonsnummer:
+"Organisasjonsnummer til den juridiske personen skal innhentes og bekreftes."
+§ 4.4.1 says what confirming means: an *oppslag* against, or an extract from,
+Enhetsregisteret or Foretaksregisteret "som ikke er eldre enn tre måneder", and
+where the check must instead rest on company details the customer supplies,
+"bør opplysningene ikke være eldre enn én måned". The same section asks for
+*notoritet* about the lookup itself, meaning a record of what was consulted and
+when. An API call is an *oppslag*, and a 24-hour cache TTL is inside both
+figures by a wide margin.
+https://www.finanstilsynet.no/nyhetsarkiv/rundskriv/2019/veiledning-om-regnskapsforeres-og-regnskapsforerselskapers-etterlevelse-av-hvitvaskingsregelverket/
+
+**Norway, from 1 January 2027.** Bookkeeping-obliged businesses must invoice
+each other by e-invoice ("bokføringspliktige virksomheter skal fakturere
+hverandre med e-faktura innen 1. januar 2027"), under a new second paragraph of
+bokføringsloven § 10. The receiver is resolved in ELMA by country code plus
+identifier, "landkoden, f.eks. Norge 0192: + organisasjonsnummer", the same
+organisasjonsnummer `lookup_company` and `validate_company_id` take. This
+server reads the company register; it does not query ELMA, so treat a lookup
+here as the identifier check, not the e-invoicing capability check.
+https://www.regjeringen.no/no/aktuelt/nye-lovregler-om-e-fakturering-i-naringslivet-og-enkelte-andre-lovendringer-pa-finansmarkedsomradet-settes-i-kraft/
+https://www.anskaffelser.no/verktoy/veiledere/mottakere-av-ehf-og-peppol-bis
+
+**The EU, from 10 July 2027.** Regulation (EU) 2024/1624 (AMLR) Article 23(4):
+whenever an obliged entity enters a new business relationship with a legal
+entity, it "shall collect valid proof of registration or a recently issued
+excerpt of the register confirming validity of registration". Article 90: "It
+shall apply from 10 July 2027." The Regulation does not define "recently
+issued", so do not represent any cache age as compliant with it; represent the
+`fetched_at` timestamp and let the obliged entity apply its own policy.
+https://eur-lex.europa.eu/eli/reg/2024/1624/oj/eng
+
+**What the response gives an auditor.** Five fields exist for the person who
+reads the decision afterwards, and they are the ones to copy into a working
+paper, not just the answer:
+
+- `source_url`: the exact upstream record consulted. For `NO` it is the
+  Enhetsregisteret API record; for `GB` it is the human-readable Companies
+  House page, which a reviewer can open.
+- `fetched_at`: when that record was read from the register, in UTC. On a
+  cache hit it keeps the original read time, so staleness stays visible.
+- `cached`: whether this particular answer came from the 24-hour cache
+  (1 hour for `not_found`) or from a fresh upstream read.
+- `license`: the terms the data travels under: NLOD 2.0 for Norway, with
+  attribution required; Crown copyright, free to re-use, for the UK.
+- `applies_because`: on every deadline, one sentence saying whether the date
+  was quoted from the register or computed from a named national rule, so a
+  reviewer can tell a register fact from a calculation.
+
+**What this does not answer.** Say so plainly rather than implying coverage:
+
+- **No sanctions, PEP or watchlist screening.** Nothing here consults any
+  sanctions list. A company that answers `status: "active"` may still be
+  sanctioned.
+- **No bank-account verification.** The commonest invoice fraud is payment
+  redirection, where the supplier is real, registered and active and only the
+  account number is wrong. This lookup does not detect it.
+- **No beneficial owners.** Norwegian beneficial-ownership data is API-only and
+  access-controlled: brreg grants it on application, to categories of applicant
+  set by law that do not include a product vendor. Beneficial owners are
+  therefore not in `CompanyReport` at all.
+  https://www.brreg.no/bruke-data-fra-bronnoysundregistrene/datasett-og-api/data-om-reelle-rettighetshavere/
+- **No creditworthiness, and no proof of authority.** Whether a person may sign
+  for the company, and whether it can pay, are separate registers and separate
+  products.
+- **A cached answer is not the register.** For a legally consequential decision
+  at a specific moment, read `fetched_at` and, if it matters, re-read the
+  register itself at the source URL.

@@ -43,7 +43,9 @@ Found 2026-09-04 across the official MCP registry, Glama and Smithery. None has 
 | `sophymarine/openregistry` | 27 countries, 60+ tools | active |
 | `DimaVasilenko-Intune/mcp-brreg`, `andyarntsen-alt/brreg-mcp-server`, `daveHylde`, `reidar80`, `josuekongolo/CompanyIQ`, `Mnymann/nordic-data-mcp` | various | stale (7–12 months) |
 
-What none of them appear to do: filing deadlines with `today`, verified-field mapping with honest `null`/`notes`, REST≡MCP parity, `llms.txt` discovery layer. That, plus freshness, is the differentiation to lead with in the articles.
+What none of them appear to do: filing deadlines with `today`, verified-field mapping with honest `null`/`notes`, REST≡MCP parity, `llms.txt` discovery layer.
+
+**Positioning.** The phrase we own stays **"the company registry MCP"** (`KEYWORDS.md` row 11a): it leads the homepage H1, the README H1, `llms.txt` line 1 and the package descriptions. The one sentence that defends it, after the competitor census in `research/05-competitors.md`, is **one response shape, deadlines with cited statutes, across countries, free and keyless**. Lead with that, not with "an MCP server for brreg" (fifteen of those exist, the best has 8 stars) and not with "the one that computes deadlines" (Apier does, in Norway, with legal references).
 
 ---
 
@@ -59,4 +61,4 @@ Found by the research task force (`research/05-competitors.md`; full census in
 - **ENTIA** — 10 countries, anonymous hosted endpoint, 16,045 Smithery uses; the proof that keyless access predicts usage.
 - **Firmaradar** — 99 kr/month + 0.08 kr/lookup; **Nordic Data** (`nordicdata.cloud`) listed active in the official registry but HTTP 525 all day on 2026-09-05; **CompanyIQ** 404.
 
-Net: fifteen brreg MCP repos exist (best: 8 stars); none computes a deadline, none validates an identifier offline, and only two are in the official registry. The defensible line is *one response shape, deadlines with cited statutes, across countries, free and keyless* — not "an MCP server for brreg".
+Net: fifteen brreg MCP repos exist (best: 8 stars); none computes a deadline, none validates an identifier offline, and only two are in the official registry. That census is what the positioning paragraph above is drawn from.

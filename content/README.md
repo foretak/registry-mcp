@@ -78,3 +78,19 @@ Rules for whoever posts:
   to r/mcp as usual, and consider a UK-developer venue as well.
 - Replace `api.foretak.dev` and `github.com/foretak/registry-mcp` everywhere if
   the real domain or org differs, before the first post.
+
+## Hand-posted drafts, outside the schedule
+
+Three self-posts Kim posts by hand. Each carries its own one-line "where and
+when to post" header, a title, a body and a first-comment block; the links go
+in the comment, never the body.
+
+| File | Venue | Angle |
+|---|---|---|
+| `reddit-r-mcp-post-01.md` | r/mcp | Launch post, live since 2026-09-05 |
+| `reddit-r-claudeai-post.md` | r/ClaudeAI | "I asked Claude Code to check a supplier before paying an invoice" |
+| `reddit-uk-developers-post.md` | a UK developer sub | Companies House only: the free key, and why `days_until` goes negative |
+
+One deviation from the caps above: `01-vat-check/reddit.md` runs to 167 words,
+not 150. The two Skatteklagenemnda citations and the Rundskriv 15/2019 sentence
+cost about fifty words, and a citation outranks the cap.
