@@ -6,6 +6,9 @@ services:
     env_file:
       - .env
     environment:
+      # Selects HTTP mode in the Dockerfile CMD (unset = stdio MCP server).
+      # Caddyfile proxies to api:8080, so this must stay 8080.
+      PORT: "8080"
       REGISTRY_MCP_CACHE_PATH: /app/data/cache.sqlite3
     volumes:
       - registry-data:/app/data

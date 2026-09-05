@@ -54,12 +54,20 @@ USER app
 
 EXPOSE 8080
 
-# Railway injects its own `PORT` at runtime and routes/health-checks against
-# it; docker-compose (see docker-compose.yml/Caddyfile, which hardcode
-# `api:8080`) never sets it, so both fall back to 8080. Shell form (or an
-# explicit `sh -c`, for CMD) is required for `${PORT:-8080}` to expand —
-# exec-form JSON arrays don't run through a shell.
+# One image, two modes, selected by `PORT` (2026-09-05):
+#
+# - `PORT` set  → HTTP API + Streamable-HTTP MCP via uvicorn. Railway injects
+#   `PORT` at runtime and routes/health-checks against it; docker-compose sets
+#   `PORT=8080` explicitly (Caddyfile hardcodes `api:8080`).
+# - `PORT` unset → the stdio MCP server (`registry-mcp`, the [project.scripts]
+#   entry). This is how MCP directory inspectors (Glama and friends) run the
+#   image: `docker run -i <image>` with no environment, then speak JSON-RPC on
+#   stdin/stdout. The old uvicorn-only CMD failed that introspection.
+#
+# Shell form (`sh -c`) is required for the `${PORT}` test — exec-form JSON
+# arrays don't run through a shell. The healthcheck passes trivially in stdio
+# mode, where there is no port to probe.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -fsS "http://localhost:${PORT:-8080}/health" || exit 1
+    CMD [ -z "${PORT:-}" ] || curl -fsS "http://localhost:${PORT}/health" || exit 1
 
-CMD ["sh", "-c", "uvicorn registry_mcp.api.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "if [ -n \"${PORT:-}\" ]; then exec uvicorn registry_mcp.api.main:app --host 0.0.0.0 --port \"$PORT\"; else exec registry-mcp; fi"]

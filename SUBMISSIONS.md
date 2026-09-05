@@ -310,13 +310,16 @@ The file must sit in the **repository root**, which it does.
 6. **Dockerfile (required since 2026-09 for the listing check).** Glama's bot on
    awesome-mcp-servers PR #13631: "you must add Dockerfile directly to Glama.
    For checks to pass, we only need the server to start and respond to
-   introspection requests." Their inspector builds the image and speaks MCP to
-   the container over **stdio**, so the CMD must be the stdio server, not the
-   HTTP API. Paste [`Dockerfile.glama`](Dockerfile.glama) into the Dockerfile
-   field in the server settings — **not** the main `Dockerfile`, whose uvicorn
-   CMD would fail the check. Verified locally 2026-09-04:
-   `docker run --rm -i registry-mcp-glama < tests/fixtures/tools_list.jsonl`
-   answers `initialize` (registry-mcp 0.2.0) and `tools/list` (5 tools).
+   introspection requests." Their [methodology](https://glama.ai/mcp/methodology)
+   says the build uses a Dockerfile "checked into the repository" when there
+   is one, and their inspector runs the container with no environment and
+   speaks MCP over **stdio**. The root `Dockerfile` is therefore dual-mode
+   since 2026-09-05: `PORT` set → uvicorn (Railway injects it; compose sets
+   `PORT=8080`), `PORT` unset → `registry-mcp` over stdio. Verified locally:
+   `docker run --rm -i registry-mcp:latest < tests/fixtures/tools_list.jsonl`
+   answers `initialize` (registry-mcp 0.2.0) and `tools/list` (5 tools), and
+   `-e PORT=8091` serves `/health`. If the claimed listing still offers a
+   Dockerfile field, paste the root `Dockerfile` unchanged.
 
 **Needs a human login: yes** — GitHub OAuth on glama.ai.
 
