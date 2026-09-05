@@ -381,6 +381,23 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
 
 ---
 
+## 7.6 Denmark (T16) — CVR access application
+
+- [ ] **Send the Gmail draft** "Ansøgning om system-til-system adgang til CVR-data –
+      registry-mcp (open source)" to `cvrselvbetjening@erst.dk` (drafted 2026-09-05,
+      cc `hello@foretak.dev`). Erhvervsstyrelsen replies with access details and a
+      declaration to sign (protected entities); processing is up to 12 business
+      days. Source: datahub.virk.dk dataset "System-til-system adgang til CVR-data".
+- [ ] When the reply arrives: sign the declaration, store the credentials in
+      `~/secrets/registry-mcp/cvr-*.txt`, and tell the orchestrator so T16 can
+      be specced (Opus A) the same way as `UK_SPEC.md`.
+- Fallback if a Danish CVR number is required: Datafordeler's open CVR services
+  (HentCVRData / SoegCVRData) need a Datafordeler web user + service user and an
+  access request to ERST with IP whitelisting; the confidential CVRPerson entity
+  additionally needs MitID Erhverv. Not started.
+
+---
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in
