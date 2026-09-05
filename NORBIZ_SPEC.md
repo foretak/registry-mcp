@@ -209,22 +209,41 @@ Return a `frozenset` — dates collide (17 May 2027 is also 2. pinsedag) and a l
 
 ### 5.3 Roll-forward
 
-A statutory date falling on a Saturday, Sunday or public holiday moves to the next working day (forvaltningsloven § 30 / skattebetalingsloven). `core/rules/common.py :: roll_forward(d, holidays)` does the walking; the Norwegian module supplies the holidays for whatever years the walk can touch (pass at least `d.year` and `d.year + 1`).
+**Corrected 2026-09-05 (`REVIEW.md` R01, `DECISIONS.md` D-022). The previous text said every Norwegian statutory date rolls forward and sourced it to "forvaltningsloven § 30 / skattebetalingsloven". Both citations were wrong — forvaltningsloven § 30 is about when an appeal counts as lodged in time and the act has no weekend rule at all — and the blanket rule was wrong for two of the six deadlines.**
 
-Every `Deadline` records both dates: `statutory_date` (the date in the statute) and `due_date` (after roll-forward), with `rolled_forward = due_date != statutory_date`.
+Roll-forward is decided **per deadline, from that deadline's own source** (D-022). It is not a country setting.
+
+**Four deadlines roll forward.** For `tax_return`, `shareholder_register_statement` and `vat_return` the chain is two steps: **skatteforvaltningsloven § 5-5** — "Fristen regnes i overensstemmelse med domstolloven §§ 148 og 149" — reaching **domstolloven § 149** — "Ender en frist paa en lørdag, helgedag eller dag som etter lovgivningen er likestilt med helgedag forlenges fristen til den nærmest følgende virkedag." Domstolloven § 148's last sentence ("Avslutningen av en frist kan ogsaa betegnes ved en bestemt kalenderdag") is what makes a fixed calendar date a *frist* for § 149. For `payroll_report` the rule is in the provision itself and is cited alone: **a-opplysningsforskriften § 2-1**, sixth paragraph — "Faller fristen på en lørdag, søndag eller helligdag utskytes fristen til første påfølgende virkedag."
+
+**Two deadlines do not roll forward**, and must say so in `applies_because`:
+
+- `annual_accounts` — **regnskapsloven § 8-3(1)** charges a late fee unless the documents are "avsendt **før** 1. august", so 31 July is the last safe day. Rolling it onto the next business day always lands on or after 1 August, i.e. on a date when the fee is already running. Regnskapsloven contains no weekend rule and does not reference domstolloven §§ 148–149.
+- `general_meeting` — **aksjeloven § 5-5(1)** ("Innen seks måneder etter utgangen av hvert regnskapsår") is an outer limit, a general meeting may lawfully be held on a Saturday, and there is no external filing office to be closed.
+
+Where a source is silent, the date **does not move** (D-022(c)); this is D-009's "never guess a duty" applied to arithmetic.
+
+`core/rules/common.py :: roll_forward(d, holidays)` is a helper an individual rule may call, never a step every deadline passes through. Where it is called, the Norwegian module supplies the holidays for whatever years the walk can touch (pass at least `d.year` and `d.year + 1`).
+
+Every `Deadline` records both dates: `statutory_date` (the date in the statute) and `due_date` (after roll-forward, where the rule rolls), with `rolled_forward = due_date != statutory_date`. For `annual_accounts` and `general_meeting` the two are always equal and `rolled_forward` is always `False`.
 
 ### 5.4 Filing deadlines — implement these six
 
 Computed from `report.legal_form_code`, `report.vat_registered`, `report.employees` and the `today` parameter. Never from the clock.
 
-| `kind` | `local_name` | Statutory date | Recurrence | Applies to |
-|---|---|---|---|---|
-| `annual_accounts` | Årsregnskap | 31 July, for the preceding calendar year | annual | forms with `has_annual_accounts_duty` (§7) |
-| `general_meeting` | Ordinær generalforsamling | 30 June (six months after a calendar year end) | annual | `AS`, `ASA` |
-| `tax_return` | Skattemelding for næringsdrivende | 31 May, for the preceding income year | annual | the private-sector business forms in `_TAX_RETURN_FORMS`: `AS`, `ASA`, `ENK`, `ANS`, `DA`, `NUF`, `SA`, `KS`, `BA` (`D-009(b)`) |
-| `shareholder_register_statement` | Aksjonærregisteroppgaven (RF-1086) | 31 January, for the preceding income year | annual | `AS`, `ASA` |
-| `vat_return` | Mva-melding | see the term table below | bimonthly | `vat_registered == true` |
-| `payroll_report` | A-melding | the 5th of the following month | monthly | `employees` is not `None` and `> 0` |
+**Source and roll-forward columns added 2026-09-05 (`REVIEW.md` R01, D-022).**
+
+| `kind` | `local_name` | Statutory date | Source | Rolls forward? | Recurrence | Applies to |
+|---|---|---|---|---|---|---|
+| `annual_accounts` | Årsregnskap | 31 July, for the preceding calendar year | regnskapsloven § 8-3(1) ("avsendt før 1. august"); filing duty § 8-2(1) | **No** | annual | forms with `has_annual_accounts_duty` (§7) |
+| `general_meeting` | Ordinær generalforsamling | 30 June (six months after a calendar year end) | aksjeloven § 5-5(1); adoption regnskapsloven § 3-1(2) | **No** | annual | `AS`, `ASA` |
+| `tax_return` | Skattemelding for næringsdrivende | 31 May, for the preceding income year | skatteforvaltningsforskriften § 8-2-3(1)(a) | Yes (§ 5-5 → domstolloven § 149) | annual | the private-sector business forms in `_TAX_RETURN_FORMS`: `AS`, `ASA`, `ENK`, `ANS`, `DA`, `NUF`, `SA`, `KS`, `BA` (`D-009(b)`) |
+| `shareholder_register_statement` | Aksjonærregisteroppgaven (RF-1086) | 31 January, for the preceding income year | skatteforvaltningsforskriften § 7-7-4(1); duty-holders § 7-7-1(1) | Yes (§ 5-5 → domstolloven § 149) | annual | `AS`, `ASA` |
+| `vat_return` | Mva-melding | see the term table below | skatteforvaltningsforskriften § 8-3-10(1); periods § 8-3-1 | Yes (§ 5-5 → domstolloven § 149) | bimonthly | `vat_registered == true` |
+| `payroll_report` | A-melding | the 5th of the following month | a-opplysningsloven § 4; a-opplysningsforskriften § 2-1 | Yes (§ 2-1 sixth paragraph) | monthly | `employees` is not `None` and `> 0` |
+
+**The 1 February branch, and why the calendar-year assumption is not a rounding error.** Regnskapsloven § 8-3(1) second sentence: "Er regnskapsåret avsluttet på en dato fra 1. januar til 30. juni, er fristen etter første punktum **1. februar**." A deviating accounting year therefore selects a *different rule*, not a shifted date — for those entities our 31 July is roughly six months after the fee started running. § 8-3(1)'s last sentence also lets the Ministry postpone the deadline by up to one month by regulation. Both belong in the `notes` caveat (D-023(a)). The caveat belongs on `annual_accounts` and `general_meeting` only: `tax_return` and `shareholder_register_statement` run from "året etter skattleggingsperioden", and skatteloven § 14-1(1) makes the inntektsperiode the calendar year regardless of the accounting year (D-023(b)).
+
+**`NUF` and `tax_return` — `VERIFY`, 2026-09-05.** § 8-2-3(1)(a) gives 31 May to skatteloven § 2-2(1) companies, to § 8-9 selskapsmelding filers (`ANS`, `DA`, `KS`) and to *eier av enkeltpersonforetak*; everyone else gets 30 April under (b). A `NUF` is within (a) only if it is "reelt hjemmehørende i riket", which turns on effective management — a fact Enhetsregisteret does not publish. Left as-is this round; do not change it without a source.
 
 **VAT terms (ordinary bimonthly scheme):**
 
@@ -243,8 +262,9 @@ Term 3 is the exception: the deadline is 31 August, not 10 August, because of th
 - `days_until = (due_date - today).days`.
 - Only the **next** occurrence of each `kind` is returned — one `Deadline` per `kind`, never a year's worth.
 - Sorted by `due_date` ascending, then by `kind` for a stable order.
-- `applies_because` is one English sentence naming the legal form or flag that triggered it, plus any assumption: *"An AS must file annual accounts with Regnskapsregisteret. Assumes a calendar-year accounting period."*
-- Every deadline that assumes a calendar-year accounting period sets `mandatory=True` but adds that assumption to `applies_because` — a company with a deviating accounting year (`avvikende regnskapsår`) gets wrong dates and the register does not tell us which companies those are. `lookup` adds a `notes` entry saying so whenever it returns any annual deadline.
+- `applies_because` names the legal form or flag that triggered the deadline, **the provision the date comes from** (D-022(a) — only a provision that actually contains the rule), and any assumption: *"An AS must file annual accounts with Regnskapsregisteret; regnskapsloven § 8-3(1) starts a late fee unless they are dispatched before 1 August, so 31 July is the last safe day and the date does not move off a weekend or holiday. Assumes a calendar-year accounting period — a financial year ending between 1 January and 30 June has a 1 February deadline instead."* (Wording corrected 2026-09-05, R01 F1–F3.)
+- `annual_accounts` and `general_meeting` assume a calendar-year accounting period, set `mandatory=True`, and carry that assumption in `applies_because`. `tax_return` and `shareholder_register_statement` do **not** carry it — their dates do not move with the accounting year (D-023(b)). `lookup` adds a `notes` entry about the deviating accounting year whenever it returns any annual deadline, and that note must state the 1 February branch and the ministerial postponement (D-023(a)).
+- `vat_return` states the cycle assumption: the ordinary two-month cycle of § 8-3-1. Annual filing by consent (§ 8-3-3, turnover ≤ 1 MNOK), primary-industry annual filing (§ 8-3-7) and imposed monthly filing (§ 8-3-2) all exist, all move the date by months, and none is published in Enhetsregisteret.
 - Entities whose `status` is `DELETED`, `BANKRUPT` or `UNDER_COMPULSORY_LIQUIDATION` get **no** deadlines, and a single `notes` entry explaining why. `UNDER_LIQUIDATION` keeps its deadlines: a company in voluntary liquidation still files.
 - Sub-units (`BEDR`, `AAFY`) get no deadlines — they are not legal entities. `notes` says to look up `parent_id` instead.
 
@@ -255,7 +275,7 @@ Real obligations, deliberately left out of the first release because getting the
 - **Forskuddsskatt for AS** — two instalments, 15 February and 15 April of the year after the income year. `VERIFY`.
 - **Forskuddsskatt for personlig næringsdrivende (ENK)** — four instalments, 15 March / 15 June / 15 September / 15 December. `VERIFY`.
 - **Årlig mva-melding** (turnover under 1 MNOK, on application) — 10 March of the following year. `VERIFY`; we cannot see who is on the scheme.
-- **Deviating accounting years** — the register does not publish the accounting year, so every annual date is a calendar-year assumption.
+- **Deviating accounting years** — *Enhetsregisteret* does not publish the accounting year, so every annual date is a calendar-year assumption. **Corrected 2026-09-05 (R01 §3d, D-023(c)):** Brønnøysundregistrene *does* publish it elsewhere — `GET https://data.brreg.no/regnskapsregisteret/regnskap/{orgnr}` returns `regnskapsperiode: {fraDato, tilDato}` for every filed annual account, open and with no API key (verified live on 923609016 and 982463718). Reading it would let `annual_accounts` pick regnskapsloven § 8-3(1)'s correct branch instead of assuming one. Deliberately not implemented while feature work is frozen; when it is, the period goes onto `CompanyReport` at **lookup** time and `deadlines(report, today)` stays pure (D-018).
 - **Small-entity exemptions** from the annual-accounts duty for ENK/ANS/DA/NUF — they depend on turnover and balance-sheet totals we cannot see. §7 marks these forms `None`, not `False`.
 - **Roles, board members, sub-unit lists, Regnskapsregisteret key figures.**
 
@@ -500,12 +520,15 @@ Inputs are the four flags as they appear in the brreg payload.
 The subject is an active `AS`, VAT-registered, with 3 employees, unless stated otherwise. `today` is given per test.
 
 57. `today=2026-01-15` → `annual_accounts` has `statutory_date == due_date == date(2026, 7, 31)` (a Friday), `rolled_forward is False`, `period_label == "2025"`.
-58. `today=2026-08-01` → `annual_accounts` has `statutory_date == date(2027, 7, 31)` (a Saturday) and `due_date == date(2027, 8, 2)` (Monday), `rolled_forward is True`, `period_label == "2026"`.
+58. **Corrected 2026-09-05 (R01, D-022(b)).** `today=2026-08-01` → `annual_accounts` has `statutory_date == due_date == date(2027, 7, 31)` — a Saturday, and it stays there — `rolled_forward is False`, `period_label == "2026"`. Regnskapsloven § 8-3(1) charges the fee unless the accounts are dispatched *before* 1 August, so rolling to Monday 2 August would return a date on which the fee is already running. (The previous version of this test asserted `due_date == date(2027, 8, 2)` and `rolled_forward is True`; that was the bug.)
+58b. `today=2033-01-15` → `annual_accounts` has `statutory_date == due_date == date(2033, 7, 31)` (a Sunday), `rolled_forward is False`. The Sunday case, where rolling would land on 1 August itself.
 59. `today=2026-01-15` → `tax_return` has `statutory_date == date(2026, 5, 31)` (a Sunday) and `due_date == date(2026, 6, 1)` (Monday), `rolled_forward is True`.
 60. `today=2026-06-02` → `tax_return` moves to the next year: `statutory_date == date(2027, 5, 31)` (a Monday), `due_date` the same, `rolled_forward is False`.
 61. `today=2026-01-15` → `shareholder_register_statement` has `statutory_date == date(2026, 1, 31)` (a Saturday) and `due_date == date(2026, 2, 2)` (Monday).
 62. `today=2026-03-01` → `shareholder_register_statement` has `statutory_date == date(2027, 1, 31)` (a Sunday) and `due_date == date(2027, 2, 1)` (Monday).
 63. `today=2026-01-15` → `general_meeting` has `due_date == date(2026, 6, 30)` (a Tuesday), `rolled_forward is False`.
+63b. **Added 2026-09-05 (R01, D-022(b)).** `today=2029-01-15` → `general_meeting` has `statutory_date == due_date == date(2029, 6, 30)` (a Saturday), `rolled_forward is False`. Aksjeloven § 5-5(1)'s six months is an outer limit and a general meeting may be held on a Saturday, so 2 July would be late.
+63c. **Added 2026-09-05 (R01, D-022(b)).** For every `today = date(y, 1, 15)` with `y` in 2026–2040, neither `annual_accounts` nor `general_meeting` ever has `rolled_forward is True`, and `statutory_date == due_date` in both. This is the regression that stops the roll-forward being reintroduced by a helper change.
 64. `today=2026-07-01` → VAT: the next term is term 3, `statutory_date == due_date == date(2026, 8, 31)` (a Monday), `period_label == "2026 term 3 (May–Jun)"`, `period_start == date(2026, 5, 1)`, `period_end == date(2026, 6, 30)`.
 65. `today=2026-09-01` → VAT term 4, `statutory_date == date(2026, 10, 10)` (a Saturday), `due_date == date(2026, 10, 12)` (Monday).
 66. `today=2026-12-15` → VAT term 6, `statutory_date == due_date == date(2027, 2, 10)` (a Wednesday), `period_label == "2026 term 6 (Nov–Dec)"`.

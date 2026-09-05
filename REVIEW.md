@@ -496,3 +496,204 @@ The UK spec (T15a, sixteen live fixtures and a 1,470-line specification) started
 **N-4 (nit)** — `tests/test_rules_gb.py:570` test 72 monkeypatches `rules_common.roll_forward`, but `gb/rules.py` imports `add_months` by name and never touches the module attribute, so the patch can only ever be a no-op. Add the source-inspection half the spec also allows: assert `"roll_forward"` appears in no file under `registries/gb/`.
 
 **Verdict: BLOCKED on B1 alone.** Everything else in the module is approved and, on the traps that mattered, better than the spec required — the finding that produced D-018 was raised by the implementer, in writing, before the review, which is exactly the behaviour the process is for. Fix B1 and T15e signs off; T15c and T15d stay blocked until it lands.
+
+---
+
+## R01 — Norwegian deadline citations review (2026-09-05)
+
+Correctness review of live output, authorised by Kim on 2026-09-05 while feature work is frozen. Trigger: `~/research/registry-mcp/03-regulation-drivers/12-norway-statutory-filing-deadlines-exact-citations.md`, which flags three possible errors in what the Norwegian module computes and cites.
+
+Read in full: `src/registry_mcp/registries/no/rules.py` (734 lines), `src/registry_mcp/core/rules/common.py`, `src/registry_mcp/core/models.py :: Deadline`, `src/registry_mcp/registries/no/mapping.py`, `tests/test_rules_no.py`, `NORBIZ_SPEC.md` §§5.2–5.5 and §13.E–F, `legal/terms.md`, D-009 / D-010 / D-016 / D-018.
+
+Baseline: `uv run pytest -q -m "not live"` → **404 passed**, no failures, no server started.
+
+Every Norwegian provision below was read on Lovdata on 2026-09-05 and is quoted from the operative text, not paraphrased. Where a Lovdata chapter page served only its table of contents, the section was fetched at its own URL (`…/%C2%A78-3-10`) and the body extracted from the served HTML.
+
+### Verdicts
+
+| # | Claim in the research file | Verdict |
+|---|---|---|
+| 1 | We cite §§ that do not contain the roll-forward rule | **PARTIAL** — no `applies_because` cites any statute (so not a bug as framed), but `NORBIZ_SPEC.md:212` carries a citation that is **wrong**, and two deadlines are rolled forward that have **no** roll-forward rule and are made *later than lawful* by it. **CONFIRMED bug, different species.** |
+| 2 | MVA term 3 is 31 August, not 10 August | **NOT a bug** — encoded, spec'd, tested and documented. One non-blocking nit about the filing-cycle assumption. |
+| 3 | § 8-3(1) sets 1 February for a year ending 1 Jan–30 Jun; is the calendar-year note honest? | **PARTIAL** — the note is honest but understates the size of the error and over-claims that nobody publishes the accounting period. Brønnøysundregistrene does publish it, in a different open API. |
+
+---
+
+### 1. Roll-forward — PARTIAL as reported, CONFIRMED bug underneath
+
+**1a. The reported bug does not exist: nothing in `src/` cites a statute at all.**
+
+```
+$ grep -rn "§\|regnskapsloven\|skatteforvaltning\|a-opplysning\|aksjeloven\|lovdata" src/
+```
+returns only `NORBIZ_SPEC.md` / `UK_SPEC.md` cross-references in docstrings. Every Norwegian `applies_because` is plain prose naming the legal form and the authority — `rules.py:503-506`, `:529-532`, `:555-558`, `:581-584`, `:616-620`, `:650-653` — and `Deadline.source_url` (`core/models.py:424`) is left `None` on all six. So no shipped deadline string attributes a rule to a provision that does not contain it. `legal/terms.md` promises less than the research file assumes: "Each deadline states its **assumption** in `applies_because`" — not its basis. **Not a bug.**
+
+**1b. The one citation we do ship is wrong.**
+
+`NORBIZ_SPEC.md:212`:
+
+> A statutory date falling on a Saturday, Sunday or public holiday moves to the next working day (**forvaltningsloven § 30 / skattebetalingsloven**).
+
+Neither reference holds. Forvaltningsloven § 30 is about when an appeal counts as lodged in time — "For at klage skal være fremsatt i tide, er det nok at erklæringen før utløpet av fristen er avgitt til tilbyder av posttjenester…" — and the act contains **no** weekend or holiday rule anywhere (checked the full consolidated text, <https://lovdata.no/dokument/NL/lov/1967-02-10>). "skattebetalingsloven" names an act, not a provision, and skattebetalingsloven governs *payment*, not the *filing* deadlines this module computes.
+
+**The correct chain, for the four tax deadlines, is two steps and is quotable:**
+
+> **Skatteforvaltningsloven § 5-5 — Fristberegning mv.** "Når ikke annet er bestemt, begynner frister etter denne loven eller forskrift i medhold av loven å løpe fra det tidspunktet meldingen er kommet fram. **Fristen regnes i overensstemmelse med domstolloven §§ 148 og 149.**"
+> <https://lovdata.no/dokument/NL/lov/2016-05-27-14/KAPITTEL_5>
+
+> **Domstolloven § 148** "…**Avslutningen av en frist kan ogsaa betegnes ved en bestemt kalenderdag.**"
+> **Domstolloven § 149** "**Ender en frist paa en lørdag, helgedag eller dag som etter lovgivningen er likestilt med helgedag forlenges fristen til den nærmest følgende virkedag.** Er fristen fastsatt i timer, reknes ikke helgedager og dager som etter lovgivningen er likestilt med helgedager, med i dens løp."
+> <https://lovdata.no/dokument/NL/lov/1915-08-13-5/KAPITTEL_1-8>
+
+§ 148's last sentence is what closes the argument: a frist expressed as a fixed calendar day (31 May, 31 January, 31 August, the 5th) is still a *frist* for §§ 148–149, so § 149 reaches it. And skatteforvaltningsforskriften is "forskrift i medhold av" skatteforvaltningsloven, so § 5-5 reaches §§ 8-2-3, 8-3-10 and 7-7-4. **The roll-forward is lawful for `tax_return`, `shareholder_register_statement` and `vat_return` — we simply had the wrong section.**
+
+For `payroll_report` the rule is in the provision itself and needs no chain:
+
+> **A-opplysningsforskriften § 2-1** "Opplysningene skal leveres senest den 5. i måneden etter utløpet av den kalendermåned opplysningene gjelder. … **Faller fristen på en lørdag, søndag eller helligdag utskytes fristen til første påfølgende virkedag.**"
+> <https://lovdata.no/dokument/SF/forskrift/2014-06-24-857/KAPITTEL_2>
+
+**1c. CONFIRMED BUG — `annual_accounts` and `general_meeting` are rolled forward with no rule behind it, and the roll makes the answer late.**
+
+Neither the Companies Act nor the Accounting Act references domstolloven §§ 148–149, and forvaltningsloven — the only general act that would otherwise reach Regnskapsregisteret — has no such rule. So the chain that saves the tax deadlines does not exist here. Worse, on the accounts date the roll crosses the very trigger the date exists to avoid:
+
+> **Regnskapsloven § 8-3(1) — Forsinkelsesgebyr** "Dersom årsregnskap, årsberetning, revisjonsberetning eller oversendelsesbrev som skal sendes til Regnskapsregisteret, **ikke er avsendt før 1. august i året etter regnskapsåret** … skal den regnskapspliktige betale forsinkelsesgebyr inntil innsendingsplikten er oppfylt eller mangler er rettet, men ikke for mer enn 26 uker. **Er regnskapsåret avsluttet på en dato fra 1. januar til 30. juni, er fristen etter første punktum 1. februar.** … Departementet kan i forskrift **utsette fristene** etter første og annet punktum med **inntil en måned**, og gi andre regler om forsinkelsesgebyr."
+> <https://lovdata.no/dokument/NL/lov/1998-07-17-56> (Kapittel 8)
+
+Current code, `rules.py:485-487`:
+
+```python
+def _annual_accounts(today: date, holidays: frozenset[date], code: str) -> Deadline:
+    statutory = next_occurrence(7, 31, today)
+    due = roll_forward(statutory, holidays)
+```
+
+The fee accrues unless the accounts are **dispatched before 1 August**. Rolling 31 July onto the next business day always lands on or after 1 August, so `due_date` is a date on which the fee is already running. Executed against the shipped module:
+
+| Year | statutory | weekday | `due_date` we return | fee already accruing? |
+|---|---|---|---|---|
+| 2027 | 2027-07-31 | Sat | **2027-08-02** | yes |
+| 2032 | 2032-07-31 | Sat | **2032-08-02** | yes |
+| 2033 | 2033-07-31 | Sun | **2033-08-01** | yes |
+
+This is not hypothetical output. It is pinned by `NORBIZ_SPEC.md` test 58 and `tests/test_rules_no.py:375-381`, and it is **already published** as a worked example telling readers the real date is 2 August: `content/02-deadlines/devto.md:43` and `:53` ("31 July 2027 is a Saturday, so the real date is 2 August"), `content/02-deadlines/reddit.md:13`.
+
+`general_meeting` has the same defect with a different reason — there is no office to be closed at all. `Deadline.authority` is literally `"Company shareholders (no external filing)"` (`rules.py:521`), and the six-month limit is an outer bound:
+
+> **Aksjeloven § 5-5(1)** "**Innen seks måneder etter utgangen av hvert regnskapsår** skal selskapet holde ordinær generalforsamling."
+> <https://lovdata.no/dokument/NL/lov/1997-06-13-44/KAPITTEL_5-1>
+> **Regnskapsloven § 3-1(2)** "Årsregnskapet og årsberetningen skal fastsettes senest seks måneder etter regnskapsårets slutt."
+
+`rules.py:511-513` rolls 30 June forward anyway: 2029-06-30 (Sat) → **2029-07-02**, 2030-06-30 (Sun) → **2030-07-01**, 2035-06-30 (Sat) → **2035-07-02**. Each is past the six months the Act allows, and a general meeting may lawfully be held on a Saturday.
+
+**What could rebut this, and did not.** Skatteetaten's practice is what the chain in 1b codifies, so the tax deadlines are safe. For Regnskapsregisteret I looked for a published brreg practice or a forskrift under § 8-3(1)'s last sentence and **found none I could cite** — `brreg.no` returned 404 on every deadline-guidance path I tried, and this session's WebSearch budget was exhausted before I could search for the right one. Under D-009 ("never guess a duty") the absence of a source is decided against inventing the extension, not for it. If someone later produces a published brreg statement that the date rolls, that is an amendment to D-022, not a code change made on a hunch.
+
+### 2. MVA-melding, term 3 = 31 August — NOT a bug
+
+> **Skatteforvaltningsforskriften § 8-3-10(1)** "Leveringsfrist for skattemelding er **en måned og ti dager** etter utløpet av hver skattleggingsperiode eller fra tidspunktet for virksomhetens opphør. **Fristen for tredje alminnelige skattleggingsperiode er likevel 31. august.** Annet punktum gjelder tilsvarende for annen skattleggingsperiode for særskilt skattemelding etter skatteforvaltningsforskriften § 8-3-9 (1) bokstav a–c."
+> **§ 8-3-1** "Skattemelding for merverdiavgift skal leveres periodevis. **Hver skattleggingsperiode omfatter to kalendermåneder.** Første periode er januar og februar, andre periode er mars og april, **tredje periode er mai og juni**, …"
+> <https://lovdata.no/dokument/SF/forskrift/2016-11-23-1360/%C2%A78-3-10> · <https://lovdata.no/dokument/SF/forskrift/2016-11-23-1360/%C2%A78-3-1>
+
+The exception is encoded, with a comment naming it, at `rules.py:422-429`:
+
+```python
+_VAT_TERMS: tuple[tuple[int, int, int, int, int, int], ...] = (
+    (1, 1, 2, 0, 4, 10),
+    (2, 3, 4, 0, 6, 10),
+    (3, 5, 6, 0, 8, 31),  # exception: 31 August, not 10 August
+    ...
+```
+
+It is in `NORBIZ_SPEC.md` §5.4's term table ("Term 3 is the exception… the most common thing to get wrong"), in `rules_markdown()` (`rules.py:725-726`), and asserted by `tests/test_rules_no.py:421-428` (test 64: `statutory_date == due_date == date(2026, 8, 31)`). All six terms match § 8-3-10(1) applied to § 8-3-1's periods. Rolling 31 August forward (2030-08-31 Sat → 2030-09-02) is correct under the § 5-5 → § 149 chain. **No fix required.**
+
+**Nit N-1 (non-blocking).** `applies_because` for `vat_return` (`rules.py:616-620`) states the fact that triggers the deadline but not the assumption behind the *date*: §§ 8-3-3 (annual by consent, turnover ≤ 1 MNOK), 8-3-7 (primary industries) and 8-3-2 (monthly, imposed for repeated breach) all exist, none is visible in Enhetsregisteret, and each moves the date by months. The `Deadline` contract already reserves a place for exactly this — `mandatory` is "False when it depends on facts we cannot see… `applies_because` explains the assumption" (`core/models.py:404-412`). The obligation is certain (`registrertIMvaregisteret` is published), so `mandatory` should stay `True`; the *cycle* assumption belongs in the sentence.
+
+### 3. Calendar-year assumption — PARTIAL
+
+The note exists and is attached in the right place. `mapping.py:64-72`:
+
+```python
+_CALENDAR_YEAR_ASSUMPTION_NOTE = (
+    "Filing deadlines are computed assuming a calendar-year accounting period. "
+    "A company with a deviating accounting year (avvikende regnskapsår) will have "
+    "different actual dates, and Enhetsregisteret does not publish which companies those are."
+)
+```
+
+added whenever any annual deadline would be returned (`mapping.py:288-290`), plus the per-deadline suffix `" Assumes a calendar-year accounting period."` (`rules.py:408`). `legal/terms.md` repeats it. That is honest as far as it goes. Three corrections:
+
+**3a. It understates the error by a branch, not by a few days.** § 8-3(1) second sentence does not shift the date; it *selects a different one*. For a financial year ending 1 January–30 June the deadline is **1 February**, and our answer of 31 July is not merely different — it is roughly six months **after** the fee started running. "will have different actual dates" reads as a rounding caveat. It should say the date can be one we do not compute at all.
+
+**3b. It omits the ministerial postponement.** § 8-3(1) last sentence: "Departementet kan i forskrift utsette fristene … med inntil en måned." A computed 31 July can be overtaken by a regulation neither register publishes. This is the same class of unknown as a deviating year and belongs in the same note.
+
+**3c. It is attached to two deadlines whose dates do not move with the accounting year.** `_tax_return` (`rules.py:557`) and `_shareholder_register_statement` (`rules.py:583`) both append the calendar-year suffix, but both are keyed to the *skattleggingsperiode*, not the accounting year:
+
+> **Skatteforvaltningsforskriften § 8-2-3(1)** "Skattemelding skal leveres a. **innen utgangen av mai** i året etter skattleggingsperioden for selskap mv. som nevnt i skatteloven § 2-2 første ledd, for selskap som skal levere selskapsmelding mv. etter skatteforvaltningsloven § 8-9 og for eier av enkeltpersonforetak b. **innen utgangen av april** i året etter skattleggingsperioden for andre skattepliktige…"
+> **§ 7-7-4(1)** "Aksje- og allmennaksjeselskap skal gi opplysningene til skattekontoret **innen 31. januar i året etter skattleggingsperioden**."
+> **Skatteloven § 14-1(1)** "Med mindre annet er bestemt, er **inntektsperioden kalenderåret**." (3) "For næringsdrivende regnskapspliktig skattyter som … benytter et annet regnskapsår enn kalenderåret (avvikende regnskapsår), **fastsettes inntekten** til det beløpet den har utgjort i det siste regnskapsåret som er utløpt før 1. januar det året skatten fastsettes."
+> <https://lovdata.no/dokument/SF/forskrift/2016-11-23-1360/%C2%A78-2-3> · <https://lovdata.no/dokument/SF/forskrift/2016-11-23-1360/%C2%A77-7-3> · <https://lovdata.no/dokument/NL/lov/1999-03-26-14/%C2%A714-1>
+
+A deviating accounting year changes *which* year's figures go into the return (§ 14-1(3)); it does not move the skattleggingsperiode, so 31 May and 31 January stand. The caveat is harmless there but it is not true, and a caveat attached to everything teaches an agent to ignore it. It belongs on `annual_accounts` and `general_meeting`, which key off the financial year end, and nowhere else.
+
+**3d. The last clause of the note is wrong about Brønnøysundregistrene, and this is the useful finding.** "Enhetsregisteret does not publish which companies those are" is true of Enhetsregisteret. It is **false of Regnskapsregisteret**, which is the same agency, the same open-data host and needs no API key. Verified live 2026-09-05:
+
+```
+$ curl -s https://data.brreg.no/regnskapsregisteret/regnskap/923609016
+[{"id":7192427,…,"regnskapsperiode":{"fraDato":"2025-01-01","tilDato":"2025-12-31"},…}]
+$ curl -s https://data.brreg.no/regnskapsregisteret/regnskap/982463718
+982463718 SELSKAP {'fraDato': '2024-01-01', 'tilDato': '2024-12-31'} NOK
+```
+
+For any entity that has filed at least once, `regnskapsperiode.tilDato` is a **published fact** about the accounting year end, from the register itself. That is the D-018 shape — provenance, published beats computed — applied to Norway, and it would let the module pick § 8-3(1)'s correct branch instead of assuming one. It is not a bug and not in scope for this fix round; it is the reason the note's last clause must be narrowed now so it does not become an excuse later. (I did not find a live entity with a non-calendar `regnskapsperiode`, so the *variance* of the field is unverified; only its presence and shape are.)
+
+`CompanyReport.last_annual_accounts_year` (`mapping.py:285`, from `sisteInnsendteAarsregnskap`) is a bare year and cannot substitute — it says an entity filed for 2025, not that its year ended 31 December.
+
+### 4. Also verified while here
+
+| Rule | Code | Source | Verdict |
+|---|---|---|---|
+| a-melding, the 5th, rolls forward | `rules.py:624-657` | a-opplysningsforskriften § 2-1 (quoted above) | **Correct**, and the only deadline whose roll-forward is in its own provision. |
+| Skattemelding, 31 May | `rules.py:537-539` | skatteforvaltningsforskriften § 8-2-3(1)(a) | **Correct for AS, ASA, SA, BA, ENK, ANS, DA, KS** — (a) covers § 2-2(1) companies, § 8-9 selskapsmelding filers (ANS/DA/KS) and *eier av enkeltpersonforetak*. |
+| Skattemelding for `NUF` | `rules.py:415` `_TAX_RETURN_FORMS` | § 8-2-3(1)(a) vs (b) | **Open, `VERIFY`.** A NUF is § 2-2(1) only if "reelt hjemmehørende i riket"; otherwise it is taxed under skatteloven § 2-3 and falls in (b) — **30 April**, not 31 May. Which one turns on effective management, a fact Enhetsregisteret does not publish. Not a finding this round; flagged so it is not discovered by a user. |
+| RF-1086, 31 January, AS/ASA only | `rules.py:563-565` | skatteforvaltningsforskriften § 7-7-4(1); duty-holders § 7-7-1(1) | **Correct.** § 7-7-4(2) gives other § 7-7(3) bodies 31 March; we emit for AS/ASA only, so no exposure. |
+| Norwegian holidays; 24/31 Dec excluded | `rules.py:120-146` | — | Unchanged this round; the `VERIFY` in `NORBIZ_SPEC.md:207` is still open. |
+| Denmark's 6-month deadline (`~/research/.../02-registers-landscape/README.md:74`) | — | årsregnskabsloven § 138 | **No Norwegian impact.** `grep -rn "Denmark\|Danish\|CVR" src/ NORBIZ_SPEC.md` → no hits; Denmark is country 3 and unimplemented. Nothing in Norwegian text derives from it. |
+
+### Fix list — owner: Sonnet implementer (follow-up task), except F5/F6 which are done in this review
+
+**F1 (BLOCKING) — `rules.py:485-509`, `_annual_accounts`: stop rolling forward.**
+`due = statutory`, `rolled_forward=False`, and drop `holidays` from the signature (or keep it unused and say why — prefer dropping). Proposed `applies_because`:
+
+> `f"{_article(code)} {code} must file annual accounts with Regnskapsregisteret; regnskapsloven § 8-3(1) starts a late fee unless they are dispatched before 1 August, so 31 July is the last safe day and the date does not move off a weekend or holiday. Assumes a calendar-year accounting period — a financial year ending between 1 January and 30 June has a 1 February deadline instead."`
+
+`statutory_date` stays 31 July: § 8-3(1) names 1 August, but the operative test is "avsendt **før** 1. august", so 31 July is the actionable date and both fields should carry it.
+
+**F2 (BLOCKING) — `rules.py:511-535`, `_general_meeting`: stop rolling forward.** Same change. Proposed `applies_because`:
+
+> `f"{_article(code)} {code} must hold its ordinary general meeting within six months of the financial year end (aksjeloven § 5-5(1)), and the annual accounts must be adopted in the same six months (regnskapsloven § 3-1(2)). Assumes a calendar-year accounting period. Six months is an outer limit, so this date does not move off a weekend or holiday."`
+
+**F3 — cite the roll-forward where it is real, per deadline.** Keep `roll_forward` in `_tax_return`, `_shareholder_register_statement`, `_vat_return`, `_payroll_report`. Add the basis to each `applies_because`, one clause, no more:
+- `tax_return` → "(skatteforvaltningsforskriften § 8-2-3(1)(a))"; **drop** the calendar-year suffix (3c).
+- `shareholder_register_statement` → "(skatteforvaltningsforskriften § 7-7-4(1))"; **drop** the calendar-year suffix (3c).
+- `vat_return` → "(skatteforvaltningsforskriften § 8-3-10(1); periods § 8-3-1)" plus N-1's cycle assumption: "assumes the ordinary two-month cycle — annual filing by consent (§ 8-3-3) or for primary industries (§ 8-3-7) is not published in Enhetsregisteret."
+- `payroll_report` → "(a-opplysningsforskriften § 2-1)".
+- Where the roll actually fired, the sentence may add: "moved off a Saturday, Sunday or public holiday under domstolloven § 149, applied by skatteforvaltningsloven § 5-5" — for `payroll_report`, a-opplysningsforskriften § 2-1 says it directly and should be cited instead.
+
+**F4 — `rules.py:723-733`, `rules_markdown()`.** Replace the blanket sentence "All annual deadlines assume a calendar-year accounting period, and a statutory date falling on a weekend or Norwegian public holiday rolls forward to the next working day" with a per-deadline statement: the four tax/payroll deadlines roll (cite § 5-5 → § 149, and § 2-1 for the a-melding); `annual_accounts` and `general_meeting` do not, and say why. Add the 1 February branch and the ministerial-postponement caveat.
+
+**F5 — `NORBIZ_SPEC.md` §5.3 and §5.4: done in this review**, marked with the date. §5.3 now carries the correct chain and the two exceptions; §5.4's table gains a "rolls forward" column and the 1 February branch; §13.F test 58 is rewritten and tests 58b, 63b, 63c added.
+
+**F6 — `DECISIONS.md` D-022 and D-023: added in this review.**
+
+**F7 — `tests/test_rules_no.py`.** `:375-381` test 58 must change to assert `statutory_date == due_date == date(2027, 7, 31)` and `rolled_forward is False`; add the spec's new 58b (2033-07-31 Sunday, still 31 July), 63b (2029-06-30 Saturday, still 30 June) and 63c (`annual_accounts` and `general_meeting` never have `rolled_forward is True`, for every year 2026–2040). Test 63 (`:414-418`) still passes unchanged. Tests 59–62, 64–69 are unaffected.
+
+**F8 — `mapping.py:64-72`, `_CALENDAR_YEAR_ASSUMPTION_NOTE`.** Proposed replacement:
+
+> "Filing deadlines are computed assuming a calendar-year accounting period. Enhetsregisteret does not publish a company's accounting year. For a financial year ending between 1 January and 30 June, regnskapsloven § 8-3(1) sets a different deadline — 1 February, not 31 July — so a deviating year changes which rule applies, not just the date. The Ministry may also postpone the accounts deadline by up to one month by regulation (§ 8-3(1)). Verify against Regnskapsregisteret before relying on an annual date."
+
+**F9 — published examples now contradict the fix.** `content/02-deadlines/devto.md:39-43` and `:53`, `content/02-deadlines/reddit.md:13`, and `static/llms-full.txt:481` all show or assert `annual_accounts` rolling to 2027-08-02. Owner: Opus B, after F1 lands. `static/well-known/mcp/server-card.json:57` says `due_date` "already accounts for weekends and public holidays" — narrow it to "where the law says it does".
+
+**F10 (optional) — `legal/terms.md` "Computed deadlines".** One sentence that a computed Norwegian date states its own statutory basis, and that two of them deliberately do not move off a weekend.
+
+**Verdict: one confirmed bug, blocking, in two deadlines.** `annual_accounts` and `general_meeting` return a `due_date` that is later than the law allows whenever the statutory date falls on a weekend — next in 2027, already published as a worked example. Everything else in §5.4 is right, including the term-3 exception the research file expected us to have got wrong. The citation defect the research file predicted is real but lives in the spec, not in the output; the fix for it is D-022, which makes the sourcing rule the same one D-016(c) already applies to Britain.
+
+**Could not verify from a primary source:** (i) whether Brønnøysundregistrene publishes a practice of rolling the 1 August fee trigger — every `brreg.no` guidance path I tried returned 404 and the session's WebSearch budget was exhausted; the fix is written the safe way and says so; (ii) whether `regnskapsperiode` ever comes back non-calendar (presence and shape verified on two entities, variance not); (iii) the `NUF` skattemelding branch, which is genuinely fact-dependent and is flagged `VERIFY` rather than changed.
