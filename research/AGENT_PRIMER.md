@@ -136,6 +136,20 @@ Verdict: **do not now** — Sweden → Finland → Ireland stands; if a named us
 asks, US-CT first, then US-CO, Texas third (`license: null`). D-027's
 sub-national key fits unamended.
 
+China, Hong Kong, Macau and Taiwan, researched 2026-09-05 (09): **Taiwan is
+shippable** — MOEA's GCIS open API answered twelve unauthenticated calls from
+Norway with real data (capital, directors, business scope, a daily dissolution
+feed), under the Open Government Data License v1 (CC BY 4.0-compatible), and
+the 8-digit UBN check digit is documented by the Ministry of Finance including
+its 2023 rule change (weights 1 2 1 2 1 2 4 1, divisible by 5 since April 2023).
+Mainland China is closed: gsxt.gov.cn and SAMR block automated access (521/403),
+no API, no bulk, no licence, and two vendors refuse Norwegian IPs in writing
+(Tianyancha 419, Qixin 451 naming Oslo). Hong Kong has no search API. Verdict:
+**do TW** (after Sweden; send MOEA's 使用告知書 usage notice first), **later**
+a validate-only CN module once GB 32100-2015's check-character algorithm is
+read from the standard itself (medium confidence today), **do not** CN/HK/Macau
+lookups. PIPL Art. 13(6) corroborates D-028(1).
+
 Do three cheap things before country 4 (02): a nullable `euid` on
 `CompanyReport`; GLEIF LEI as a cross-cutting CC0 join key, not a country;
 an advertising-protection marking field (Danish CVR-loven § 19 makes marking
