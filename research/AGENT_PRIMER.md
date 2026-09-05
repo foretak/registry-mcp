@@ -86,10 +86,10 @@ than price.
 9. **Beneficial ownership is gated almost everywhere and Norway's gate has no
    vendor category** (03, 02). Estonia is the only register still publishing
    it openly. Do not promise it. Represent it as an empty list with a reason.
-10. **Our server is more correct than it is legible.** All five tools ship an
-    empty `outputSchema`, no annotations (so clients treat them as possibly
-    destructive and may prompt on every call), and no parameter descriptions
-    or patterns (07). Smithery's listing had an empty description and was
+10. **Our server was more correct than it was legible** (fixed 2026-09-05,
+    T17): the five tools shipped an empty `outputSchema`, no annotations (so
+    clients treated them as possibly destructive and could prompt on every
+    call) and no parameter descriptions; all three now ship (07). Smithery's listing had an empty description and was
     unsearchable until 2026-09-05 (fixed via the registry API) (04). The
     official MCP registry searches server names only, so our twenty keywords
     do nothing there (04). llms.txt is documentation, not a discovery
