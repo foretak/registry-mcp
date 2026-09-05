@@ -81,7 +81,10 @@ def _gb_api_key(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 # ---------------------------------------------------------------------------
 
 
-async def test_tools_list_has_exactly_five_tools() -> None:
+async def test_tools_list_has_five_registry_tools_plus_two_connector_aliases() -> None:
+    """`DECISIONS.md` D-031 amends the tool count: five registry tools (unchanged) plus
+    two ChatGPT connector aliases, `search`/`fetch` (`mcp/connector.py`) — "five tools"
+    becomes "seven tools", not "a sixth registry tool"."""
     async with Client(mcp) as client:
         tools = await client.list_tools()
     assert {t.name for t in tools} == {
@@ -90,6 +93,8 @@ async def test_tools_list_has_exactly_five_tools() -> None:
         "company_deadlines",
         "validate_company_id",
         "list_countries",
+        "search",
+        "fetch",
     }
 
 
@@ -121,7 +126,10 @@ async def test_tool_output_schemas_match_models() -> None:
     }
     async with Client(mcp) as client:
         tools = {t.name: t for t in await client.list_tools()}
-    assert tools.keys() == expected.keys()
+    # Subset, not equality: `mcp/connector.py`'s `search`/`fetch` (D-031) also register
+    # on this same server and are covered by their own tests in `test_connector.py`,
+    # not duplicated here — this test's job is only the five registry tools' schemas.
+    assert expected.keys() <= tools.keys()
     for name, schema in expected.items():
         output_schema = tools[name].output_schema
         assert output_schema is not None, f"{name} has no outputSchema"

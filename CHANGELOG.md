@@ -47,6 +47,31 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   regulatory reasons (Finanstilsynet Rundskriv 15/2019, Norway B2B
   e-invoicing 2027, EU AMLR 2027) and the honest limits.
 
+### Added (ChatGPT connector aliases, D-031)
+- `search(query)` and `fetch(id)`, two read-only MCP tools implementing
+  OpenAI's connector contract for ChatGPT deep research and company
+  knowledge (`src/registry_mcp/mcp/connector.py`) — the tool count becomes
+  "five registry tools plus two connector aliases", not a sixth registry
+  tool. `search` takes one free-text query — a company name, a national
+  identifier, or a name plus a country — derives the country from
+  `list_registries()` with no synonym table, short-circuits to one
+  `lookup_company` when the query is a valid identifier, otherwise fans out
+  to a name search across every live registry, and returns
+  `{"results": [{"id", "title", "url"}]}`, `id` always
+  `"{COUNTRY}:{identifier}"`. Zero hits returns one row per live country
+  pointing at its rules document instead of an empty result. `fetch(id)`
+  parses that same `"{COUNTRY}:{identifier}"` form (or `"rules:{COUNTRY}"`,
+  or derives the country when there is no colon), does the one
+  `lookup_company` + `company_deadlines` already do internally, and returns
+  a Markdown rendering of both — including the statutory filing deadlines,
+  which ChatGPT's deep research mode cannot otherwise reach — with the full
+  `CompanyReport`/`DeadlineReport` JSON in `metadata`. Both tools are
+  read-only/idempotent/open-world annotated like the five registry tools,
+  add no `core/` model, no `Registry` method and no REST route, and the
+  five registry tools' names, schemas, annotations and wire bytes are
+  unchanged. README "Add to ChatGPT"/"Add to Claude Desktop" sections and
+  `docs/clients.md`'s ChatGPT entry document the connector URL.
+
 ### Fixed
 - Norwegian `annual_accounts` and `general_meeting` deadlines no longer roll
   forward off a weekend or holiday: no provision grants that, and

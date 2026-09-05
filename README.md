@@ -24,7 +24,7 @@ What makes it worth a tool slot:
 
 - **Deadlines that cite the rule, not just a date.** `company_deadlines` gives the next filing date and names why in `applies_because` — a Norwegian legal form's statutory duty, or "Companies House publishes this date for the company itself" when the register states it rather than us computing it. Quote the reason, not just the number.
 - **Never more than 24 hours stale, and it says so.** Every response carries `cached` and `fetched_at`. OpenCorporates' own knowledge base tells users to ["allow 30 days"](https://knowledge.opencorporates.com/knowledge-base/the-data-on-opencorporates-is-out-of-date/) for a correction to reach its site — a 30× freshness gap, stated by the incumbent about itself.
-- **Five tools, not fifty.** Tool-selection accuracy [degrades past 30-50 tools loaded into an agent's context](https://code.claude.com/docs/en/agent-sdk/tool-search), and some clients cap around 40. Five tools is roughly 12% of that budget, next to competitors in this space shipping 23 to 78 tools for the same job.
+- **Seven tools, not fifty** — five registry tools plus two ChatGPT connector aliases. Tool-selection accuracy [degrades past 30-50 tools loaded into an agent's context](https://code.claude.com/docs/en/agent-sdk/tool-search), and some clients cap around 40. Seven tools is roughly 17% of that budget, next to competitors in this space shipping 23 to 78 tools for the same job.
 
 **Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Two named upstreams, and nothing else is ever called: `data.brreg.no` and `api.company-information.service.gov.uk`. No personal data beyond what each national register already publishes about the entity itself. This service does not perform sanctions, PEP or adverse-media screening, and it does not verify bank account details. Details: [SECURITY.md](SECURITY.md).
 
@@ -36,7 +36,30 @@ One-click install, for a remote streamable-HTTP server:
 
 Other clients (Claude Desktop, Cursor, VS Code, Cline, plain JSON configs): see [docs/clients.md](docs/clients.md).
 
-> Status: `0.2.0`. The five tools and their response shapes are frozen; the hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: Norway (brreg), United Kingdom (Companies House) — see [below](#tools) for both countries' identifier formats and example calls.
+## Add to ChatGPT
+
+ChatGPT reaches an MCP server through a custom connector, and its deep research mode calls
+exactly two tools — `search` and `fetch` — which this server ships alongside the five registry
+tools. In ChatGPT, open **Settings → Connectors**, add a custom connector, and give it:
+
+    https://api.foretak.dev/mcp
+
+No authentication, no key, no account. If your ChatGPT plan does not show custom connectors
+under Settings → Connectors, turn on **Settings → Security and login → Developer mode** first,
+then add the URL from <https://chatgpt.com/plugins>.
+
+`search` takes one free-text query — a company name, a national identifier, or a name plus a
+country ("Tesco United Kingdom") — and returns citable rows; `fetch` takes a row's `id`
+(`"NO:923609016"`) and returns that company's register record **and its statutory filing
+deadlines**, with the full JSON of both in `metadata`.
+
+## Add to Claude Desktop
+
+Claude Desktop takes the same URL as a custom connector: **Settings → Connectors → Add custom
+connector**, then `https://api.foretak.dev/mcp`. No key. For a local stdio install instead, see
+[Configuration](#configuration).
+
+> Status: `0.2.0`. The five registry tools and their response shapes are frozen; two connector aliases (`search`, `fetch`) wrap them for ChatGPT and add no new shape. The hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: Norway (brreg), United Kingdom (Companies House) — see [below](#tools) for both countries' identifier formats and example calls.
 
 ## Add to Claude Code
 
@@ -116,6 +139,13 @@ Where Companies House publishes a date, it is quoted; where it does not, the dat
 | `company_deadlines(id, country="NO", today=None)` | `DeadlineReport` — the next occurrence of each statutory filing obligation |
 | `validate_company_id(id, country="NO")` | `ValidationResult` — validate and normalise an identifier with no network call |
 | `list_countries()` | Which national registries are supported right now |
+
+**Connector aliases** — for ChatGPT, which reaches an MCP server through exactly `search` and `fetch` ([Add to ChatGPT](#add-to-chatgpt)); add no new response shape and have no REST twin.
+
+| Tool | What it does |
+|---|---|
+| `search(query)` | ChatGPT connector alias for `search_company` — one free-text query, `{"results": [{"id", "title", "url"}]}` |
+| `fetch(id)` | ChatGPT connector alias for `lookup_company` + `company_deadlines` — one `"{COUNTRY}:{identifier}"`, a Markdown document with both reports in `metadata` |
 
 Plus the resource `registry://rules/{country}` (identifier rules, legal forms, deadline rules — read once instead of validating in a loop) and the prompt `explain_company`.
 

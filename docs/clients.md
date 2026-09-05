@@ -64,7 +64,27 @@ Or install the desktop extension bundle (works offline once built, no `uv` requi
 
 See [`../llms-install.md`](../llms-install.md) — hosted and stdio settings blocks, plus the optional environment variables.
 
-## ChatGPT — see D-031
+## ChatGPT
+
+ChatGPT reaches an MCP server through a custom connector, and deep research calls exactly two
+tools — `search` and `fetch` (`DECISIONS.md` D-031) — which this server ships alongside the
+five registry tools; `search`/`fetch` have no REST twin. Settings → Connectors → Add custom
+connector:
+
+```
+https://api.foretak.dev/mcp
+```
+
+No authentication, no key, no account. If your plan does not show custom connectors under
+Settings → Connectors, turn on Settings → Security and login → Developer mode first, then add
+the URL from <https://chatgpt.com/plugins>.
+
+`search(query)` takes one free-text query — a name, a national identifier, or a name plus a
+country — and returns `{"results": [{"id", "title", "url"}]}`; `fetch(id)` takes a result's
+`id` (`"NO:923609016"`) and returns that company's register record and statutory filing
+deadlines as Markdown, with both full JSON reports in `metadata`.
+
+## Generic stdio (any MCP client)
 
 ## Generic stdio (any MCP client)
 

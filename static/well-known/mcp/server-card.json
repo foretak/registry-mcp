@@ -10,10 +10,8 @@
   "tools": [
     {
       "name": "lookup_company",
-      "description": "Look up a company by its national identifier and get the full CompanyReport — legal\nform, status, address, VAT registration where the register publishes it, board and\naccounts duties, employees, and more.\n\n`country=\"NO\"` is the norway company lookup for the norwegian business registry:\nBrønnøysundregistrene / Enhetsregisteret (brreg), by organisasjonsnummer (orgnr,\norg.nr). `country=\"GB\"` is the uk company lookup at Companies House, by company number\n(company registration number, CRN) — eight characters, digits or a two-letter prefix\nand six digits, e.g. 00445790 or OC303675; short numbers are zero-padded for you, and\n\"UK\" is not a country code here, use \"GB\".\n\nUse it once you have the identifier — from the user, an invoice, a contract, or a\n`search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and\na Norwegian VAT suffix ('NO...MVA') are all accepted. Call `list_countries` if you are\nunsure a country is supported. Read the returned `notes` before acting on the result —\nit carries caveats such as bankruptcy, dissolution, a deleted entity, or an\nunclassified legal form.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —\nfix it or call `search_company` with the company name instead of retrying the same\nstring. `not_found` means the identifier is well-formed but no such entity exists —\ncall `search_company`. `unsupported_country` means no module exists for that country\nyet — call `list_countries`. `upstream_error`/`upstream_timeout` means the national\nregister is unavailable; it has already been retried once here, so wait roughly a\nminute before trying again yourself.",
+      "description": "Look up a company by its national identifier and get the full CompanyReport — legal\nform, status, address, VAT registration where the register publishes it, board and\naccounts duties, employees, and more.\n\n`country=\"NO\"` is the norway company lookup for the norwegian business registry:\nBrønnøysundregistrene / Enhetsregisteret (brreg), by organisasjonsnummer (orgnr,\norg.nr). `country=\"GB\"` is the uk company lookup at Companies House, by company number\n(company registration number, CRN) — eight characters, digits or a two-letter prefix\nand six digits, e.g. 00445790 or OC303675; short numbers are zero-padded for you, and\n\"UK\" is not a country code here, use \"GB\".\n\nUse it once you have the identifier — from the user, an invoice, a contract, or a\n`search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and\na Norwegian VAT suffix ('NO...MVA') are all accepted. Call `list_countries` if you are\nunsure a country is supported. Read the returned `notes` before acting on the result —\nit carries caveats such as bankruptcy, dissolution, a deleted entity, or an\nunclassified legal form.\n\nThis tool does not perform sanctions, PEP or adverse-media screening, and it does not\nverify bank account details — it returns identity and filing data from the national\nregister only, never a compliance clearance or a confirmed payment detail.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —\nfix it or call `search_company` with the company name instead of retrying the same\nstring. `not_found` means the identifier is well-formed but no such entity exists —\ncall `search_company`. `unsupported_country` means no module exists for that country\nyet — call `list_countries`. `upstream_error`/`upstream_timeout` means the national\nregister is unavailable; it has already been retried once here, so wait roughly a\nminute before trying again yourself.",
       "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
@@ -35,11 +33,11 @@
         },
         "required": [
           "id"
-        ]
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "outputSchema": {
-        "additionalProperties": false,
-        "description": "Everything `registry-mcp` knows about one registered entity.\n\nThis is the single most important shape in the project. It is returned\nverbatim by ``GET /v1/{country}/company/{id}`` and by the MCP tool\n``lookup_company``.\n\nA registry module fills what its national register publishes and leaves the\nrest ``None``. Nothing here is Norway-specific; ``registries/no/`` maps\nEnhetsregisteret's fields onto it (see ``NORBIZ_SPEC.md`` §3).",
         "properties": {
           "country": {
             "description": "ISO-3166-1 alpha-2, upper-case, e.g. 'NO'.",
@@ -971,23 +969,23 @@
           "id",
           "name"
         ],
-        "title": "CompanyReport",
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Everything `registry-mcp` knows about one registered entity.\n\nThis is the single most important shape in the project. It is returned\nverbatim by ``GET /v1/{country}/company/{id}`` and by the MCP tool\n``lookup_company``.\n\nA registry module fills what its national register publishes and leaves the\nrest ``None``. Nothing here is Norway-specific; ``registries/no/`` maps\nEnhetsregisteret's fields onto it (see ``NORBIZ_SPEC.md`` §3).",
+        "title": "CompanyReport"
       },
       "annotations": {
-        "title": "Look up a company in a national business register",
-        "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
-        "openWorldHint": true
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": "Look up a company in a national business register"
       }
     },
     {
       "name": "search_company",
       "description": "Search a national company register by name, when you have a name rather than an\nidentifier.\n\n`country=\"NO\"` searches Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian\ncompanies — the norway company lookup tool for the norwegian business registry when the\norganisasjonsnummer (orgnr, org.nr) is not yet known. `country=\"GB\"` is the uk company\nsearch: Companies House by company name, returning each hit's company number\n(company registration number, CRN).\n\nUse it when a user gives you a company name, then call `lookup_company` with the `id`\nof the right hit for the full report — a search hit is deliberately thin (name, legal\nform, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).\nHits arrive in the register's own relevance order, so read each hit's `confidence`\nrather than assuming the first row is the best one. Zero hits is not an error: `hits`\nis `[]`, `total` is `0`, and `hint` says what to try next — Norwegian names are\nregistered upper-case and often carry an 'AS', 'ASA' or 'NUF' suffix, and UK names a\n'LIMITED', 'LTD', 'PLC' or 'LLP' one, worth dropping before concluding a company does\nnot exist.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and\nretry. `unsupported_country` means call `list_countries` first.\n`upstream_error`/`upstream_timeout` means the national register is unavailable; wait\nroughly a minute and retry at most once more.",
       "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
         "properties": {
           "name": {
             "description": "Company name to search for, free text — not an identifier. Use lookup_company once you have the id of the right hit.",
@@ -1018,11 +1016,11 @@
         },
         "required": [
           "name"
-        ]
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "outputSchema": {
-        "additionalProperties": false,
-        "description": "Envelope returned by ``search`` — hits plus what the agent needs next.",
         "properties": {
           "country": {
             "description": "ISO-3166-1 alpha-2, upper-case.",
@@ -1251,23 +1249,23 @@
           "registry",
           "query"
         ],
-        "title": "SearchResult",
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Envelope returned by ``search`` — hits plus what the agent needs next.",
+        "title": "SearchResult"
       },
       "annotations": {
-        "title": "Search a national company register by name",
-        "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
-        "openWorldHint": true
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": "Search a national company register by name"
       }
     },
     {
       "name": "company_deadlines",
       "description": "Give the next occurrence of each statutory filing deadline a company faces.\n\n`country=\"NO\"` covers the Norwegian calendar (Regnskapsregisteret, Skatteetaten) for a\ncompany looked up by organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene /\nEnhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,\naksjonærregisteroppgaven, mva-melding, a-melding. `country=\"GB\"` covers the two\nCompanies House obligations for a company number (CRN): the annual accounts filing and\nthe confirmation statement (CS01).\n\nPass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's\ncurrent UTC date. Quote `due_date`, not `statutory_date`. Each deadline's\n`applies_because` states where the date came from — quote it rather than presenting a\ndate as unconditional fact: for Norway it names the legal form or flag and any\nassumption behind a computed date, and for the UK it says whether the date is\nCompanies House's own published figure or one this tool computed from the statutory\nperiod. UK dates never roll forward off a weekend or bank holiday, so `due_date`\nequals `statutory_date` there; `days_until` goes negative for a filing Companies House\nstill shows as overdue rather than rolling it to the next cycle. An empty `deadlines`\nlist is a real answer — for Norway a bankrupt, deleted or compulsorily-liquidated\nentity or a branch/sub-unit, and for the UK any company whose status is not active —\nand `notes` explains why.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and\nretry. Any `lookup_company` error code (`invalid_id`, `not_found`,\n`unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,\nsince this tool looks the entity up first — follow that code's hint.",
       "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
@@ -1304,11 +1302,11 @@
         },
         "required": [
           "id"
-        ]
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "outputSchema": {
-        "additionalProperties": false,
-        "description": "The answer to \"what must this company file, and by when?\".\n\nThis is the **only** shape the deadlines operation returns, on both\nsurfaces (``DECISIONS.md`` D-010): REST\n``GET /v1/{country}/company/{id}/deadlines`` and the MCP tool\n``company_deadlines`` each emit ``model_dump(mode=\"json\")`` of this model,\nunchanged. Neither surface may return a bare ``list[Deadline]``, because a\nlist has nowhere to put ``today`` or ``notes`` — and an empty list without\na note is indistinguishable from a bug.\n\nBuild it with ``Registry.deadline_report(report, today)``; do not construct\nit in a surface.",
         "properties": {
           "country": {
             "description": "ISO-3166-1 alpha-2, upper-case.",
@@ -1529,23 +1527,23 @@
           "company_id",
           "today"
         ],
-        "title": "DeadlineReport",
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The answer to \"what must this company file, and by when?\".\n\nThis is the **only** shape the deadlines operation returns, on both\nsurfaces (``DECISIONS.md`` D-010): REST\n``GET /v1/{country}/company/{id}/deadlines`` and the MCP tool\n``company_deadlines`` each emit ``model_dump(mode=\"json\")`` of this model,\nunchanged. Neither surface may return a bare ``list[Deadline]``, because a\nlist has nowhere to put ``today`` or ``notes`` — and an empty list without\na note is indistinguishable from a bug.\n\nBuild it with ``Registry.deadline_report(report, today)``; do not construct\nit in a surface.",
+        "title": "DeadlineReport"
       },
       "annotations": {
-        "title": "Statutory filing deadlines for a company",
-        "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
-        "openWorldHint": true
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": "Statutory filing deadlines for a company"
       }
     },
     {
       "name": "validate_company_id",
       "description": "Check whether a national company identifier is well-formed — no network call.\n\n`country=\"NO\"` checksum-checks a Norwegian organisasjonsnummer (orgnr, org.nr) for\nBrønnøysundregistrene / Enhetsregisteret (brreg); this is the cheap norway company\nlookup pre-check for the norwegian business registry. `country=\"GB\"` shape-checks and\nnormalises a UK company number (company registration number, CRN) for Companies House:\nit zero-pads a short number ('445790' → '00445790') and upper-cases a prefix\n('oc303675' → 'OC303675'). A CRN has no check digit, so a GB `valid: true` means the\nshape is right and nothing more.\n\nUse it on user input or a spreadsheet column before spending a real `lookup_company`\ncall, since it is instant and free.\n\nReturns a ValidationResult and never raises for a malformed identifier: `valid: false`\ncomes with `reason` (what failed) and `hint` (what to do next) rather than a tool\nerror — this tool answers a question, it does not fail on bad input\n(`DECISIONS.md` D-010). A valid identifier does not mean the entity exists; follow it\nwith `lookup_company` if you need facts.\n\nThe only real error here is `unsupported_country` (no module for that country yet —\ncall `list_countries`), raised with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`.",
       "inputSchema": {
-        "type": "object",
-        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
@@ -1567,11 +1565,11 @@
         },
         "required": [
           "id"
-        ]
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "outputSchema": {
-        "additionalProperties": false,
-        "description": "The answer to \"is this identifier well-formed?\" — no network call.\n\nThe only shape the validation operation returns, on both surfaces\n(``DECISIONS.md`` D-010): REST ``GET /v1/{country}/validate/{id}`` and the\nMCP tool ``validate_company_id``.\n\nNote that an invalid identifier is **not** an error here: this operation\nanswers a question, so it returns ``valid=False`` with a ``reason`` and a\n``hint`` rather than raising. That is the one deliberate exception to\n``DECISIONS.md`` D-007's \"every expected failure is a raised\n``RegistryError``\" — and the reason ``hint`` is carried on this model.\n\nBuild it with ``Registry.validate(id)``; do not construct it in a surface.",
         "properties": {
           "country": {
             "description": "ISO-3166-1 alpha-2, upper-case.",
@@ -1665,28 +1663,28 @@
           "input",
           "valid"
         ],
-        "title": "ValidationResult",
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The answer to \"is this identifier well-formed?\" — no network call.\n\nThe only shape the validation operation returns, on both surfaces\n(``DECISIONS.md`` D-010): REST ``GET /v1/{country}/validate/{id}`` and the\nMCP tool ``validate_company_id``.\n\nNote that an invalid identifier is **not** an error here: this operation\nanswers a question, so it returns ``valid=False`` with a ``reason`` and a\n``hint`` rather than raising. That is the one deliberate exception to\n``DECISIONS.md`` D-007's \"every expected failure is a raised\n``RegistryError``\" — and the reason ``hint`` is carried on this model.\n\nBuild it with ``Registry.validate(id)``; do not construct it in a surface.",
+        "title": "ValidationResult"
       },
       "annotations": {
-        "title": "Validate a company identifier (no network call)",
-        "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
-        "openWorldHint": false
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Validate a company identifier (no network call)"
       }
     },
     {
       "name": "list_countries",
       "description": "List every national company registry this service can answer for right now, plus\neach one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL,\nlicence, and whether the upstream register needs a credential (`requires_api_key`, and\n`api_key_env` naming the environment variable that must be set for it).\n\nCall this before your first lookup in a country you have not used here before, or\nwhenever a user names a country you are unsure is supported — never hard-code a\ncountry list of your own, since it grows as registry modules are added with no change\nto any other tool's shape. Stub/example modules are hidden; only registries that\nactually answer are listed. This tool has no error mode; a failure here is a bug, not\nsomething to retry differently.",
       "inputSchema": {
+        "properties": {},
         "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+        "additionalProperties": false
       },
       "outputSchema": {
-        "additionalProperties": false,
-        "description": "The answer to \"which countries can you answer for?\".\n\nThe only shape the discovery operation returns, on both surfaces\n(``DECISIONS.md`` D-012): REST ``GET /v1/countries`` and the MCP tool\n``list_countries``. Before D-012 each surface re-derived this envelope from\n``Registry.describe()`` on its own, which is how the two could have drifted\n— REST validated the dict through a private model that silently *dropped* an\nunrecognised key while MCP passed the raw dict through and *kept* it.",
         "properties": {
           "countries": {
             "description": "One row per registry that can answer right now, sorted by country code.",
@@ -1777,15 +1775,146 @@
             "type": "array"
           }
         },
-        "title": "CountriesResponse",
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The answer to \"which countries can you answer for?\".\n\nThe only shape the discovery operation returns, on both surfaces\n(``DECISIONS.md`` D-012): REST ``GET /v1/countries`` and the MCP tool\n``list_countries``. Before D-012 each surface re-derived this envelope from\n``Registry.describe()`` on its own, which is how the two could have drifted\n— REST validated the dict through a private model that silently *dropped* an\nunrecognised key while MCP passed the raw dict through and *kept* it.",
+        "title": "CountriesResponse"
       },
       "annotations": {
-        "title": "List supported national company registries",
-        "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
-        "openWorldHint": false
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List supported national company registries"
+      }
+    },
+    {
+      "name": "search",
+      "description": "ChatGPT connector alias; other clients should prefer `search_company`, which takes an\nexplicit `country` and returns the full SearchResult. Finds companies in this server's\nnational business registers (Norway, United Kingdom) from one free-text query — a name, a\nnational identifier, or a name plus a country — and returns {\"results\": [{\"id\", \"title\",\n\"url\"}]}. Pass a result's `id` to `fetch`.",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "description": "What to look for: a company name, a national identifier, or a name plus a country, e.g. 'Equinor', '923609016', 'Tesco United Kingdom'.",
+            "examples": [
+              "Equinor",
+              "923609016",
+              "Tesco GB"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": false,
+              "description": "One `search` result row. OpenAI reads exactly `id`, `title` and `url`.",
+              "properties": {
+                "id": {
+                  "title": "Id",
+                  "type": "string"
+                },
+                "title": {
+                  "title": "Title",
+                  "type": "string"
+                },
+                "url": {
+                  "title": "Url",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "url"
+              ],
+              "title": "ConnectorSearchHit",
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The whole `search` response: `{\"results\": [...]}`.",
+        "title": "ConnectorSearchResponse"
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": "Find a company (ChatGPT connector alias for search_company)"
+      }
+    },
+    {
+      "name": "fetch",
+      "description": "ChatGPT connector alias; other clients should prefer `lookup_company` plus\n`company_deadlines`, which return the CompanyReport and DeadlineReport shapes directly.\nTakes one `id` from `search` — \"{COUNTRY}:{identifier}\", e.g. \"NO:923609016\" — and returns\nthat company's register record and statutory filing deadlines as readable text, with both\nfull JSON documents in `metadata`.",
+      "inputSchema": {
+        "properties": {
+          "id": {
+            "description": "An `id` from a `search` result: '{COUNTRY}:{identifier}', e.g. 'NO:923609016' or 'GB:00445790'.",
+            "examples": [
+              "NO:923609016",
+              "GB:00445790"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "text",
+          "url"
+        ],
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The whole `fetch` response. `text` is a Markdown rendering (§2 of the spec);\n`metadata` carries the full `CompanyReport`/`DeadlineReport` JSON plus flat scalars.",
+        "title": "ConnectorDocument"
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true,
+        "title": "Fetch one company record (ChatGPT connector alias for lookup_company)"
       }
     }
   ],

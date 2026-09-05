@@ -601,6 +601,28 @@ def explain_company(id: str, country: str = "NO") -> str:
 
 
 # ---------------------------------------------------------------------------
+# ChatGPT connector aliases (`DECISIONS.md` D-031)
+# ---------------------------------------------------------------------------
+
+
+def _register_connector_aliases() -> None:
+    """Trigger `mcp/connector.py`'s own `@mcp.tool` registrations for `search`/`fetch`
+    against this module's `mcp` object, as a side effect of importing it — the same
+    pattern `core/registry.py::_load_registries` uses for country modules. Deferred
+    into a function (rather than a top-level import) purely to keep this below the five
+    tools in this file without a ruff E402 (module-level import not at top of file).
+
+    `connector.py` imports ``_READ_EXTERNAL``, ``_call_context`` and ``mcp`` back from
+    this module; by the time this runs, all three are already defined above, so the
+    circular import resolves against this module's (by-then-complete) namespace.
+    """
+    import registry_mcp.mcp.connector  # noqa: F401
+
+
+_register_connector_aliases()
+
+
+# ---------------------------------------------------------------------------
 # stdio entry point
 # ---------------------------------------------------------------------------
 

@@ -298,7 +298,9 @@ def test_icon_png_200_and_is_a_400x400_png(client: TestClient, ip: str) -> None:
 def test_well_known_server_card_version_matches_package(client: TestClient, ip: str) -> None:
     """Backlog item 6(a): the Smithery-style server card is regenerated from
     the real server, not hand-maintained — its `serverInfo.version` must
-    never drift from the package version being served."""
+    never drift from the package version being served. D-031: the five
+    registry tools plus the two ChatGPT connector aliases (`search`, `fetch`,
+    `mcp/connector.py`) — seven tools, not five."""
     resp = client.get(
         "/.well-known/mcp/server-card.json", headers={"X-Forwarded-For": ip}
     )
@@ -311,6 +313,8 @@ def test_well_known_server_card_version_matches_package(client: TestClient, ip: 
         "company_deadlines",
         "validate_company_id",
         "list_countries",
+        "search",
+        "fetch",
     }
 
 
