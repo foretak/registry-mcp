@@ -423,7 +423,7 @@ repo. When the file arrives:
 
 Until then, the build plan's own Phase 4 rule applies: **no feature work for
 two weeks after launch.** Read the stats dashboard every morning
-(`https://api.<domain>/v1/stats/dashboard?key=<REGISTRY_MCP_ADMIN_KEY>`),
+(`https://api.<domain>/v1/stats/dashboard?key=<REGISTRY_MCP_ADMIN_KEY>`; counters were zeroed 2026-09-05 16:10Z after two days of our own test traffic — real day zero is then; do functional checks against a local/Docker server, never production),
 log every inbound question in `FEEDBACK.md`, and contact any client with
 more than 100 calls (user agent, GitHub issues) to ask what they'd pay for.
 Decision gate is day 45 — see `BRREG_MCP_BUILD_PLAN.md` §4.3.

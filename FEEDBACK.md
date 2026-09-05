@@ -19,6 +19,10 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 | awesome-mcp-servers | punkpeye#13631 | 2026-09-04 | Glama badge added 2026-09-05; waiting for bot re-check and a Glama score |
 | Erhvervsstyrelsen | cvrselvbetjening@erst.dk (T16) | 2026-09-05 | application sent, acknowledged as sagsnummer 177481; reply due ~2026-09-23 |
 
+## Stats reset 2026-09-05 ~16:10Z
+
+The usage log (`calls` table in the production SQLite on the Railway volume) was emptied at Kim's request because our own smoke tests, probes and browser checks made up nearly all of the 252 rows. The rows were backed up first to `~/secrets/registry-mcp/calls_backup_2026-09-05.json` (outside the repo). **Day zero for real traffic is now 2026-09-05 16:10Z.** Rule from here: the orchestrator's daily read touches only `/health` and `/v1/stats` (not logged as calls); any functional check runs against a local or Docker server, never production; never look up the invalid example 833286602 live.
+
 ## Entries
 
 _(none yet — day one, 2026-09-05)_
