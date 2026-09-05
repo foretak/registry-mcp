@@ -29,6 +29,20 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   UUID4.
 - `CHANGELOG.md` and `SECURITY.md`.
 
+### Added (evening, distribution)
+- A "Try it" playground on the homepage: validate → lookup + deadlines, or
+  search, with the exact request URL shown and the install lines and badges
+  under the result. Nothing fires on page load.
+- A self-hosted Claude Code plugin marketplace (`.claude-plugin/`,
+  `plugins/registry-mcp/`): `claude plugin marketplace add foretak/registry-mcp`
+  then `claude plugin install registry-mcp@foretak`.
+- `mcpb/manifest.json`, a Claude Desktop extension manifest that launches
+  `uvx registry-mcp` (build with `npx @anthropic-ai/mcpb pack mcpb`).
+- `docs/clients.md`: per-client install steps (Claude Code, Claude Desktop,
+  Cursor, VS Code, Cline, ChatGPT, plain stdio JSON).
+- `legal/privacy.md`: a privacy policy for the hosted service (draft, pending
+  the operator's review).
+
 ### Added (later the same day)
 - Concrete `registry://rules/NO` and `registry://rules/GB` resources so the
   per-country rules document appears in `resources/list` (the template still

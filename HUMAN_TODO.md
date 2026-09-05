@@ -444,3 +444,19 @@ Decision gate is day 45 — see `BRREG_MCP_BUILD_PLAN.md` §4.3.
    per `SUBMISSIONS.md`.
 6. Post the articles on the §6 schedule.
 7. Two weeks of watching. Then the day-45 decision gate.
+
+## 10. Checks only a human can make (2026-09-05 evening)
+
+- [ ] **ChatGPT custom-connector menu path.** README and `docs/clients.md` say
+      Settings → Connectors → Add custom connector with the URL
+      `https://api.foretak.dev/mcp`, and give Developer mode as the fallback.
+      OpenAI's docs only describe the Developer-mode route. Open ChatGPT on a
+      normal plan, add the connector, run one lookup, and tell the orchestrator
+      which path worked so the wording leads with the right one.
+- [ ] **Rotate the Anthropic API key** used for `evals/run.py --agent`
+      (`~/secrets/registry-mcp/anthropic-api-key.txt`): it was pasted into a chat
+      window on 2026-09-05. Create a new key in the Anthropic console, replace the
+      file, revoke the old one.
+- [ ] **Read `legal/privacy.md`** (see §4) and approve or change the two
+      sentences flagged there; then the orchestrator serves it at `/privacy`
+      and links it from the MCPB manifest and the connector submissions.
