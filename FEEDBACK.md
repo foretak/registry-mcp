@@ -25,7 +25,7 @@ The usage log (`calls` table in the production SQLite on the Railway volume) kee
 
 ## Entries
 
-_(none yet — day one, 2026-09-05)_
+- 2026-09-05 19:25Z · stats read · 278 calls total (269 REST + 9 MCP). Of the 5 MCP calls since the 16:52Z read, 3 are our own post-deploy checks of the connector aliases (`search("Equinor")` ×2, `fetch("NO:923609016")`, 18:05Z and 18:19Z). **The other 2 are the first external MCP calls: User-Agent `SaSame-MCP-Audit/0.1`, query `test`** — an MCP audit/scanner bot, not a coding agent; unknown operator, nothing found about it yet. On REST, a Linux Chrome browser (Chrome/134, X11) made 4 lookups: the Tesco README example twice plus UK numbers 05888957 and 09384423 — looks like a real visitor trying the playground. The rest is the `Mozilla/5.0 (compatible)` directory monitor (+6) and curl (+3, Equinor example, probably ours).
 
 ## Outbound (things we said to others, so replies can be traced)
 
