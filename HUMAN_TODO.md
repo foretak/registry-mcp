@@ -156,9 +156,14 @@ Two schema constraints that will bite an edit:
       closed to submissions** as of 2026-09-04 and ingests from the official
       registry instead, so #1 covers it. T11 has prepared every manifest and
       written the exact steps per registry in **`SUBMISSIONS.md`**.
-- [ ] **A 400×400 PNG icon.** Cline's marketplace requires one, and Smithery,
-      mcp.so and the appcypher awesome list all take one. It is the only thing
-      blocking the Cline listing (`SUBMISSIONS.md` §10).
+- [~] **Cline MCP Marketplace.** Icon done 2026-09-05 (`static/icon.png`, served at
+      https://api.foretak.dev/icon.png) and `llms-install.md` written. The issue text is
+      ready in `content/cline-marketplace-issue.md`. **One step for Kim:** install the
+      Cline extension in VS Code, tell it "set up the MCP server described in
+      https://github.com/foretak/registry-mcp/blob/main/llms-install.md", and watch it
+      connect (five tools listed). Then say so and the orchestrator files the issue at
+      https://github.com/cline/mcp-marketplace/issues/new?template=mcp-server-submission.yml
+      with the confirmation ticked.
 
 ---
 
@@ -229,9 +234,7 @@ Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-da
 | 11 | `05-uk-companies-house` | `05-uk-companies-house` | — |
 | 13 | — | — | `05-uk-companies-house` |
 
-- [ ] Accounts still needed: a Reddit account with enough karma to self-post
-      in r/mcp, and a kode24 contact (they take contributed pieces; email the
-      editor rather than waiting for a form). dev.to is done.
+- [~] Reddit account exists (post 1 filtered 2026-09-05, modmail sent; drafts for r/ClaudeAI and a UK sub in `content/`). **kode24: pitch drafted in Kim's Gmail 2026-09-05** to the editor ole@kode24.no (cc hei@kode24.no, the tips inbox — both decoded from kode24.no's contact links), with the VAT article inline (677 words, Norwegian). Kim reads and sends. Next kode24 piece (deadlines) two days after they answer or publish.
 - [ ] **Replace the placeholders first.** Every article contains
       `api.foretak.dev` and `github.com/foretak/registry-mcp`. If §1's domain
       or GitHub org came out different, fix all fifteen files before posting.
