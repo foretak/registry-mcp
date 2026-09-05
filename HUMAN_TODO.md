@@ -317,10 +317,10 @@ instead — once you register it as a trusted publisher **for each package**:
       OIDC for both packages and was refused only with "cannot publish over the
       previously published versions: 0.2.0" (run 33949808903). Tag trigger
       re-enabled in the workflow.
-- [ ] Then delete the granular tokens `registry-mcp-publish*` at
-      https://www.npmjs.com/settings/foretak/tokens (the one stored in
-      `~/secrets/registry-mcp/npm-token.txt` never had "Bypass 2FA" and expires
-      in 90 days anyway).
+- [x] Then delete the granular tokens `registry-mcp-publish*` at
+      https://www.npmjs.com/settings/foretak/tokens — **done 2026-09-05**
+      (`registry-mcp-publish-3` deleted; the account now has no tokens at all,
+      and the local `npm-token.txt` copy was removed).
 
 After that a release is: bump versions → `git tag v0.x.y && git push --tags` →
 both npm packages and the MCP-registry entry publish themselves; PyPI still
