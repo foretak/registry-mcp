@@ -16,11 +16,11 @@ if more than a month has passed.
 |---|---|---|---|---|
 | 1 | [Official MCP registry](#1-official-mcp-registry) | `server.json` + `mcp-name:` marker + `mcpName` | **Yes** — GitHub (`foretak` org) | **Live** — `io.github.foretak/registry-mcp` 0.2.0 (via `publish-mcp.yml`) |
 | 2 | [Smithery](#2-smithery) | `static/well-known/mcp/server-card.json` (optional) | **Yes** — Smithery account | **Live** — `fargerod/registry-mcp` |
-| 3 | [Glama](#3-glama) | `glama.json` + root `Dockerfile` (stdio when `PORT` unset) | **Yes** — GitHub OAuth | **Pending** — submitted 2026-09-04, not yet listed |
+| 3 | [Glama](#3-glama) | `glama.json` + root `Dockerfile` (stdio when `PORT` unset) | **Yes** — GitHub OAuth | **Listed 2026-09-05 13:45Z** (approval mail) — shows "This server cannot be installed" and no score until Kim **claims** it and pastes the Dockerfile at `/admin/dockerfile`; only servers passing Glama's checks appear in its search |
 | 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1 |
 | 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending** — chatmcp/mcpso#3927, no reply yet |
 | 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** — auto-indexed as https://mcpmarket.com/server/registry-10 ("Registry"); resubmission 2026-09-05 answered "already listed" |
-| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **Pending** — PR #13631 open, bot wants the Glama badge (#3) |
+| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **Badge added 2026-09-05** (fork commit 0726bb2e on `add-registry-mcp`; line also mentions the UK). Badge renders once Glama has a score → needs #3's claim + Dockerfile |
 | 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo archived |
 | 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **Submitted 2026-09-05** (free, Finance; review "within 12 hours", e-mail to hello@foretak.dev) |
 | 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**missing**) | **Yes** — GitHub | Blocked on icon + a README-only install test in Cline |
@@ -286,7 +286,7 @@ PATCH after any `smithery mcp publish` in case a re-scan resets it.
 
 ## 3. Glama
 
-**Status (2026-09-04): submitted for review by Kim** (name `registry-mcp`). Awesome-mcp-servers PR #13631 is gated on the Glama listing + score badge — see §7.
+**Status (2026-09-05): approved and listed** at <https://glama.ai/mcp/servers/foretak/registry-mcp> (mail 13:45Z). The approval mail says: claim the server under the admin settings on the server page, then "provide a Dockerfile via your server's admin page on Glama: https://glama.ai/mcp/servers/foretak/registry-mcp/admin/dockerfile … it does not need to be added to your repository. Only servers that pass these checks are listed in search results." Until then the page reads "This server cannot be installed" and the score badge is 404. Paste the root `Dockerfile` (dual-mode, stdio when `PORT` is unset). Awesome-mcp-servers PR #13631 already carries the badge line (§7).
 
 - **Site:** <https://glama.ai/mcp/servers>
 - **Manifest:** [`glama.json`](glama.json) — **created by T11**
