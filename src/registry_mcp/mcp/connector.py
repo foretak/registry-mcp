@@ -19,10 +19,24 @@ branch (only in prose): every country-specific fact comes from ``list_registries
 fan-out to one country (never a default — a miss just means every live country is asked,
 which is why the matcher can stay this thin); an identifier that validates for a country
 short-circuits straight to one `lookup`, skipping name search entirely; otherwise every
-candidate country is name-searched, merged and sorted by confidence; zero rows returns one
-row per live country pointing at its rules document rather than an empty result OpenAI's
-UI would show as "nothing found". A per-country failure anywhere in the fan-out drops that
-country silently — this tool never raises because one register is unreachable.
+candidate country is name-searched, merged into **one** list — never grouped by registry —
+and sorted by confidence descending, an exact name match (legal-form suffix and punctuation
+ignored) breaking a confidence tie ahead of everything else, with registry return order as
+the last-resort, stable tie-break; zero rows returns one row per live country pointing at
+its rules document rather than an empty result OpenAI's UI would show as "nothing found". A
+per-country failure anywhere in the fan-out drops that country silently — this tool never
+raises because one register is unreachable.
+
+Fixed 2026-09-06, live-deployment finding: ``search(query="Equinor")`` returned
+``GB:11777091 — EQUINOR BLANDFORD ROAD LIMITED`` first, not ``NO:923609016 — EQUINOR ASA``.
+Both hits share the same D-005 confidence anchor (0.8, "name starts with the query") — a
+real name match and an unrelated company that merely starts with the same word are
+indistinguishable by confidence alone — and the previous tie-break (registry return order,
+alphabetical by country code) has no relevance signal in it at all. The exact-name
+tie-break above is the fix; see ``CONNECTOR_SPEC.md`` §3's dated note. The merged-row cap
+was lowered from 20 to 10 in the same change, for the same reason `search_company`'s own
+default `limit` is 10: a deep-research turn should not have to sift through twenty mixed
+rows to find the one it wants.
 
 ``fetch`` (D-031(d)): parses ``"{COUNTRY}:{identifier}"`` (or ``"rules:{COUNTRY}"`` for a
 rules document, or derives the country from every live ``validate`` when there is no
@@ -41,6 +55,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from collections.abc import Awaitable, Sequence
 from typing import Annotated, Any
 
@@ -67,6 +82,37 @@ __all__ = ["fetch", "search"]
 PUBLIC_BASE_URL = os.environ.get("REGISTRY_MCP_PUBLIC_BASE_URL", "https://api.foretak.dev").rstrip(
     "/"
 )
+
+#: `search`'s merged-and-sorted row cap, across every registry combined. Lowered from
+#: CONNECTOR_SPEC.md's original 20 to 10 (see the module docstring's dated note and
+#: CONNECTOR_SPEC.md §3) — matching `search_company`'s own default `limit`, and small
+#: enough that a deep-research turn is not left to sift through twenty mixed rows.
+_MAX_SEARCH_RESULTS = 10
+
+#: Common legal-form suffixes stripped from a name's *trailing* tokens only, before
+#: comparing it with the query for the exact-match tie-break below. Deliberately the
+#: short, literal list named in the live-defect report — not a per-country table (no
+#: country string appears here, D-031(g)): the same set is tried against every hit
+#: regardless of which registry it came from.
+_LEGAL_FORM_SUFFIXES = frozenset({"asa", "as", "ltd", "limited", "plc", "llp"})
+
+_NON_WORD_RE = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def _normalised_name(name: str) -> str:
+    """Case-, punctuation- and trailing-legal-form-suffix-insensitive form of a name.
+
+    Used **only** to break an already-equal D-005 confidence tie (`_merge_sort_and_cap`)
+    — never to compute a confidence value, which stays exactly what `Registry.search`
+    returned. `"EQUINOR ASA"` and the query `"Equinor"` both normalise to `"equinor"`;
+    `"EQUINOR BLANDFORD ROAD LIMITED"` normalises to `"equinor blandford road"`, which is
+    not equal to either — the distinction the previous tie-break (registry order) could
+    not draw.
+    """
+    tokens = _NON_WORD_RE.sub(" ", name.casefold()).split()
+    while tokens and tokens[-1] in _LEGAL_FORM_SUFFIXES:
+        tokens.pop()
+    return " ".join(tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +193,13 @@ def _connector_title(
     return title
 
 
-def _row_from_report(report: CompanyReport) -> tuple[float, ConnectorSearchHit]:
+#: One candidate row plus what `_merge_sort_and_cap` needs to rank it: the raw
+#: (never-fabricated) D-005 confidence, the entity's name (for the exact-match
+#: tie-break only), and the row itself.
+_Ranked = tuple[float, str, ConnectorSearchHit]
+
+
+def _row_from_report(report: CompanyReport) -> _Ranked:
     row = ConnectorSearchHit(
         id=f"{report.country}:{report.id}",
         title=_connector_title(
@@ -156,10 +208,10 @@ def _row_from_report(report: CompanyReport) -> tuple[float, ConnectorSearchHit]:
         ),
         url=_record_url(report.country, report.id),
     )
-    return report.confidence, row
+    return report.confidence, report.name, row
 
 
-def _row_from_hit(hit: SearchHit) -> tuple[float, ConnectorSearchHit]:
+def _row_from_hit(hit: SearchHit) -> _Ranked:
     row = ConnectorSearchHit(
         id=f"{hit.country}:{hit.id}",
         title=_connector_title(
@@ -167,7 +219,26 @@ def _row_from_hit(hit: SearchHit) -> tuple[float, ConnectorSearchHit]:
         ),
         url=_record_url(hit.country, hit.id),
     )
-    return hit.confidence, row
+    return hit.confidence, hit.name, row
+
+
+def _merge_sort_and_cap(ranked: list[_Ranked], query: str) -> list[ConnectorSearchHit]:
+    """One global sort across every candidate registry's rows — never grouped by
+    registry (D-020's "best match, best first" applied one level up, across countries
+    rather than within one). Primary key: confidence descending, exactly as
+    `Registry.search` computed it — never re-scored or fabricated here. Tie-break: a
+    hit whose normalised name exactly equals the normalised query ranks first among
+    equal-confidence hits (`_normalised_name`); `list.sort` is stable, so a genuine
+    remaining tie keeps the order the registries were asked in — the same order
+    `_identifier_rows`/`_name_search_rows` built `ranked` in, i.e. `list_registries()`'s
+    order, never wall-clock arrival order (`_bounded_gather` preserves input order).
+
+    Fixes the live defect where two registries shared one D-005 anchor (0.8, "starts
+    with the query") for hits of very different relevance, and registry order — which
+    carries no relevance signal — decided the winner (module docstring, dated note)."""
+    normalised_query = _normalised_name(query)
+    ranked.sort(key=lambda item: (-item[0], 0 if _normalised_name(item[1]) == normalised_query else 1))
+    return [row for _confidence, _name, row in ranked][:_MAX_SEARCH_RESULTS]
 
 
 def _rules_rows() -> list[ConnectorSearchHit]:
@@ -213,9 +284,7 @@ def _derive_country(query: str, registries: list[Registry]) -> tuple[Registry | 
     return None, query
 
 
-async def _identifier_rows(
-    candidates: list[Registry], query: str
-) -> tuple[bool, list[tuple[float, ConnectorSearchHit]]]:
+async def _identifier_rows(candidates: list[Registry], query: str) -> tuple[bool, list[_Ranked]]:
     """Step 3 of `search` (D-031(c)): every candidate that says `Registry.validate(query)
     .valid` gets one `lookup`. Returns `(True, rows)` the moment any country validated —
     the caller must stop there and skip name search even if every lookup then fails —
@@ -230,7 +299,7 @@ async def _identifier_rows(
     if not validated:
         return False, []
 
-    async def _lookup_row(pair: tuple[Registry, str]) -> tuple[float, ConnectorSearchHit] | None:
+    async def _lookup_row(pair: tuple[Registry, str]) -> _Ranked | None:
         registry, normalized = pair
         try:
             report = await registry.lookup(normalized)
@@ -243,12 +312,12 @@ async def _identifier_rows(
     return True, rows
 
 
-async def _name_search_rows(
-    candidates: list[Registry], query: str
-) -> list[tuple[float, ConnectorSearchHit]]:
+async def _name_search_rows(candidates: list[Registry], query: str) -> list[_Ranked]:
     """Step 4 of `search`: name-search every candidate, at most 5 concurrent
     (D-024(g)). A `RegistryError` from one country — e.g. GB with no
-    `COMPANIES_HOUSE_API_KEY` — drops that country and never raises (D-031(c))."""
+    `COMPANIES_HOUSE_API_KEY` — drops that country and never raises (D-031(c)).
+    Returns one flat list in candidate order (never grouped by registry) — the actual
+    cross-registry sort happens once, in `_merge_sort_and_cap`."""
 
     async def _search_hits(registry: Registry) -> list[SearchHit]:
         try:
@@ -562,12 +631,11 @@ async def search(
         derived, remainder = _derive_country(stripped, registries)
         candidates = [derived] if derived is not None else registries
 
-        any_validated, pairs = await _identifier_rows(candidates, remainder)
+        any_validated, ranked = await _identifier_rows(candidates, remainder)
         if not any_validated:
-            pairs = await _name_search_rows(candidates, remainder)
+            ranked = await _name_search_rows(candidates, remainder)
 
-        pairs.sort(key=lambda pair: pair[0], reverse=True)
-        rows = [row for _confidence, row in pairs][:20]
+        rows = _merge_sort_and_cap(ranked, remainder)
         if not rows:
             rows = _rules_rows()
 

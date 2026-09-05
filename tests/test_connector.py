@@ -250,6 +250,87 @@ async def test_search_name_fanout_merges_and_sorts_by_confidence_descending() ->
 
 
 @respx.mock
+async def test_search_cross_registry_confidence_tie_breaks_on_exact_name_match() -> None:
+    """Regression for a live-deployment ranking defect (2026-09-06): `search("Equinor")`
+    returned `GB:11777091 — EQUINOR BLANDFORD ROAD LIMITED` first, not
+    `NO:923609016 — EQUINOR ASA`. Both hits share the same D-005 confidence anchor (0.8,
+    "starts with the query"), and the previous tie-break (registry order, alphabetical —
+    GB before NO) had no relevance signal in it. `EQUINOR ASA` normalises to `"equinor"`
+    (its `ASA` suffix stripped) and equals the normalised query exactly; `EQUINOR
+    BLANDFORD ROAD LIMITED` normalises to `"equinor blandford road"`, which does not — so
+    the exact-match tie-break must place NO first regardless of registry order."""
+    respx.get(f"{GB_BASE_URL}/search/companies").mock(
+        return_value=httpx.Response(
+            200, json=_load_fixture("ch_search_equinor_blandford.json")
+        )
+    )
+    _mock_no_search_equinor()
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "Equinor"})
+    rows = result.structured_content["results"]
+    assert rows[0]["id"] == "NO:923609016", (
+        f"expected EQUINOR ASA (NO:923609016) first, got {rows[0]!r}"
+    )
+    assert "GB:11777091" in {row["id"] for row in rows}  # GB hit still present, just not first
+
+
+@respx.mock
+async def test_search_results_are_one_global_list_not_grouped_by_registry() -> None:
+    """D-031(c)/D-020 applied across countries: a lower-confidence NO hit must be able to
+    outrank a higher-confidence... no — a *higher*-confidence GB hit must outrank a
+    *lower*-confidence NO hit, proving the merge is a real cross-registry sort and not
+    "all of GB's rows, then all of NO's" or the reverse."""
+    # GB: exact match (0.95). NO: a same-fixture Equinor hit, forced down to a lower tier
+    # by searching for a query the name only *contains*, not starts with.
+    respx.get(f"{GB_BASE_URL}/search/companies").mock(
+        return_value=httpx.Response(200, json=_load_fixture("ch_search_equinor_blandford.json"))
+    )
+    envelope = {
+        "_embedded": {"enheter": [EQUINOR]},
+        "page": {"size": 1, "totalElements": 1, "totalPages": 1, "number": 0},
+    }
+    respx.get(f"{BASE_URL}/enheter").mock(return_value=httpx.Response(200, json=envelope))
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "Equinor Blandford Road Limited"})
+    rows = result.structured_content["results"]
+    assert rows[0]["id"] == "GB:11777091"  # exact match (0.95) outranks NO's lower tier
+
+
+@respx.mock
+async def test_search_merged_results_are_capped_at_ten_across_registries() -> None:
+    """D-031(c)'s merged-row cap (`CONNECTOR_SPEC.md` §3, lowered from 20 to 10 in the
+    same fix as the ranking defect above): fifteen NO hits alone must still come back as
+    exactly ten rows."""
+    entities = [
+        {"organisasjonsnummer": f"90000{i:04d}", "navn": f"EQUINOR TEST NUMBER {i} AS"}
+        for i in range(15)
+    ]
+    envelope = {
+        "_embedded": {"enheter": entities},
+        "page": {"size": 15, "totalElements": 15, "totalPages": 1, "number": 0},
+    }
+    respx.get(f"{BASE_URL}/enheter").mock(return_value=httpx.Response(200, json=envelope))
+    _mock_gb_search_empty()
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "Equinor"})
+    rows = result.structured_content["results"]
+    assert len(rows) == 10
+
+
+@respx.mock
+async def test_search_single_answerable_registry_keeps_working_after_the_fix() -> None:
+    """Requirement 4's "a query that only one registry can answer keeps working": GB's
+    routes are deliberately unmocked, so this only passes if the merge/sort/cap rewrite
+    still short-circuits to NO alone via the identifier check, exactly as before."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "923609016"})
+    rows = result.structured_content["results"]
+    assert len(rows) == 1
+    assert rows[0]["id"] == "NO:923609016"
+
+
+@respx.mock
 async def test_search_registry_name_substring_restricts_fanout_to_gb() -> None:
     """D-031(c): a live registry's full `country_info().name` appearing verbatim in the
     query narrows the candidate set to that registry alone — the match is the *name*

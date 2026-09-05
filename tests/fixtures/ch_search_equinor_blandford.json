@@ -1,0 +1,35 @@
+{
+    "items": [
+        {
+            "kind": "searchresults#company",
+            "description_identifier": [
+                "incorporated-on"
+            ],
+            "company_status": "active",
+            "date_of_creation": "2019-03-01",
+            "company_type": "ltd",
+            "company_number": "11777091",
+            "address": {
+                "address_line_1": "Blandford Road",
+                "country": "United Kingdom",
+                "locality": "Blandford Forum",
+                "region": "Dorset"
+            },
+            "title": "EQUINOR BLANDFORD ROAD LIMITED",
+            "address_snippet": "Blandford Road, Blandford Forum, United Kingdom",
+            "description": "11777091 - Incorporated on 1 March 2019",
+            "links": {
+                "self": "/company/11777091"
+            },
+            "snippet": "",
+            "matches": {
+                "snippet": []
+            }
+        }
+    ],
+    "kind": "search#companies",
+    "page_number": 1,
+    "items_per_page": 20,
+    "total_results": 1,
+    "start_index": 0
+}

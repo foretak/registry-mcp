@@ -96,8 +96,25 @@ Both tools return `model_dump(mode="json")`, exactly as the five do. FastMCP 4.0
    silently no row. If any country validated, stop here.
 4. **Name search.** `r.search(q, 10)` per candidate country, at most 5 concurrent (D-024(g)).
    A `RegistryError` from one country drops that country and does not raise.
-5. Merge, sort by `confidence` descending (ties keep register order — `SearchResult`'s own
-   validator already did this per country), cap at 20 rows.
+5. Merge every candidate country's rows into **one** list — never grouped by registry — sort
+   by `confidence` descending, cap at **10** rows.
+   **Amended 2026-09-06** (live-deployment finding, reported against `search(query="Equinor")`):
+   `confidence` ties are broken by an exact-name match before falling back to register order,
+   and the cap was lowered from the original 20 to 10. The live call above returned
+   `GB:11777091 — EQUINOR BLANDFORD ROAD LIMITED` first, ahead of `NO:923609016 — EQUINOR ASA`
+   — both hits share the same D-005 anchor (0.8, "name starts with the query"; `EQUINOR ASA`
+   is not a case-insensitive exact match to the bare query `"Equinor"`, so it does not reach
+   0.95), and "ties keep register order" meant alphabetical-by-country-code, a signal with no
+   relationship to relevance. The fix, in `mcp/connector.py::_merge_sort_and_cap`: normalise
+   each hit's name (case-fold, strip punctuation, strip a *trailing* common legal-form suffix —
+   `ASA`/`AS`/`LTD`/`LIMITED`/`PLC`/`LLP`) and the query the same way; a hit whose normalised
+   name equals the normalised query ranks first among equal-`confidence` hits. `EQUINOR ASA`
+   normalises to `"equinor"`, matching the query exactly; `EQUINOR BLANDFORD ROAD LIMITED`
+   normalises to `"equinor blandford road"`, which does not. `confidence` itself is never
+   recomputed or fabricated by this tie-break — only the merged list's order changes. Register
+   order remains the last-resort, stable tie-break for any hits still equal after that. The cap
+   dropped to 10 in the same change, matching `search_company`'s own default `limit`, so a
+   deep-research turn is not left to sift through twenty mixed rows.
 6. **Zero rows** → one `rules:{COUNTRY}` row per live country (D-031(c)).
 
 ### Row construction
