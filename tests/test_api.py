@@ -13,6 +13,7 @@ D-010) — an invalid identifier is HTTP 200 with `valid: false`, not an error.
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any
@@ -240,6 +241,8 @@ def test_health(client: TestClient, ip: str) -> None:
         ("/llms.txt", "text/plain"),
         ("/llms-full.txt", "text/plain"),
         ("/server.json", "application/json"),
+        ("/robots.txt", "text/plain"),
+        ("/.well-known/mcp/server-card.json", "application/json"),
     ],
 )
 def test_static_routes_200(
@@ -250,6 +253,31 @@ def test_static_routes_200(
     assert resp.headers["content-type"].startswith(content_type_prefix)
     assert "charset=utf-8" in resp.headers["content-type"].lower()
     assert len(resp.text) > 0
+
+
+def test_robots_txt_allows_everything(client: TestClient, ip: str) -> None:
+    resp = client.get("/robots.txt", headers={"X-Forwarded-For": ip})
+    assert resp.status_code == 200
+    assert resp.text == "User-agent: *\nAllow: /\n"
+
+
+def test_well_known_server_card_version_matches_package(client: TestClient, ip: str) -> None:
+    """Backlog item 6(a): the Smithery-style server card is regenerated from
+    the real server, not hand-maintained — its `serverInfo.version` must
+    never drift from the package version being served."""
+    resp = client.get(
+        "/.well-known/mcp/server-card.json", headers={"X-Forwarded-For": ip}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["serverInfo"]["version"] == __version__
+    assert {t["name"] for t in body["tools"]} == {
+        "lookup_company",
+        "search_company",
+        "company_deadlines",
+        "validate_company_id",
+        "list_countries",
+    }
 
 
 def test_static_routes_never_rate_limited(client: TestClient) -> None:
@@ -265,6 +293,33 @@ def test_unknown_route_is_404_naming_llms_txt(client: TestClient, ip: str) -> No
     assert resp.status_code == 404
     err = resp.json()["error"]
     assert "llms.txt" in err["hint"]
+
+
+# ---------------------------------------------------------------------------
+# X-Request-ID
+# ---------------------------------------------------------------------------
+
+
+def test_request_id_header_present_when_absent(client: TestClient, ip: str) -> None:
+    resp = client.get("/health", headers={"X-Forwarded-For": ip})
+    request_id = resp.headers.get("x-request-id")
+    assert request_id
+    uuid.UUID(request_id)  # a generated id is a real UUID4, not an echo of nothing
+
+
+def test_request_id_header_echoes_incoming(client: TestClient, ip: str) -> None:
+    resp = client.get(
+        "/health", headers={"X-Forwarded-For": ip, "X-Request-ID": "caller-chosen-id-123"}
+    )
+    assert resp.headers["x-request-id"] == "caller-chosen-id-123"
+
+
+def test_request_id_header_present_on_error(client: TestClient, ip: str) -> None:
+    # Outermost middleware (added after RateLimitMiddleware) must still see
+    # a 400/404/etc — the header is not a happy-path-only feature.
+    resp = client.get("/v1/ZZ/company/1", headers={"X-Forwarded-For": ip})
+    assert resp.status_code == 404
+    assert resp.headers.get("x-request-id")
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +364,21 @@ def test_rate_limit_429_shape(client: TestClient, ip: str, monkeypatch: pytest.M
     err = last.json()["error"]
     assert err["code"] == "rate_limited"
     assert err["hint"]
+
+
+def test_request_id_header_present_on_rate_limit(
+    client: TestClient, ip: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `RequestIDMiddleware` is added after `RateLimitMiddleware`, making it
+    # the outermost of the two (Starlette's `add_middleware` prepends) — it
+    # must see a 429 response too, not only ones that reach a route handler.
+    # Same frozen-clock technique as `test_rate_limit_429_shape` above, for
+    # the same reason: a real-time refill makes this flaky.
+    monkeypatch.setattr(ratelimit_module, "time", _FrozenClock())
+    responses = [client.get("/v1/countries", headers={"X-Forwarded-For": ip}) for _ in range(61)]
+    last = responses[-1]
+    assert last.status_code == 429
+    assert last.headers.get("x-request-id")
 
 
 # ---------------------------------------------------------------------------
@@ -361,8 +431,15 @@ def test_openapi_has_descriptions_on_every_path() -> None:
                 f"{method.upper()} {path} has no example"
             )
     assert found_any
-    # The four static discovery routes and are deliberately excluded from the
-    # schema (`include_in_schema=False`) — they are not part of the versioned
-    # data API these docs describe.
-    for hidden in ("/", "/llms.txt", "/llms-full.txt", "/server.json"):
+    # The static discovery routes are deliberately excluded from the schema
+    # (`include_in_schema=False`) — they are not part of the versioned data
+    # API these docs describe.
+    for hidden in (
+        "/",
+        "/llms.txt",
+        "/llms-full.txt",
+        "/server.json",
+        "/robots.txt",
+        "/.well-known/mcp/server-card.json",
+    ):
         assert hidden not in schema["paths"]

@@ -1,7 +1,7 @@
 {
   "serverInfo": {
     "name": "registry-mcp",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "authentication": {
     "required": false,
@@ -10,58 +10,1280 @@
   "tools": [
     {
       "name": "lookup_company",
-      "description": "Look up a Norwegian company in Brønnøysundregistrene / Enhetsregisteret (brreg) by\norganisasjonsnummer (orgnr, org.nr). This is the norway company lookup tool for the\nnorwegian business registry: it returns the full CompanyReport — legal form, status,\naddress, VAT registration, board and accounts duties, employees, and more.\n\nUse it once you have the identifier — from the user, an invoice, a contract, or a\n`search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and\na VAT suffix ('NO...MVA') are all accepted. Only `country=\"NO\"` is implemented today;\ncall `list_countries` first if you are unsure a country is supported. Read the\nreturned `notes` before acting on the result — it carries caveats such as bankruptcy,\na deleted entity, or an unclassified legal form.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —\nfix it or call `search_company` with the company name instead of retrying the same\nstring. `not_found` means the identifier is well-formed but no such entity exists —\ncall `search_company`. `unsupported_country` means no module exists for that country\nyet — call `list_countries`. `upstream_error`/`upstream_timeout` means the national\nregister is unavailable; it has already been retried once here, so wait roughly a\nminute before trying again yourself.",
+      "description": "Look up a company by its national identifier and get the full CompanyReport — legal\nform, status, address, VAT registration where the register publishes it, board and\naccounts duties, employees, and more.\n\n`country=\"NO\"` is the norway company lookup for the norwegian business registry:\nBrønnøysundregistrene / Enhetsregisteret (brreg), by organisasjonsnummer (orgnr,\norg.nr). `country=\"GB\"` is the uk company lookup at Companies House, by company number\n(company registration number, CRN) — eight characters, digits or a two-letter prefix\nand six digits, e.g. 00445790 or OC303675; short numbers are zero-padded for you, and\n\"UK\" is not a country code here, use \"GB\".\n\nUse it once you have the identifier — from the user, an invoice, a contract, or a\n`search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and\na Norwegian VAT suffix ('NO...MVA') are all accepted. Call `list_countries` if you are\nunsure a country is supported. Read the returned `notes` before acting on the result —\nit carries caveats such as bankruptcy, dissolution, a deleted entity, or an\nunclassified legal form.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}` (`DECISIONS.md` D-007). `invalid_id` means the identifier is malformed —\nfix it or call `search_company` with the company name instead of retrying the same\nstring. `not_found` means the identifier is well-formed but no such entity exists —\ncall `search_company`. `unsupported_country` means no module exists for that country\nyet — call `list_countries`. `upstream_error`/`upstream_timeout` means the national\nregister is unavailable; it has already been retried once here, so wait roughly a\nminute before trying again yourself.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
+            "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
+            "examples": [
+              "923609016",
+              "00445790"
+            ],
             "type": "string"
           },
           "country": {
             "default": "NO",
+            "description": "ISO-3166-1 alpha-2 country code. 'NO' = Norway (Brønnøysundregistrene / Enhetsregisteret), 'GB' = United Kingdom (Companies House). 'UK' is not a country code here and is rejected. Call list_countries for the current set rather than hard-coding one.",
+            "examples": [
+              "NO",
+              "GB"
+            ],
             "type": "string"
           }
         },
         "required": [
           "id"
+        ]
+      },
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Everything `registry-mcp` knows about one registered entity.\n\nThis is the single most important shape in the project. It is returned\nverbatim by ``GET /v1/{country}/company/{id}`` and by the MCP tool\n``lookup_company``.\n\nA registry module fills what its national register publishes and leaves the\nrest ``None``. Nothing here is Norway-specific; ``registries/no/`` maps\nEnhetsregisteret's fields onto it (see ``NORBIZ_SPEC.md`` §3).",
+        "properties": {
+          "country": {
+            "description": "ISO-3166-1 alpha-2, upper-case, e.g. 'NO'.",
+            "title": "Country",
+            "type": "string"
+          },
+          "registry": {
+            "description": "Registry slug, e.g. 'brreg'.",
+            "title": "Registry",
+            "type": "string"
+          },
+          "id": {
+            "description": "Canonical national identifier, digits/letters only, no spaces or dots.",
+            "title": "Id",
+            "type": "string"
+          },
+          "id_formatted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The identifier as a local would write it, e.g. '923 609 016'.",
+            "title": "Id Formatted"
+          },
+          "id_scheme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the identifier scheme, e.g. 'organisasjonsnummer'.",
+            "title": "Id Scheme"
+          },
+          "name": {
+            "description": "Current registered name.",
+            "title": "Name",
+            "type": "string"
+          },
+          "previous_names": {
+            "description": "Former registered names, newest first.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Previous Names",
+            "type": "array"
+          },
+          "legal_form_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "National legal-form code, e.g. 'AS', 'ASA', 'ENK'.",
+            "title": "Legal Form Code"
+          },
+          "legal_form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "English label, e.g. 'Private limited company'.",
+            "title": "Legal Form"
+          },
+          "legal_form_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Local label, e.g. 'Aksjeselskap'.",
+            "title": "Legal Form Local"
+          },
+          "limited_liability": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "True when owners are not personally liable for debts.",
+            "title": "Limited Liability"
+          },
+          "has_board_duty": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "True when this legal form must have a registered board.",
+            "title": "Has Board Duty"
+          },
+          "has_annual_accounts_duty": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "True when this legal form must file annual accounts with the state.",
+            "title": "Has Annual Accounts Duty"
+          },
+          "status": {
+            "description": "Normalised lifecycle status.",
+            "enum": [
+              "active",
+              "under_liquidation",
+              "under_compulsory_liquidation",
+              "bankrupt",
+              "dissolved",
+              "deleted",
+              "unknown"
+            ],
+            "title": "CompanyStatus",
+            "type": "string",
+            "default": "unknown"
+          },
+          "status_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "One sentence in English explaining the status and the flag it came from.",
+            "title": "Status Detail"
+          },
+          "is_active": {
+            "default": false,
+            "description": "Convenience mirror of `status == active`, so agents need no enum table.",
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "registered_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Date first entered in the central register.",
+            "title": "Registered At"
+          },
+          "founded_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Incorporation / foundation date.",
+            "title": "Founded At"
+          },
+          "business_register_registered_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Date entered in the commercial/business register, where that is separate.",
+            "title": "Business Register Registered At"
+          },
+          "bankruptcy_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Date bankruptcy was opened.",
+            "title": "Bankruptcy Date"
+          },
+          "deregistered_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Date the entity was deleted from the register.",
+            "title": "Deregistered At"
+          },
+          "vat_registered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Registered for VAT (Norway: Merverdiavgiftsregisteret).",
+            "title": "Vat Registered"
+          },
+          "vat_registered_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Date of VAT registration.",
+            "title": "Vat Registered At"
+          },
+          "vat_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "VAT identifier if it differs from `id` (Norway: id + 'MVA').",
+            "title": "Vat Number"
+          },
+          "in_business_register": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Listed in the commercial register (Norway: Foretaksregisteret).",
+            "title": "In Business Register"
+          },
+          "registers": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Other national sub-registers this entity is or is not in, keyed by a lower-case slug, e.g. {'stiftelsesregisteret': false}.",
+            "title": "Registers",
+            "type": "object"
+          },
+          "employees": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Registered number of employees. None = not reported.",
+            "title": "Employees"
+          },
+          "employees_reported": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Whether the registry holds an employee figure at all (distinguishes 0 from unknown).",
+            "title": "Employees Reported"
+          },
+          "industry_codes": {
+            "description": "Industry classifications, primary first.",
+            "items": {
+              "additionalProperties": false,
+              "description": "An industry classification code (NACE / SIC / national equivalent).",
+              "properties": {
+                "code": {
+                  "description": "The code as published, e.g. '06.100'.",
+                  "title": "Code",
+                  "type": "string"
+                },
+                "description": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Registry's own description.",
+                  "title": "Description"
+                },
+                "scheme": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Classification scheme, e.g. 'NACE' or the national variant name.",
+                  "title": "Scheme"
+                },
+                "rank": {
+                  "default": 1,
+                  "description": "1 = primary activity, 2 = second, and so on.",
+                  "minimum": 1,
+                  "title": "Rank",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "code"
+              ],
+              "title": "IndustryCode",
+              "type": "object"
+            },
+            "title": "Industry Codes",
+            "type": "array"
+          },
+          "sector_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Institutional sector code.",
+            "title": "Sector Code"
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Institutional sector description.",
+            "title": "Sector"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Statutory purpose / objects clause, joined into one string.",
+            "title": "Purpose"
+          },
+          "activity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Free-text description of actual activity.",
+            "title": "Activity"
+          },
+          "share_capital": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Registered share capital.",
+            "title": "Share Capital"
+          },
+          "share_capital_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ISO-4217 code for `share_capital`.",
+            "title": "Share Capital Currency"
+          },
+          "business_address": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "description": "A postal or visiting address, flattened to something an LLM can read.\n\n``lines`` keeps the registry's own street/box lines in order; the rest are\nparsed components where the registry provides them.",
+                "properties": {
+                  "lines": {
+                    "description": "Street or PO-box lines exactly as the registry supplies them.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "title": "Lines",
+                    "type": "array"
+                  },
+                  "postal_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Postal / ZIP code.",
+                    "title": "Postal Code"
+                  },
+                  "city": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Post town.",
+                    "title": "City"
+                  },
+                  "municipality": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Municipality name.",
+                    "title": "Municipality"
+                  },
+                  "municipality_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "National municipality code, if the registry has one.",
+                    "title": "Municipality Code"
+                  },
+                  "country_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "ISO-3166-1 alpha-2 country code of the address itself.",
+                    "title": "Country Code"
+                  },
+                  "country_name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Country name as registered.",
+                    "title": "Country Name"
+                  }
+                },
+                "title": "Address",
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Visiting/registered office."
+          },
+          "postal_address": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "description": "A postal or visiting address, flattened to something an LLM can read.\n\n``lines`` keeps the registry's own street/box lines in order; the rest are\nparsed components where the registry provides them.",
+                "properties": {
+                  "lines": {
+                    "description": "Street or PO-box lines exactly as the registry supplies them.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "title": "Lines",
+                    "type": "array"
+                  },
+                  "postal_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Postal / ZIP code.",
+                    "title": "Postal Code"
+                  },
+                  "city": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Post town.",
+                    "title": "City"
+                  },
+                  "municipality": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Municipality name.",
+                    "title": "Municipality"
+                  },
+                  "municipality_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "National municipality code, if the registry has one.",
+                    "title": "Municipality Code"
+                  },
+                  "country_code": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "ISO-3166-1 alpha-2 country code of the address itself.",
+                    "title": "Country Code"
+                  },
+                  "country_name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Country name as registered.",
+                    "title": "Country Name"
+                  }
+                },
+                "title": "Address",
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Postal address."
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Website as registered.",
+            "title": "Website"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Contact email as registered.",
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Contact phone as registered.",
+            "title": "Phone"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Identifier of the parent/owning entity, if any.",
+            "title": "Parent Id"
+          },
+          "is_subunit": {
+            "default": false,
+            "description": "True when this record is a branch/sub-unit, not a legal entity.",
+            "title": "Is Subunit",
+            "type": "boolean"
+          },
+          "in_group": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Part of a corporate group.",
+            "title": "In Group"
+          },
+          "last_annual_accounts_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Most recent financial year for which accounts were filed.",
+            "title": "Last Annual Accounts Year"
+          },
+          "published_deadlines": {
+            "description": "Filing dates the upstream register publishes for this entity itself, carried verbatim. Empty for a register that publishes none — most of them. This is the input `Registry.deadlines(report, today)` needs to prefer the register's own figure over any calculation (DECISIONS.md D-018), and it is what keeps that method the pure function of (report, today) its contract promises.",
+            "items": {
+              "additionalProperties": false,
+              "description": "A filing obligation exactly as the *register itself* publishes it.\n\nThe counterpart to :class:`Deadline`, and deliberately much smaller.\n:class:`Deadline` is *ours*: computed, English-labelled, dated against a\ncaller-supplied ``today``. This is *theirs*: whatever the upstream register\nstates about the obligation, carried verbatim, with no interpretation and\nno arithmetic.\n\nIt exists because some registers do the filing arithmetic themselves and\npublish the answer — Companies House publishes\n``accounts.next_accounts.due_on`` and ``confirmation_statement.next_due``,\nwhich already account for accounting-reference-date changes, shortened and\nextended periods, and administrative extensions that no outside calculation\ncan see (``DECISIONS.md`` D-016(a), D-018). A registry whose upstream\npublishes such a date fills this list at lookup time, and its\n:meth:`Registry.deadlines` then merges: the published date wins, a\ncomputation fills the gaps. A registry whose upstream publishes nothing —\nBrønnøysundregistrene, and every register that only states the statute —\nleaves the list empty and loses nothing.\n\nNothing in ``core/`` interprets any field here. ``kind`` and ``source``\nare opaque strings owned by the country module; ``core`` only carries them\nacross the lookup → deadlines boundary so that\n``Registry.deadlines(report, today)`` can stay the pure function of\n``(report, today)`` that its contract promises.",
+              "properties": {
+                "kind": {
+                  "description": "The same machine slug the country module uses for the matching `Deadline.kind`, e.g. 'annual_accounts'. Unique within a report.",
+                  "title": "Kind",
+                  "type": "string"
+                },
+                "due_date": {
+                  "anyOf": [
+                    {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The date the register itself publishes for this filing. `None` when the register names a period but no date — the country module may still be able to compute one from `period_end`.",
+                  "title": "Due Date"
+                },
+                "period_start": {
+                  "anyOf": [
+                    {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "First day of the period this filing covers, if published.",
+                  "title": "Period Start"
+                },
+                "period_end": {
+                  "anyOf": [
+                    {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Last day of the period this filing covers, if published. This, not an accounting reference date, is what a statutory period runs from.",
+                  "title": "Period End"
+                },
+                "overdue": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The register's own overdue flag, if it publishes one. Corroboration only: it is computed against the register's today, not the caller's, so `Deadline.days_until < 0` is the authoritative answer.",
+                  "title": "Overdue"
+                },
+                "source": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Where the date came from upstream, e.g. 'accounts.next_accounts.due_on'. Opaque to core; the country module turns it into `applies_because` prose.",
+                  "title": "Source"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "title": "PublishedDeadline",
+              "type": "object"
+            },
+            "title": "Published Deadlines",
+            "type": "array"
+          },
+          "confidence": {
+            "default": 1.0,
+            "description": "How sure we are this record is the entity the caller meant (D-005).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "confidence_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why that confidence, e.g. 'exact identifier lookup'.",
+            "title": "Confidence Basis"
+          },
+          "cached": {
+            "default": false,
+            "description": "True when served from our cache rather than a live fetch.",
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UTC timestamp of the live fetch this record came from.",
+            "title": "Fetched At"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Human-readable source name, e.g. 'Enhetsregisteret (brreg.no)'.",
+            "title": "Source"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Direct URL of the upstream record, for citation.",
+            "title": "Source Url"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Licence of the upstream data, e.g. 'NLOD 2.0'.",
+            "title": "License"
+          },
+          "notes": {
+            "description": "Caveats an agent should surface to the user, plain English, one per item.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "country",
+          "registry",
+          "id",
+          "name"
         ],
-        "type": "object",
-        "additionalProperties": false
+        "title": "CompanyReport",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "Look up a company in a national business register",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "name": "search_company",
-      "description": "Search Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian companies by\nname, when you have a name rather than an organisasjonsnummer (orgnr, org.nr). This is\nthe norway company lookup tool for the norwegian business registry when the identifier\nis not yet known.\n\nUse it when a user gives you a company name, then call `lookup_company` with the `id`\nof the right hit for the full report — a search hit is deliberately thin (name, legal\nform, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).\nZero hits is not an error: `hits` is `[]`, `total` is `0`, and `hint` says what to try\nnext — Norwegian names are registered upper-case and often carry an 'AS', 'ASA' or\n'NUF' suffix worth dropping before concluding a company does not exist.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and\nretry. `unsupported_country` means call `list_countries` first.\n`upstream_error`/`upstream_timeout` means the national register is unavailable; wait\nroughly a minute and retry at most once more.",
+      "description": "Search a national company register by name, when you have a name rather than an\nidentifier.\n\n`country=\"NO\"` searches Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian\ncompanies — the norway company lookup tool for the norwegian business registry when the\norganisasjonsnummer (orgnr, org.nr) is not yet known. `country=\"GB\"` is the uk company\nsearch: Companies House by company name, returning each hit's company number\n(company registration number, CRN).\n\nUse it when a user gives you a company name, then call `lookup_company` with the `id`\nof the right hit for the full report — a search hit is deliberately thin (name, legal\nform, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).\nHits arrive in the register's own relevance order, so read each hit's `confidence`\nrather than assuming the first row is the best one. Zero hits is not an error: `hits`\nis `[]`, `total` is `0`, and `hint` says what to try next — Norwegian names are\nregistered upper-case and often carry an 'AS', 'ASA' or 'NUF' suffix, and UK names a\n'LIMITED', 'LTD', 'PLC' or 'LLP' one, worth dropping before concluding a company does\nnot exist.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and\nretry. `unsupported_country` means call `list_countries` first.\n`upstream_error`/`upstream_timeout` means the national register is unavailable; wait\nroughly a minute and retry at most once more.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
+            "description": "Company name to search for, free text — not an identifier. Use lookup_company once you have the id of the right hit.",
+            "examples": [
+              "Equinor",
+              "Tesco"
+            ],
             "type": "string"
           },
           "country": {
             "default": "NO",
+            "description": "ISO-3166-1 alpha-2 country code. 'NO' = Norway (Brønnøysundregistrene / Enhetsregisteret), 'GB' = United Kingdom (Companies House). 'UK' is not a country code here and is rejected. Call list_countries for the current set rather than hard-coding one.",
+            "examples": [
+              "NO",
+              "GB"
+            ],
             "type": "string"
           },
           "limit": {
             "default": 10,
+            "description": "Maximum hits to return. 1-100, default 10; a value outside that range is a bad_request, not a silent clamp.",
+            "examples": [
+              10,
+              50
+            ],
             "type": "integer"
           }
         },
         "required": [
           "name"
+        ]
+      },
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Envelope returned by ``search`` — hits plus what the agent needs next.",
+        "properties": {
+          "country": {
+            "description": "ISO-3166-1 alpha-2, upper-case.",
+            "title": "Country",
+            "type": "string"
+          },
+          "registry": {
+            "description": "Registry slug.",
+            "title": "Registry",
+            "type": "string"
+          },
+          "query": {
+            "description": "The name that was searched for.",
+            "title": "Query",
+            "type": "string"
+          },
+          "hits": {
+            "description": "Best matches, best first: always sorted by `confidence` descending. Hits that score equally keep the order the upstream register returned them in.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One candidate from a name search.\n\nDeliberately thin: enough for an agent to pick the right entity and then\ncall ``lookup_company`` with ``id`` for the full report.",
+              "properties": {
+                "country": {
+                  "description": "ISO-3166-1 alpha-2, upper-case.",
+                  "title": "Country",
+                  "type": "string"
+                },
+                "registry": {
+                  "description": "Registry slug.",
+                  "title": "Registry",
+                  "type": "string"
+                },
+                "id": {
+                  "description": "Canonical national identifier — feed this to lookup.",
+                  "title": "Id",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Registered name.",
+                  "title": "Name",
+                  "type": "string"
+                },
+                "legal_form_code": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "National legal-form code.",
+                  "title": "Legal Form Code"
+                },
+                "legal_form": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "English legal-form label.",
+                  "title": "Legal Form"
+                },
+                "status": {
+                  "description": "Normalised lifecycle status.",
+                  "enum": [
+                    "active",
+                    "under_liquidation",
+                    "under_compulsory_liquidation",
+                    "bankrupt",
+                    "dissolved",
+                    "deleted",
+                    "unknown"
+                  ],
+                  "title": "CompanyStatus",
+                  "type": "string",
+                  "default": "unknown"
+                },
+                "city": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Post town of the business address.",
+                  "title": "City"
+                },
+                "municipality": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Municipality of the business address.",
+                  "title": "Municipality"
+                },
+                "registered_at": {
+                  "anyOf": [
+                    {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Date entered in the register.",
+                  "title": "Registered At"
+                },
+                "is_subunit": {
+                  "default": false,
+                  "description": "True for branches / sub-units.",
+                  "title": "Is Subunit",
+                  "type": "boolean"
+                },
+                "confidence": {
+                  "default": 0.5,
+                  "description": "Match confidence for this hit (D-005).",
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "title": "Confidence",
+                  "type": "number"
+                },
+                "confidence_basis": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Why that confidence.",
+                  "title": "Confidence Basis"
+                },
+                "source_url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Upstream record URL.",
+                  "title": "Source Url"
+                }
+              },
+              "required": [
+                "country",
+                "registry",
+                "id",
+                "name"
+              ],
+              "title": "SearchHit",
+              "type": "object"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "description": "Total matches upstream, which may exceed len(hits).",
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "description": "True when `total` exceeds the returned hits.",
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "cached": {
+            "default": false,
+            "description": "Served from cache.",
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UTC timestamp of the fetch.",
+            "title": "Fetched At"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What to do next, e.g. 'call lookup_company with the id of the right hit'.",
+            "title": "Hint"
+          }
+        },
+        "required": [
+          "country",
+          "registry",
+          "query"
         ],
-        "type": "object",
-        "additionalProperties": false
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "Search a national company register by name",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "name": "company_deadlines",
-      "description": "Compute the next occurrence of every Norwegian filing deadline (Regnskapsregisteret,\nSkatteetaten) a company faces, looked up by organisasjonsnummer (orgnr, org.nr) in\nBrønnøysundregistrene / Enhetsregisteret (brreg). This is the norway company lookup\ncompanion tool for the norwegian business registry's statutory calendar.\n\nDeadlines are computed, never fetched, so the same entity and `today` always produce\nthe same list — pass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to\nthe server's current UTC date. Quote `due_date`, not `statutory_date` — it already\naccounts for weekends and public holidays; each deadline's `applies_because` states\nthe legal form or flag (and any assumption) behind it, quote it rather than presenting\na date as unconditional fact. An empty `deadlines` list is a real answer for a\nbankrupt, deleted or compulsorily-liquidated entity, or a branch/sub-unit — `notes`\nexplains why.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and\nretry. Any `lookup_company` error code (`invalid_id`, `not_found`,\n`unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,\nsince this tool looks the entity up first — follow that code's hint.",
+      "description": "Give the next occurrence of each statutory filing deadline a company faces.\n\n`country=\"NO\"` covers the Norwegian calendar (Regnskapsregisteret, Skatteetaten) for a\ncompany looked up by organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene /\nEnhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,\naksjonærregisteroppgaven, mva-melding, a-melding. `country=\"GB\"` covers the two\nCompanies House obligations for a company number (CRN): the annual accounts filing and\nthe confirmation statement (CS01).\n\nPass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's\ncurrent UTC date. Quote `due_date`, not `statutory_date`. Each deadline's\n`applies_because` states where the date came from — quote it rather than presenting a\ndate as unconditional fact: for Norway it names the legal form or flag and any\nassumption behind a computed date, and for the UK it says whether the date is\nCompanies House's own published figure or one this tool computed from the statutory\nperiod. UK dates never roll forward off a weekend or bank holiday, so `due_date`\nequals `statutory_date` there; `days_until` goes negative for a filing Companies House\nstill shows as overdue rather than rolling it to the next cycle. An empty `deadlines`\nlist is a real answer — for Norway a bankrupt, deleted or compulsorily-liquidated\nentity or a branch/sub-unit, and for the UK any company whose status is not active —\nand `notes` explains why.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and\nretry. Any `lookup_company` error code (`invalid_id`, `not_found`,\n`unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,\nsince this tool looks the entity up first — follow that code's hint.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
+            "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
+            "examples": [
+              "923609016",
+              "00445790"
+            ],
             "type": "string"
           },
           "country": {
             "default": "NO",
+            "description": "ISO-3166-1 alpha-2 country code. 'NO' = Norway (Brønnøysundregistrene / Enhetsregisteret), 'GB' = United Kingdom (Companies House). 'UK' is not a country code here and is rejected. Call list_countries for the current set rather than hard-coding one.",
+            "examples": [
+              "NO",
+              "GB"
+            ],
             "type": "string"
           },
           "today": {
@@ -73,43 +1295,497 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "Date to compute deadlines from, YYYY-MM-DD. Defaults to the server's current UTC date — pass it explicitly for a reproducible answer. A value that is not YYYY-MM-DD is a bad_request naming the required format.",
+            "examples": [
+              "2026-10-01"
+            ]
           }
         },
         "required": [
           "id"
+        ]
+      },
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "The answer to \"what must this company file, and by when?\".\n\nThis is the **only** shape the deadlines operation returns, on both\nsurfaces (``DECISIONS.md`` D-010): REST\n``GET /v1/{country}/company/{id}/deadlines`` and the MCP tool\n``company_deadlines`` each emit ``model_dump(mode=\"json\")`` of this model,\nunchanged. Neither surface may return a bare ``list[Deadline]``, because a\nlist has nowhere to put ``today`` or ``notes`` — and an empty list without\na note is indistinguishable from a bug.\n\nBuild it with ``Registry.deadline_report(report, today)``; do not construct\nit in a surface.",
+        "properties": {
+          "country": {
+            "description": "ISO-3166-1 alpha-2, upper-case.",
+            "title": "Country",
+            "type": "string"
+          },
+          "registry": {
+            "description": "Registry slug, e.g. 'brreg'.",
+            "title": "Registry",
+            "type": "string"
+          },
+          "company_id": {
+            "description": "Canonical national identifier the deadlines were computed for.",
+            "title": "Company Id",
+            "type": "string"
+          },
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Registered name, so the caller can echo it back to a user.",
+            "title": "Company Name"
+          },
+          "today": {
+            "description": "The date 'next occurrence' was computed from, inclusive. Echoed back so the answer is reproducible and an agent can tell a cached answer from a fresh one.",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "deadlines": {
+            "description": "One entry per obligation kind, always the next occurrence, sorted by due_date. An empty list is a real answer, not an error — read `notes` for why.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One filing obligation with a concrete calendar date.\n\nDeadlines are *computed*, never fetched: a registry module derives them\nfrom the entity's legal form and status plus a ``today`` parameter, so the\nsame input always produces the same output and tests are deterministic.\n\n``due_date`` is always the date the caller should act on; ``statutory_date``\nis the date the statute names before any weekend/holiday roll-forward.",
+              "properties": {
+                "country": {
+                  "description": "ISO-3166-1 alpha-2, upper-case.",
+                  "title": "Country",
+                  "type": "string"
+                },
+                "registry": {
+                  "description": "Registry slug that produced this deadline.",
+                  "title": "Registry",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "Stable machine slug for the obligation, e.g. 'annual_accounts', 'tax_return', 'vat_return', 'shareholder_register_statement'. Unique within a country.",
+                  "title": "Kind",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Short English label, e.g. 'Annual accounts filing'.",
+                  "title": "Name",
+                  "type": "string"
+                },
+                "local_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The name a local accountant would use, e.g. 'Årsregnskap'.",
+                  "title": "Local Name"
+                },
+                "authority": {
+                  "description": "Who receives the filing, e.g. 'Regnskapsregisteret', 'Skatteetaten'.",
+                  "title": "Authority",
+                  "type": "string"
+                },
+                "statutory_date": {
+                  "description": "The date named by law, before weekend/holiday roll-forward.",
+                  "format": "date",
+                  "title": "Statutory Date",
+                  "type": "string"
+                },
+                "due_date": {
+                  "description": "The date the caller must actually file by (statutory date rolled forward).",
+                  "format": "date",
+                  "title": "Due Date",
+                  "type": "string"
+                },
+                "rolled_forward": {
+                  "default": false,
+                  "description": "True when due_date differs from statutory_date because of a non-working day.",
+                  "title": "Rolled Forward",
+                  "type": "boolean"
+                },
+                "period_label": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Which period this filing covers, e.g. '2025' or '2026 term 3 (May–Jun)'.",
+                  "title": "Period Label"
+                },
+                "period_start": {
+                  "anyOf": [
+                    {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "First day of the covered period.",
+                  "title": "Period Start"
+                },
+                "period_end": {
+                  "anyOf": [
+                    {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Last day of the covered period.",
+                  "title": "Period End"
+                },
+                "recurrence": {
+                  "description": "How often the obligation repeats.",
+                  "enum": [
+                    "annual",
+                    "bimonthly",
+                    "quarterly",
+                    "monthly",
+                    "one_off"
+                  ],
+                  "title": "DeadlineRecurrence",
+                  "type": "string",
+                  "default": "annual"
+                },
+                "mandatory": {
+                  "default": true,
+                  "description": "True when the obligation follows from the legal form alone. False when it depends on facts we cannot see (e.g. VAT turnover threshold) — in that case applies_because explains the assumption.",
+                  "title": "Mandatory",
+                  "type": "boolean"
+                },
+                "applies_because": {
+                  "description": "One sentence an agent can quote to the user explaining why this deadline applies to this company, including any assumption made.",
+                  "title": "Applies Because",
+                  "type": "string"
+                },
+                "days_until": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "due_date minus the `today` the calculation was run with. Negative = overdue.",
+                  "title": "Days Until"
+                },
+                "source_url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Authoritative page describing the obligation.",
+                  "title": "Source Url"
+                }
+              },
+              "required": [
+                "country",
+                "registry",
+                "kind",
+                "name",
+                "authority",
+                "statutory_date",
+                "due_date",
+                "applies_because"
+              ],
+              "title": "Deadline",
+              "type": "object"
+            },
+            "title": "Deadlines",
+            "type": "array"
+          },
+          "notes": {
+            "description": "Caveats to surface to the user, carried over from the company report: why the list is empty, an unclassified legal form, a status that suspends filing.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "country",
+          "registry",
+          "company_id",
+          "today"
         ],
-        "type": "object",
-        "additionalProperties": false
+        "title": "DeadlineReport",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "Statutory filing deadlines for a company",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
       }
     },
     {
       "name": "validate_company_id",
-      "description": "Check whether a Norwegian organisasjonsnummer (orgnr, org.nr) is well-formed for\nBrønnøysundregistrene / Enhetsregisteret (brreg) — no network call. This is the cheap\nnorway company lookup pre-check for the norwegian business registry: use it on user\ninput or a spreadsheet column before spending a real `lookup_company` call, since it\nis instant and free.\n\nReturns a ValidationResult and never raises for a malformed identifier: `valid: false`\ncomes with `reason` (what failed) and `hint` (what to do next) rather than a tool\nerror — this tool answers a question, it does not fail on bad input\n(`DECISIONS.md` D-010). A valid identifier does not mean the entity exists; follow it\nwith `lookup_company` if you need facts.\n\nThe only real error here is `unsupported_country` (no module for that country yet —\ncall `list_countries`), raised with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`.",
+      "description": "Check whether a national company identifier is well-formed — no network call.\n\n`country=\"NO\"` checksum-checks a Norwegian organisasjonsnummer (orgnr, org.nr) for\nBrønnøysundregistrene / Enhetsregisteret (brreg); this is the cheap norway company\nlookup pre-check for the norwegian business registry. `country=\"GB\"` shape-checks and\nnormalises a UK company number (company registration number, CRN) for Companies House:\nit zero-pads a short number ('445790' → '00445790') and upper-cases a prefix\n('oc303675' → 'OC303675'). A CRN has no check digit, so a GB `valid: true` means the\nshape is right and nothing more.\n\nUse it on user input or a spreadsheet column before spending a real `lookup_company`\ncall, since it is instant and free.\n\nReturns a ValidationResult and never raises for a malformed identifier: `valid: false`\ncomes with `reason` (what failed) and `hint` (what to do next) rather than a tool\nerror — this tool answers a question, it does not fail on bad input\n(`DECISIONS.md` D-010). A valid identifier does not mean the entity exists; follow it\nwith `lookup_company` if you need facts.\n\nThe only real error here is `unsupported_country` (no module for that country yet —\ncall `list_countries`), raised with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
+            "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
+            "examples": [
+              "923609016",
+              "00445790"
+            ],
             "type": "string"
           },
           "country": {
             "default": "NO",
+            "description": "ISO-3166-1 alpha-2 country code. 'NO' = Norway (Brønnøysundregistrene / Enhetsregisteret), 'GB' = United Kingdom (Companies House). 'UK' is not a country code here and is rejected. Call list_countries for the current set rather than hard-coding one.",
+            "examples": [
+              "NO",
+              "GB"
+            ],
             "type": "string"
           }
         },
         "required": [
           "id"
+        ]
+      },
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "The answer to \"is this identifier well-formed?\" — no network call.\n\nThe only shape the validation operation returns, on both surfaces\n(``DECISIONS.md`` D-010): REST ``GET /v1/{country}/validate/{id}`` and the\nMCP tool ``validate_company_id``.\n\nNote that an invalid identifier is **not** an error here: this operation\nanswers a question, so it returns ``valid=False`` with a ``reason`` and a\n``hint`` rather than raising. That is the one deliberate exception to\n``DECISIONS.md`` D-007's \"every expected failure is a raised\n``RegistryError``\" — and the reason ``hint`` is carried on this model.\n\nBuild it with ``Registry.validate(id)``; do not construct it in a surface.",
+        "properties": {
+          "country": {
+            "description": "ISO-3166-1 alpha-2, upper-case.",
+            "title": "Country",
+            "type": "string"
+          },
+          "registry": {
+            "description": "Registry slug, e.g. 'brreg'.",
+            "title": "Registry",
+            "type": "string"
+          },
+          "id_scheme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Name of the identifier scheme, e.g. 'organisasjonsnummer'.",
+            "title": "Id Scheme"
+          },
+          "input": {
+            "description": "The identifier exactly as the caller supplied it.",
+            "title": "Input",
+            "type": "string"
+          },
+          "valid": {
+            "description": "True when the identifier passes this country's format and checksum.",
+            "title": "Valid",
+            "type": "boolean"
+          },
+          "normalized": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Canonical form to pass to lookup, e.g. '923609016'. None when invalid.",
+            "title": "Normalized"
+          },
+          "formatted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The identifier as a local would write it, e.g. '923 609 016'. None when invalid.",
+            "title": "Formatted"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "One English sentence saying why it is valid, or what failed.",
+            "title": "Reason"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What to do next when `valid` is false — the same hint the invalid_id error carries. None when valid: the next call is simply lookup.",
+            "title": "Hint"
+          }
+        },
+        "required": [
+          "country",
+          "registry",
+          "input",
+          "valid"
         ],
-        "type": "object",
-        "additionalProperties": false
+        "title": "ValidationResult",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "Validate a company identifier (no network call)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
       }
     },
     {
       "name": "list_countries",
-      "description": "List every national company registry this service can answer for right now, plus\neach one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL\nand licence.\n\nCall this before your first lookup in a country you have not used here before, or\nwhenever a user names a country you are unsure is supported — never hard-code a\ncountry list of your own, since it grows as registry modules are added with no change\nto any other tool's shape. Stub/example modules are hidden; only registries that\nactually answer are listed. This tool has no error mode; a failure here is a bug, not\nsomething to retry differently.",
+      "description": "List every national company registry this service can answer for right now, plus\neach one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL,\nlicence, and whether the upstream register needs a credential (`requires_api_key`, and\n`api_key_env` naming the environment variable that must be set for it).\n\nCall this before your first lookup in a country you have not used here before, or\nwhenever a user names a country you are unsure is supported — never hard-code a\ncountry list of your own, since it grows as registry modules are added with no change\nto any other tool's shape. Stub/example modules are hidden; only registries that\nactually answer are listed. This tool has no error mode; a failure here is a bug, not\nsomething to retry differently.",
       "inputSchema": {
-        "properties": {},
         "type": "object",
-        "additionalProperties": false
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "The answer to \"which countries can you answer for?\".\n\nThe only shape the discovery operation returns, on both surfaces\n(``DECISIONS.md`` D-012): REST ``GET /v1/countries`` and the MCP tool\n``list_countries``. Before D-012 each surface re-derived this envelope from\n``Registry.describe()`` on its own, which is how the two could have drifted\n— REST validated the dict through a private model that silently *dropped* an\nunrecognised key while MCP passed the raw dict through and *kept* it.",
+        "properties": {
+          "countries": {
+            "description": "One row per registry that can answer right now, sorted by country code.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One supported country/registry pair, as returned by the discovery operation.\n\nBuilt by ``Registry.country_info()`` from the class attributes of a\n:class:`~registry_mcp.core.registry.Registry` subclass — the same nine\nvalues ``Registry.describe()`` has always emitted, now with a type\n(``DECISIONS.md`` D-012).\n\nThis is the country-neutral half of the contract even though its *values*\nname a country: it carries no report data, so unlike every other returned\nmodel it is a row *about* a registry rather than a document *from* one.",
+              "properties": {
+                "country": {
+                  "description": "ISO-3166-1 alpha-2, upper-case, e.g. 'NO'.",
+                  "title": "Country",
+                  "type": "string"
+                },
+                "registry": {
+                  "description": "Registry slug, e.g. 'brreg'.",
+                  "title": "Registry",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "Human-readable register name.",
+                  "title": "Name",
+                  "type": "string"
+                },
+                "id_scheme": {
+                  "description": "What the national identifier is called locally, e.g. 'organisasjonsnummer'.",
+                  "title": "Id Scheme",
+                  "type": "string"
+                },
+                "id_example": {
+                  "description": "A real, valid identifier the caller can use to smoke-test the service.",
+                  "title": "Id Example",
+                  "type": "string"
+                },
+                "id_description": {
+                  "description": "One sentence describing the identifier's format.",
+                  "title": "Id Description",
+                  "type": "string"
+                },
+                "source_url": {
+                  "description": "Base URL of the upstream registry API, for citation.",
+                  "title": "Source Url",
+                  "type": "string"
+                },
+                "license": {
+                  "description": "Licence of the upstream data, e.g. 'NLOD 2.0'.",
+                  "title": "License",
+                  "type": "string"
+                },
+                "is_stub": {
+                  "default": false,
+                  "description": "True for example/template modules, which are hidden from the public list unless stubs are explicitly requested.",
+                  "title": "Is Stub",
+                  "type": "boolean"
+                },
+                "requires_api_key": {
+                  "default": false,
+                  "description": "True when this registry's upstream API needs a credential the operator must supply. A self-hosted deployment that has not set it gets upstream_error on every call to this country (DECISIONS.md D-017).",
+                  "title": "Requires Api Key",
+                  "type": "boolean"
+                },
+                "api_key_env": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Name of the environment variable holding that credential, e.g. 'COMPANIES_HOUSE_API_KEY'. None when no key is needed. Never the key itself.",
+                  "title": "Api Key Env"
+                }
+              },
+              "required": [
+                "country",
+                "registry",
+                "name",
+                "id_scheme",
+                "id_example",
+                "id_description",
+                "source_url",
+                "license"
+              ],
+              "title": "CountryInfo",
+              "type": "object"
+            },
+            "title": "Countries",
+            "type": "array"
+          }
+        },
+        "title": "CountriesResponse",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "List supported national company registries",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
       }
     }
   ],
@@ -121,12 +1797,12 @@
       "arguments": [
         {
           "name": "id",
-          "description": "National company identifier, e.g. a Norwegian organisasjonsnummer.",
+          "description": "Provide a value matching the following JSON schema: {\"type\":\"string\"}. Encode non-string values as JSON.",
           "required": true
         },
         {
           "name": "country",
-          "description": "ISO-3166-1 alpha-2 country code. Defaults to NO.",
+          "description": "Provide a value matching the following JSON schema: {\"type\":\"string\"}. Encode non-string values as JSON.",
           "required": false
         }
       ]

@@ -4,9 +4,11 @@
 the first value of ``X-Forwarded-For`` since we run behind Caddy (a reverse
 proxy) — the socket peer would otherwise always be the proxy.
 
-The four static discovery routes (``/``, ``/llms.txt``, ``/llms-full.txt``,
-``/server.json``) are exempt: `NORBIZ_SPEC.md` §15 is explicit that a crawler
-must never get a 429 on the one request we most want to succeed.
+The static discovery routes (``/``, ``/llms.txt``, ``/llms-full.txt``,
+``/server.json``, ``/robots.txt``, ``/.well-known/mcp/server-card.json``) are
+exempt: `NORBIZ_SPEC.md` §15 is explicit that a crawler must never get a 429
+on the one request we most want to succeed, and the latter two exist
+specifically for crawlers and directory scanners (backlog item 6).
 
 This is intentionally a single in-process bucket dict, not a shared store —
 fine for one worker process; a multi-worker deployment would need a shared
@@ -28,7 +30,16 @@ from registry_mcp.core.models import ErrorCode, RegistryError
 __all__ = ["EXEMPT_PATHS", "RateLimitMiddleware"]
 
 #: Never rate-limited — see `NORBIZ_SPEC.md` §15.
-EXEMPT_PATHS = frozenset({"/", "/llms.txt", "/llms-full.txt", "/server.json"})
+EXEMPT_PATHS = frozenset(
+    {
+        "/",
+        "/llms.txt",
+        "/llms-full.txt",
+        "/server.json",
+        "/robots.txt",
+        "/.well-known/mcp/server-card.json",
+    }
+)
 
 _CAPACITY = 60.0
 _REFILL_PER_SECOND = _CAPACITY / 60.0

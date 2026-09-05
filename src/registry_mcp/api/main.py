@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -32,6 +33,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, Response
 from fastmcp.server.http import StarletteWithLifespan
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.routing import Route as StarletteRoute
 
 from registry_mcp import __version__
@@ -302,7 +304,7 @@ _DEADLINES_EXAMPLE = {
     "registry": "brreg",
     "company_id": "923609016",
     "company_name": "EQUINOR ASA",
-    "today": "2026-01-15",
+    "today": "2026-10-01",
     "deadlines": [
         {
             "country": "NO",
@@ -311,22 +313,29 @@ _DEADLINES_EXAMPLE = {
             "name": "Shareholder register statement",
             "local_name": "Aksjonærregisteroppgaven (RF-1086)",
             "authority": "Skatteetaten",
-            "statutory_date": "2026-01-31",
-            "due_date": "2026-02-02",
+            "statutory_date": "2027-01-31",
+            "due_date": "2027-02-01",
             "rolled_forward": True,
-            "period_label": "2025",
+            "period_label": "2026",
             "recurrence": "annual",
             "mandatory": True,
             "applies_because": (
-                "AS and ASA companies must file the shareholder register statement "
-                "(RF-1086) with Skatteetaten. Assumes a calendar-year accounting period."
+                "An ASA company must file the shareholder register statement "
+                "(RF-1086) with Skatteetaten (skatteforvaltningsforskriften "
+                "§ 7-7-4(1))."
             ),
-            "days_until": 18,
+            "days_until": 123,
         }
     ],
     "notes": [
-        "One or more of these deadlines assume a calendar-year accounting period; a "
-        "deviating accounting year would shift the real dates."
+        "Filing deadlines are computed assuming a calendar-year accounting period. "
+        "Enhetsregisteret does not publish a company's accounting year. For a "
+        "financial year ending between 1 January and 30 June, regnskapsloven "
+        "§ 8-3(1) sets a different deadline — 1 February, not 31 July — so a "
+        "deviating year changes which rule applies, not just the date. The "
+        "Ministry may also postpone the accounts deadline by up to one month by "
+        "regulation (§ 8-3(1)). Verify against Regnskapsregisteret before relying "
+        "on an annual date."
     ],
 }
 
@@ -458,6 +467,27 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await _close_registry_clients()
 
 
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Attach ``X-Request-ID`` to every response: echo the caller's, or mint one.
+
+    A small, non-breaking trace-correlation primitive (backlog item 5,
+    ``research/07-product-improvements.md`` #9). Header only, deliberately:
+    ``core/models.py``'s ``ErrorBody`` is the D-007 error envelope, and this
+    task does not touch ``core/`` — adding a field there would be the more
+    thorough place to carry a request id, but it is out of scope here, so the
+    header is the whole feature. Registered *after* :class:`RateLimitMiddleware`
+    below so it becomes the outermost middleware (Starlette's
+    ``add_middleware`` prepends), guaranteeing the header on a rate-limited
+    ``429`` too, not only on a normal response.
+    """
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
 app = FastAPI(
     title="registry-mcp",
     description=_DESCRIPTION,
@@ -468,6 +498,7 @@ app = FastAPI(
     lifespan=_lifespan,
 )
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestIDMiddleware)
 install_error_handlers(app)
 app.include_router(stats_router)
 app.include_router(dashboard_router)
@@ -501,6 +532,19 @@ async def llms_full_txt() -> Response:
 @app.get("/server.json", include_in_schema=False)
 async def server_json() -> Response:
     return _serve_static(_server_json_path(), "application/json; charset=utf-8")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt() -> Response:
+    return _serve_static(_static_dir() / "robots.txt", "text/plain; charset=utf-8")
+
+
+@app.get("/.well-known/mcp/server-card.json", include_in_schema=False)
+async def well_known_mcp_server_card() -> Response:
+    return _serve_static(
+        _static_dir() / "well-known" / "mcp" / "server-card.json",
+        "application/json; charset=utf-8",
+    )
 
 
 # ---------------------------------------------------------------------------

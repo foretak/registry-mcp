@@ -33,15 +33,24 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ResourceError, ToolError
 from fastmcp.server.dependencies import get_http_headers
+from pydantic import Field
 
 from registry_mcp import __version__
 from registry_mcp.core import log
-from registry_mcp.core.models import CountriesResponse, RegistryError, Surface
+from registry_mcp.core.models import (
+    CompanyReport,
+    CountriesResponse,
+    DeadlineReport,
+    RegistryError,
+    SearchResult,
+    Surface,
+    ValidationResult,
+)
 from registry_mcp.core.registry import get_registry, list_registries
 from registry_mcp.core.rules.common import parse_iso_date
 
@@ -161,12 +170,106 @@ mcp: FastMCP = FastMCP(
 
 
 # ---------------------------------------------------------------------------
+# Output schemas — the real JSON Schema of the pydantic model each tool
+# already returns, in place of FastMCP's default inference over `dict[str,
+# Any]` (the degenerate `{"type": "object", "additionalProperties": true}`
+# measured in `research/07-product-improvements.md`). Computed once, from the
+# same `core.models` classes the tool bodies already build and
+# `model_dump(mode="json")`.
+#
+# Every tool below keeps returning that plain `model_dump(mode="json")` dict
+# rather than the model instance itself, and keeps its return-type annotation
+# as `dict[str, Any]`: FastMCP's `structuredContent` (and the text-content
+# mirror it derives from the same value) is therefore built exactly as it was
+# before this change — only the *advertised* `outputSchema` is new. That is
+# what keeps this change from touching the REST≡MCP wire bytes D-004/D-010/
+# D-012 pin (see `tests/test_mcp.py::test_tool_output_schemas_match_models`
+# and the parity tests below).
+# ---------------------------------------------------------------------------
+
+_COMPANY_REPORT_SCHEMA = CompanyReport.model_json_schema()
+_SEARCH_RESULT_SCHEMA = SearchResult.model_json_schema()
+_DEADLINE_REPORT_SCHEMA = DeadlineReport.model_json_schema()
+_VALIDATION_RESULT_SCHEMA = ValidationResult.model_json_schema()
+_COUNTRIES_RESPONSE_SCHEMA = CountriesResponse.model_json_schema()
+
+# ---------------------------------------------------------------------------
+# Tool annotations (MCP spec `ToolAnnotations`; FastMCP accepts a plain dict
+# here and converts it internally). All five tools are read-only,
+# non-destructive and idempotent. `lookup_company`, `search_company` and
+# `company_deadlines` call an open-world national register; `validate_
+# company_id` and `list_countries` do no network I/O at all.
+# ---------------------------------------------------------------------------
+
+_READ_EXTERNAL: dict[str, Any] = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": True,
+}
+_READ_LOCAL: dict[str, Any] = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
+
+# ---------------------------------------------------------------------------
+# Shared parameter metadata (`Field(description=..., examples=...)`), reused
+# across the tools that share a parameter's meaning.
+#
+# Deliberately no `pattern`/`ge`/`le` here: FastMCP derives the *runtime*
+# argument validator from this same annotation, so a hard schema constraint
+# is enforced before a tool body ever runs — pre-empting this project's own,
+# better-hinted `RegistryError` for exactly the malformed inputs such a
+# constraint would target. Verified empirically (not merely assumed): a
+# `country` pattern rejects the documented "any case accepted" contract
+# (`core/registry.py::get_registry`'s docstring) with a bare pydantic message
+# instead of the nice `unsupported_country` envelope, and a `today` pattern
+# turns `test_company_deadlines_bad_today_is_json_error`'s
+# `{"error": {"code": "bad_request", ...}}` into unparsable text — breaking
+# both an existing test and REST≡MCP error parity (D-004), since the REST
+# query parameters carry no such constraint and would keep answering through
+# `parse_iso_date`/`RegistryError` as today. Descriptions and examples carry
+# the real legibility value here with none of that risk.
+# ---------------------------------------------------------------------------
+
+_ID_DESCRIPTION = (
+    "The company's national identifier. Norway (country='NO'): a nine-digit "
+    "organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a "
+    "'NO...MVA' VAT suffix are accepted and normalised. United Kingdom "
+    "(country='GB'): a Companies House company number (CRN), eight characters, "
+    "e.g. '00445790' or 'OC303675'; a short number is zero-padded for you."
+)
+_ID_EXAMPLES = ["923609016", "00445790"]
+
+_COUNTRY_DESCRIPTION = (
+    "ISO-3166-1 alpha-2 country code. 'NO' = Norway (Brønnøysundregistrene / "
+    "Enhetsregisteret), 'GB' = United Kingdom (Companies House). 'UK' is not "
+    "a country code here and is rejected. Call list_countries for the "
+    "current set rather than hard-coding one."
+)
+_COUNTRY_EXAMPLES = ["NO", "GB"]
+
+
+# ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool
-async def lookup_company(id: str, country: str = "NO") -> dict[str, Any]:
+@mcp.tool(
+    output_schema=_COMPANY_REPORT_SCHEMA,
+    annotations={
+        **_READ_EXTERNAL,
+        "title": "Look up a company in a national business register",
+    },
+)
+async def lookup_company(
+    id: Annotated[str, Field(description=_ID_DESCRIPTION, examples=_ID_EXAMPLES)],
+    country: Annotated[
+        str, Field(description=_COUNTRY_DESCRIPTION, examples=_COUNTRY_EXAMPLES)
+    ] = "NO",
+) -> dict[str, Any]:
     """Look up a company by its national identifier and get the full CompanyReport — legal
     form, status, address, VAT registration where the register publishes it, board and
     accounts duties, employees, and more.
@@ -201,8 +304,38 @@ async def lookup_company(id: str, country: str = "NO") -> dict[str, Any]:
     return report.model_dump(mode="json")
 
 
-@mcp.tool
-async def search_company(name: str, country: str = "NO", limit: int = 10) -> dict[str, Any]:
+@mcp.tool(
+    output_schema=_SEARCH_RESULT_SCHEMA,
+    annotations={
+        **_READ_EXTERNAL,
+        "title": "Search a national company register by name",
+    },
+)
+async def search_company(
+    name: Annotated[
+        str,
+        Field(
+            description=(
+                "Company name to search for, free text — not an identifier. Use "
+                "lookup_company once you have the id of the right hit."
+            ),
+            examples=["Equinor", "Tesco"],
+        ),
+    ],
+    country: Annotated[
+        str, Field(description=_COUNTRY_DESCRIPTION, examples=_COUNTRY_EXAMPLES)
+    ] = "NO",
+    limit: Annotated[
+        int,
+        Field(
+            description=(
+                "Maximum hits to return. 1-100, default 10; a value outside that "
+                "range is a bad_request, not a silent clamp."
+            ),
+            examples=[10, 50],
+        ),
+    ] = 10,
+) -> dict[str, Any]:
     """Search a national company register by name, when you have a name rather than an
     identifier.
 
@@ -235,9 +368,30 @@ async def search_company(name: str, country: str = "NO", limit: int = 10) -> dic
     return result.model_dump(mode="json")
 
 
-@mcp.tool
+@mcp.tool(
+    output_schema=_DEADLINE_REPORT_SCHEMA,
+    annotations={
+        **_READ_EXTERNAL,
+        "title": "Statutory filing deadlines for a company",
+    },
+)
 async def company_deadlines(
-    id: str, country: str = "NO", today: str | None = None
+    id: Annotated[str, Field(description=_ID_DESCRIPTION, examples=_ID_EXAMPLES)],
+    country: Annotated[
+        str, Field(description=_COUNTRY_DESCRIPTION, examples=_COUNTRY_EXAMPLES)
+    ] = "NO",
+    today: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Date to compute deadlines from, YYYY-MM-DD. Defaults to the "
+                "server's current UTC date — pass it explicitly for a "
+                "reproducible answer. A value that is not YYYY-MM-DD is a "
+                "bad_request naming the required format."
+            ),
+            examples=["2026-10-01"],
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """Give the next occurrence of each statutory filing deadline a company faces.
 
@@ -275,8 +429,19 @@ async def company_deadlines(
     return result.model_dump(mode="json")
 
 
-@mcp.tool
-def validate_company_id(id: str, country: str = "NO") -> dict[str, Any]:
+@mcp.tool(
+    output_schema=_VALIDATION_RESULT_SCHEMA,
+    annotations={
+        **_READ_LOCAL,
+        "title": "Validate a company identifier (no network call)",
+    },
+)
+def validate_company_id(
+    id: Annotated[str, Field(description=_ID_DESCRIPTION, examples=_ID_EXAMPLES)],
+    country: Annotated[
+        str, Field(description=_COUNTRY_DESCRIPTION, examples=_COUNTRY_EXAMPLES)
+    ] = "NO",
+) -> dict[str, Any]:
     """Check whether a national company identifier is well-formed — no network call.
 
     `country="NO"` checksum-checks a Norwegian organisasjonsnummer (orgnr, org.nr) for
@@ -308,7 +473,13 @@ def validate_company_id(id: str, country: str = "NO") -> dict[str, Any]:
     return result.model_dump(mode="json")
 
 
-@mcp.tool
+@mcp.tool(
+    output_schema=_COUNTRIES_RESPONSE_SCHEMA,
+    annotations={
+        **_READ_LOCAL,
+        "title": "List supported national company registries",
+    },
+)
 def list_countries() -> dict[str, Any]:
     """List every national company registry this service can answer for right now, plus
     each one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL,

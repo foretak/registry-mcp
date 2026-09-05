@@ -24,8 +24,16 @@ import respx
 from fastapi.testclient import TestClient
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
+from fastmcp.utilities.json_schema import dereference_refs
 
 from registry_mcp.api.main import app
+from registry_mcp.core.models import (
+    CompanyReport,
+    CountriesResponse,
+    DeadlineReport,
+    SearchResult,
+    ValidationResult,
+)
 from registry_mcp.mcp.server import mcp
 from registry_mcp.registries.gb import client as gb_client_module
 from registry_mcp.registries.no import client as client_module
@@ -84,6 +92,60 @@ async def test_tools_list_has_exactly_five_tools() -> None:
     }
 
 
+_DEGENERATE_OUTPUT_SCHEMA = {"type": "object", "additionalProperties": True}
+
+
+async def test_tool_output_schemas_match_models() -> None:
+    """Backlog item 1 (`research/07-product-improvements.md` #2): every tool's
+    `outputSchema` must be the real JSON Schema of the pydantic model it
+    returns, not FastMCP's degenerate default inference over `dict[str, Any]`.
+
+    Compared against ``dereference_refs(Model.model_json_schema())``, not the
+    raw ``model_json_schema()``: FastMCP's ``DereferenceRefsMiddleware`` is on
+    by default (`FastMCP(dereference_schemas=True)`, for client compatibility
+    — VS Code Copilot is named in its own docstring) and inlines every
+    `$ref`/`$defs` in every tool's `outputSchema` before it reaches
+    `tools/list`, verified directly against the raw stdio wire bytes. That
+    inlining is semantics-preserving and deliberately not disabled here (the
+    README's new one-click VS Code badges depend on the same compatibility
+    this middleware buys), so the model's own schema is compared the same
+    way any real client actually receives it.
+    """
+    expected = {
+        "lookup_company": dereference_refs(CompanyReport.model_json_schema()),
+        "search_company": dereference_refs(SearchResult.model_json_schema()),
+        "company_deadlines": dereference_refs(DeadlineReport.model_json_schema()),
+        "validate_company_id": dereference_refs(ValidationResult.model_json_schema()),
+        "list_countries": dereference_refs(CountriesResponse.model_json_schema()),
+    }
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in await client.list_tools()}
+    assert tools.keys() == expected.keys()
+    for name, schema in expected.items():
+        output_schema = tools[name].output_schema
+        assert output_schema is not None, f"{name} has no outputSchema"
+        assert output_schema != _DEGENERATE_OUTPUT_SCHEMA, f"{name} is still degenerate"
+        assert output_schema == schema, f"{name} outputSchema does not match its model"
+
+
+async def test_tool_annotations() -> None:
+    """Backlog item 2: all five tools are read-only, non-destructive and
+    idempotent; the three that call a national register are `openWorldHint`
+    True, the two that do no network I/O are False."""
+    open_world = {"lookup_company", "search_company", "company_deadlines"}
+    closed_world = {"validate_company_id", "list_countries"}
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in await client.list_tools()}
+    for name in open_world | closed_world:
+        annotations = tools[name].annotations
+        assert annotations is not None, f"{name} has no annotations"
+        assert annotations.read_only_hint is True
+        assert annotations.destructive_hint is False
+        assert annotations.idempotent_hint is True
+        assert annotations.open_world_hint is (name in open_world)
+        assert annotations.title  # explicit, non-empty — not the auto-derived default
+
+
 # ---------------------------------------------------------------------------
 # lookup_company
 # ---------------------------------------------------------------------------
@@ -96,7 +158,7 @@ async def test_lookup_company_returns_company_report() -> None:
     )
     async with Client(mcp) as client:
         result = await client.call_tool("lookup_company", {"id": "923609016"})
-    body = result.data
+    body = result.structured_content
     assert body["name"] == "EQUINOR ASA"
     assert body["id"] == "923609016"
     assert body["country"] == "NO"
@@ -128,7 +190,7 @@ async def test_search_company_returns_search_result() -> None:
         result = await client.call_tool(
             "search_company", {"name": "equinor", "limit": 1}
         )
-    body = result.data
+    body = result.structured_content
     assert body["total"] == 1
     assert body["hits"][0]["id"] == "923609016"
     assert body["hint"]
@@ -148,7 +210,7 @@ async def test_company_deadlines_returns_deadline_report_shape() -> None:
         result = await client.call_tool(
             "company_deadlines", {"id": "923609016", "today": "2026-01-15"}
         )
-    body = result.data
+    body = result.structured_content
     assert body["today"] == "2026-01-15"
     assert body["company_id"] == "923609016"
     assert body["company_name"] == "EQUINOR ASA"
@@ -175,7 +237,7 @@ async def test_company_deadlines_bad_today_is_json_error() -> None:
 async def test_validate_company_id_invalid_has_hint_not_error() -> None:
     async with Client(mcp) as client:
         result = await client.call_tool("validate_company_id", {"id": "833286602"})
-    body = result.data
+    body = result.structured_content
     assert body["valid"] is False
     assert body["normalized"] is None
     assert body["hint"]
@@ -184,7 +246,7 @@ async def test_validate_company_id_invalid_has_hint_not_error() -> None:
 async def test_validate_company_id_valid() -> None:
     async with Client(mcp) as client:
         result = await client.call_tool("validate_company_id", {"id": "923609016"})
-    body = result.data
+    body = result.structured_content
     assert body["valid"] is True
     assert body["normalized"] == "923609016"
     assert body["formatted"] == "923 609 016"
@@ -198,14 +260,14 @@ async def test_validate_company_id_valid() -> None:
 async def test_list_countries_hides_stub() -> None:
     async with Client(mcp) as client:
         result = await client.call_tool("list_countries", {})
-    codes = {row["country"] for row in result.data["countries"]}
+    codes = {row["country"] for row in result.structured_content["countries"]}
     assert codes == {"GB", "NO"}
 
 
 async def test_list_countries_gb_requires_api_key() -> None:
     async with Client(mcp) as client:
         result = await client.call_tool("list_countries", {})
-    rows = {row["country"]: row for row in result.data["countries"]}
+    rows = {row["country"]: row for row in result.structured_content["countries"]}
     assert rows["GB"]["requires_api_key"] is True
     assert rows["GB"]["api_key_env"] == "COMPANIES_HOUSE_API_KEY"
     assert rows["NO"]["requires_api_key"] is False
@@ -288,7 +350,8 @@ def test_rest_and_mcp_lookup_company_are_identical(monkeypatch: pytest.MonkeyPat
     async def _mcp_call() -> dict[str, Any]:
         async with Client(mcp) as client:
             result = await client.call_tool("lookup_company", {"id": "923609016"})
-            data: dict[str, Any] = result.data
+            assert result.structured_content is not None
+            data: dict[str, Any] = result.structured_content
             return data
 
     mcp_body = anyio.run(_mcp_call)
@@ -323,7 +386,8 @@ def test_rest_and_mcp_lookup_company_are_identical_gb(monkeypatch: pytest.Monkey
             result = await client.call_tool(
                 "lookup_company", {"id": "00445790", "country": "GB"}
             )
-            data: dict[str, Any] = result.data
+            assert result.structured_content is not None
+            data: dict[str, Any] = result.structured_content
             return data
 
     mcp_body = anyio.run(_mcp_call)
@@ -349,7 +413,8 @@ def test_rest_and_mcp_list_countries_are_identical() -> None:
     async def _mcp_call() -> dict[str, Any]:
         async with Client(mcp) as client:
             result = await client.call_tool("list_countries", {})
-            data: dict[str, Any] = result.data
+            assert result.structured_content is not None
+            data: dict[str, Any] = result.structured_content
             return data
 
     mcp_body = anyio.run(_mcp_call)

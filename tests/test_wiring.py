@@ -130,15 +130,18 @@ async def test_rest_and_mcp_calls_land_in_one_log(monkeypatch: pytest.MonkeyPatc
         # --- 1 deadlines ok, 1 lookup error (unsupported_country) --------------
         async with Client(mcp) as mcp_client:
             m1 = await mcp_client.call_tool("lookup_company", {"id": "923609016"})
-            assert m1.data["name"] == "EQUINOR ASA"
+            assert m1.structured_content is not None
+            assert m1.structured_content["name"] == "EQUINOR ASA"
 
             m2 = await mcp_client.call_tool("validate_company_id", {"id": "833286602"})
-            assert m2.data["valid"] is False
+            assert m2.structured_content is not None
+            assert m2.structured_content["valid"] is False
 
             m3 = await mcp_client.call_tool(
                 "company_deadlines", {"id": "923609016", "today": "2026-01-15"}
             )
-            assert "deadlines" in m3.data
+            assert m3.structured_content is not None
+            assert "deadlines" in m3.structured_content
 
             with pytest.raises(ToolError):
                 await mcp_client.call_tool("lookup_company", {"id": "1", "country": "SE"})

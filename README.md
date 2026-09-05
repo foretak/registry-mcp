@@ -8,27 +8,37 @@
 [![CI](https://github.com/foretak/registry-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/foretak/registry-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**The company registry MCP — a company registry for AI agents, as an MCP server and REST API over national business registries, any country.**
-
-**Countries: Norway (brreg), United Kingdom (Companies House).**
-
-**Norway** — `brreg` / Brønnøysundregistrene / **Enhetsregisteret**. Look up a company by **organisasjonsnummer** (**orgnr**, org.nr), search by name, check **MVA / VAT** registration, and compute statutory filing deadlines. Also published as **`brreg-mcp`**, an alias package that installs exactly this server.
-
-**United Kingdom** — **Companies House**. Look up a company by **company number** (**company registration number**, CRN), search by name, and read the **annual accounts** and **confirmation statement** deadlines the register publishes. The country code is **`GB`**, not `UK`. Companies House requires a free API key — see [Configuration](#configuration).
-
-> Status: `0.2.0`. The five tools and their response shapes are frozen; the hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`.
-
-## Add to Claude Code
+**Company data for AI agents, any country.** One MCP server and REST API, two national registers today: Norway's **Enhetsregisteret** / **Brønnøysundregistrene** (**brreg**), looked up by **organisasjonsnummer** (**orgnr**), and the United Kingdom's **Companies House**, looked up by **company number** — one JSON shape either way.
 
 ```bash
 claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
 ```
 
-Or run it locally over stdio, no install step:
+No install step, over stdio:
 
 ```bash
 claude mcp add registry-mcp -- uvx registry-mcp
 ```
+
+What makes it worth a tool slot:
+
+- **Deadlines that cite the rule, not just a date.** `company_deadlines` gives the next filing date and names why in `applies_because` — a Norwegian legal form's statutory duty, or "Companies House publishes this date for the company itself" when the register states it rather than us computing it. Quote the reason, not just the number.
+- **Never more than 24 hours stale, and it says so.** Every response carries `cached` and `fetched_at`. OpenCorporates' own knowledge base tells users to ["allow 30 days"](https://knowledge.opencorporates.com/knowledge-base/the-data-on-opencorporates-is-out-of-date/) for a correction to reach its site — a 30× freshness gap, stated by the incumbent about itself.
+- **Five tools, not fifty.** Tool-selection accuracy [degrades past 30-50 tools loaded into an agent's context](https://code.claude.com/docs/en/agent-sdk/tool-search), and some clients cap around 40. Five tools is roughly 12% of that budget, next to competitors in this space shipping 23 to 78 tools for the same job.
+
+**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Two named upstreams, and nothing else is ever called: `data.brreg.no` and `api.company-information.service.gov.uk`. No personal data beyond what each national register already publishes about the entity itself. Details: [SECURITY.md](SECURITY.md).
+
+One-click install, for a remote streamable-HTTP server:
+
+[<img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D)
+[<img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&label=Install%20Server&color=24bfa5">](https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D)
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=registry-mcp&config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D)
+
+> Status: `0.2.0`. The five tools and their response shapes are frozen; the hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: Norway (brreg), United Kingdom (Companies House) — see [below](#tools) for both countries' identifier formats and example calls.
+
+## Add to Claude Code
+
+The same two commands as above — Streamable HTTP or local stdio. To add it as a project-level `.mcp.json` file instead of the CLI, see [Configuration](#configuration).
 
 ## What it returns
 
