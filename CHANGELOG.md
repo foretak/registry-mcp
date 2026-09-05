@@ -29,6 +29,17 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   UUID4.
 - `CHANGELOG.md` and `SECURITY.md`.
 
+### Changed (evals)
+- Agent-mode harness: generic fixture-derived mocks for every registry route
+  (a real gap is reported as `GAP`, never as a model failure), structured
+  checks against the tool results the model actually received, date and
+  wording variants in answer checks, a negation-aware fabrication gate, and
+  `today` wildcards where the prompt gives no date. Real-model run 2:
+  23 pass / 1 fail / 2 live-only skips (run 1: 13 / 11 / 2). The remaining
+  failure, E19, is a genuine finding: asked whether Tesco PLC is VAT
+  registered, the model answered from general knowledge without calling
+  `lookup_company`.
+
 ### Added (evening, distribution)
 - A "Try it" playground on the homepage: validate → lookup + deadlines, or
   search, with the exact request URL shown and the install lines and badges

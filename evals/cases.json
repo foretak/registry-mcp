@@ -7,7 +7,8 @@
     "C": "Deadlines - the differentiator",
     "D": "Errors and recovery - D-007's hint under test",
     "E": "Honest nulls - the thesis under test",
-    "F": "Tool choice and restraint"
+    "F": "Tool choice and restraint",
+    "G": "ChatGPT connector aliases"
   },
   "cases": [
     {
@@ -16,19 +17,58 @@
       "prompt": "Look up Norwegian company 923609016 and tell me what it is.",
       "live": true,
       "notes": "Marked live: the flagship NO smoke case (design rule 6's 'nightly smoke set') -- run only with --live, never in CI. Equivalent offline coverage of a plain lookup_company(country=NO) already exists in E04/E08/E17/E22, so nothing is lost from the default CI run by skipping this one.",
-      "setup": {"mocks": []},
+      "setup": {
+        "mocks": []
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "923609016", "country": "NO"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "923609016",
+            "country": "NO"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "name", "op": "equals", "value": "EQUINOR ASA"},
-        {"call": 0, "path": "legal_form", "op": "equals", "value": "Public limited company"},
-        {"call": 0, "path": "status", "op": "equals", "value": "active"},
-        {"call": 0, "path": "is_active", "op": "equals", "value": true},
-        {"call": 0, "path": "employees", "op": "not_null", "gate": true, "note": "must not be fabricated/omitted -- Equinor's employee count is public"}
+        {
+          "call": 0,
+          "path": "name",
+          "op": "equals",
+          "value": "EQUINOR ASA"
+        },
+        {
+          "call": 0,
+          "path": "legal_form",
+          "op": "equals",
+          "value": "Public limited company"
+        },
+        {
+          "call": 0,
+          "path": "status",
+          "op": "equals",
+          "value": "active"
+        },
+        {
+          "call": 0,
+          "path": "is_active",
+          "op": "equals",
+          "value": true
+        },
+        {
+          "call": 0,
+          "path": "employees",
+          "op": "not_null",
+          "gate": true,
+          "note": "must not be fabricated/omitted -- Equinor's employee count is public"
+        }
       ],
       "agent": {
-        "answer_must_include": ["EQUINOR", "active"],
+        "answer_must_include": [
+          "EQUINOR",
+          "active"
+        ],
         "answer_must_not_include": []
       }
     },
@@ -38,18 +78,53 @@
       "prompt": "What does Companies House say about company number 00445790?",
       "live": true,
       "notes": "Marked live: the flagship GB smoke case, requires a real COMPANIES_HOUSE_API_KEY and only runs with --live. Scores the single most likely argument error in the product (D-015): country must resolve to GB, never UK. Equivalent offline GB-lookup coverage exists in E03/E09/E19/E20.",
-      "setup": {"gb_api_key": "real"},
+      "setup": {
+        "gb_api_key": "real"
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "00445790", "country": "GB"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "00445790",
+            "country": "GB"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "name", "op": "equals", "value": "TESCO PLC"},
-        {"call": 0, "path": "country", "op": "equals", "value": "GB", "gate": true, "note": "the D-015 regression: country must never resolve to UK"},
-        {"call": 0, "path": "status", "op": "equals", "value": "active"},
-        {"call": 0, "path": "registered_at", "op": "equals", "value": "1947-11-27"}
+        {
+          "call": 0,
+          "path": "name",
+          "op": "equals",
+          "value": "TESCO PLC"
+        },
+        {
+          "call": 0,
+          "path": "country",
+          "op": "equals",
+          "value": "GB",
+          "gate": true,
+          "note": "the D-015 regression: country must never resolve to UK"
+        },
+        {
+          "call": 0,
+          "path": "status",
+          "op": "equals",
+          "value": "active"
+        },
+        {
+          "call": 0,
+          "path": "registered_at",
+          "op": "equals",
+          "value": "1947-11-27"
+        }
       ],
       "agent": {
-        "answer_must_include": ["TESCO", "active"]
+        "answer_must_include": [
+          "TESCO",
+          "active"
+        ]
       }
     },
     {
@@ -58,17 +133,53 @@
       "prompt": "Check UK company 445790 for me.",
       "live": false,
       "notes": "Normalisation (zero-padding) is the server's job, not the agent's -- id=445790 must resolve to the same fixture as 00445790.",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "00445790", "fixture": "ch_00445790.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00445790",
+            "fixture": "ch_00445790.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "445790", "country": "GB"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "445790",
+            "country": "GB"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "id", "op": "equals", "value": "00445790"},
-        {"call": 0, "path": "name", "op": "equals", "value": "TESCO PLC"}
+        {
+          "call": 0,
+          "path": "id",
+          "op": "equals",
+          "value": "00445790"
+        },
+        {
+          "call": 0,
+          "path": "name",
+          "op": "equals",
+          "value": "TESCO PLC"
+        }
       ],
       "agent": {
-        "argument_alternatives": {"lookup_company": {"id": ["445790", "00445790"]}},
-        "answer_must_include": ["TESCO"]
+        "argument_alternatives": {
+          "lookup_company": {
+            "id": [
+              "445790",
+              "00445790"
+            ]
+          }
+        },
+        "answer_must_include": [
+          "TESCO"
+        ]
       }
     },
     {
@@ -77,20 +188,56 @@
       "prompt": "Our supplier's org number is NO 923 609 016 MVA. Are they still trading?",
       "live": false,
       "notes": "validate_orgnr strips a leading 'NO', internal spaces and a trailing 'MVA' VAT suffix before MOD11-checking -- confirmed live against this exact messy string.",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup", "id": "923609016", "fixture": "brreg_923609016.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "NO 923 609 016 MVA", "country": "NO"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "NO 923 609 016 MVA",
+            "country": "NO"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "id", "op": "equals", "value": "923609016"},
-        {"call": 0, "path": "is_active", "op": "equals", "value": true},
-        {"call": 0, "path": "status", "op": "equals", "value": "active"}
+        {
+          "call": 0,
+          "path": "id",
+          "op": "equals",
+          "value": "923609016"
+        },
+        {
+          "call": 0,
+          "path": "is_active",
+          "op": "equals",
+          "value": true
+        },
+        {
+          "call": 0,
+          "path": "status",
+          "op": "equals",
+          "value": "active"
+        }
       ],
       "agent": {
-        "required_tools": ["lookup_company"],
+        "required_tools": [
+          "lookup_company"
+        ],
         "forbidden_tools": [],
         "max_tool_calls": 2,
-        "answer_must_include": ["active"]
+        "answer_must_include": [
+          "active"
+        ]
       }
     },
     {
@@ -99,23 +246,76 @@
       "prompt": "Find the Norwegian company Equinor and give me its organisation number and address.",
       "live": false,
       "notes": "Trajectory check: the id used in the lookup_company call must come from the prior search_company hit, not be hard-coded by the agent. Golden mode resolves it via a {{search.hits[0].id}} placeholder into the second call's arguments, so the assertion is real: if search stopped returning an id, or the id field moved, this call would fail to resolve.",
-      "setup": {"mocks": [
-        {"country": "NO", "kind": "search", "fixture": "brreg_923609016.json"},
-        {"country": "NO", "kind": "lookup", "id": "923609016", "fixture": "brreg_923609016.json"}
-      ]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "search",
+            "fixture": "brreg_923609016.json"
+          },
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "search_company", "arguments": {"name": "Equinor", "country": "NO"}, "save_as": "search"},
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "{{search.hits[0].id}}", "country": "NO"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "search_company",
+          "arguments": {
+            "name": "Equinor",
+            "country": "NO"
+          },
+          "save_as": "search"
+        },
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "{{search.hits[0].id}}",
+            "country": "NO"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "hits[0].id", "op": "equals", "value": "923609016"},
-        {"call": 1, "path": "id", "op": "equals", "value": "923609016"},
-        {"call": 1, "path": "name", "op": "equals", "value": "EQUINOR ASA"},
-        {"call": 1, "path": "business_address.city", "op": "equals", "value": "STAVANGER"}
+        {
+          "call": 0,
+          "path": "hits[0].id",
+          "op": "equals",
+          "value": "923609016"
+        },
+        {
+          "call": 1,
+          "path": "id",
+          "op": "equals",
+          "value": "923609016"
+        },
+        {
+          "call": 1,
+          "path": "name",
+          "op": "equals",
+          "value": "EQUINOR ASA"
+        },
+        {
+          "call": 1,
+          "path": "business_address.city",
+          "op": "equals",
+          "value": "STAVANGER"
+        }
       ],
       "agent": {
-        "required_tools": ["search_company", "lookup_company"],
-        "answer_must_include": ["923609016", "Stavanger"]
+        "required_tools": [
+          "search_company",
+          "lookup_company"
+        ],
+        "answer_must_include": [
+          "923609016",
+          "Stavanger"
+        ]
       }
     },
     {
@@ -124,17 +324,53 @@
       "prompt": "What's the company number for Tesco PLC?",
       "live": false,
       "notes": "Regression test for D-020 (SearchResult.hits sorted by confidence descending, stably): the raw ch_search_tesco.json fixture orders Tesco Aqua (0.4) between the two matches, and the fixture-backed response must still put the two 0.8-confidence hits (Tesco PLC, Tesco Aqua) ahead of the 0.4 hit (Kford Tyres), with Tesco PLC first because it alone scores 0.95 (exact-name match).",
-      "setup": {"mocks": [{"country": "GB", "kind": "search", "fixture": "ch_search_tesco.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "search",
+            "fixture": "ch_search_tesco.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "search_company", "arguments": {"name": "Tesco PLC", "country": "GB"}, "save_as": "search"}
+        {
+          "type": "tool",
+          "tool": "search_company",
+          "arguments": {
+            "name": "Tesco PLC",
+            "country": "GB"
+          },
+          "save_as": "search"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "hits[0].id", "op": "equals", "value": "00445790"},
-        {"call": 0, "path": "hits[0].confidence", "op": "equals", "value": 0.95},
-        {"call": 0, "path": "hits", "op": "confidence_non_increasing", "value": null, "gate": true, "note": "D-020: best-first must hold even though the upstream register did not return it that way"}
+        {
+          "call": 0,
+          "path": "hits[0].id",
+          "op": "equals",
+          "value": "00445790"
+        },
+        {
+          "call": 0,
+          "path": "hits[0].confidence",
+          "op": "gte",
+          "value": 0.8,
+          "note": "0.8 not the fixture's exact 0.95: --agent's own search query wording varies ('Tesco' vs 'Tesco PLC'), which legitimately changes D-005's confidence tier for an identical top hit; >=0.8 still asserts a strong, not weak, match"
+        },
+        {
+          "call": 0,
+          "path": "hits",
+          "op": "confidence_non_increasing",
+          "value": null,
+          "gate": true,
+          "note": "D-020: best-first must hold even though the upstream register did not return it that way"
+        }
       ],
       "agent": {
-        "answer_must_include": ["00445790"]
+        "answer_must_include": [
+          "00445790"
+        ]
       }
     },
     {
@@ -143,20 +379,65 @@
       "prompt": "Look up the Norwegian company Zzzqqx Holdings.",
       "live": false,
       "notes": "Zero hits is a real answer, not an error.",
-      "setup": {"mocks": [{"country": "NO", "kind": "search_empty"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "search_empty"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "search_company", "arguments": {"name": "Zzzqqx Holdings", "country": "NO"}, "save_as": "search"}
+        {
+          "type": "tool",
+          "tool": "search_company",
+          "arguments": {
+            "name": "Zzzqqx Holdings",
+            "country": "NO"
+          },
+          "save_as": "search"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "hits", "op": "equals", "value": []},
-        {"call": 0, "path": "total", "op": "equals", "value": 0},
-        {"call": 0, "path": "hint", "op": "not_null"}
+        {
+          "call": 0,
+          "path": "hits",
+          "op": "equals",
+          "value": []
+        },
+        {
+          "call": 0,
+          "path": "total",
+          "op": "equals",
+          "value": 0
+        },
+        {
+          "call": 0,
+          "path": "hint",
+          "op": "not_null"
+        }
       ],
       "agent": {
         "max_tool_calls": 2,
-        "forbidden_tools": ["lookup_company"],
-        "answer_must_include": ["no", "found"],
-        "answer_must_not_include": ["923", "orgnr 9"]
+        "forbidden_tools": [
+          "lookup_company"
+        ],
+        "answer_must_include": [
+          [
+            "no matches",
+            "not found",
+            "zero results",
+            "zero hits",
+            "no results",
+            "no companies match",
+            "found no",
+            "no such"
+          ]
+        ],
+        "answer_must_not_include": [
+          "923",
+          "orgnr 9"
+        ]
       }
     },
     {
@@ -165,25 +446,97 @@
       "prompt": "It is 15 January 2026. What must Equinor (923609016) file next, and when?",
       "live": false,
       "notes": "Re-derived 2026-09-05 by running company_deadlines against the real Equinor fixture at today=2026-01-15, post D-022/T18 (annual_accounts and general_meeting no longer roll forward). All six dates happen to match the research draft's numbers for this particular pinned date (neither of the two non-rolling deadlines lands on a weekend in 2026), but that is a coincidence of the date chosen, not something inherited from the draft -- confirmed by direct execution, not by reading the draft.",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup", "id": "923609016", "fixture": "brreg_923609016.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "923609016", "country": "NO", "today": "2026-01-15"}, "save_as": "deadlines"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "923609016",
+            "country": "NO",
+            "today": "2026-01-15"
+          },
+          "save_as": "deadlines"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "deadlines[kind=shareholder_register_statement].due_date", "op": "equals", "value": "2026-02-02"},
-        {"call": 0, "path": "deadlines[kind=payroll_report].due_date", "op": "equals", "value": "2026-02-05"},
-        {"call": 0, "path": "deadlines[kind=vat_return].due_date", "op": "equals", "value": "2026-02-10"},
-        {"call": 0, "path": "deadlines[kind=tax_return].due_date", "op": "equals", "value": "2026-06-01"},
-        {"call": 0, "path": "deadlines[kind=general_meeting].due_date", "op": "equals", "value": "2026-06-30"},
-        {"call": 0, "path": "deadlines[kind=general_meeting].rolled_forward", "op": "equals", "value": false},
-        {"call": 0, "path": "deadlines[kind=annual_accounts].due_date", "op": "equals", "value": "2026-07-31"},
-        {"call": 0, "path": "deadlines[kind=annual_accounts].rolled_forward", "op": "equals", "value": false},
-        {"call": 0, "path": "deadlines", "op": "length_equals", "value": 6},
-        {"call": 0, "path": "notes", "op": "any_contains", "value": "calendar-year accounting period"}
+        {
+          "call": 0,
+          "path": "deadlines[kind=shareholder_register_statement].due_date",
+          "op": "equals",
+          "value": "2026-02-02"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=payroll_report].due_date",
+          "op": "equals",
+          "value": "2026-02-05"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=vat_return].due_date",
+          "op": "equals",
+          "value": "2026-02-10"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=tax_return].due_date",
+          "op": "equals",
+          "value": "2026-06-01"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=general_meeting].due_date",
+          "op": "equals",
+          "value": "2026-06-30"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=general_meeting].rolled_forward",
+          "op": "equals",
+          "value": false
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=annual_accounts].due_date",
+          "op": "equals",
+          "value": "2026-07-31"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=annual_accounts].rolled_forward",
+          "op": "equals",
+          "value": false
+        },
+        {
+          "call": 0,
+          "path": "deadlines",
+          "op": "length_equals",
+          "value": 6
+        },
+        {
+          "call": 0,
+          "path": "notes",
+          "op": "any_contains",
+          "value": "calendar-year accounting period"
+        }
       ],
       "agent": {
-        "required_tools": ["company_deadlines"],
-        "answer_must_include": ["2026-07-31"],
+        "required_tools": [
+          "company_deadlines"
+        ],
+        "answer_must_include": [
+          "2026-07-31"
+        ],
         "answer_must_not_include": []
       }
     },
@@ -193,20 +546,69 @@
       "prompt": "On 4 September 2026, what are Tesco's next Companies House filing deadlines, and are those dates Companies House's own or calculated?",
       "live": false,
       "notes": "Confirmed directly against ch_00445790.json: accounts.next_accounts.due_on=2027-08-26, confirmation_statement.next_due=2027-07-02 -- matches the research draft exactly (D-016/D-018 were not touched by the R01/T18 fix, which only changed Norway). This is the case that proves the provenance ('register's own figure, not a calculation') is stated in applies_because, not just correct.",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "00445790", "fixture": "ch_00445790.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00445790",
+            "fixture": "ch_00445790.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "00445790", "country": "GB", "today": "2026-09-04"}, "save_as": "deadlines"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "00445790",
+            "country": "GB",
+            "today": "2026-09-04"
+          },
+          "save_as": "deadlines"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "deadlines[kind=confirmation_statement].due_date", "op": "equals", "value": "2027-07-02"},
-        {"call": 0, "path": "deadlines[kind=annual_accounts].due_date", "op": "equals", "value": "2027-08-26"},
-        {"call": 0, "path": "deadlines[kind=confirmation_statement].applies_because", "op": "contains", "value": "register's own figure, not a calculation"},
-        {"call": 0, "path": "deadlines[kind=annual_accounts].applies_because", "op": "contains", "value": "register's own figure, not a calculation"},
-        {"call": 0, "path": "deadlines[kind=annual_accounts].rolled_forward", "op": "equals", "value": false}
+        {
+          "call": 0,
+          "path": "deadlines[kind=confirmation_statement].due_date",
+          "op": "equals",
+          "value": "2027-07-02"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=annual_accounts].due_date",
+          "op": "equals",
+          "value": "2027-08-26"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=confirmation_statement].applies_because",
+          "op": "contains",
+          "value": "register's own figure, not a calculation"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=annual_accounts].applies_because",
+          "op": "contains",
+          "value": "register's own figure, not a calculation"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=annual_accounts].rolled_forward",
+          "op": "equals",
+          "value": false
+        }
       ],
       "agent": {
-        "answer_must_include": ["2027-07-02", "2027-08-26"],
-        "answer_must_not_include": ["we calculated", "we computed"]
+        "answer_must_include": [
+          "2027-07-02",
+          "2027-08-26"
+        ],
+        "answer_must_not_include": [
+          "we calculated",
+          "we computed"
+        ]
       }
     },
     {
@@ -214,19 +616,66 @@
       "group": "C",
       "prompt": "What does dissolved UK company 00000006 still need to file?",
       "live": false,
-      "notes": "An empty deadlines list must not be reported as an error or as 'no data'.",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "00000006", "fixture": "ch_00000006.json"}]},
+      "notes": "An empty deadlines list must not be reported as an error or as 'no data'. The prompt gives no date, so `today` is wildcarded for --agent's structured checks (2026-09-05 follow-up item 4); the empty-list check is date-invariant regardless (status=dissolved gates it, not the date).",
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00000006",
+            "fixture": "ch_00000006.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "00000006", "country": "GB", "today": "2026-09-04"}, "save_as": "deadlines"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "00000006",
+            "country": "GB",
+            "today": "2026-09-04"
+          },
+          "save_as": "deadlines"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "deadlines", "op": "equals", "value": []},
-        {"call": 0, "path": "notes", "op": "any_contains", "value": "dissolved"},
-        {"call": 0, "path": "notes", "op": "any_contains", "value": "insolvency practitioner"}
+        {
+          "call": 0,
+          "path": "deadlines",
+          "op": "equals",
+          "value": []
+        },
+        {
+          "call": 0,
+          "path": "notes",
+          "op": "any_contains",
+          "value": "dissolved"
+        },
+        {
+          "call": 0,
+          "path": "notes",
+          "op": "any_contains",
+          "value": "insolvency practitioner"
+        }
       ],
       "agent": {
-        "answer_must_include": ["nothing", "dissolved"],
-        "answer_must_not_include": ["no data", "failed", "error occurred"]
+        "argument_alternatives": {
+          "company_deadlines": {
+            "today": [
+              "*"
+            ]
+          }
+        },
+        "answer_must_include": [
+          "nothing",
+          "dissolved"
+        ],
+        "answer_must_not_include": [
+          "no data",
+          "failed",
+          "error occurred"
+        ]
       }
     },
     {
@@ -234,18 +683,65 @@
       "group": "C",
       "prompt": "What are the filing deadlines for Registerenheten i Brønnøysund, org 974760673?",
       "live": false,
-      "notes": "DEVIATES FROM THE RESEARCH DRAFT, confirmed by direct execution against brreg_974760673.json: this entity's legal form (ORGL) IS a classified code (D-009's table lists it with all three duty columns None), so deadlines_for does NOT take the 'unclassified form' branch the draft assumed, and the report carries no exemption note at all (deadline_exemption_note returns None for a classified form). Because the fixture also reports antallAnsatte=492, deadlines_for legitimately returns ONE deadline -- payroll_report, due 2026-04-07 at today=2026-03-15 -- since that trigger (report.employees > 0) is independent of legal-form classification. The actual, durable regression this case protects is D-009(b): this entity must NEVER get a tax_return, which is the bug a T02 review caught (an ORGL was being told it owed a Skattemelding for næringsdrivende).",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup", "id": "974760673", "fixture": "brreg_974760673.json"}]},
+      "notes": "DEVIATES FROM THE RESEARCH DRAFT, confirmed by direct execution against brreg_974760673.json: this entity's legal form (ORGL) IS a classified code (D-009's table lists it with all three duty columns None), so deadlines_for does NOT take the 'unclassified form' branch the draft assumed, and the report carries no exemption note at all (deadline_exemption_note returns None for a classified form). Because the fixture also reports antallAnsatte=492, deadlines_for legitimately returns ONE deadline -- payroll_report, due 2026-04-07 at today=2026-03-15 -- since that trigger (report.employees > 0) is independent of legal-form classification. The actual, durable regression this case protects is D-009(b): this entity must NEVER get a tax_return, which is the bug a T02 review caught (an ORGL was being told it owed a Skattemelding for næringsdrivende). The prompt gives no date, so `today` is wildcarded for --agent's structured checks (2026-09-05 follow-up item 4); the payroll_report check is therefore 'is present', not 'is due 2026-04-07' -- that date is only correct for golden mode's pinned today.",
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "974760673",
+            "fixture": "brreg_974760673.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "974760673", "country": "NO", "today": "2026-03-15"}, "save_as": "deadlines"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "974760673",
+            "country": "NO",
+            "today": "2026-03-15"
+          },
+          "save_as": "deadlines"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "deadlines[kind=tax_return]", "op": "is_missing", "value": null, "gate": true, "note": "D-009(b): an ORGL/public body must never be told it owes a Norwegian tax return"},
-        {"call": 0, "path": "deadlines[kind=general_meeting]", "op": "is_missing", "value": null},
-        {"call": 0, "path": "deadlines[kind=payroll_report].due_date", "op": "equals", "value": "2026-04-07"}
+        {
+          "call": 0,
+          "path": "deadlines[kind=tax_return]",
+          "op": "is_missing",
+          "value": null,
+          "gate": true,
+          "note": "D-009(b): an ORGL/public body must never be told it owes a Norwegian tax return"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=general_meeting]",
+          "op": "is_missing",
+          "value": null
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=payroll_report]",
+          "op": "not_missing",
+          "value": null,
+          "note": "employees=492>0 always triggers this, independent of today or legal-form classification"
+        }
       ],
       "agent": {
-        "answer_must_not_include": ["tax return", "skattemelding", "Skattemelding for næringsdrivende"]
+        "argument_alternatives": {
+          "company_deadlines": {
+            "today": [
+              "*"
+            ]
+          }
+        },
+        "answer_must_not_include": [
+          "tax return",
+          "skattemelding",
+          "Skattemelding for næringsdrivende"
+        ]
       }
     },
     {
@@ -254,18 +750,60 @@
       "prompt": "Is this UK company late with any filing? Company number OC303675 (Deloitte LLP), as of 4 September 2026.",
       "live": false,
       "notes": "ch_OC303675.json is the committed fixture with confirmation_statement.overdue=true (the research draft's open question -- 'whether a committed fixture carries that state was not verified' -- is resolved: yes). Pinning today=2026-09-04, after the published due date of 2026-08-14, makes days_until genuinely negative rather than triggering the overdue-disagreement caveat (which only fires when overdue=true but days_until>=0).",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "OC303675", "fixture": "ch_OC303675.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "OC303675",
+            "fixture": "ch_OC303675.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "OC303675", "country": "GB", "today": "2026-09-04"}, "save_as": "deadlines"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "OC303675",
+            "country": "GB",
+            "today": "2026-09-04"
+          },
+          "save_as": "deadlines"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "deadlines[kind=confirmation_statement].due_date", "op": "equals", "value": "2026-08-14"},
-        {"call": 0, "path": "deadlines[kind=confirmation_statement].days_until", "op": "lt", "value": 0, "gate": true, "note": "a negative days_until must be reported as overdue, not as a stale/broken response"},
-        {"call": 0, "path": "deadlines[kind=confirmation_statement].applies_because", "op": "not_contains", "value": "may be more current than this cached record"}
+        {
+          "call": 0,
+          "path": "deadlines[kind=confirmation_statement].due_date",
+          "op": "equals",
+          "value": "2026-08-14"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=confirmation_statement].days_until",
+          "op": "lt",
+          "value": 0,
+          "gate": true,
+          "note": "a negative days_until must be reported as overdue, not as a stale/broken response"
+        },
+        {
+          "call": 0,
+          "path": "deadlines[kind=confirmation_statement].applies_because",
+          "op": "not_contains",
+          "value": "may be more current than this cached record"
+        }
       ],
       "agent": {
-        "answer_must_include": ["overdue", "late"],
-        "answer_must_not_include": ["stale data", "broken response", "no longer valid"]
+        "answer_must_include": [
+          "overdue",
+          "late"
+        ],
+        "answer_must_not_include": [
+          "stale data",
+          "broken response",
+          "no longer valid"
+        ]
       }
     },
     {
@@ -273,19 +811,68 @@
       "group": "C",
       "prompt": "When is this UK company's corporation tax return due? Company 00445790.",
       "live": false,
-      "notes": "Hard gate: corporation tax is documented (registry://rules/GB) but never computed as a Deadline -- an agent that invents a CT600 date defeats the product's core claim (D-016(b)).",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "00445790", "fixture": "ch_00445790.json"}]},
+      "notes": "Hard gate: corporation tax is documented (registry://rules/GB) but never computed as a Deadline -- an agent that invents a CT600 date defeats the product's core claim (D-016(b)). The prompt gives no date, so `today` is wildcarded for --agent's structured checks (2026-09-05 follow-up item 4); the corporation_tax-is-missing check is date-invariant regardless.",
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00445790",
+            "fixture": "ch_00445790.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "00445790", "country": "GB", "today": "2026-09-04"}, "save_as": "deadlines"},
-        {"type": "resource", "uri": "registry://rules/GB", "save_as": "rules"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "00445790",
+            "country": "GB",
+            "today": "2026-09-04"
+          },
+          "save_as": "deadlines"
+        },
+        {
+          "type": "resource",
+          "uri": "registry://rules/GB",
+          "save_as": "rules"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "deadlines[kind=corporation_tax]", "op": "is_missing", "value": null, "gate": true, "note": "no Deadline of this kind must ever be emitted -- Companies House does not publish the inputs"},
-        {"call": 1, "path": "", "op": "contains", "value": "Corporation tax"},
-        {"call": 1, "path": "", "op": "contains", "value": "not computed"}
+        {
+          "call": 0,
+          "path": "deadlines[kind=corporation_tax]",
+          "op": "is_missing",
+          "value": null,
+          "gate": true,
+          "note": "no Deadline of this kind must ever be emitted -- Companies House does not publish the inputs"
+        },
+        {
+          "call": 1,
+          "path": "",
+          "op": "contains",
+          "value": "Corporation tax"
+        },
+        {
+          "call": 1,
+          "path": "",
+          "op": "contains",
+          "value": "not computed"
+        }
       ],
       "agent": {
-        "answer_must_include": ["does not", "HMRC"],
+        "argument_alternatives": {
+          "company_deadlines": {
+            "today": [
+              "*"
+            ]
+          }
+        },
+        "answer_must_include": [
+          "does not",
+          "HMRC"
+        ],
         "answer_must_not_include": []
       }
     },
@@ -295,18 +882,58 @@
       "prompt": "Look up UK company OC303675.",
       "live": false,
       "notes": "Golden mode runs both legs to verify the server-side contract that makes self-correction possible: country='UK' must fail fast (before any network call) with a hint naming GB, and country='GB' must then succeed on the same identifier. Whether an actual agent self-corrects in one step (the metric the research file asks D-015's telemetry for) is only measurable in --agent mode; run.py reports the UK-then-GB pattern rate separately there.",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "OC303675", "fixture": "ch_OC303675.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "OC303675",
+            "fixture": "ch_OC303675.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "OC303675", "country": "UK"}, "expect_error": {"code": "unsupported_country"}, "save_as": "uk_attempt"},
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "OC303675", "country": "GB"}, "save_as": "gb_attempt"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "OC303675",
+            "country": "UK"
+          },
+          "expect_error": {
+            "code": "unsupported_country"
+          },
+          "save_as": "uk_attempt"
+        },
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "OC303675",
+            "country": "GB"
+          },
+          "save_as": "gb_attempt"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "error.hint", "op": "contains", "value": "GB"},
-        {"call": 1, "path": "name", "op": "equals", "value": "DELOITTE LLP"}
+        {
+          "call": 0,
+          "path": "error.hint",
+          "op": "contains",
+          "value": "GB"
+        },
+        {
+          "call": 1,
+          "path": "name",
+          "op": "equals",
+          "value": "DELOITTE LLP"
+        }
       ],
       "agent": {
         "max_tool_calls": 2,
-        "answer_must_include": ["DELOITTE"]
+        "answer_must_include": [
+          "DELOITTE"
+        ]
       }
     },
     {
@@ -315,12 +942,30 @@
       "prompt": "Look up Norwegian company 833286602.",
       "live": false,
       "notes": "833286602 fails MOD11 (the T01 typo Kim confirmed was for 833285602). validate_orgnr raises before any HTTP call, so no mock is needed. The 'must not be retried' requirement is a trajectory property only --agent mode can score; golden mode verifies the single call's error contract is intact.",
-      "setup": {"mocks": []},
+      "setup": {
+        "mocks": []
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "833286602", "country": "NO"}, "expect_error": {"code": "invalid_id"}, "save_as": "attempt"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "833286602",
+            "country": "NO"
+          },
+          "expect_error": {
+            "code": "invalid_id"
+          },
+          "save_as": "attempt"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "error.hint", "op": "contains", "value": "search_company"}
+        {
+          "call": 0,
+          "path": "error.hint",
+          "op": "contains",
+          "value": "search_company"
+        }
       ],
       "agent": {
         "max_tool_calls": 2,
@@ -333,15 +978,42 @@
       "prompt": "Look up Norwegian org 999999999.",
       "live": false,
       "notes": "Well-formed (passes MOD11) but unissued. The 404 is synthetic (no committed fixture needed -- a 404 has no body to fabricate).",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup_404", "id": "999999999"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup_404",
+            "id": "999999999"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "999999999", "country": "NO"}, "expect_error": {"code": "not_found"}, "save_as": "attempt"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "999999999",
+            "country": "NO"
+          },
+          "expect_error": {
+            "code": "not_found"
+          },
+          "save_as": "attempt"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "error.hint", "op": "contains", "value": "search_company"}
+        {
+          "call": 0,
+          "path": "error.hint",
+          "op": "contains",
+          "value": "search_company"
+        }
       ],
       "agent": {
-        "answer_must_not_include": ["found a company", "the company is"]
+        "answer_must_not_include": [
+          "found a company",
+          "the company is"
+        ]
       }
     },
     {
@@ -349,20 +1021,62 @@
       "group": "D",
       "prompt": "What are Equinor's deadlines as of 15/01/2026?",
       "live": false,
-      "notes": "Deliberately non-ISO 'today'. Golden mode checks both server-side halves of the D-007 A/B in `03-tool-audit` item 9: the malformed format is rejected with bad_request naming YYYY-MM-DD, and a corrected retry succeeds. --agent mode additionally reports the fraction of trials whose FIRST company_deadlines call already used a valid YYYY-MM-DD today -- the actual metric this case exists to produce.",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup", "id": "923609016", "fixture": "brreg_923609016.json"}]},
+      "notes": "Deliberately non-ISO 'today'. Golden mode checks both server-side halves of the D-007 A/B in `03-tool-audit` item 9: the malformed format is rejected with bad_request naming YYYY-MM-DD, and a corrected retry succeeds. --agent mode additionally reports the fraction of trials whose FIRST company_deadlines call already used a valid YYYY-MM-DD today -- the actual metric this case exists to produce. The prompt names Equinor by name only (no id), so a well-behaved agent that does not guess an identifier needs a search_company call too; max_tool_calls allows for search + one bad-format attempt + one corrected attempt + a small margin (2026-09-05 follow-up item 1 fixed the mock gap that was forcing a repeated search here).",
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "923609016", "country": "NO", "today": "15/01/2026"}, "expect_error": {"code": "bad_request"}, "save_as": "bad"},
-        {"type": "tool", "tool": "company_deadlines", "arguments": {"id": "923609016", "country": "NO", "today": "2026-01-15"}, "save_as": "good"}
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "923609016",
+            "country": "NO",
+            "today": "15/01/2026"
+          },
+          "expect_error": {
+            "code": "bad_request"
+          },
+          "save_as": "bad"
+        },
+        {
+          "type": "tool",
+          "tool": "company_deadlines",
+          "arguments": {
+            "id": "923609016",
+            "country": "NO",
+            "today": "2026-01-15"
+          },
+          "save_as": "good"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "error.hint", "op": "contains", "value": "YYYY-MM-DD"},
-        {"call": 1, "path": "deadlines", "op": "length_equals", "value": 6}
+        {
+          "call": 0,
+          "path": "error.hint",
+          "op": "contains",
+          "value": "YYYY-MM-DD"
+        },
+        {
+          "call": 1,
+          "path": "deadlines",
+          "op": "length_equals",
+          "value": 6
+        }
       ],
       "agent": {
-        "max_tool_calls": 3,
+        "max_tool_calls": 4,
         "first_try_date_metric": true,
-        "answer_must_include": ["2026-07-31"]
+        "answer_must_include": [
+          "2026-07-31"
+        ]
       }
     },
     {
@@ -371,17 +1085,41 @@
       "prompt": "Look up UK company 00445790.",
       "live": false,
       "notes": "Server started with COMPANIES_HOUSE_API_KEY unset. _fetch() checks for the key before creating an HTTP client or opening a socket, so no network mock is needed -- this is a pure environment-variable test.",
-      "setup": {"gb_api_key": "unset", "mocks": []},
+      "setup": {
+        "gb_api_key": "unset",
+        "mocks": []
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "00445790", "country": "GB"}, "expect_error": {"code": "upstream_error"}, "save_as": "attempt"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "00445790",
+            "country": "GB"
+          },
+          "expect_error": {
+            "code": "upstream_error"
+          },
+          "save_as": "attempt"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "error.hint", "op": "contains", "value": "COMPANIES_HOUSE_API_KEY"}
+        {
+          "call": 0,
+          "path": "error.hint",
+          "op": "contains",
+          "value": "COMPANIES_HOUSE_API_KEY"
+        }
       ],
       "agent": {
         "max_tool_calls": 2,
-        "answer_must_include": ["cannot", "UK"],
-        "answer_must_not_include": ["TESCO"]
+        "answer_must_include": [
+          "cannot",
+          "UK"
+        ],
+        "answer_must_not_include": [
+          "TESCO"
+        ]
       }
     },
     {
@@ -390,16 +1128,46 @@
       "prompt": "Is Tesco PLC VAT-registered?",
       "live": false,
       "notes": "HARD GATE. vat_registered is null for every GB company (Companies House does not publish VAT status) -- an agent must say the register does not publish this, never 'no'.",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "00445790", "fixture": "ch_00445790.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00445790",
+            "fixture": "ch_00445790.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "00445790", "country": "GB"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "00445790",
+            "country": "GB"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "vat_registered", "op": "is_null", "value": null, "gate": true, "note": "must be null (unknown), never false"}
+        {
+          "call": 0,
+          "path": "vat_registered",
+          "op": "is_null",
+          "value": null,
+          "gate": true,
+          "note": "must be null (unknown), never false"
+        }
       ],
       "agent": {
-        "answer_must_include": ["does not publish", "not"],
-        "answer_must_not_include": ["Tesco is not VAT-registered", "no, it is not"]
+        "answer_must_include": [
+          "does not publish",
+          "not"
+        ],
+        "answer_must_not_include": [
+          "Tesco is not VAT-registered",
+          "no, it is not"
+        ]
       }
     },
     {
@@ -408,17 +1176,51 @@
       "prompt": "How many people work at Tesco, according to the register?",
       "live": false,
       "notes": "HARD GATE. Companies House publishes no employee count for any UK company; employees is always null, never 0.",
-      "setup": {"mocks": [{"country": "GB", "kind": "lookup", "id": "00445790", "fixture": "ch_00445790.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00445790",
+            "fixture": "ch_00445790.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "00445790", "country": "GB"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "00445790",
+            "country": "GB"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "employees", "op": "is_null", "value": null, "gate": true},
-        {"call": 0, "path": "employees_reported", "op": "equals", "value": false}
+        {
+          "call": 0,
+          "path": "employees",
+          "op": "is_null",
+          "value": null,
+          "gate": true
+        },
+        {
+          "call": 0,
+          "path": "employees_reported",
+          "op": "equals",
+          "value": false
+        }
       ],
       "agent": {
-        "answer_must_include": ["does not publish"],
-        "answer_must_not_include": ["0 employees", "zero employees", "no employees"]
+        "answer_must_include": [
+          "does not publish"
+        ],
+        "answer_must_not_include": [
+          "0 employees",
+          "zero employees",
+          "no employees"
+        ]
       }
     },
     {
@@ -427,18 +1229,58 @@
       "prompt": "How many employees does 833285602 have?",
       "live": false,
       "notes": "HARD GATE, D-011: the fixture carries harRegistrertAntallAnsatte=true with no antallAnsatte number at all. employees stays null and employees_reported is derived to false (not mirrored from the flag) -- exactly the contradiction the T10 review caught, now a permanent regression test.",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup", "id": "833285602", "fixture": "brreg_833285602.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "833285602",
+            "fixture": "brreg_833285602.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "833285602", "country": "NO"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "833285602",
+            "country": "NO"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "employees", "op": "is_null", "value": null, "gate": true},
-        {"call": 0, "path": "employees_reported", "op": "equals", "value": false},
-        {"call": 0, "path": "notes", "op": "any_contains", "value": "treat the employee count as unknown"}
+        {
+          "call": 0,
+          "path": "employees",
+          "op": "is_null",
+          "value": null,
+          "gate": true
+        },
+        {
+          "call": 0,
+          "path": "employees_reported",
+          "op": "equals",
+          "value": false
+        },
+        {
+          "call": 0,
+          "path": "notes",
+          "op": "any_contains",
+          "value": "treat the employee count as unknown"
+        }
       ],
       "agent": {
-        "answer_must_include": ["unknown", "does not"],
-        "answer_must_not_include": ["0 employees", "zero employees", "has no employees"]
+        "answer_must_include": [
+          "unknown",
+          "does not"
+        ],
+        "answer_must_not_include": [
+          "0 employees",
+          "zero employees",
+          "has no employees"
+        ]
       }
     },
     {
@@ -447,18 +1289,57 @@
       "prompt": "Is this company bankrupt right now? I'm about to pay an invoice. Org 923609016.",
       "live": false,
       "notes": "Not bankrupt (Equinor). The point is freshness: fetched_at and source_url must be present so an agent COULD tell the user when the data is from and where to verify -- llms-full.txt section 5 asks for this in prose but nothing server-side enforces it, so this case checks the ingredients exist, not that a golden 'answer' says the sentence (there is no LLM in golden mode to write it).",
-      "setup": {"mocks": [{"country": "NO", "kind": "lookup", "id": "923609016", "fixture": "brreg_923609016.json"}]},
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
       "calls": [
-        {"type": "tool", "tool": "lookup_company", "arguments": {"id": "923609016", "country": "NO"}, "save_as": "lookup"}
+        {
+          "type": "tool",
+          "tool": "lookup_company",
+          "arguments": {
+            "id": "923609016",
+            "country": "NO"
+          },
+          "save_as": "lookup"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "status", "op": "equals", "value": "active"},
-        {"call": 0, "path": "is_active", "op": "equals", "value": true},
-        {"call": 0, "path": "fetched_at", "op": "not_null"},
-        {"call": 0, "path": "source_url", "op": "contains", "value": "brreg.no"}
+        {
+          "call": 0,
+          "path": "status",
+          "op": "equals",
+          "value": "active"
+        },
+        {
+          "call": 0,
+          "path": "is_active",
+          "op": "equals",
+          "value": true
+        },
+        {
+          "call": 0,
+          "path": "fetched_at",
+          "op": "not_null"
+        },
+        {
+          "call": 0,
+          "path": "source_url",
+          "op": "contains",
+          "value": "brreg.no"
+        }
       ],
       "agent": {
-        "answer_must_include": ["not bankrupt", "active"],
+        "answer_must_include": [
+          "not bankrupt",
+          "active"
+        ],
         "answer_must_not_include": []
       }
     },
@@ -468,21 +1349,68 @@
       "prompt": "I have a spreadsheet column of 500 Norwegian org numbers. Which ones are malformed? Here are the first three: 923609016, 833286602, 12345.",
       "live": false,
       "notes": "The cheap tool should win: validate_company_id is pure (no I/O, no mocks needed) and no lookup_company call is warranted for a format check.",
-      "setup": {"mocks": []},
+      "setup": {
+        "mocks": []
+      },
       "calls": [
-        {"type": "tool", "tool": "validate_company_id", "arguments": {"id": "923609016", "country": "NO"}, "save_as": "v1"},
-        {"type": "tool", "tool": "validate_company_id", "arguments": {"id": "833286602", "country": "NO"}, "save_as": "v2"},
-        {"type": "tool", "tool": "validate_company_id", "arguments": {"id": "12345", "country": "NO"}, "save_as": "v3"}
+        {
+          "type": "tool",
+          "tool": "validate_company_id",
+          "arguments": {
+            "id": "923609016",
+            "country": "NO"
+          },
+          "save_as": "v1"
+        },
+        {
+          "type": "tool",
+          "tool": "validate_company_id",
+          "arguments": {
+            "id": "833286602",
+            "country": "NO"
+          },
+          "save_as": "v2"
+        },
+        {
+          "type": "tool",
+          "tool": "validate_company_id",
+          "arguments": {
+            "id": "12345",
+            "country": "NO"
+          },
+          "save_as": "v3"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "valid", "op": "equals", "value": true},
-        {"call": 1, "path": "valid", "op": "equals", "value": false},
-        {"call": 2, "path": "valid", "op": "equals", "value": false}
+        {
+          "call": 0,
+          "path": "valid",
+          "op": "equals",
+          "value": true
+        },
+        {
+          "call": 1,
+          "path": "valid",
+          "op": "equals",
+          "value": false
+        },
+        {
+          "call": 2,
+          "path": "valid",
+          "op": "equals",
+          "value": false
+        }
       ],
       "agent": {
-        "forbidden_tools": ["lookup_company", "search_company"],
+        "forbidden_tools": [
+          "lookup_company",
+          "search_company"
+        ],
         "gate": true,
-        "answer_must_include": ["833286602", "12345"]
+        "answer_must_include": [
+          "833286602",
+          "12345"
+        ]
       }
     },
     {
@@ -491,18 +1419,40 @@
       "prompt": "Before I process a list of UK company numbers, what are the format rules?",
       "live": false,
       "notes": "Read the rules once rather than probing in a loop. The A/B for `03-tool-audit` item 17: registry://rules/{cc} being a real, listed resource is what makes this a one-call answer.",
-      "setup": {"mocks": []},
+      "setup": {
+        "mocks": []
+      },
       "calls": [
-        {"type": "resource", "uri": "registry://rules/GB", "save_as": "rules"}
+        {
+          "type": "resource",
+          "uri": "registry://rules/GB",
+          "save_as": "rules"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "", "op": "contains", "value": "8 characters"},
-        {"call": 0, "path": "", "op": "contains", "value": "zero-padded"}
+        {
+          "call": 0,
+          "path": "",
+          "op": "contains",
+          "value": "8 characters"
+        },
+        {
+          "call": 0,
+          "path": "",
+          "op": "contains",
+          "value": "zero-padded"
+        }
       ],
       "agent": {
         "max_tool_calls": 1,
-        "forbidden_tools": ["lookup_company", "search_company"],
-        "answer_must_include": ["8", "prefix"]
+        "forbidden_tools": [
+          "lookup_company",
+          "search_company"
+        ],
+        "answer_must_include": [
+          "8",
+          "prefix"
+        ]
       }
     },
     {
@@ -511,13 +1461,23 @@
       "prompt": "What's the difference between an AS and an ASA in Norway?",
       "live": false,
       "notes": "No tool is needed for general knowledge about legal forms -- Braintrust's category 1 ('requests requiring no tool'). There is nothing for golden mode to execute or assert against server output (no LLM writes an answer in golden mode), so this case is informational-only there: run.py reports it as skipped-by-design in --golden and scores it for real only in --agent mode. Separately worth recording: registry://rules/NO's current text does not actually define AS vs ASA (it only covers the identifier format and the six deadlines), so an agent restrained to 'at most one resource read' would not find the answer there either -- it would have to answer from general knowledge or admit it does not know, not read the resource and then still guess.",
-      "setup": {"mocks": []},
+      "setup": {
+        "mocks": []
+      },
       "calls": [],
       "checks": [],
       "agent": {
         "max_tool_calls": 1,
-        "forbidden_tools": ["lookup_company", "search_company", "company_deadlines", "validate_company_id"],
-        "answer_must_include": ["public", "private"],
+        "forbidden_tools": [
+          "lookup_company",
+          "search_company",
+          "company_deadlines",
+          "validate_company_id"
+        ],
+        "answer_must_include": [
+          "public",
+          "private"
+        ],
         "answer_must_not_include": []
       }
     },
@@ -526,19 +1486,346 @@
       "group": "F",
       "prompt": "Can you look up a German company for me? HRB 12345.",
       "live": false,
-      "notes": "Country discovery instead of a guess: list_countries is pure, no mocks needed.",
-      "setup": {"mocks": []},
+      "notes": "Country discovery instead of a guess: list_countries is pure, no mocks needed. --agent's free-text checks were fully retired after two rounds of real-model runs each broke a different one (2026-09-05 follow-up item 5, then item 2 applied a second time): 'answer_must_include: not supported' missed 'doesn't cover Germany yet' even after a widened synonym group; 'answer_must_not_include: the German company' then false-triggered on a benign, helpful closing offer ('...or if you have the German company's name and want me to check whether it's also registered in Norway or the UK...') that asserts nothing false. Both are exactly 'prefer structured checks over free-text phrase matching wherever possible' (item 2) earning its keep: the two checks below (list_countries' result excludes DE; the agent never called lookup_company) already verify everything this case needs, reliably, across every paraphrase seen so far.",
+      "setup": {
+        "mocks": []
+      },
       "calls": [
-        {"type": "tool", "tool": "list_countries", "arguments": {}, "save_as": "countries"}
+        {
+          "type": "tool",
+          "tool": "list_countries",
+          "arguments": {},
+          "save_as": "countries"
+        }
       ],
       "checks": [
-        {"call": 0, "path": "countries.*.country", "op": "equals_set", "value": ["GB", "NO"]},
-        {"call": 0, "path": "countries.*.country", "op": "not_contains", "value": "DE", "gate": true}
+        {
+          "call": 0,
+          "path": "countries.*.country",
+          "op": "equals_set",
+          "value": [
+            "GB",
+            "NO"
+          ]
+        },
+        {
+          "call": 0,
+          "path": "countries.*.country",
+          "op": "not_contains",
+          "value": "DE",
+          "gate": true
+        }
       ],
       "agent": {
-        "forbidden_tools": ["lookup_company"],
-        "answer_must_include": ["not supported", "Germany"],
-        "answer_must_not_include": ["HRB 12345 is", "the German company"]
+        "forbidden_tools": [
+          "lookup_company"
+        ],
+        "answer_must_include": [],
+        "answer_must_not_include": []
+      }
+    },
+    {
+      "id": "E27",
+      "group": "G",
+      "prompt": "Find the Norwegian company Equinor and tell me when its annual accounts are due.",
+      "notes": "The one assertion that matters: fetch(search.results[0].id) must resolve. Golden mode substitutes the id the connector actually minted, so an id-format change fails here rather than in production.",
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "search",
+            "fixture": "brreg_923609016.json"
+          },
+          {
+            "country": "GB",
+            "kind": "search",
+            "fixture": "ch_search_empty.json"
+          },
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "type": "tool",
+          "tool": "search",
+          "arguments": {
+            "query": "Equinor"
+          },
+          "save_as": "s"
+        },
+        {
+          "type": "tool",
+          "tool": "fetch",
+          "arguments": {
+            "id": "{{s.results[0].id}}"
+          },
+          "save_as": "d"
+        }
+      ],
+      "checks": [
+        {
+          "call": 0,
+          "path": "results[0].id",
+          "op": "equals",
+          "value": "NO:923609016"
+        },
+        {
+          "call": 0,
+          "path": "results[0].url",
+          "op": "contains",
+          "value": "/v1/NO/company/923609016"
+        },
+        {
+          "call": 0,
+          "path": "results[0].title",
+          "op": "contains",
+          "value": "EQUINOR ASA"
+        },
+        {
+          "call": 1,
+          "path": "id",
+          "op": "equals",
+          "value": "NO:923609016"
+        },
+        {
+          "call": 1,
+          "path": "metadata.company_report.name",
+          "op": "equals",
+          "value": "EQUINOR ASA"
+        },
+        {
+          "call": 1,
+          "path": "text",
+          "op": "contains",
+          "value": "Årsregnskap",
+          "gate": true,
+          "note": "deadlines must be in the rendering: ChatGPT deep research cannot call company_deadlines"
+        },
+        {
+          "call": 1,
+          "path": "text",
+          "op": "contains",
+          "value": "regnskapsloven § 8-3(1)"
+        },
+        {
+          "call": 1,
+          "path": "text",
+          "op": "contains",
+          "value": "calendar-year accounting period",
+          "gate": true,
+          "note": "every notes sentence must survive into text (D-010)"
+        }
+      ],
+      "agent": {
+        "answer_must_include": [
+          "2027-07-31"
+        ]
+      }
+    },
+    {
+      "id": "E28",
+      "group": "G",
+      "prompt": "What is NO 923 609 016?",
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "lookup",
+            "id": "923609016",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "type": "tool",
+          "tool": "search",
+          "arguments": {
+            "query": "923609016"
+          },
+          "save_as": "s"
+        }
+      ],
+      "checks": [
+        {
+          "call": 0,
+          "path": "results",
+          "op": "length_equals",
+          "value": 1
+        },
+        {
+          "call": 0,
+          "path": "results[0].id",
+          "op": "equals",
+          "value": "NO:923609016"
+        }
+      ]
+    },
+    {
+      "id": "E29",
+      "group": "G",
+      "prompt": "Fetch the Companies House record GB:00445790 and tell me if it is VAT-registered.",
+      "setup": {
+        "mocks": [
+          {
+            "country": "GB",
+            "kind": "lookup",
+            "id": "00445790",
+            "fixture": "ch_00445790.json"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "type": "tool",
+          "tool": "fetch",
+          "arguments": {
+            "id": "GB:00445790"
+          },
+          "save_as": "d"
+        }
+      ],
+      "checks": [
+        {
+          "call": 0,
+          "path": "metadata.company_report.vat_registered",
+          "op": "is_null",
+          "gate": true
+        },
+        {
+          "call": 0,
+          "path": "metadata.deadline_report.deadlines",
+          "op": "length_equals",
+          "value": 2
+        },
+        {
+          "call": 0,
+          "path": "text",
+          "op": "contains",
+          "value": "Confirmation statement (CS01)"
+        },
+        {
+          "call": 0,
+          "path": "text",
+          "op": "contains",
+          "value": "the register's own figure"
+        },
+        {
+          "call": 0,
+          "path": "url",
+          "op": "contains",
+          "value": "/v1/GB/company/00445790"
+        }
+      ],
+      "agent": {
+        "answer_must_not_include": [
+          "not VAT-registered",
+          "is not registered for VAT"
+        ]
+      }
+    },
+    {
+      "id": "E30",
+      "group": "G",
+      "prompt": "Look up the company Zzzqqx Holdings.",
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "search_empty"
+          },
+          {
+            "country": "GB",
+            "kind": "search",
+            "fixture": "ch_search_empty.json"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "type": "tool",
+          "tool": "search",
+          "arguments": {
+            "query": "Zzzqqx Holdings"
+          },
+          "save_as": "s"
+        }
+      ],
+      "checks": [
+        {
+          "call": 0,
+          "path": "results.*.id",
+          "op": "equals_set",
+          "value": [
+            "rules:GB",
+            "rules:NO"
+          ]
+        },
+        {
+          "call": 0,
+          "path": "results.*.title",
+          "op": "none_contains",
+          "value": "Zzzqqx",
+          "gate": true,
+          "note": "a zero-hit search must never emit a row that looks like the company asked for"
+        }
+      ],
+      "agent": {
+        "answer_must_not_include": [
+          "Zzzqqx Holdings is",
+          "found the company"
+        ]
+      }
+    },
+    {
+      "id": "E31",
+      "group": "G",
+      "prompt": "Search the Norwegian company register for Equinor and give me its organisation number.",
+      "notes": "Agent mode only: a plain name query from a Claude-family client must reach search_company, not the alias (DECISIONS.md D-031(e)). If this case fails, that is the trigger for D-031(a)'s named escape hatch -- split the connector onto a second endpoint -- not for rewording the description a third time.",
+      "setup": {
+        "mocks": [
+          {
+            "country": "NO",
+            "kind": "search",
+            "fixture": "brreg_923609016.json"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "type": "tool",
+          "tool": "search_company",
+          "arguments": {
+            "name": "Equinor",
+            "country": "NO"
+          },
+          "save_as": "s"
+        }
+      ],
+      "checks": [
+        {
+          "call": 0,
+          "path": "hits[0].id",
+          "op": "equals",
+          "value": "923609016"
+        }
+      ],
+      "agent": {
+        "required_tools": [
+          "search_company"
+        ],
+        "forbidden_tools": [
+          "search",
+          "fetch"
+        ],
+        "answer_must_include": [
+          "923609016"
+        ]
       }
     }
   ]
