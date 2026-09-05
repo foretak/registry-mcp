@@ -44,3 +44,19 @@ Found 2026-09-04 across the official MCP registry, Glama and Smithery. None has 
 | `DimaVasilenko-Intune/mcp-brreg`, `andyarntsen-alt/brreg-mcp-server`, `daveHylde`, `reidar80`, `josuekongolo/CompanyIQ`, `Mnymann/nordic-data-mcp` | various | stale (7–12 months) |
 
 What none of them appear to do: filing deadlines with `today`, verified-field mapping with honest `null`/`notes`, REST≡MCP parity, `llms.txt` discovery layer. That, plus freshness, is the differentiation to lead with in the articles.
+
+---
+
+## Addendum 2026-09-05 — competitors the 2026-09-04 audit missed
+
+Found by the research task force (`research/05-competitors.md`; full census in
+`~/research/registry-mcp/05-competitors/`):
+
+- **Proff Premium MCP** (Enento) — NO/SE/DK/FI, financials, roles, beneficial owners; quote-only behind a NOK 12,490–24,990/year subscription. https://forvalt.no/ProffAPI/MCP
+- **Apier** (`PowerLaunch/apier-mcp`) — 26 tools incl. Norwegian deadlines and obligations with legal references, Altinn delegation; NOK 0–9,999/month or 0.50 kr/call, free in beta; Norway-only, key required, closed backend. The closest competitor. https://www.apier.no/pricing
+- **`io.github.pipeworx-io/brreg-no`** — a second brreg server in the official MCP registry (with `hellosverre/brreg`).
+- **`bouch/uk-due-diligence`** — 16 tools over five UK registers, 60,787 Smithery uses (created 2026-04-29). The UK incumbent.
+- **ENTIA** — 10 countries, anonymous hosted endpoint, 16,045 Smithery uses; the proof that keyless access predicts usage.
+- **Firmaradar** — 99 kr/month + 0.08 kr/lookup; **Nordic Data** (`nordicdata.cloud`) listed active in the official registry but HTTP 525 all day on 2026-09-05; **CompanyIQ** 404.
+
+Net: fifteen brreg MCP repos exist (best: 8 stars); none computes a deadline, none validates an identifier offline, and only two are in the official registry. The defensible line is *one response shape, deadlines with cited statutes, across countries, free and keyless* — not "an MCP server for brreg".
