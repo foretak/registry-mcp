@@ -11,7 +11,7 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 
 | Channel | Where | Since | Status |
 |---|---|---|---|
-| Reddit r/mcp | https://www.reddit.com/r/mcp/comments/1w7u6j0/ | 2026-09-05 | filtered on posting, then visible again the same day (modmail sent); first comment received |
+| Reddit r/mcp | https://www.reddit.com/r/mcp/comments/1w7u6j0/ | 2026-09-05 | removed by Reddit's automatic filter on posting; modmail to the mods sent; no comments |
 | dev.to | five articles under https://dev.to/fargeroddotcom | 2026-09-04 | no comments yet |
 | GitHub | https://github.com/foretak/registry-mcp/issues | 2026-09-04 | only our 3 seed issues |
 | mcp.so | chatmcp/mcpso#3927 | 2026-09-04 | no reply |
@@ -20,4 +20,4 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 
 ## Entries
 
-- 2026-09-05 · Reddit r/mcp · commenter on post 1 · asked whether an agent had ever misread `active` or an overdue date before the response shape was fixed · Kim replied honestly: no real users yet; the traps seen in tests were Companies House `open` for overseas entities, brreg returning 200 for deleted companies, and the silent zero-deadlines bug (T15e B1 / D-018). Signal: readers care about *how the tool fails*, not the feature list.
+_(none yet — day one, 2026-09-05)_
