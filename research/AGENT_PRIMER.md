@@ -79,9 +79,9 @@ than price.
 8. **Compliance beats fraud as the story.** Skatteklagenemnda NS 116/2018:
    kr 691,100 input VAT disallowed plus kr 138,220 penalty for not checking
    the seller's VAT registration; NS 27/2019 similar (03, 06). Finanstilsynet
-   Rundskriv 15/2019 requires an Enhetsregisteret lookup no older than one
-   month with a provable record; our 24 h cache and `fetched_at` satisfy it
-   30× over (06). Invoice fraud is at record lows and is payment redirection,
+   Rundskriv 15/2019 § 4.4.1 allows a register lookup up to three months old
+   (one month for information the customer supplies) and requires a provable
+   record; our 24 h cache and `fetched_at` sit well inside both (06). Invoice fraud is at record lows and is payment redirection,
    which a registry lookup does not stop (06). Do not overclaim there.
 9. **Beneficial ownership is gated almost everywhere and Norway's gate has no
    vendor category** (03, 02). Estonia is the only register still publishing
