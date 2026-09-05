@@ -416,10 +416,21 @@ Free, no contract, no fee; credentials for **test and production** arrive by ema
 after a web form (the "kundanmälan"). The form sits behind bot protection, so Claude in
 Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-registers-landscape/02-sweden-bolagsverket.md` §2.
 
-- [ ] **Submit the kundanmälan** — the orchestrator writes the Claude-in-Chrome instruction
-      block (exact URL + fields) as soon as recon (T26r) has confirmed them; it will be
-      pasted here. You need: an email address (use hello@foretak.dev or fargerod@gmail.com —
-      whichever you want the keys sent to) and a mobile number for the SMS.
+- [ ] **Submit the kundanmälan** (confirmed by T26r on 2026-09-05: the form has exactly two
+      required fields, e-mail and mobile number; credentials for test **and** production
+      arrive as an **encrypted zip by e-mail**, with the zip **password by SMS**; a standing
+      notice on the page warns of longer handling times). Instruction block for Claude in Chrome:
+
+      ```
+      Open https://bolagsverket.se/apierochoppnadata/hamtaforetagsinformation/vardefulladatamangder/kundanmalantillapiforvardefulladatamangder.5528.html
+      This is Bolagsverket's "Kundanmälan till API för värdefulla datamängder" form. It has two required fields.
+      1. In "E-postadress" type: fargerod@gmail.com   (must be a real mailbox — Bolagsverket says it may not be a noreply address)
+      2. In "Mobilnummer" type Kim's mobile number in international format, e.g. +47 XXX XX XXX (Kim gives you the number; do not guess it)
+      3. Do not fill in or tick anything else. If the page shows a CAPTCHA or a cookie banner, stop and let Kim handle it, then continue.
+      4. Press the submit button ("Skicka" or similar). Do not press it twice.
+      5. Copy the confirmation text shown after submitting, word for word, and report it back. If the page shows an error, report the exact text instead and do not retry.
+      ```
+      Afterwards: the zip comes to fargerod@gmail.com, the password by SMS. Unzip locally, never in the repo.
 - [ ] When the email/SMS arrive: store them as `~/secrets/registry-mcp/bolagsverket-test.txt`
       and `bolagsverket-prod.txt` (client id + secret each), never in the repo, and tell the
       orchestrator. Env-variable names are fixed by D-032(f) in `DECISIONS.md`; the
