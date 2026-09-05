@@ -408,6 +408,26 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
 
 ---
 
+## 7.7 Sweden (T26) — Bolagsverket credentials for the free "värdefulla datamängder" API
+
+Why: the Sweden module is being built now (`tasks/T26.md`, Phase 7 in `PROGRESS.md`), but
+it cannot make a single real call until Bolagsverket issues OAuth 2 client credentials.
+Free, no contract, no fee; credentials for **test and production** arrive by email and SMS
+after a web form (the "kundanmälan"). The form sits behind bot protection, so Claude in
+Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-registers-landscape/02-sweden-bolagsverket.md` §2.
+
+- [ ] **Submit the kundanmälan** — the orchestrator writes the Claude-in-Chrome instruction
+      block (exact URL + fields) as soon as recon (T26r) has confirmed them; it will be
+      pasted here. You need: an email address (use hello@foretak.dev or fargerod@gmail.com —
+      whichever you want the keys sent to) and a mobile number for the SMS.
+- [ ] When the email/SMS arrive: store them as `~/secrets/registry-mcp/bolagsverket-test.txt`
+      and `bolagsverket-prod.txt` (client id + secret each), never in the repo, and tell the
+      orchestrator. Env-variable names are fixed by D-032(f) in `DECISIONS.md`; the
+      orchestrator sets them on Railway (`railway variable set …`) and starts T26d (go-live).
+- Nothing else is needed from you for Sweden until then.
+
+---
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in

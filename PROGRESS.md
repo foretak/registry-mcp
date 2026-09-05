@@ -59,3 +59,16 @@ Completed phases are rolled up to one line each; the full done-check trails live
 | T23 | Sonnet | done | 2026-09-05 (commits dbf3c91, 208ce9a): D-031 implemented — `mcp/connector.py` (`search`/`fetch` aliases, verbatim D-031 descriptions, no country string in a branch), 31 connector tests, evals E27–E31 green, README "Add to ChatGPT" + "Add to Claude Desktop", `docs/clients.md` ChatGPT section, server card regenerated. Follow-up after a live check: `search("Equinor")` ranked a GB 0.8 hit above EQUINOR ASA (alphabetical fan-out on a confidence tie) → merged list sorted by confidence with an exact-name tie-break, capped at 10, spec amended. Tests 455. | — |
 | T24 | Sonnet | done | 2026-09-05 (commit e58fab8): homepage playground on `static/index.html` — validate → lookup + deadlines, or search; request URL shown; install lines + badges under the result; no auto-fire; never touches 833286602. | — |
 | T25 | Sonnet | done | 2026-09-05: Claude Code plugin marketplace (`.claude-plugin/marketplace.json` + plugin), MCPB manifest for Claude Desktop, `docs/clients.md` with per-client install snippets, one README pointer line. Verified live with the `claude` CLI: `claude plugin marketplace add foretak/registry-mcp` + `claude plugin install registry-mcp@foretak`; `mcpb validate` passes (icon 400 px, 512 recommended); `mcpb pack` builds a 2-file bundle. Gap: no privacy policy page yet — needed for the MCPB submission form and the Connectors Directory. | — |
+
+## Phase 7 — Third country: Sweden, `registries/se/` (T26, started 2026-09-05 ~21:45 local on Kim's instruction "set up a team creating the Sweden folder"; brief in `tasks/T26.md`)
+
+Denmark (T16) stays queued behind Erhvervsstyrelsen's answer (~2026-09-23); Sweden needs only a self-service credential form, so it goes first and Denmark reuses the recipe. Rules: zero `core/` edits (R-2 not authorised — REKLAMSPÄRR goes to `notes`; architect writes a recommendation for Kim), deadline rules ship only with a primary-source citation, no invented JSON shapes (VERIFY until live), no production calls.
+
+| id | owner | status | done-check | blocker |
+|---|---|---|---|---|
+| T26r | Opus R | in progress | Recon: real API shape/OpenAPI, kundanmälan form URL + fields, check digit from a primary source, statutes (ÅRL 8:3, ABL 7:10, förseningsavgift, roll-forward), code lists, licence + rate-limit sentences → library `02b-sweden-api-shape-and-law.md` + `tasks/T26-recon.md`. | — |
+| T26a | Opus A | in progress | `SWEDEN_SPEC.md` in `UK_SPEC.md`'s structure + D-032… (identifier, NAMNSKYDDSLÖPNUMMER, dual legal-form vocabulary, three-signal status, REKLAMSPÄRR→notes + R-2 recommendation, two-secret env contract, licence string, sole-trader note); §1/§5 finalised against T26r. | T26r for §1/§5 |
+| T26b | Sonnet | queued | `registries/se/` + fixtures + tests per the numbered list; no-credentials path correct on both surfaces; local server check only. | T26a |
+| T26c | Opus B | queued | CHANGELOG/README line/KEYWORDS §SE/docstring aliases — nothing that needs live output. | T26b |
+| T26d | — | blocked | Go-live: Kim's Bolagsverket credentials on Railway → live fixtures, README example from the running server, 0.3.0 bump, deploy, release. | Kim: kundanmälan (`HUMAN_TODO.md` §7.7) |
+| T26e | Opus A | queued | Review in `REVIEW.md` §T26e (T15e checklist scoped to SE). | T26b |
