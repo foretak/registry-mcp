@@ -288,7 +288,20 @@ PATCH after any `smithery mcp publish` in case a re-scan resets it.
 
 **Status (2026-09-05): approved and listed** at <https://glama.ai/mcp/servers/foretak/registry-mcp> (mail 13:45Z). The approval mail says: claim the server under the admin settings on the server page, then "provide a Dockerfile via your server's admin page on Glama: https://glama.ai/mcp/servers/foretak/registry-mcp/admin/dockerfile … it does not need to be added to your repository. Only servers that pass these checks are listed in search results." Until then the page reads "This server cannot be installed" and the score badge is 404. Paste the root `Dockerfile` (dual-mode, stdio when `PORT` is unset). Awesome-mcp-servers PR #13631 already carries the badge line (§7).
 
-**Correction, same day:** Glama's admin page pre-fills *its own* template (debian + node + `mcp-proxy` + uv,
+**Correction 2, same day — it is a form, not a file.** The admin page generates the Dockerfile from
+fields. Verified values (local build of the generated equivalent → Python 3.12.14, `initialize` +
+`tools/list` = 5 tools through mcp-proxy):
+
+| Field | Value |
+|---|---|
+| Base image | `debian:trixie-slim` (default) |
+| Node.js version | `26` (default) |
+| Python version | **`3.12`** (the tested version; the default 3.14 is untested) |
+| Build steps | `["uv sync --locked --no-dev", "mkdir -p /app/data"]` |
+| CMD arguments | `["/app/.venv/bin/registry-mcp"]` |
+| Environment variables JSON schema | the auto-detected one (three optional vars, `required: []`) |
+
+**Earlier note (kept for the record):** Glama's admin page pre-fills *its own* template (debian + node + `mcp-proxy` + uv,
 clone of our repo at a pinned commit) ending in `CMD ["mcp-proxy","--"]` with nothing after the `--`. Do not
 paste our root Dockerfile over it; complete their template instead. Verified locally 2026-09-05 (build, run
 with `MCP_PROXY_DEBUG=true`, `initialize` + `tools/list` over `http://localhost:8080/mcp` → 5 tools):
