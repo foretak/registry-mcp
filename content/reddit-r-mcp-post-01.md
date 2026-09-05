@@ -15,7 +15,7 @@ one scraper per country; Cialdini — state a weakness before the claim; Kazanjy
 
 ## Title
 
-MCP server for company registries: Companies House (UK) and brreg (Norway) behind the same five tools, one folder per country. Which country should be third?
+MCP server for company registries: Companies House (UK) and brreg (Norway) behind the same five tools, one folder per country. Denmark is next. Which one after that?
 
 ## Body
 
@@ -47,7 +47,7 @@ Adding a country is a subclass with four methods plus one import line. Nothing i
 
 Hosted: `claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp`. Local: `uvx registry-mcp`. MIT, Python, `github.com/foretak/registry-mcp`.
 
-Question for the room: if you are building agents that touch company data, which register would you want next, and what field do you keep having to look up by hand?
+Question for the room: if you are building agents that touch company data, which register would you want after Denmark, and what field do you keep having to look up by hand?
 
 ## First comment (posted by the author right after the post)
 
