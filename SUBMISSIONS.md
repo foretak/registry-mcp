@@ -288,6 +288,30 @@ PATCH after any `smithery mcp publish` in case a re-scan resets it.
 
 **Status (2026-09-05): approved and listed** at <https://glama.ai/mcp/servers/foretak/registry-mcp> (mail 13:45Z). The approval mail says: claim the server under the admin settings on the server page, then "provide a Dockerfile via your server's admin page on Glama: https://glama.ai/mcp/servers/foretak/registry-mcp/admin/dockerfile … it does not need to be added to your repository. Only servers that pass these checks are listed in search results." Until then the page reads "This server cannot be installed" and the score badge is 404. Paste the root `Dockerfile` (dual-mode, stdio when `PORT` is unset). Awesome-mcp-servers PR #13631 already carries the badge line (§7).
 
+**Correction, same day:** Glama's admin page pre-fills *its own* template (debian + node + `mcp-proxy` + uv,
+clone of our repo at a pinned commit) ending in `CMD ["mcp-proxy","--"]` with nothing after the `--`. Do not
+paste our root Dockerfile over it; complete their template instead. Verified locally 2026-09-05 (build, run
+with `MCP_PROXY_DEBUG=true`, `initialize` + `tools/list` over `http://localhost:8080/mcp` → 5 tools):
+
+```dockerfile
+FROM debian:trixie-slim
+ENV DEBIAN_FRONTEND=noninteractive \
+    GLAMA_VERSION="1.0.0" \
+    PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git && curl -fsSL https://deb.nodesource.com/setup_26.x | bash - && apt-get install -y --no-install-recommends nodejs && npm install -g mcp-proxy@6.4.3 pnpm@10.14.0 && node --version && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="/usr/local/bin" sh && uv python install 3.14 --default --preview && ln -s $(uv python find) /usr/local/bin/python && python --version && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+WORKDIR /app
+RUN git clone https://github.com/foretak/registry-mcp . && git checkout <the commit Glama pre-fills>
+RUN uv python install 3.12 && uv sync --locked --no-dev --python 3.12
+ENV PATH="/app/.venv/bin:/app/node_modules/.bin:$PATH" \
+    REGISTRY_MCP_CACHE_PATH=/app/data/cache.sqlite3
+RUN mkdir -p /app/data
+CMD ["mcp-proxy","--","registry-mcp"]
+```
+
+The three lines that are ours: `uv sync` on Python 3.12 (the tested version; the template defaults to 3.14),
+the `PATH`/cache `ENV`, and the completed `CMD`. Glama's environment-variable schema (`COMPANIES_HOUSE_API_KEY`,
+`REGISTRY_MCP_CACHE_PATH`, `REGISTRY_MCP_CONTACT_EMAIL`, none required) is correct as auto-detected.
+
 - **Site:** <https://glama.ai/mcp/servers>
 - **Manifest:** [`glama.json`](glama.json) — **created by T11**
 
