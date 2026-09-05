@@ -218,7 +218,7 @@ Publish a draft with one command (or the *Publish* button in the dev.to dashboar
 DEVTO_API_KEY=$(cat ~/secrets/registry-mcp/devto-api-key.txt) python content/publish_devto.py publish 4575628
 ```
 
-Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-day cadence). Reddit r/mcp and kode24 versions are not automated — post them by hand, ideally spread over the next week.
+Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-day cadence). **Article 2 (4575628) body was re-pushed 2026-09-05 13:21Z** with the regenerated deadline blocks after R01/T18 (annual accounts no longer roll forward; `applies_because` cites the provision). Reddit r/mcp and kode24 versions are not automated — post them by hand, ideally spread over the next week.
 
 | Day | dev.to (`devto.md`) | r/mcp (`reddit.md`) | kode24 (`no.md`) |
 |---|---|---|---|
