@@ -266,6 +266,22 @@ smithery mcp publish "https://api.foretak.dev/mcp" -n @foretak/registry-mcp
 GitHub login). Listing: <https://smithery.ai/servers/fargerod/registry-mcp>. Re-run the same command after
 each release; it re-scans the endpoint.
 
+**2026-09-05 — description was empty, listing invisible.** The CLI publish sets no description, and
+Smithery search is full-text + semantic, so `fargerod/registry-mcp` appeared in no search (useCount 0;
+research library `04-mcp-and-agent-ecosystem/`). Fixed via the registry API, which the CLI does not expose:
+
+```bash
+curl -X PATCH https://api.smithery.ai/servers/fargerod%2Fregistry-mcp \
+  -H "Authorization: Bearer $(cat ~/secrets/registry-mcp/smithery-api-key.txt)" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName": "...", "description": "...", "repositoryUrl": "https://github.com/foretak/registry-mcp"}'
+```
+
+Verified: `registry.smithery.ai/servers?q=brreg organisasjonsnummer` now returns us (4th). `repositoryUrl`
+came back `null` after the PATCH — re-check the field name in
+<https://smithery.ai/docs/api-reference/servers/update-a-server.md> if the repo link matters. Re-apply the
+PATCH after any `smithery mcp publish` in case a re-scan resets it.
+
 ---
 
 ## 3. Glama
