@@ -435,7 +435,24 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
       and `bolagsverket-prod.txt` (client id + secret each), never in the repo, and tell the
       orchestrator. Env-variable names are fixed by D-032(f) in `DECISIONS.md`; the
       orchestrator sets them on Railway (`railway variable set …`) and starts T26d (go-live).
-- Nothing else is needed from you for Sweden until then.
+- Nothing else is needed from you for Sweden until then — except the two decisions below.
+
+**Two decisions for Kim from the Sweden spec (Opus A, 2026-09-05; details `SWEDEN_SPEC.md` §0 and `DECISIONS.md` D-036):**
+
+- [ ] **R-2 — the two nullable core fields `euid` and `advertising_protected`** (`CORE_ROADMAP_SPEC.md` §4).
+      Architect's recommendation: **yes, and before Sweden goes live.** Sweden publishes an
+      advertising block (`reklamsparr`) today and Denmark's CVR-loven § 19 makes passing the mark on a
+      legal condition; landing the field after SE is live would be a response-shape change on a live
+      country. Cost ≈ half a day (two fields, one test, `legal/terms.md`, docs); no country module
+      edited. Until you decide, the module ships the flag as a `notes` sentence (D-036).
+- [ ] **F1 — the usage log would store Swedish personnummer.** `api/main.py` and the MCP surface pass
+      the caller's raw identifier to the usage log as `query`. For a Swedish sole trader that identifier
+      *is* a national personal identity number, which would then sit in our production SQLite beside a
+      timestamp and a user-agent. Bolagsverket keeps it out of URLs deliberately (POST-on-read). Fix is
+      outside `registries/se/` (`core/` + `api/`): a `Registry` flag such as `id_may_be_personal` and a
+      salted hash — or nothing — stored instead of the raw query for such countries. Architect's view:
+      must land **before SE go-live**; does not block the build. Say "do F1" and Opus A specs it.
+- (F2, cosmetic: `core/registry.py:15` docstring example `5560212524` is not a valid orgnr — bundle with F1.)
 
 ---
 
