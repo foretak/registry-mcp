@@ -9,21 +9,22 @@ post. Two of them had changed since the build plan was written (see
 [What changed](#what-changed-since-the-build-plan)). Re-check before publishing
 if more than a month has passed.
 
-Nothing here has been published. All of it is prepared.
+**Status as of 2026-09-05** (the per-section text below keeps the original
+"how to" and each section's own status line):
 
 | # | Target | Manifest in this repo | Needs a login? | Status |
 |---|---|---|---|---|
-| 1 | [Official MCP registry](#1-official-mcp-registry) | `server.json` + `mcp-name:` marker + `mcpName` | **Yes** — GitHub (`foretak` org) | Ready |
-| 2 | [Smithery](#2-smithery) | `static/well-known/mcp/server-card.json` (optional) | **Yes** — Smithery account | Blocked on deploy |
-| 3 | [Glama](#3-glama) | `glama.json` | **Yes** — GitHub OAuth | Ready |
+| 1 | [Official MCP registry](#1-official-mcp-registry) | `server.json` + `mcp-name:` marker + `mcpName` | **Yes** — GitHub (`foretak` org) | **Live** — `io.github.foretak/registry-mcp` 0.2.0 (via `publish-mcp.yml`) |
+| 2 | [Smithery](#2-smithery) | `static/well-known/mcp/server-card.json` (optional) | **Yes** — Smithery account | **Live** — `fargerod/registry-mcp` |
+| 3 | [Glama](#3-glama) | `glama.json` + root `Dockerfile` (stdio when `PORT` unset) | **Yes** — GitHub OAuth | **Pending** — submitted 2026-09-04, not yet listed |
 | 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1 |
-| 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | Ready |
-| 6 | [MCP Market](#6-mcp-market) | — | **Yes** — MCPmarket account | Ready |
-| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | PR text drafted below |
-| 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | PR text drafted below |
-| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | Form values below |
-| 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**missing**) | **Yes** — GitHub | Blocked on icon |
-| — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | Command below |
+| 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending** — chatmcp/mcpso#3927, no reply yet |
+| 6 | [MCP Market](#6-mcp-market) | — | **Yes** — MCPmarket account | Open — Kim's browser form |
+| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **Pending** — PR #13631 open, bot wants the Glama badge (#3) |
+| 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo archived |
+| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | Open — form values below |
+| 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**missing**) | **Yes** — GitHub | Blocked on icon + a README-only install test in Cline |
+| — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Done** — 12 topics set 2026-09-04 |
 
 **Order matters.** Do #1 first: PulseMCP ingests from it automatically, and
 several other directories use it as a trust signal. Do #2 after the VPS is live
@@ -526,7 +527,7 @@ are **one short sentence** — do not paste the long one from #7.
 | Field | Value |
 |---|---|
 | Server Name | `registry-mcp` |
-| Short Description | Company data from national business registries for AI agents. Norway first: Brønnøysundregistrene / Enhetsregisteret — lookup by organisasjonsnummer (orgnr), name search, VAT registration, filing deadlines. |
+| Short Description | The company registry MCP: company data for AI agents from national business registries. Norway (brreg / Enhetsregisteret — orgnr lookup, name search, VAT registration, filing deadlines) and United Kingdom (Companies House — company number lookup, search, accounts and confirmation statement deadlines). |
 | Link | `https://github.com/foretak/registry-mcp` |
 | Category | Finance / Data (pick the closest the form offers) |
 | Contact Email | `hello@foretak.dev` |

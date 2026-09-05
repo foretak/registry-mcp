@@ -75,8 +75,9 @@ Two schema constraints that will bite an edit:
 - `description` is capped at **100 characters**. The full keyword list therefore
   lives in `_meta`, not in `description` (see `KEYWORDS.md` §2).
 - `version` must be a concrete version — `latest` and ranges (`^1.2.3`, `1.x`)
-  are rejected. `server.json` currently says `0.1.0` in three places (server,
-  PyPI package, npm package); all three must be bumped together at each release.
+  are rejected. `server.json` carries the version in three places (server,
+  PyPI package, npm package — `0.2.0` since 2026-09-04); all three must be
+  bumped together at each release.
 
 ---
 
@@ -164,9 +165,8 @@ Two schema constraints that will bite an edit:
       no-warranty and no-affiliation statements, the calendar-year caveat on
       computed deadlines, the 60/min rate limit and bulk-download etiquette, and
       personal data in register records. `static/index.html`'s JSON-LD
-      `termsOfService` link now resolves. **One thing still to do:** the contact
-      line says `hello@foretak.dev` and is marked as a placeholder — replace it
-      with the real inbox from §3 before launch.
+      `termsOfService` link now resolves. The contact line's placeholder marker
+      was removed 2026-09-04 once `hello@foretak.dev` went live (§3).
 - [ ] **NLOD 2.0 attribution** is a licence condition, not a courtesy. Every
       response already carries `source`, `source_url` and `license`; keep the
       footer line on the homepage too.
@@ -206,7 +206,6 @@ two days later.** Never post them all at once.
 | 3 | https://dev.to/fargeroddotcom/validate-and-enrich-a-spreadsheet-of-norwegian-orgnrs-with-one-mcp-server-1fei | **PUBLISHED** 2026-09-04 | — |
 | 4 | https://dev.to/fargeroddotcom/add-your-countrys-company-registry-to-registry-mcp-in-an-afternoon-1pei | **PUBLISHED** 2026-09-04 | — |
 | 5 | https://dev.to/fargeroddotcom/check-a-uk-supplier-at-companies-house-from-claude-code-and-the-same-tool-works-for-norway-4mk8 | **PUBLISHED** 2026-09-04 | — |
-| 5 | not yet uploaded — Check a UK supplier at Companies House from Claude Code | `content/05-uk-companies-house/devto.md` | **2026-09-12** |
 
 Publish a draft with one command (or the *Publish* button in the dev.to dashboard):
 
@@ -226,9 +225,9 @@ Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-da
 | 11 | `05-uk-companies-house` | `05-uk-companies-house` | — |
 | 13 | — | — | `05-uk-companies-house` |
 
-- [ ] Accounts needed before day 1: dev.to, a Reddit account with enough karma
-      to self-post in r/mcp, and a kode24 contact (they take contributed
-      pieces; email the editor rather than waiting for a form).
+- [ ] Accounts still needed: a Reddit account with enough karma to self-post
+      in r/mcp, and a kode24 contact (they take contributed pieces; email the
+      editor rather than waiting for a form). dev.to is done.
 - [ ] **Replace the placeholders first.** Every article contains
       `api.foretak.dev` and `github.com/foretak/registry-mcp`. If §1's domain
       or GitHub org came out different, fix all fifteen files before posting.
@@ -239,9 +238,7 @@ Kim chose to publish all five dev.to articles on 2026-09-04 (overriding the 2-da
       filing cycle. `content/README.md` has the commands; do not patch a JSON
       block by hand. Article 05's `GB` blocks need `COMPANIES_HOUSE_API_KEY`
       on the server that produces them.
-- [ ] **Article 05 needs a dev.to draft creating** — the other four are already
-      uploaded. Use `content/publish_devto.py` the same way, from
-      `content/05-uk-companies-house/devto.md`.
+- [x] ~~Article 05 needs a dev.to draft creating~~ — published 2026-09-04 (table above).
 - [ ] Post the Reddit text as a self-post and put the dev.to link in the first
       comment, not the body.
 - [ ] Reply to every comment within 24 h and log the substance in
@@ -264,10 +261,11 @@ Note for copy-editors: each article deliberately carries `brreg`,
 
 ## 7. Publishing and registry submissions (T11)
 
-Everything is built and verified locally; **nothing has been published or
-pushed**. `SUBMISSIONS.md` is the full runbook — one section per registry, with
-what each one actually takes as of 2026-09-04. This section is only the parts
-that are pure "human runs a command".
+**Status 2026-09-05: everything below has been done once** (0.1.0 and 0.2.0 are
+on PyPI, npm and the official MCP registry; see §3 for the per-registry state).
+Kept as the runbook for the next release. `SUBMISSIONS.md` is the full
+per-registry runbook. For releases after the npm trusted publisher is set up,
+§7.5 is the short path.
 
 ### 7.1 Publish the packages (do this first)
 
@@ -360,8 +358,8 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
 `company-registry`, `foretak`, `open-data`, `rest-api`, `fastapi`, `python`,
 `vat`.
 
-- [ ] File the three drafts in `.github/SEED_ISSUES.md` as issues, labelled
-      `good first issue`. The bodies are ready to paste.
+- [x] File the three drafts in `.github/SEED_ISSUES.md` as issues — done
+      2026-09-04 as foretak/registry-mcp#1–#3.
 
 ### 7.4 Two decisions only you can make
 
