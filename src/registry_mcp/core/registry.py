@@ -12,7 +12,7 @@ Minimal example — the whole contract::
         country = "SE"
         registry = "bolagsverket"
         id_scheme = "organisationsnummer"
-        id_example = "5560212524"
+        id_example = "5560160680"
 
         def validate_id(self, id: str) -> str: ...
         async def lookup(self, id: str) -> CompanyReport: ...
@@ -55,6 +55,7 @@ __all__ = [
     "get_registry",
     "list_countries",
     "list_registries",
+    "loggable_query",
     "register",
     "unregister",
 ]
@@ -117,6 +118,13 @@ class Registry(ABC):
 
     Empty when no key is needed. **Never the key itself** — this value is
     published by ``GET /v1/countries`` and the MCP ``list_countries`` tool.
+    """
+
+    id_may_be_personal: ClassVar[bool] = False
+    """True when an identifier this registry accepts can be a natural person's
+    national identity number (Sweden: a sole trader's organisationsnummer is
+    their personnummer). The surfaces consult it before logging; the module
+    does not.
     """
 
     # -- required operations -------------------------------------------------
@@ -443,3 +451,37 @@ def _load_registries() -> None:
     import importlib
 
     importlib.import_module("registry_mcp.registries")
+
+
+# ---------------------------------------------------------------------------
+# Logging chokepoint (`DECISIONS.md` D-040)
+# ---------------------------------------------------------------------------
+
+
+def loggable_query(country: str | None, query: str | None) -> str | None:
+    """The ``query`` value a surface may pass to ``core/log.py::log_call``.
+
+    ``api/main.py::_record`` and ``mcp/server.py::_call_context`` call this —
+    nowhere else, so adding a country with :attr:`Registry.id_may_be_personal`
+    set changes no route, no tool, and no other line in either surface
+    (D-040(b)).
+
+    ``country=None`` (an operation that never carries one, e.g. ``list_countries``,
+    or one of the two MCP connector aliases before it has parsed enough of its
+    argument to know) returns ``query`` unchanged — there is nothing to protect
+    against without a country to check. An unresolvable country (stub modules
+    included, via ``include_stubs=True``) also returns ``query`` unchanged: a
+    country this service does not serve cannot be Sweden, so losing a real,
+    identifiable query to a typo or a not-yet-registered code would cost more
+    than it protects. Otherwise: ``None`` when the resolved registry's
+    :attr:`Registry.id_may_be_personal` is set, else ``query`` unchanged.
+
+    Pure and never raises.
+    """
+    if country is None:
+        return query
+    try:
+        registry = get_registry(country, include_stubs=True)
+    except RegistryError:
+        return query
+    return None if registry.id_may_be_personal else query

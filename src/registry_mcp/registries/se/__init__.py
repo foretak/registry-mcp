@@ -55,6 +55,7 @@ class BolagsverketRegistry(Registry):
     )
     is_stub: ClassVar[bool] = False
     requires_api_key: ClassVar[bool] = True
+    id_may_be_personal: ClassVar[bool] = True
     api_key_env: ClassVar[str] = "BOLAGSVERKET_CLIENT_ID"
 
     def validate_id(self, id: str) -> str:

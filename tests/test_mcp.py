@@ -593,3 +593,102 @@ def test_rest_and_mcp_lookup_company_are_identical_se(monkeypatch: pytest.Monkey
         }
     finally:
         anyio.run(se_client_module.aclose)
+
+
+# ---------------------------------------------------------------------------
+# D-040 — a personal identifier never reaches the usage log
+# ---------------------------------------------------------------------------
+
+
+class _RecordSpy:
+    """Stand-in for `record_call`: records every call's keyword arguments so a
+    test can assert on exactly what `_call_context` tried to log, with no
+    SQLite file in the loop at all."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def __call__(self, **kwargs: Any) -> None:
+        self.calls.append(kwargs)
+
+
+@pytest.fixture
+def record_spy(monkeypatch: pytest.MonkeyPatch) -> _RecordSpy:
+    spy = _RecordSpy()
+    monkeypatch.setattr("registry_mcp.mcp.server.record_call", spy)
+    return spy
+
+
+async def test_se_lookup_without_credentials_logs_no_identifier(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Swedish sole trader's identifier is a personnummer (D-040). Even a
+    failed lookup — no Bolagsverket credentials configured, so `lookup` raises
+    `upstream_error` before any socket opens — must never pass it to
+    `record_call`."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool(
+                "lookup_company", {"id": "194009272719", "country": "SE"}
+            )
+    payload = json.loads(str(excinfo.value))
+    assert payload["error"]["code"] == "upstream_error"
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+async def test_se_deadlines_without_credentials_logs_no_identifier(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`company_deadlines` looks the entity up first, so it fails — and must
+    log — the same way `lookup_company` does with no credentials."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError):
+            await client.call_tool(
+                "company_deadlines", {"id": "194009272719", "country": "SE"}
+            )
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+async def test_se_validate_logs_no_identifier(record_spy: _RecordSpy) -> None:
+    """`validate_company_id` never touches the network, but the identifier is
+    still a personnummer — D-040(d)'s blanket-by-country rule does not care
+    whether a call happened to reach the register."""
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "validate_company_id", {"id": "194009272719", "country": "SE"}
+        )
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+@respx.mock
+async def test_no_lookup_still_logs_the_real_identifier(record_spy: _RecordSpy) -> None:
+    """Regression: D-040 flags Sweden only (today) — a Norwegian orgnr is a
+    company number, not a natural person's, and must keep reaching the log
+    unchanged."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(
+        return_value=httpx.Response(200, json=EQUINOR)
+    )
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("lookup_company", {"id": "923609016"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "NO"
+    assert last["query"] == "923609016"

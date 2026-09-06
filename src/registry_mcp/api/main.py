@@ -53,7 +53,12 @@ from registry_mcp.core.models import (
     Surface,
     ValidationResult,
 )
-from registry_mcp.core.registry import get_registry, list_countries, list_registries
+from registry_mcp.core.registry import (
+    get_registry,
+    list_countries,
+    list_registries,
+    loggable_query,
+)
 from registry_mcp.core.rules.common import parse_iso_date
 from registry_mcp.mcp.server import mcp as mcp_server
 
@@ -91,7 +96,7 @@ def _record(
             surface=Surface.REST,
             operation=operation,
             country=country,
-            query=query,
+            query=loggable_query(country, query),
             user_agent=request.headers.get("user-agent"),
             latency_ms=int((time.monotonic() - started) * 1000),
             ok=ok,

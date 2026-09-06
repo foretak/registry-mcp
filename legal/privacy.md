@@ -12,7 +12,7 @@ It looks up publicly registered companies in national business registers on your
 
 ## What we receive and keep
 
-- **Your request.** The country, the identifier or search text you send, the tool or route used, the time, the outcome (success or error code), and your client's `User-Agent` string. These are written to a usage log so we can see whether the service is used and whether it fails. The log is kept on the server's storage volume and is not shared. We do not log IP addresses in that log; the hosting provider's own access logs (which do include IP addresses) are retained by Railway for a short period under Railway's terms.
+- **Your request.** The country, the identifier or search text you send, the tool or route used, the time, the outcome (success or error code), and your client's `User-Agent` string. These are written to a usage log so we can see whether the service is used and whether it fails. For a country where the identifier can be a natural person's number — today, Sweden — the identifier itself is not written to that log; the country, route, time, outcome and `User-Agent` still are. The log is kept on the server's storage volume and is not shared. We do not log IP addresses in that log; the hosting provider's own access logs (which do include IP addresses) are retained by Railway for a short period under Railway's terms.
 - **Register responses.** Answers from the registers are cached for up to 24 hours so repeated lookups do not hit the registers again. The cache is on the same volume and expires automatically.
 - **Nothing else.** No accounts, no cookies, no analytics scripts, no advertising, no payment data. The homepage playground calls the same API only when you press the button.
 

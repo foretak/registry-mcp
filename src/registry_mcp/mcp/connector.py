@@ -615,7 +615,7 @@ async def search(
     national identifier, or a name plus a country — and returns {"results": [{"id", "title",
     "url"}]}. Pass a result's `id` to `fetch`.
     """
-    with _call_context(operation="search", country=None, query=query):
+    with _call_context(operation="search", country=None, query=query) as outcome:
         stripped = query.strip()
         if not stripped:
             raise RegistryError(
@@ -629,11 +629,33 @@ async def search(
 
         registries = list_registries()
         derived, remainder = _derive_country(stripped, registries)
+        # D-040(b): the log's `country` is whatever `_derive_country` itself
+        # produced (`None` on a miss) — the same signal `search` already
+        # computes for its own fan-out, not a second, separate detection.
+        outcome.country = derived.country if derived is not None else None
         candidates = [derived] if derived is not None else registries
 
         any_validated, ranked = await _identifier_rows(candidates, remainder)
         if not any_validated:
             ranked = await _name_search_rows(candidates, remainder)
+
+        # D-040(b): a bare identifier that validates for a registry whose
+        # `id_may_be_personal` is set is not logged — even when `_derive_country`
+        # matched nothing above and `candidates` is therefore the full fan-out
+        # (`_identifier_rows` tried every live registry, not just the one an
+        # explicit country token would have named). "An agent that types a
+        # personnummer into search has typed a personnummer" regardless of
+        # whether it also typed "SE". Blanket, by registry flag, never by digit
+        # count (D-040(d)) — re-validate only the candidates, since
+        # `Registry.validate` is pure and cheap and this must hold even when
+        # every lookup above failed (no credentials) and dropped its row
+        # silently. `outcome.country` is left as `_derive_country` produced it
+        # (`None` here) — this redacts the query without inventing a country.
+        if any(
+            candidate.id_may_be_personal and candidate.validate(remainder).valid
+            for candidate in candidates
+        ):
+            outcome.query = None
 
         rows = _merge_sort_and_cap(ranked, remainder)
         if not rows:
@@ -672,6 +694,14 @@ async def fetch(
         if is_rules:
             document = _rules_document(registry)
         else:
+            # D-040(b): now that the id has parsed, log the country it named
+            # and the bare identifier — never the combined "{COUNTRY}:{id}"
+            # string `fetch` was called with. Set before the lookup, so a
+            # `RegistryError` raised below (not_found, upstream_error, ...)
+            # still logs the real country/identifier rather than falling
+            # back to this block's `None`/raw-id defaults.
+            outcome.country = registry.country
+            outcome.query = identifier
             report = await registry.lookup(identifier)
             today = parse_iso_date(None)
             deadlines = registry.deadline_report(report, today)

@@ -22,7 +22,13 @@ from registry_mcp.core.models import (
     SearchResult,
     ValidationResult,
 )
-from registry_mcp.core.registry import Registry, get_registry, list_countries, list_registries
+from registry_mcp.core.registry import (
+    Registry,
+    get_registry,
+    list_countries,
+    list_registries,
+    loggable_query,
+)
 
 
 def test_models_import_and_construct(sample_report: CompanyReport) -> None:
@@ -412,3 +418,46 @@ def test_id_caveat_never_fires_on_an_invalid_identifier(example_registry: Regist
     assert bad.valid is False
     assert bad.reason is not None and "CAVEAT" not in bad.reason
     assert bad.hint is not None
+
+
+# ---------------------------------------------------------------------------
+# D-040 — `Registry.id_may_be_personal` and `loggable_query`
+# ---------------------------------------------------------------------------
+
+
+def test_id_may_be_personal_defaults_false() -> None:
+    """The flag is opt-in: every country keeps the default until it says otherwise."""
+    assert get_registry("NO").id_may_be_personal is False
+    assert get_registry("GB").id_may_be_personal is False
+    assert get_registry("XX", include_stubs=True).id_may_be_personal is False
+
+
+def test_id_may_be_personal_is_true_for_sweden() -> None:
+    """A Swedish sole trader's organisationsnummer is their personnummer (D-040(a))."""
+    assert get_registry("SE").id_may_be_personal is True
+
+
+def test_loggable_query_redacts_a_flagged_country() -> None:
+    assert loggable_query("SE", "194009272719") is None
+
+
+def test_loggable_query_passes_through_an_unflagged_country() -> None:
+    assert loggable_query("NO", "923609016") == "923609016"
+
+
+def test_loggable_query_passes_through_an_unresolvable_country() -> None:
+    """A country we do not serve cannot be Sweden — nothing to protect (D-040(b))."""
+    assert loggable_query("ZZ", "anything") == "anything"
+
+
+def test_loggable_query_passes_through_when_country_is_none() -> None:
+    """An operation that never carries a country (`list_countries`, or a connector
+    alias before it has parsed enough of its argument to know one) has nothing to
+    check against, so the query is unchanged."""
+    assert loggable_query(None, "x") == "x"
+
+
+def test_loggable_query_never_raises_and_is_a_pure_function() -> None:
+    assert loggable_query(None, None) is None
+    assert loggable_query("SE", None) is None
+    assert loggable_query("NO", None) is None

@@ -70,4 +70,10 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD [ -z "${PORT:-}" ] || curl -fsS "http://localhost:${PORT}/health" || exit 1
 
-CMD ["sh", "-c", "if [ -n \"${PORT:-}\" ]; then exec uvicorn registry_mcp.api.main:app --host 0.0.0.0 --port \"$PORT\"; else exec registry-mcp; fi"]
+# `--no-access-log` (`DECISIONS.md` D-040(e)): uvicorn's default access log
+# writes one line per request, path and all, to this container's stdout —
+# duplicating `calls` (our own usage log, D-040) into Railway's log stream
+# with an IP address added and none of `loggable_query`'s redaction, for a
+# route like `GET /v1/SE/company/<personnummer>` where the identifier is a
+# path segment.
+CMD ["sh", "-c", "if [ -n \"${PORT:-}\" ]; then exec uvicorn registry_mcp.api.main:app --host 0.0.0.0 --port \"$PORT\" --no-access-log; else exec registry-mcp; fi"]

@@ -116,6 +116,43 @@ def test_summary_top_queries_capped_at_twenty(tmp_path: Path) -> None:
     assert len(result["top_queries"]) == 20
 
 
+def test_summary_null_query_counts_everywhere_but_top_queries(tmp_path: Path) -> None:
+    """D-040: a flagged country (Sweden) logs `query=NULL` (`core.registry.loggable_query`'s
+    redaction). That row must still count toward `total_calls`, `calls_today`, `by_surface`
+    and `error_rate` — every aggregate here except `top_queries`, which already skips a
+    falsy query (`core/stats.py`'s ``if query:`` guard, D-040(c)) and must keep doing so for
+    `None` exactly as it already does for `""`."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent="agent/1.0",
+        latency_ms=5,
+        ok=False,
+        error_code="upstream_error",
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="agent/1.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 2
+    assert result["calls_today"] == 2
+    assert result["by_surface"] == {"rest": 2}
+    assert result["error_rate"] == pytest.approx(0.5)
+    assert result["top_queries"] == [{"query": "923609016", "count": 1}]
+
+
 def _make_app() -> FastAPI:
     app = FastAPI()
     app.include_router(stats_router)

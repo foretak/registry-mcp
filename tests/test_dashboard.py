@@ -165,3 +165,41 @@ def test_dashboard_empty_database_renders(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert resp.status_code == 200
     assert "No calls logged yet." in resp.text
+
+
+def test_dashboard_renders_with_a_null_query_row_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-040: a Swedish lookup logs `query=NULL` (`core.registry.loggable_query`'s
+    redaction). `core/stats.py` already excludes a falsy query from `top_queries`, so this
+    row must never reach `api/dashboard.py`'s `row['query']` rendering — the page must
+    still render (200, no exception) with a real row present alongside it."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent="curl/8.4.0",
+        latency_ms=5,
+        ok=False,
+        error_code="upstream_error",
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="curl/8.4.0",
+        latency_ms=5,
+        ok=True,
+    )
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    assert "923609016" in resp.text
+    assert "Total calls" in resp.text

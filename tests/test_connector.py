@@ -583,3 +583,149 @@ def test_company_report_and_deadline_report_still_importable_for_metadata_typing
     # Regression guard only: `_company_document` type-hints against these two models.
     assert CompanyReport.model_fields
     assert DeadlineReport.model_fields
+
+
+# ---------------------------------------------------------------------------
+# D-040 — a personal identifier never reaches the usage log
+# ---------------------------------------------------------------------------
+
+
+class _RecordSpy:
+    """Stand-in for `record_call`: records every call's keyword arguments so a
+    test can assert on exactly what `_call_context` tried to log, with no
+    SQLite file in the loop at all."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def __call__(self, **kwargs: Any) -> None:
+        self.calls.append(kwargs)
+
+
+@pytest.fixture
+def record_spy(monkeypatch: pytest.MonkeyPatch) -> _RecordSpy:
+    # `mcp/connector.py`'s `fetch`/`search` share `mcp/server.py::_call_context`,
+    # which reads the module-level `record_call` name there — same target
+    # `tests/test_mcp.py`'s spy patches for the five registry tools.
+    spy = _RecordSpy()
+    monkeypatch.setattr("registry_mcp.mcp.server.record_call", spy)
+    return spy
+
+
+@respx.mock
+async def test_fetch_no_prefix_logs_the_parsed_country_and_bare_identifier(
+    record_spy: _RecordSpy,
+) -> None:
+    """D-040(b): `fetch` logs `country` as the prefix it parsed out of
+    `"{COUNTRY}:{identifier}"` and `query` as the bare identifier — never the
+    combined string it was actually called with."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    async with Client(mcp) as client:
+        result = await client.call_tool("fetch", {"id": "NO:923609016"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "NO"
+    assert last["query"] == "923609016"
+
+
+async def test_fetch_se_without_credentials_logs_no_identifier(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Swedish sole trader's identifier is a personnummer (D-040): even a
+    failed `fetch` — no Bolagsverket credentials, so `lookup` raises
+    `upstream_error` before any socket opens — must never log it."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool("fetch", {"id": "SE:194009272719"})
+    payload = json.loads(str(excinfo.value))
+    assert payload["error"]["code"] == "upstream_error"
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+async def test_search_se_identifier_with_country_token_logs_no_identifier(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-040(b): `search` logs its text through `loggable_query` with the
+    country `_derive_country` produced — an agent that types a personnummer
+    into `search` (alongside the `"SE"` token that lets `_derive_country`
+    recognise it, the same mechanism
+    `test_search_identifier_with_explicit_country_token_still_short_circuits`
+    above exercises for `NO`) has typed a personnummer, and no Bolagsverket
+    credentials are configured here either — the identifier short-circuit
+    (`_identifier_rows`) drops the failed SE lookup silently, but the log
+    must never have carried the identifier regardless of that outcome."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "SE 194009272719"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+async def test_search_bare_personnummer_with_no_country_token_logs_no_identifier(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The gap the explicit-token test above did not cover: with no country token at all,
+    `_derive_country` matches nothing, so `candidates` is the full fan-out and
+    `_identifier_rows` tries every live registry — SE among them, since a 12-digit
+    personnummer validates there too. D-040(b) applies regardless of whether the caller
+    also typed the country ("an agent that types a personnummer into search has typed a
+    personnummer") — `outcome.country` stays `None`, exactly as `_derive_country` produced
+    it, but the query is still redacted because SE's `id_may_be_personal` validated it."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "194009272719"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] is None
+    assert last["query"] is None
+
+
+@respx.mock
+async def test_search_bare_orgnr_with_no_country_token_still_logs_it(
+    record_spy: _RecordSpy,
+) -> None:
+    """Regression: a Norwegian orgnr is a company number, not a natural person's — the new
+    D-040(b) check only redacts when a *flagged* registry validates the text, so a bare
+    orgnr with no country token must keep reaching the log unchanged, exactly like the
+    explicit-token case `test_search_identifier_with_explicit_country_token_still_short_circuits`
+    covers for the non-logging behaviour."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "923609016"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] is None
+    assert last["query"] == "923609016"
+
+
+@respx.mock
+async def test_search_name_query_logs_the_real_text(record_spy: _RecordSpy) -> None:
+    """Regression: a name query with no recognisable country derives `None`,
+    logged as today — D-040 changes nothing about the common case."""
+    _mock_no_search_equinor()
+    _mock_gb_search_empty()
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "Equinor"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] is None
+    assert last["query"] == "Equinor"
