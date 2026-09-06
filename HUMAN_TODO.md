@@ -445,7 +445,7 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
       legal condition; landing the field after SE is live would be a response-shape change on a live
       country. Cost ≈ half a day (two fields, one test, `legal/terms.md`, docs); no country module
       edited. Until you decide, the module ships the flag as a `notes` sentence (D-036).
-- [ ] **F1 — the usage log would store Swedish personnummer.** `api/main.py` and the MCP surface pass
+- [x] **F1 — the usage log would store Swedish personnummer.** *Done 2026-09-06 (D-040, T28, merged b363f16): the log stores nothing as `query` for Sweden, uvicorn access log off, privacy notice updated. Deploys with the next release.* `api/main.py` and the MCP surface pass
       the caller's raw identifier to the usage log as `query`. For a Swedish sole trader that identifier
       *is* a national personal identity number, which would then sit in our production SQLite beside a
       timestamp and a user-agent. Bolagsverket keeps it out of URLs deliberately (POST-on-read). Fix is
