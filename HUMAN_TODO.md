@@ -451,7 +451,8 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
       timestamp and a user-agent. Bolagsverket keeps it out of URLs deliberately (POST-on-read). Fix is
       outside `registries/se/` (`core/` + `api/`): a `Registry` flag such as `id_may_be_personal` and a
       salted hash — or nothing — stored instead of the raw query for such countries. Architect's view:
-      must land **before SE go-live**; does not block the build. Say "do F1" and Opus A specs it.
+      must land **before SE go-live**; does not block the build. **Specced 2026-09-06: `DECISIONS.md`
+      D-040 + `tasks/T28.md` (≈2–3 h Sonnet).** Say "do F1" and the orchestrator dispatches it.
 - (F2, cosmetic: `core/registry.py:15` docstring example `5560212524` is not a valid orgnr — bundle with F1.)
 
 ---

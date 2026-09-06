@@ -73,7 +73,9 @@ blocks T26b; all three are for Kim via the orchestrator.
 > sites consult, storing a salted hash — or nothing — instead of the raw query, exactly as D-028(2)
 > reaches into `core/cache.py`'s TTL table for person-bearing kinds. **Not authorised by T26a and
 > not implemented here.** What T26b *can* do without a `core/` edit is put the fact in `notes`
-> (§2.1 N8, D-039) and in `rules_markdown()` (§13).
+> (§2.1 N8, D-039) and in `rules_markdown()` (§13). **Ruled 2026-09-06: D-040** (nothing is
+> stored, not a hash; blanket by country; one helper in `core/`; uvicorn access log off) — brief in
+> `tasks/T28.md`, waiting on Kim's "do F1".
 >
 > **F2 — `core/registry.py`'s own docstring example is an invalid organisationsnummer.**
 > `src/registry_mcp/core/registry.py:15` illustrates the contract with `id_example = "5560212524"`.
@@ -514,6 +516,7 @@ guess (D-004, D-011). **Read `fel` before every value** (§1.6).
 | N11 | Deadlines suppressed by status (§5.4) | §5.4's exemption sentence, which for `KK`/`LI` cites årsredovisningslagen 8 kap. 7 § |
 | N12 | The name list holds a `SARSKILT_FORETAGSNAMN` or a foreign-language name (§2.3) | "Bolagsverket also publishes these names for this organisation: {namn} ({klartext}){, for the business described as \"{verksamhetsbeskrivningSarskiltForetagsnamn}\"}. They are current alternative or secondary registered names, not former ones." |
 | N13 | Any mapped field carries `fel.typ` in `{OTILLGANGLIG_UPPGIFTSKALLA, TIMEOUT, OGILTIG_BEGARAN}` (§1.6) | "Part of this record could not be retrieved: {dataproducent} did not answer for {field list}. The fields below are what arrived, and the missing ones are absent rather than empty. This answer was not cached — ask again for a complete one." |
+| N14 | `status == ACTIVE` and `legal_form_code` is classified by §7 but not in `DEADLINE_FORM_CODES` (`BRF`, `HB`, `KB`, `E`, `S`, banks/insurers, any SCB-fallback code) — added 2026-09-06, T26e fix 5 | "registry-mcp computes filing deadlines only for aktiebolag (AB) and ekonomiska föreningar (EK) — the two forms årsredovisningslagen 8 kap. 6 § names. {english} has real filing obligations that this module does not compute, because no primary source for them has been read." Distinct from N6: N6 is *unclassified*, N14 is *classified but not computed*. Honours `core/models.py`'s contract that an empty `deadlines` list is explained in `notes` |
 
 A healthy, active, `verksam` `AB` with one name gets **exactly one** note — N9, the calendar-year
 assumption. If a routine Swedish `AB` produces four, the rules are firing on absence rather than on
@@ -1212,9 +1215,13 @@ grant_type=client_credentials&client_id=…&client_secret=…&scope=vardefulla-d
   documentation example (`VERIFY-live`).
 - **Refresh margin: 60 seconds.** A token is considered expired 60 s before its stated expiry, so a
   request never starts with a token that expires mid-flight.
-- If the token endpoint returns 4xx → `RegistryError(upstream_error)` with the no-credentials hint
+- If the token endpoint returns **429 → `RegistryError(rate_limited)`** (D-019), before any other 4xx
+  branch — the token endpoint sits behind the same WSO2 gateway and its throttling policy, and
+  calling a 429 "no credentials" would send an operator to re-check secrets that are fine (T26e fix
+  12, 2026-09-06). Any **other** 4xx → `RegistryError(upstream_error)` with the no-credentials hint
   (the credentials are present but wrong). If it returns 5xx or times out → one retry, then
-  `upstream_error` / `upstream_timeout`.
+  `upstream_error` / `upstream_timeout`. A 200 whose body is not JSON or lacks `access_token` →
+  `upstream_error`, never a bare `KeyError` (fix 13; the same wrapping applies to the data call).
 - A **401 or 403 on a data call invalidates the cached token exactly once** and the request is
   retried with a fresh one; a second 401/403 raises. Without this, a token revoked or expired early
   poisons the process until restart. This is the one retry-on-4xx in the module and it is bounded to
@@ -1240,7 +1247,8 @@ Request construction lives in **exactly one function**, so that a correction is 
 | Upstream | Result |
 |---|---|
 | 200, `organisationer` non-empty, no blocking `fel` | Map and return (§2) |
-| 200, `organisationer` empty **or** `fel.typ == "ORGANISATION_FINNS_EJ"` on the identity-bearing fields | `RegistryError(not_found)` — §1.7. Cached as a negative for 1 h (D-006) |
+| 200, `organisationer` empty **or** `fel.typ == "ORGANISATION_FINNS_EJ"` on the identity-bearing fields | `RegistryError(not_found)` — §1.7. Cached as a negative for 1 h (D-006). **"Identity-bearing" means exactly the three Bolagsverket-sourced fields `organisationsnamn`, `organisationsform`, `organisationsdatum`** (T26e fix 4, 2026-09-06). The same code on an SCB-sourced field (`juridiskForm`, `verksamOrganisation`, `reklamsparr`) means only that Statistics Sweden lacks the entity — the workbook's own `5567223705` case — and is **not** `not_found`; it maps like any blocked field |
+| 200, a *status-bearing* field (`avregistreradOrganisation`, `avregistreringsorsak`, `pagaende…Lista`) carries a blocking `fel.typ` | Map, `status = UNKNOWN`, `is_active = False` — §8 rung 0. N13 fires. Not cached (§9) |
 | 200, some field carries `fel.typ` in `{OTILLGANGLIG_UPPGIFTSKALLA, TIMEOUT, OGILTIG_BEGARAN}` | Map what arrived, append note N13, **do not write the cache** (§9) |
 | 400 | `RegistryError(invalid_id)` — the only documented 400 for `/organisationer` is a malformed identitetsbeteckning, and the register is the authority on its own check digit (§5.1.1) |
 | 401 | `RegistryError(upstream_error)`, after the one token-refresh retry of §6.1. Hint names **both** env vars |
@@ -1433,6 +1441,21 @@ once, and D-035 rules how they combine.
 **Precedence, highest first.** The first rung that fires decides `status`; the lower rungs still
 fill their own fields and notes.
 
+### Rung 0 — a status-bearing field was blocked by `fel` → `UNKNOWN`
+
+Added 2026-09-06 after T26e (fix 3), the case §1.6 rule 1 was written about, one field further on
+than the first draft followed it. If `avregistreradOrganisation`, `avregistreringsorsak` or
+`pagaende…Lista` carries a `fel.typ` in `{OTILLGANGLIG_UPPGIFTSKALLA, TIMEOUT, OGILTIG_BEGARAN}`,
+the payload contains **no status data**, and silence is not good standing. `status = UNKNOWN`,
+`is_active = False` (the field is a plain `bool`, and "on the register and not winding down" is
+exactly what we cannot assert), `status_detail`:
+`"Bolagsverket could not supply this organisation's registration status ({dataproducent} did not answer), so it is unknown whether it is struck off or in a winding-up or restructuring procedure."`
+N13 fires as usual; N1 does not add a second sentence for `UNKNOWN`. Rung 0 is what licenses rung
+3's wording — rung 3 is reached only when the fields it speaks for actually arrived. A blocked
+**SCB** field (`verksamOrganisation`, `reklamsparr`, `juridiskForm`) never triggers rung 0: those
+never decide status (D-035). Bolagsverket's own partial-failure example (`bv_uppgiftskalla_fel.json`)
+is the fixture for this rung.
+
 ### Rung 1 — `avregistreradOrganisation.avregistreringsdatum` is present → `DELETED`
 
 The organisation has been struck off. `deregistered_at` ← the date (§2.5's tolerant parser).
@@ -1600,8 +1623,11 @@ never the bearer token, never a header.**
 > `query` this module's callers log **is a personnummer**, and Bolagsverket cares enough about that
 > to make its read operations POSTs. The module cannot fix it from inside `registries/se/`; what it
 > can do is not make it worse: nothing in `registries/se/` writes the identifier anywhere except the
-> request body, the cache key and `CompanyReport.id`, and **no `notes` sentence ever repeats it**
-> (§2.1).
+> request body, the cache key, `CompanyReport.id` — and, on a partial 200 with no name, the
+> `CompanyReport.name` fallback (§14 test 95; T26e found this fourth place; T26d may prefer `None`)
+> — and **no `notes` sentence ever repeats it** (§2.1). The surface-side fix is ruled in **D-040**
+> (`tasks/T28.md`): `Registry.id_may_be_personal = True` for SE, and the surfaces store nothing as
+> `query`.
 
 `X-Request-Id` is logged at DEBUG so a Bolagsverket support case can be tied to one of our calls. It
 is a UUID we generated and contains nothing about the caller.
@@ -1803,8 +1829,9 @@ Subject is an active `AB` unless stated. `today` is given per test.
     seven-month deadline.** It may cite 8:3, but only as the one-month-after-adoption rule. This
     test exists because the project's own library file said otherwise (§5.4.1).
 70. An `EK` gets `annual_accounts` and **no** `general_meeting` (§5.5).
-71. An `E` (sole trader) gets **no** deadlines and a `notes` entry.
-72. A `BRF` gets no deadlines (§7.3).
+71. An `E` (sole trader) gets **no** deadlines and **both** N8 and N14 in `notes` (N14 added
+    2026-09-06, T26e fix 5 — before that this test passed on N8 alone).
+72. A `BRF` gets no deadlines (§7.3) **and N14** — the note is the assertion, not an incidental.
 73. An unclassified `organisationsform` gets no deadlines and note N6 (D-009(a)).
 74. `status == BANKRUPT` → empty list plus a note that contains `"8 kap. 7 §"`.
 75. `status == DELETED` → empty list plus a note.
@@ -1854,10 +1881,22 @@ Subject is an active `AB` unless stated. `today` is given per test.
 95. `bv_uppgiftskalla_fel.json` (Bolagsverket's own partial-failure example) → **constructs without
     raising**, `name` falls back to the identifier or the mapper raises a `RegistryError` — assert
     the shipped behaviour explicitly, whichever T26b chooses, and `notes` contains N13 naming the
-    unavailable producer.
+    unavailable producer. **Amended 2026-09-06 (T26e fix 3): the report's `status` is `UNKNOWN` and
+    `is_active` is `False`** (§8 rung 0), never `ACTIVE`.
 96. `bv_finns_ej.json` → the mapper's not-found detector fires (§1.7).
 97. `registreringsland` is never read: a fixture with `{"kod": "XX-LAND"}` still yields
     `report.country == "SE"`.
+
+*Added 2026-09-06 after T26e (fixes 3–5). T26f may have shipped these unnumbered; the T26f review
+reconciles names to numbers.*
+
+119. `bv_ab_active.json` with `juridiskForm`, `verksamOrganisation` and `reklamsparr` each carrying
+     `fel.typ == "ORGANISATION_FINNS_EJ"` (SCB lacks it, Bolagsverket has it) → `is_not_found(...)`
+     is `False` and the report maps as an active `AB` (§6.3, fix 4).
+120. A payload whose `pagaende…Lista` wrapper carries `fel.typ == "TIMEOUT"` → `status is UNKNOWN`,
+     `is_active is False`, `status_detail` names the producer, N13 present (§8 rung 0, fix 3).
+121. `pagaende…Lista == [KK, FUOT]` → `BANKRUPT` **and** the bucket-2 note for `FUOT` is still
+     present (§8 "the lower rungs still fill their own fields and notes", fix 15a).
 98. A fixture using the **misspelled** `pagandeAvvecklingsEllerOmstruktureringsforfarande` key with
     a `KK` inside still yields `status == BANKRUPT`. This is the Altinn bug (§15) and the test that
     stops a silent regression to "healthy company".
