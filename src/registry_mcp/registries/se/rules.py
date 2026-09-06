@@ -465,12 +465,36 @@ _UNCLASSIFIED_PROCEDURE_NOTE = (
 )
 
 
+#: §2.4: ``klartext`` can be the literal string ``"n/a"`` — Bolagsverket's
+#: own sole-trader example carries ``{"kod": "PERSONNUMMER", "klartext":
+#: "n/a"}`` — and that must never reach a user (review fix 7). Blank and
+#: whitespace-only strings get the same treatment.
+def _clean_reason_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped or stripped.casefold() == "n/a":
+        return None
+    return stripped
+
+
+#: Verbatim from `SWEDEN_SPEC.md` §8 rung 0 (added 2026-09-06 after T26e fix
+#: 3) — matched exactly rather than paraphrased, per this project's
+#: convention for every other note/detail string in this module.
+_STATUS_DATA_UNAVAILABLE_DETAIL = (
+    "Bolagsverket could not supply this organisation's registration status ({producer} did "
+    "not answer), so it is unknown whether it is struck off or in a winding-up or "
+    "restructuring procedure."
+)
+
+
 def derive_status(
     *,
     deregistered_at: date | None,
     deregistration_reason_kod: str | None,
     deregistration_reason_klartext: str | None,
     ongoing: list[tuple[str, str | None, date | None]],
+    unavailable_producer: str | None = None,
 ) -> StatusResult:
     """Derive :class:`CompanyStatus` from Sweden's three orthogonal signals
     (§8). ``ongoing`` is the ``pagaende...Lista`` entries as
@@ -484,15 +508,31 @@ def derive_status(
     (rung 2) > active (rung 3). ``bankruptcy_date`` is set from a ``KK`` entry
     **independent of precedence** — even a struck-off company keeps the date
     if a ``KK`` is present (test 57).
+
+    ``unavailable_producer`` (review fix 3) is the data producer that a
+    blocking ``fel`` kept ``registries/se/mapping.py`` from reading one of
+    the fields this function derives status from (``avregistreradOrganisation``,
+    ``avregistreringsorsak`` or either spelling of ``pagaende...``), or
+    ``None`` if all of them arrived. It is consulted **only** at rung 3's
+    true "nothing above fired" default: a positive signal from rung 1 or 2
+    always wins regardless, and rung 2's own bucket-2-only "active" result
+    is real data (the field was not blocked, it said something), not
+    silence. When it is set and nothing above fired, this function returns
+    ``UNKNOWN`` rather than asserting good standing on data that never
+    arrived — the failure mode the module calls "an absence rendered as a
+    fact" (§1.6 rule 1, one field further on).
     """
     bankruptcy_date = next((from_datum for kod, _kt, from_datum in ongoing if kod == "KK"), None)
 
     if deregistered_at is not None:
         reason_kod = deregistration_reason_kod or "?"
-        reason_klartext = deregistration_reason_klartext or "no description"
+        reason_klartext = _clean_reason_text(deregistration_reason_klartext)
         detail = (
             f"Struck off the Bolagsverket register on {deregistered_at.isoformat()} "
             f"({reason_kod}: {reason_klartext})."
+            if reason_klartext is not None
+            else f"Struck off the Bolagsverket register on {deregistered_at.isoformat()} "
+            f"({reason_kod})."
         )
         return StatusResult(
             status=CompanyStatus.DELETED,
@@ -512,13 +552,22 @@ def derive_status(
             status = _BUCKET1_STATUS[kod]
             when = from_datum.isoformat() if from_datum else "an unspecified date"
             detail = _BUCKET1_DETAIL[kod].format(date=when)
+            # Review fix 15(a): §8 says "the lower rungs still fill their own
+            # fields and notes" — a co-occurring bucket-2 code (e.g. `KK`
+            # alongside `FUOT`) must not have its note silently dropped just
+            # because bucket 1 decided `status`.
+            extra_notes = [
+                _BUCKET2_NOTE[other_kod]
+                for other_kod, _kt, _fd in ongoing
+                if other_kod != kod and other_kod in _BUCKET2_NOTE
+            ]
             return StatusResult(
                 status=status,
                 status_detail=detail,
                 is_active=False,
                 bankruptcy_date=bankruptcy_date,
                 procedure_kod=kod,
-                notes=[detail],
+                notes=[detail, *extra_notes],
             )
 
         notes: list[str] = []
@@ -559,6 +608,19 @@ def derive_status(
             bankruptcy_date=bankruptcy_date,
             procedure_kod=None,
             notes=notes,
+        )
+
+    # Rung 3, the true "nothing above fired" default (review fix 3): only
+    # here, because `ongoing` being non-empty above means real (unblocked)
+    # procedure data arrived and already produced a real answer.
+    if unavailable_producer is not None:
+        return StatusResult(
+            status=CompanyStatus.UNKNOWN,
+            status_detail=_STATUS_DATA_UNAVAILABLE_DETAIL.format(producer=unavailable_producer),
+            is_active=False,
+            bankruptcy_date=bankruptcy_date,
+            procedure_kod=None,
+            notes=[],
         )
 
     return StatusResult(
@@ -729,6 +791,32 @@ def deadline_exemption_note(status: CompanyStatus, procedure_kod: str | None) ->
 CALENDAR_YEAR_NOTE = _CALENDAR_YEAR_NOTE
 
 
+_NO_COMPUTED_DEADLINES_NOTE = (
+    "registry-mcp computes filing deadlines only for aktiebolag (AB) and ekonomiska "
+    "föreningar (EK) — the two forms årsredovisningslagen 8 kap. 6 § names. {label} has "
+    "real filing obligations that this module does not compute, because no primary "
+    "source for them has been read."
+)
+
+
+def no_computed_deadlines_note(code: str, english: str | None) -> str:
+    """Review fix 5 (§2.1, §5.4, D-009): the note ``registries/se/mapping.py``
+    fires, alongside N6, for a legal form that is *classified* — via
+    ``organisationsform`` (``BRF``, ``HB``, ``KB``, ``E``, ``S``, the banks
+    and insurers, ...) or as an SCB ``juridiskForm`` fallback code — but is
+    not one of :data:`DEADLINE_FORM_CODES`. Distinct from N6
+    (:data:`_UNCLASSIFIED_FORM_NOTE`), which covers a code this module does
+    not recognise at all; this note is for a code it does recognise and
+    simply computes nothing for.
+
+    ``english`` is ``None`` for an SCB fallback code (Statistics Sweden's
+    ``juridiskForm`` list has no English label in this module) — the note
+    then names the code itself rather than leaving `{label}` blank.
+    """
+    label = english if english else f"This organisation's legal form (code {code!r})"
+    return _NO_COMPUTED_DEADLINES_NOTE.format(label=label)
+
+
 # ---------------------------------------------------------------------------
 # §13 — rules_markdown()
 # ---------------------------------------------------------------------------
@@ -821,7 +909,39 @@ def rules_markdown() -> str:
         "many-to-one and lossy — `AB` and `TPAB` both map to juridisk form `49`; five "
         "different organisationsformer map to `51` — so it is never run backwards: a "
         "juridiskForm code is carried as-is, in the same field, and never translated into a "
-        "guessed organisationsform.\n\n"
+        "guessed organisationsform. Bolagsverket's own connection guide publishes the full "
+        "table, reproduced here for reference **only** — never used the other way round:\n\n"
+        "| organisationsform | juridisk form |\n"
+        "|---|---|\n"
+        "| `AB` | 49 |\n"
+        "| `TPAB` | 49 |\n"
+        "| `KB` | 31 |\n"
+        "| `HB` | 31 |\n"
+        "| `BRF` | 53 |\n"
+        "| `EK` | 51 |\n"
+        "| `FOF` | 51 |\n"
+        "| `TPF` | 51 |\n"
+        "| `BF` | 51 |\n"
+        "| `SF` | 51 |\n"
+        "| `E` | 10 or 91 |\n"
+        "| `BAB` | 41 |\n"
+        "| `FAB` | 42 |\n"
+        "| `SE` | 43 |\n"
+        "| `KHF` | 54 |\n"
+        "| `MB` | 93 |\n"
+        "| `SB` | 93 |\n"
+        "| `SCE` | 55 |\n"
+        "| `TSF` | 63 |\n"
+        "| `I` | 61 |\n"
+        "| `S` | 72 |\n"
+        "| `OTPB` | 92 |\n"
+        "| `OFB` | 92 |\n"
+        "| `FL` | none — \"not its own juridisk form; it belongs to a parent company's\" |\n"
+        "| `BFL` | none — same |\n\n"
+        "`EB`, `EEIG`, `EGTS` and `FF` are not in Bolagsverket's published mapping table at "
+        "all. Never run this table backwards: `49` alone cannot say whether the "
+        "organisationsform was `AB` or `TPAB`, so a juridiskForm code is carried as-is, in "
+        "the same field, rather than translated into a guessed organisationsform.\n\n"
         "## What this dataset does not publish\n"
         "Officers, share capital, beneficial owners, employee counts, financial figures, "
         "the financial-year end, VAT registration, a visiting (business) address, email, "

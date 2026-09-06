@@ -71,9 +71,27 @@ def _first_organisation(body: Mapping[str, Any]) -> Mapping[str, Any] | None:
     return result
 
 
+#: The Bolagsverket *identity-bearing* fields (§1.7, §6.3, review fix 4): a
+#: `fel.typ == "ORGANISATION_FINNS_EJ"` on one of these means Bolagsverket
+#: itself has no such organisation. An SCB-sourced field (`juridiskForm`,
+#: `verksamOrganisation`, `reklamsparr`, ...) can carry the identical code
+#: when only Statistics Sweden lacks the entity — the workbook's own
+#: `5567223705` scenario, "organisation finns ej hos SCB" — and that must
+#: never be read as `not_found` for a company Bolagsverket has (§1.7's own
+#: caveat: absent at one data producer does not mean absent at the other).
+_IDENTITY_BEARING_FIELDS = ("organisationsnamn", "organisationsform", "organisationsdatum")
+
+
 def is_not_found(body: Mapping[str, Any]) -> bool:
     """§1.7/§6.3: an empty `organisationer` array, or a populated one whose
-    identity-bearing fields carry `fel.typ == "ORGANISATION_FINNS_EJ"`.
+    Bolagsverket *identity-bearing* fields (`_IDENTITY_BEARING_FIELDS`) carry
+    `fel.typ == "ORGANISATION_FINNS_EJ"`.
+
+    Deliberately scoped to those three fields rather than every wrapped
+    field: an SCB-only field can carry the same code while Bolagsverket
+    still has the organisation, which is a different fact (§1.7) that must
+    not raise `not_found` — or cache a negative for an hour — for a company
+    that exists.
 
     `VERIFY-live` which shape the wire actually uses (T26 recon item 7) —
     both are handled, per `SWEDEN_SPEC.md` §6.
@@ -81,7 +99,7 @@ def is_not_found(body: Mapping[str, Any]) -> bool:
     org = _first_organisation(body)
     if org is None:
         return True
-    for field in _WRAPPED_FIELDS:
+    for field in _IDENTITY_BEARING_FIELDS:
         obj = org.get(field)
         if isinstance(obj, dict):
             fel = obj.get("fel")
@@ -191,9 +209,14 @@ def map_address(postadress: Mapping[str, Any] | None) -> Address | None:
         return None
     lines = [str(v) for v in (postadress.get("coAdress"), postadress.get("utdelningsadress")) if v]
     land = postadress.get("land")
-    country_code = None
-    if isinstance(land, str) and land.strip().casefold() in {"sverige", "sweden"}:
+    # §3: `country_code` is "SE" when `land` is absent *or* casefolds to
+    # sverige/sweden — not only on the string match (review fix 6).
+    if land is None:
+        country_code: str | None = "SE"
+    elif isinstance(land, str) and land.strip().casefold() in {"sverige", "sweden"}:
         country_code = "SE"
+    else:
+        country_code = None
     return Address(
         lines=lines,
         postal_code=postadress.get("postnummer"),
@@ -348,6 +371,7 @@ class _LegalForm:
         "english",
         "has_annual_accounts_duty",
         "has_board_duty",
+        "is_unclassified",
         "limited_liability",
         "local",
         "notes",
@@ -362,6 +386,8 @@ class _LegalForm:
         has_board_duty: bool | None,
         has_annual_accounts_duty: bool | None,
         notes: list[str],
+        *,
+        is_unclassified: bool = False,
     ) -> None:
         self.code = code
         self.english = english
@@ -370,6 +396,12 @@ class _LegalForm:
         self.has_board_duty = has_board_duty
         self.has_annual_accounts_duty = has_annual_accounts_duty
         self.notes = notes
+        #: True only when `organisationsform` carried a code this module does
+        #: not recognise (N6 already fired for it, in `notes`). `False` for a
+        #: recognised `organisationsform` code, an SCB `juridiskForm`
+        #: fallback code, or no legal-form data at all — review fix 5 uses
+        #: this to avoid double-explaining the unclassified case.
+        self.is_unclassified = is_unclassified
 
 
 def _resolve_legal_form(reader: _FieldReader, rules: ModuleType) -> _LegalForm:
@@ -388,6 +420,10 @@ def _resolve_legal_form(reader: _FieldReader, rules: ModuleType) -> _LegalForm:
             has_board_duty=info.has_board_duty,
             has_annual_accounts_duty=info.has_annual_accounts_duty,
             notes=list(info.notes),
+            # `legal_form_info` returns a non-empty `notes` (N6) precisely
+            # and only when the code is unclassified (§7) — reused here
+            # rather than re-checking membership in `ORGANISATION_FORMS`.
+            is_unclassified=bool(info.notes),
         )
 
     juridisk_form = reader.wrapper("juridiskForm", label="the legal form (SCB)")
@@ -401,9 +437,10 @@ def _resolve_legal_form(reader: _FieldReader, rules: ModuleType) -> _LegalForm:
             has_board_duty=None,
             has_annual_accounts_duty=None,
             notes=[_N5_NOTE.format(kod=code)],
+            is_unclassified=False,
         )
 
-    return _LegalForm(None, None, None, None, None, None, [])
+    return _LegalForm(None, None, None, None, None, None, [], is_unclassified=False)
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +476,35 @@ def _ongoing_procedures(reader: _FieldReader) -> list[tuple[str, str | None, dat
             continue
         result.append((str(kod), item.get("klartext"), _parse_date(item.get("fromDatum"))))
     return result
+
+
+#: The raw fields §8 derives status from (review fix 3): if a blocking `fel`
+#: hits any of these, §8 rung 3 ("nothing above fired") must not be read as
+#: a confirmed `ACTIVE` — nothing fired because the fields that would tell
+#: us were unreadable, not because Bolagsverket said the organisation is in
+#: good standing. Both `pagaende...` spellings, matching `_ongoing_procedures`.
+_STATUS_SOURCE_FIELDS = (
+    "avregistreradOrganisation",
+    "avregistreringsorsak",
+    "pagaendeAvvecklingsEllerOmstruktureringsforfarande",
+    "pagandeAvvecklingsEllerOmstruktureringsforfarande",
+)
+
+
+def _status_data_unavailable_producer(org: Mapping[str, Any]) -> str | None:
+    """The `dataproducent` of the first §8 status field a blocking `fel.typ`
+    made unreadable, or `None` if all of them arrived (present-and-null is
+    not blocked — that is a real "no" per D-011, not silence). Used only to
+    decide whether `rules.derive_status`'s rung-3 default may fire."""
+    for field in _STATUS_SOURCE_FIELDS:
+        obj = org.get(field)
+        if not isinstance(obj, dict):
+            continue
+        fel = obj.get("fel")
+        if isinstance(fel, dict) and fel.get("typ") in _BLOCKING_FEL_TYPES:
+            producer = obj.get("dataproducent")
+            return str(producer) if producer else "A data producer"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -544,6 +610,7 @@ def map_entity(
         deregistration_reason_kod=(reason_wrapper or {}).get("kod"),
         deregistration_reason_klartext=(reason_wrapper or {}).get("klartext"),
         ongoing=ongoing,
+        unavailable_producer=_status_data_unavailable_producer(org),
     )
     notes.extend(status_result.notes)
 
@@ -575,6 +642,18 @@ def map_entity(
         and legal_form.code in rules.DEADLINE_FORM_CODES
     ):
         notes.append(rules.CALENDAR_YEAR_NOTE)
+    elif (
+        status_result.status is CompanyStatus.ACTIVE
+        and legal_form.code is not None
+        and not legal_form.is_unclassified
+    ):
+        # Review fix 5: a legal form that is classified — via
+        # `organisationsform` or as an SCB `juridiskForm` fallback code —
+        # but is not `AB`/`EK` (BRF, HB, KB, E, S, the banks and insurers,
+        # any SCB-fallback code, ...) otherwise returns `deadlines == []`
+        # with no note explaining why. N6 already covers the *unclassified*
+        # case (`legal_form.is_unclassified`); this is the classified one.
+        notes.append(rules.no_computed_deadlines_note(legal_form.code, legal_form.english))
 
     # --- dates -----------------------------------------------------------
     org_datum = reader.wrapper("organisationsdatum", label="the registration date")

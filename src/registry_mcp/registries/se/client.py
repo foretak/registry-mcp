@@ -312,6 +312,21 @@ def _upstream_error(status_code: int) -> RegistryError:
     )
 
 
+def _malformed_response_error(context: str) -> RegistryError:
+    """§6.1/§6.3, review fix 13: a 200 whose body is not JSON or lacks a
+    field this module requires is an upstream problem, not a bare
+    ``KeyError``/``json.JSONDecodeError`` reaching the caller. Never echoes
+    the response body (D-007)."""
+    return RegistryError(
+        ErrorCode.UPSTREAM_ERROR,
+        f"Bolagsverket returned a 200 for {context} whose body was not valid JSON or was "
+        "missing a field this module requires.",
+        hint="This is an upstream problem, not a bad request. Retry the call in a moment.",
+        country="SE",
+        registry="bolagsverket",
+    )
+
+
 def _timeout_error() -> RegistryError:
     return RegistryError(
         ErrorCode.UPSTREAM_TIMEOUT,
@@ -362,13 +377,25 @@ async def _fetch_token(environment: str, client_id: str, client_secret: str) -> 
         break
 
     assert response is not None  # the loop above only exits via return/raise/break-with-response
+    if response.status_code == 429:
+        # The token endpoint sits behind the same WSO2 gateway and its own
+        # throttling policy (§6.1, T26e fix 12) — a 429 here is a rate limit,
+        # not a bad credential, and must be checked before the generic 4xx
+        # branch below or an operator would be sent to re-check secrets that
+        # are fine.
+        raise _rate_limited_error()
     if response.status_code >= 400:
         # Credentials are present but the token endpoint rejected them
         # outright (§6.1) — the no-credentials hint applies unchanged.
         raise _no_credentials_error()
 
-    body: dict[str, Any] = response.json()
-    access_token = str(body["access_token"])
+    try:
+        body: dict[str, Any] = response.json()
+        access_token = str(body["access_token"])
+    except (ValueError, KeyError) as exc:
+        # A 200 whose body is not JSON or lacks `access_token` (§6.1, T26e
+        # fix 13) — never a bare `KeyError`/`json.JSONDecodeError`.
+        raise _malformed_response_error("the token request") from exc
     try:
         expires_in_seconds = float(body.get("expires_in", 3600))
     except (TypeError, ValueError):
@@ -519,7 +546,12 @@ async def lookup(id: str) -> CompanyReport:
     response = await _fetch_organisationer(environment, identitetsbeteckning)
 
     if response.status_code == 200:
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            # A 200 whose body is not JSON (§6.3, T26e fix 13) — the same
+            # wrapping the token request gets in `_fetch_token`.
+            raise _malformed_response_error("the data request") from exc
     elif response.status_code == 400:
         raise _invalid_id_error(identitetsbeteckning)
     elif response.status_code in (401, 403):

@@ -435,6 +435,11 @@ def test_41_both_present_organisationsform_wins_no_n5() -> None:
     assert report.legal_form_code == "AB"
     assert not any("Statistics Sweden" in n and "juridisk form" in n for n in report.notes)
     dumped = report.model_dump(mode="json")
+    # `fetched_at` is `datetime.now(UTC)` and its digits are volatile — pop it
+    # before the scan, or this assertion fails for the whole of minute :49 of
+    # every hour and randomly whenever the microseconds contain "49" (T26e
+    # fix 1). Keep the assertion itself: it is the right one.
+    dumped.pop("fetched_at", None)
     assert "49" not in json_values(dumped)
 
 
@@ -570,8 +575,14 @@ def test_52_fr_is_distress_not_bankruptcy() -> None:
             [{"kod": "FR", "klartext": "Företagsrekonstruktion"}]
         )
     )
-    assert report.status is CompanyStatus.UNDER_LIQUIDATION
+    # Negative assertion first (T26e fix 2a): asserting `is CompanyStatus.
+    # UNDER_LIQUIDATION` first narrows `report.status` to that literal for
+    # mypy, making the `is not BANKRUPT` check below a non-overlapping
+    # identity comparison — `mypy --strict` (which `mypy .` runs, unlike
+    # `mypy src`) flags it. Order matters here for the type checker, not
+    # just the reader.
     assert report.status is not CompanyStatus.BANKRUPT
+    assert report.status is CompanyStatus.UNDER_LIQUIDATION
     assert report.status_detail is not None and "not bankruptcy" in report.status_detail.lower()
 
 
@@ -771,15 +782,24 @@ def test_70_ek_gets_annual_accounts_only() -> None:
     assert kinds == {"annual_accounts"}
 
 
-def test_71_sole_trader_no_deadlines_but_a_note() -> None:
+def test_71_sole_trader_no_deadlines_with_n8_and_n14() -> None:
+    """N14 added 2026-09-06, T26e fix 5 — before that this test passed on N8
+    alone."""
     report = _map(organisationsform=_kod_klartext("E", "Enskild näringsverksamhet"))
     assert deadlines_for(report, date(2026, 3, 1)) == []
-    assert report.notes  # N8 fires for a sole trader regardless of deadlines
+    assert any("sole trader" in n.lower() for n in report.notes), report.notes  # N8
+    assert any(
+        "no primary source for them has been read" in n for n in report.notes
+    ), report.notes  # N14
 
 
-def test_72_brf_no_deadlines() -> None:
-    deadlines = deadlines_for(_report(legal_form_code="BRF"), date(2026, 3, 1))
-    assert deadlines == []
+def test_72_brf_no_deadlines_and_n14() -> None:
+    """The note is the assertion, not an incidental (§7.3, N14)."""
+    report = _map(organisationsform=_kod_klartext("BRF", "Bostadsrättsförening"))
+    assert deadlines_for(report, date(2026, 3, 1)) == []
+    assert any(
+        "no primary source for them has been read" in n for n in report.notes
+    ), report.notes
 
 
 def test_73_unclassified_form_no_deadlines_and_n6() -> None:
@@ -789,8 +809,17 @@ def test_73_unclassified_form_no_deadlines_and_n6() -> None:
 
 
 def test_74_bankrupt_no_deadlines_note_cites_8_7() -> None:
-    report = _report(status=CompanyStatus.BANKRUPT)
+    """T26e fix 9: assert the 8 kap. 7 § sentence on a real, mapped report —
+    not only via the direct `deadline_exemption_note` call, which is kept
+    below because the wiring being correct is worth pinning on its own."""
+    report = _map(
+        pagaendeAvvecklingsEllerOmstruktureringsforfarande=_pagaende(
+            [{"kod": "KK", "fromDatum": "2024-01-26"}]
+        )
+    )
     assert deadlines_for(report, date(2026, 3, 1)) == []
+    assert any("8 kap. 7 §" in n for n in report.notes), report.notes
+
     from registry_mcp.registries.se.rules import deadline_exemption_note
 
     note = deadline_exemption_note(CompanyStatus.BANKRUPT, "KK")
@@ -824,7 +853,7 @@ def test_77_dormant_still_gets_both_deadlines() -> None:
     assert {d.kind for d in deadlines} == {"general_meeting", "annual_accounts"}
 
 
-def test_78_shape_and_purity() -> None:
+def test_78_shape_and_purity(monkeypatch: pytest.MonkeyPatch) -> None:
     today = date(2026, 3, 1)
     first = deadlines_for(_report(), today)
     second = deadlines_for(_report(), today)
@@ -835,6 +864,32 @@ def test_78_shape_and_purity() -> None:
         assert d.applies_because
         assert d.source_url and "lagen.nu" in d.source_url
         assert d.days_until == (d.due_date - today).days
+
+    # T26e fix 10: the result does not change with the process timezone
+    # either — structurally true, since `deadlines_for` takes `today` as a
+    # parameter and reads no clock at all, but this closes the numbered test
+    # rather than leaving it unpinned.
+    import os
+    import time
+
+    if hasattr(time, "tzset"):
+        original_tz = os.environ.get("TZ")
+        try:
+            monkeypatch.setenv("TZ", "America/New_York")
+            time.tzset()
+            new_york = deadlines_for(_report(), today)
+
+            monkeypatch.setenv("TZ", "Australia/Sydney")
+            time.tzset()
+            sydney = deadlines_for(_report(), today)
+
+            assert new_york == sydney == first
+        finally:
+            if original_tz is None:
+                monkeypatch.delenv("TZ", raising=False)
+            else:
+                monkeypatch.setenv("TZ", original_tz)
+            time.tzset()
 
 
 # ---------------------------------------------------------------------------

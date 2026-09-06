@@ -14,6 +14,7 @@ import json
 import logging
 import time
 import uuid
+import warnings
 from collections.abc import AsyncIterator, Iterator
 from datetime import date
 from pathlib import Path
@@ -237,11 +238,16 @@ def test_94_scb_only() -> None:
 def test_95_uppgiftskalla_fel_constructs_without_raising() -> None:
     """T26b's chosen behaviour (either is permitted by the spec): construct
     without raising, `name` falls back to the identifier, and note N13 names
-    the unavailable producer."""
+    the unavailable producer. Amended 2026-09-06 (T26e fix 3): the report's
+    `status` is `UNKNOWN` and `is_active` is `False` (§8 rung 0), never
+    `ACTIVE` — a blocked status-bearing field must not be read as silent
+    good standing."""
     report = mapping.map_entity(UPPGIFTSKALLA_FEL, "194009272719")
     assert report.name == "194009272719"
     assert report.id == "194009272719"
     assert any("could not be retrieved" in n and "Bolagsverket" in n for n in report.notes)
+    assert report.status is CompanyStatus.UNKNOWN
+    assert report.is_active is False
 
 
 def test_96_finns_ej_detected_as_not_found() -> None:
@@ -253,6 +259,74 @@ def test_97_registreringsland_never_read() -> None:
     data["organisationer"][0]["registreringsland"] = {"kod": "XX-LAND", "klartext": "Nowhereland"}
     report = mapping.map_entity(data, "5299999994")
     assert report.country == "SE"
+
+
+def test_119_scb_only_finns_ej_is_not_not_found_and_maps_active() -> None:
+    """§6.3, T26e fix 4: `ORGANISATION_FINNS_EJ` on an SCB-sourced field
+    (`juridiskForm`, `verksamOrganisation`, `reklamsparr`) means only that
+    Statistics Sweden lacks the entity — the workbook's own `5567223705`
+    scenario — while Bolagsverket's own identity-bearing fields
+    (`organisationsnamn`, `organisationsform`, `organisationsdatum`) still
+    carry the organisation. `is_not_found` must stay `False` and the report
+    must still map, as an active AB."""
+    data = copy.deepcopy(AB_ACTIVE)
+    org = data["organisationer"][0]
+    finns_ej_fel = {
+        "felBeskrivning": (
+            "Begärd organisation finns inte registrerad i sökbar form hos aktuell "
+            "dataproducent."
+        ),
+        "typ": "ORGANISATION_FINNS_EJ",
+    }
+    for field in ("juridiskForm", "verksamOrganisation", "reklamsparr"):
+        org[field] = {"fel": finns_ej_fel, "dataproducent": "SCB"}
+
+    assert mapping.is_not_found(data) is False
+    report = mapping.map_entity(data, "5299999994")
+    assert report.status is CompanyStatus.ACTIVE
+    assert report.legal_form_code == "AB"
+
+
+def test_120_blocked_status_field_gives_unknown_not_active() -> None:
+    """§8 rung 0, T26e fix 3: a blocking `fel` on a status-bearing field
+    (here `pagaende...Lista`, via `TIMEOUT`) must not be read as silent good
+    standing — `status` is `UNKNOWN`, `is_active` is `False`,
+    `status_detail` names the producer, and N13 still fires."""
+    data = copy.deepcopy(AB_ACTIVE)
+    org = data["organisationer"][0]
+    org["pagaendeAvvecklingsEllerOmstruktureringsforfarande"] = {
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": None,
+        "fel": {
+            "felBeskrivning": "Uppkoppling mot Bolagsverket misslyckades.",
+            "typ": "TIMEOUT",
+        },
+        "dataproducent": "Bolagsverket",
+    }
+    report = mapping.map_entity(data, "5299999994")
+    assert report.status is CompanyStatus.UNKNOWN
+    assert report.is_active is False
+    assert report.status_detail is not None and "Bolagsverket" in report.status_detail
+    assert any("could not be retrieved" in n and "Bolagsverket" in n for n in report.notes)
+
+
+def test_121_kk_and_fuot_bankrupt_keeps_fuot_bucket2_note() -> None:
+    """§8 "the lower rungs still fill their own fields and notes", T26e fix
+    15(a): a co-occurring bucket-2 code (`FUOT`) must not have its note
+    silently dropped just because a bucket-1 code (`KK`) decided `status`."""
+    data = copy.deepcopy(AB_ACTIVE)
+    org = data["organisationer"][0]
+    org["pagaendeAvvecklingsEllerOmstruktureringsforfarande"] = {
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": [
+            {"kod": "KK", "klartext": "Konkurs", "fromDatum": "2024-01-26"},
+            {"kod": "FUOT", "klartext": "Övertagande i fusion", "fromDatum": "2024-02-01"},
+        ],
+        "fel": None,
+        "dataproducent": "Bolagsverket",
+    }
+    report = mapping.map_entity(data, "5299999994")
+    assert report.status is CompanyStatus.BANKRUPT
+    assert report.bankruptcy_date == date(2024, 1, 26)
+    assert any("acquiring" in n.lower() and "fusion" in n.lower() for n in report.notes)
 
 
 def test_98_misspelled_pagande_key_still_detects_bankruptcy() -> None:
@@ -637,11 +711,20 @@ async def test_registry_aclose_closes_client_and_clears_token() -> None:
     await registry.lookup("5560160680")
     http_client = client_module._client
     assert http_client is not None
-    assert http_client.is_closed is False
+    # T26e fix 2b: read the property into a fresh annotated local on each
+    # side. `assert http_client.is_closed is False` narrows the property to
+    # `Literal[False]` for the rest of the function under mypy, which makes
+    # the later `is True` check a non-overlapping identity comparison and
+    # the `_tokens == {}` assertion after it unreachable code mypy never
+    # type-checks (`mypy .`, which is what CI runs, catches this; `mypy src`
+    # does not, since this file is a test).
+    closed_before: bool = http_client.is_closed
+    assert closed_before is False
     assert "production" in client_module._tokens
 
     await registry.aclose()
-    assert http_client.is_closed is True
+    closed_after: bool = http_client.is_closed
+    assert closed_after is True
     assert client_module._tokens == {}
 
 
@@ -680,25 +763,81 @@ async def test_115_live_finns_ej_not_found() -> None:
 async def test_116_live_check_digit_experiment_5560000002() -> None:
     """The §5.1.1 experiment. Record the outcome in `REVIEW.md` §T26e
     whichever way it goes: an organisation refutes the modulus-10 caveat, a
-    `400 "ogiltig kontrollsiffra"` confirms it."""
+    `400 "ogiltig kontrollsiffra"` confirms it. T26e fix 14: `warnings.warn`,
+    not `print` — pytest swallows `print` output without `-s`, and this is
+    the one live test whose *output* is the deliverable."""
     try:
         report = await client_module.lookup("5560000002")
-        print(f"5560000002 resolved: {report.name!r} — modulus-10 caveat REFUTED")
+        warnings.warn(
+            f"5560000002 resolved: {report.name!r} — modulus-10 caveat REFUTED", stacklevel=1
+        )
     except RegistryError as exc:
-        print(f"5560000002 raised {exc.code}: {exc.message} — modulus-10 caveat may be CONFIRMED")
+        warnings.warn(
+            f"5560000002 raised {exc.code}: {exc.message} — modulus-10 caveat may be CONFIRMED",
+            stacklevel=1,
+        )
 
 
 @pytest.mark.live
 async def test_117_live_field_names_present_or_optional() -> None:
-    report = await client_module.lookup("5560021361")
-    assert report.name
+    """T26e fix 8: walk the live payload for every field name `mapping.py`
+    reads and assert each is present (as a key) or explicitly optional in
+    §2 — a field this spec names that the live payload does not have is a
+    **blocking** finding for `REVIEW.md`/T26d, not something to work around.
+    Also records, via `warnings.warn` (not `print`), which spelling of
+    `pagaende...` and which `organisationsnamntyp` foreign-language code the
+    wire actually uses."""
+    environment = client_module._read_environment()
+    response = await client_module._fetch_organisationer(environment, "5560021361")
+    assert response.status_code == 200
+    body: dict[str, Any] = response.json()
+    organisationer: list[dict[str, Any]] = body.get("organisationer") or []
+    assert organisationer, "5560021361 returned no organisationer"
+    org: dict[str, Any] = organisationer[0]
+
+    # Both spellings of pagaende... are one logical field (§15) — the wire
+    # only ever uses one of them, so require at least one key, not both.
+    pagaende_kods = (
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarande",
+        "pagandeAvvecklingsEllerOmstruktureringsforfarande",
+    )
+    other_wrapped = tuple(field for field in mapping._WRAPPED_FIELDS if field not in pagaende_kods)
+    required_fields = (*other_wrapped, "organisationsidentitet", "namnskyddslopnummer")
+
+    missing = [field for field in required_fields if field not in org]
+    pagaende_present = [spelling for spelling in pagaende_kods if spelling in org]
+    if not pagaende_present:
+        missing.append(" or ".join(pagaende_kods))
+
+    assert not missing, (
+        "SWEDEN_SPEC.md names these as fields mapping.py reads, but the live 5560021361 "
+        f"payload does not have them at all — a blocking finding for REVIEW.md/T26d, not "
+        f"something to work around: {missing}"
+    )
+
+    namn_wrapper = org.get("organisationsnamn") or {}
+    name_list: list[dict[str, Any]] = namn_wrapper.get("organisationsnamnLista") or []
+    foreign_language_kods = sorted(
+        {
+            str((entry.get("organisationsnamntyp") or {}).get("kod"))
+            for entry in name_list
+            if (entry.get("organisationsnamntyp") or {}).get("kod") != "FORETAGSNAMN"
+        }
+    )
+
+    warnings.warn(
+        f"live wire for 5560021361: pagaende... spelling(s) present as a key = "
+        f"{pagaende_present!r}; organisationsnamntyp codes other than FORETAGSNAMN seen in "
+        f"the name list = {foreign_language_kods!r}",
+        stacklevel=1,
+    )
 
 
 @pytest.mark.live
-async def test_118_live_id_example_is_active() -> None:
-    import os
-
-    os.environ["BOLAGSVERKET_ENVIRONMENT"] = "production"
+async def test_118_live_id_example_is_active(monkeypatch: pytest.MonkeyPatch) -> None:
+    # T26e fix 14: `monkeypatch`, not a bare `os.environ` assignment — the
+    # latter leaks into the rest of the live session.
+    monkeypatch.setenv("BOLAGSVERKET_ENVIRONMENT", "production")
     report = await client_module.lookup("5560160680")
     assert report.status is CompanyStatus.ACTIVE
     assert report.name

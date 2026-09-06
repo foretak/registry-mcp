@@ -529,3 +529,67 @@ def test_mcp_mount_has_no_trailing_slash_redirect(path: str) -> None:
         )
     assert resp.status_code != 307
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# D-004 guarantee, Sweden (T26e fix 11 / `tasks/T26.md` §T26b): the first
+# country where REST and MCP have a second thing to agree on besides
+# `requires_api_key` — N10 and the `source` suffix. Appended at the end of
+# the file per T26f's ground rules (nothing above this point is touched);
+# everything it needs beyond the file's existing top-level imports is
+# imported locally, and Bolagsverket credentials are set inline rather than
+# through a new autouse fixture.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_rest_and_mcp_lookup_company_are_identical_se(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Same D-004 guarantee as `test_rest_and_mcp_lookup_company_are_identical_gb`,
+    for Sweden. Bolagsverket needs two upstream calls (token, then data)
+    where NO/GB need one, so both are mocked here directly rather than
+    reusing this file's NO/GB-only fixtures/constants above."""
+    from registry_mcp.registries.se import client as se_client_module
+
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_DISABLED", "1")
+    monkeypatch.setenv("BOLAGSVERKET_CLIENT_ID", "test-client-id-should-never-leak")
+    monkeypatch.setenv("BOLAGSVERKET_CLIENT_SECRET", "test-client-secret-should-never-leak")
+    monkeypatch.delenv("BOLAGSVERKET_ENVIRONMENT", raising=False)
+    se_client_module._client = None
+    se_client_module._tokens.clear()
+
+    se_fixtures = Path(__file__).parent / "fixtures"
+    token_body = json.loads((se_fixtures / "bv_token.json").read_text(encoding="utf-8"))
+    ab_active = json.loads((se_fixtures / "bv_ab_active.json").read_text(encoding="utf-8"))
+
+    respx.post("https://portal.api.bolagsverket.se/oauth2/token").mock(
+        return_value=httpx.Response(200, json=token_body)
+    )
+    respx.post("https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/organisationer").mock(
+        return_value=httpx.Response(200, json=ab_active)
+    )
+
+    try:
+        with TestClient(app) as rest_client:
+            rest_body = rest_client.get(
+                "/v1/SE/company/5299999994", headers={"X-Forwarded-For": "203.0.113.95"}
+            ).json()
+
+        async def _mcp_call() -> dict[str, Any]:
+            async with Client(mcp) as client:
+                result = await client.call_tool(
+                    "lookup_company", {"id": "5299999994", "country": "SE"}
+                )
+                assert result.structured_content is not None
+                data: dict[str, Any] = result.structured_content
+                return data
+
+        mcp_body = anyio.run(_mcp_call)
+
+        # `fetched_at` is a live timestamp captured independently by each
+        # call; every other field must match byte for byte (D-004).
+        volatile = {"fetched_at"}
+        assert {k: v for k, v in rest_body.items() if k not in volatile} == {
+            k: v for k, v in mcp_body.items() if k not in volatile
+        }
+    finally:
+        anyio.run(se_client_module.aclose)
