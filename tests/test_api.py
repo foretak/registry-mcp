@@ -13,6 +13,7 @@ D-010) — an invalid identifier is HTTP 200 with `valid: false`, not an error.
 from __future__ import annotations
 
 import json
+import logging
 import struct
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -441,6 +442,40 @@ def test_internal_error_has_no_traceback_in_body(ip: str, monkeypatch: pytest.Mo
     assert body["error"]["hint"]
     assert "Traceback" not in resp.text
     assert "boom" not in resp.text
+
+
+def test_internal_error_logs_the_route_template_not_the_identifier(
+    ip: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Review fix 3(a) (T30, `REVIEW.md` "T26f + T28 + T29"): D-040(e) closed
+    uvicorn's access log precisely because `GET /v1/SE/company/<personnummer>` puts
+    the number in the path; `_unhandled_exception_handler` (`api/errors.py`) must
+    not write the same thing to the same stream at ERROR. It must log
+    `request.method` plus the route *template* (`/v1/{country}/company/{id}`),
+    never the concrete path — reachable today by any unhandled exception on this
+    route (fix 4 closes the particular `b"null"`-body trigger the review used to
+    demonstrate it; this test reproduces the same handler behaviour directly, so
+    it stays valid regardless of what that other fix does)."""
+
+    def _boom(country: str, *, include_stubs: bool | None = None) -> Any:
+        raise ValueError("boom")
+
+    monkeypatch.setattr("registry_mcp.api.main.get_registry", _boom)
+    # WARNING, not DEBUG: `TestClient`'s own internal httpx transport logs the
+    # concrete request URL at INFO (a test-harness artefact with no production
+    # analogue — real deployments have no such client-side logger at all), which
+    # would otherwise swamp this assertion with a log line this fix does not
+    # touch. `_unhandled_exception_handler` logs at ERROR, well above this floor.
+    with (
+        TestClient(app, raise_server_exceptions=False) as unsafe_client,
+        caplog.at_level(logging.WARNING),
+    ):
+        resp = unsafe_client.get("/v1/SE/company/194009272719", headers={"X-Forwarded-For": ip})
+    assert resp.status_code == 500
+    assert caplog.records, "nothing was logged"
+    for record in caplog.records:
+        assert "194009272719" not in record.getMessage()
+    assert any("/v1/{country}/company/{id}" in record.getMessage() for record in caplog.records)
 
 
 # ---------------------------------------------------------------------------

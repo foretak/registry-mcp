@@ -729,3 +729,89 @@ async def test_search_name_query_logs_the_real_text(record_spy: _RecordSpy) -> N
     last = record_spy.calls[-1]
     assert last["country"] is None
     assert last["query"] == "Equinor"
+
+
+# ---------------------------------------------------------------------------
+# Review fix 1 (T30, REVIEW.md "T26f + T28 + T29"): the D-040(b) check above only
+# ever re-validated `candidates` (narrowed to one unflagged registry by an explicit
+# country token) against the whole `remainder` — so a personnummer sharing a query
+# with other text reached the log whenever it wasn't the *entire* remaining string.
+# These three demonstrate the leaks the fix closes; the fourth is the accompanying
+# over-redaction regression check (D-040(d): never by digit count alone).
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_search_personnummer_glued_to_a_name_token_logs_no_identifier(
+    record_spy: _RecordSpy,
+) -> None:
+    """No registry validates `"194009272719 AB"` as a whole string, so the old check
+    (which only ever tried the whole `remainder`) let this through. The fix's
+    per-run scan (`_ID_RUN`) finds `"194009272719"` as its own maximal alphanumeric
+    run and checks it against SE (the only live flagged registry) directly."""
+    _mock_no_search_empty()
+    _mock_gb_search_empty()
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "194009272719 AB"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    assert record_spy.calls[-1]["query"] is None
+
+
+@respx.mock
+async def test_search_personnummer_after_an_unrelated_country_token_logs_no_identifier(
+    record_spy: _RecordSpy,
+) -> None:
+    """An explicit "NO" token narrows `candidates` to the NO registry alone
+    (`_derive_country`) before the old check ran, so it could never see that the
+    remaining text validates for SE — a registry the query's own country token
+    excluded. GB's route is deliberately left unmocked: the identifier short-circuit
+    still narrows the actual fan-out to NO alone (same as
+    `test_search_identifier_with_explicit_country_token_still_short_circuits`), so a
+    GB call here would mean the *fan-out* broke, not just the logging check the fix
+    touches — the fix's per-run scan runs against every live flagged registry
+    regardless of `candidates`."""
+    _mock_no_search_empty()
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "NO 194009272719"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "NO"
+    assert last["query"] is None
+
+
+@respx.mock
+async def test_search_personnummer_after_a_leading_word_logs_no_identifier(
+    record_spy: _RecordSpy,
+) -> None:
+    """A leading word ("orgnr") that is neither a country token nor a registry name
+    leaves `_derive_country` at a miss, so `remainder` is the whole string and never
+    validates as an identifier by itself — the old check's only other input. The
+    fix's per-run scan still finds `"194009272719"` as its own run and redacts it."""
+    _mock_no_search_empty()
+    _mock_gb_search_empty()
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "orgnr 194009272719"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    assert record_spy.calls[-1]["query"] is None
+
+
+@respx.mock
+async def test_search_no_orgnr_with_explicit_country_token_still_logs_it(
+    record_spy: _RecordSpy,
+) -> None:
+    """Over-redaction regression: a Norwegian orgnr still short-circuits and still
+    logs verbatim, country token included, even though it is nine digits like part
+    of a personnummer — the fix's per-run scan against SE (the only flagged
+    registry) must not fire just because a run is all-digits (D-040(d): never by
+    digit count, only by `Registry.validate`)."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "NO 923609016"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "NO"
+    assert last["query"] == "NO 923609016"

@@ -329,6 +329,46 @@ def test_121_kk_and_fuot_bankrupt_keeps_fuot_bucket2_note() -> None:
     assert any("acquiring" in n.lower() and "fusion" in n.lower() for n in report.notes)
 
 
+def test_126_bucket2_only_with_a_status_field_blocked_gives_unknown_not_active() -> None:
+    """Review fix 2 (T30, `REVIEW.md` "T26f + T28 + T29"): §8's bucket-2-only branch
+    ("leaves status alone") returned a bare `ACTIVE` without ever consulting
+    `unavailable_producer` — an affirmative "not struck off" from a payload where the
+    struck-off fields never arrived. Here `pagaende...Lista = [FUOT]` (a healthy
+    acquiring company, rung 2) is unblocked and populated, while
+    `avregistreradOrganisation` (rung 1's own field) is blocked by a `fel` — the
+    produced status must be `UNKNOWN`, not `ACTIVE`, and the FUOT note must still be
+    present (§8: "the lower rungs still fill their own fields and notes").
+
+    Practical reachability note (from the fix): Bolagsverket's own partial-failure
+    fixture (`UPPGIFTSKALLA_FEL`) fails a whole data producer at once, which would
+    block `pagaende...` too and so never exercise this combination — this test
+    constructs the needed *per-field* failure directly, which §1.6 models but no
+    committed fixture does.
+    """
+    data = copy.deepcopy(AB_ACTIVE)
+    org = data["organisationer"][0]
+    org["pagaendeAvvecklingsEllerOmstruktureringsforfarande"] = {
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": [
+            {"kod": "FUOT", "klartext": "Övertagande i fusion", "fromDatum": "2024-02-01"},
+        ],
+        "fel": None,
+        "dataproducent": "Bolagsverket",
+    }
+    org["avregistreradOrganisation"] = {
+        "avregistreringsdatum": None,
+        "fel": {
+            "felBeskrivning": "Uppkoppling mot Bolagsverket misslyckades.",
+            "typ": "TIMEOUT",
+        },
+        "dataproducent": "Bolagsverket",
+    }
+    report = mapping.map_entity(data, "5299999994")
+    assert report.status is CompanyStatus.UNKNOWN
+    assert report.is_active is False
+    assert report.status_detail is not None and "Bolagsverket" in report.status_detail
+    assert any("acquiring" in n.lower() and "fusion" in n.lower() for n in report.notes)
+
+
 def test_98_misspelled_pagande_key_still_detects_bankruptcy() -> None:
     """The Altinn bug (§15): the schema spells it
     `pagaendeAvvecklingsEllerOmstruktureringsforfarande`, but Bolagsverket's
@@ -479,6 +519,40 @@ async def test_104b_401_then_200_succeeds_with_one_refresh() -> None:
     assert report.name == "Cykelbolaget AB"
     assert token_route.call_count == 2
     assert data_route.call_count == 2
+
+
+@respx.mock
+async def test_127_token_response_valid_json_not_an_object_is_upstream_error() -> None:
+    """Review fix 4 (T30, `REVIEW.md` "T26f + T28 + T29"): T26e fix 13 wrapped
+    `ValueError`/`KeyError` around `response.json()`/`body["access_token"]`, but a
+    200 whose body is valid JSON and not an object — the literal `b"null"` is the
+    simplest example — parses cleanly and then raises a bare `TypeError`
+    (`'NoneType' object is not subscriptable`) on the subscript, escaping both
+    catches. `TypeError` must be caught the same way and re-raised as
+    `upstream_error`, never a bare exception. The data endpoint is deliberately
+    left unmocked: if the token failure did not stop the call before it, reaching
+    the unmocked route would itself fail this test with the wrong exception type."""
+    respx.post(PRODUCTION_TOKEN).mock(return_value=httpx.Response(200, content=b"null"))
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.lookup("5560160680")
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+
+
+@respx.mock
+async def test_128_data_response_valid_json_not_an_object_is_upstream_error() -> None:
+    """Review fix 4 (T30): the data call has the same failure one type further out
+    — a 200 whose body is valid JSON and not an object (`b"null"`) parses cleanly
+    past the `except ValueError` guard and then raises a bare `AttributeError`
+    (`'NoneType' object has no attribute 'get'`) in `mapping.is_not_found`.
+    `isinstance(data, dict)` must catch it first and raise `upstream_error`
+    instead."""
+    _mock_token()
+    respx.post(f"{PRODUCTION_BASE}/organisationer").mock(
+        return_value=httpx.Response(200, content=b"null")
+    )
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.lookup("5560160680")
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
 
 
 @respx.mock

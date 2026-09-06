@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Route as StarletteRoute
 
 from registry_mcp.core.models import ErrorCode, RegistryError
 
@@ -83,7 +84,19 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         # Never leak a traceback into the body — log it server-side instead.
-        logger.exception("Unhandled exception in %s %s", request.method, request.url.path)
+        # Review fix 3(a) (T30): D-040(e) closed the concrete path out of the
+        # access log because an identifier — e.g. a Swedish personnummer —
+        # can be the path itself (`GET /v1/SE/company/194009272719`); this
+        # handler must not write the same thing to the same stream at ERROR.
+        # Log the route *template* (e.g. `/v1/{country}/company/{id}`)
+        # instead, never `request.url.path`; fall back to the method alone
+        # when no route matched (a raw ASGI failure, or middleware raising
+        # before routing ran) rather than substituting the concrete path.
+        route = request.scope.get("route")
+        if isinstance(route, StarletteRoute):
+            logger.exception("Unhandled exception in %s %s", request.method, route.path)
+        else:
+            logger.exception("Unhandled exception in %s", request.method)
         err = RegistryError(
             ErrorCode.INTERNAL_ERROR,
             "An unexpected error occurred while handling this request.",

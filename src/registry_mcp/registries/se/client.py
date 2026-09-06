@@ -392,9 +392,12 @@ async def _fetch_token(environment: str, client_id: str, client_secret: str) -> 
     try:
         body: dict[str, Any] = response.json()
         access_token = str(body["access_token"])
-    except (ValueError, KeyError) as exc:
-        # A 200 whose body is not JSON or lacks `access_token` (§6.1, T26e
-        # fix 13) — never a bare `KeyError`/`json.JSONDecodeError`.
+    except (ValueError, KeyError, TypeError) as exc:
+        # A 200 whose body is not JSON, or is valid JSON but not an object —
+        # a list/string/number/null indexes with `str` and raises `TypeError`,
+        # not `KeyError` — or is an object lacking `access_token` (§6.1, T26e
+        # fix 13 / review fix 4, T30): never a bare `TypeError`/`KeyError`/
+        # `json.JSONDecodeError`.
         raise _malformed_response_error("the token request") from exc
     try:
         expires_in_seconds = float(body.get("expires_in", 3600))
@@ -552,6 +555,14 @@ async def lookup(id: str) -> CompanyReport:
             # A 200 whose body is not JSON (§6.3, T26e fix 13) — the same
             # wrapping the token request gets in `_fetch_token`.
             raise _malformed_response_error("the data request") from exc
+        if not isinstance(data, dict):
+            # A 200 whose body is valid JSON but not an object — a JSON
+            # array/string/number/null parses cleanly and then raises a bare
+            # `AttributeError` on `.get(...)` in `mapping.is_not_found`/
+            # `map_entity` below, which both expect a `Mapping` (§6.3, review
+            # fix 4, T30) — the same failure one type further out than the
+            # token path above.
+            raise _malformed_response_error("the data request")
     elif response.status_code == 400:
         raise _invalid_id_error(identitetsbeteckning)
     elif response.status_code in (401, 403):

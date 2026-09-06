@@ -6,9 +6,11 @@ share state and never touch the real `./data/cache.sqlite3`.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -107,3 +109,30 @@ def test_cache_failure_is_swallowed_not_raised(
     # Neither call should raise.
     cache.set("k", {"x": 1})
     assert cache.get("k") is None
+
+
+def test_read_and_write_failure_logs_only_the_key_prefix(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Review fix 3(b) (T30, `REVIEW.md` "T26f + T28 + T29"): the SE cache key is
+    `SE:bolagsverket:entity:prod:<identitetsbeteckning>` (`registries/se/client.py`),
+    so a cache I/O failure that logs the raw key puts a personnummer in the
+    application log — D-040(c)'s "nothing, not a hash" applies to every log line,
+    not just `top_queries`. Forcing `_connect` to raise (both on read and on write)
+    must log only the key's prefix — everything up to and including the last `:`
+    — never the identifier that follows it."""
+
+    def _boom() -> NoReturn:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(cache, "_connect", _boom)
+    key = "SE:bolagsverket:entity:test:194009272719"
+
+    with caplog.at_level(logging.DEBUG):
+        assert cache.get(key) is None
+        cache.set(key, {"x": 1})
+
+    assert caplog.records, "nothing was logged"
+    for record in caplog.records:
+        assert "194009272719" not in record.getMessage()
+    assert any("SE:bolagsverket:entity:test:" in record.getMessage() for record in caplog.records)

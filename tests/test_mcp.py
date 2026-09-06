@@ -137,6 +137,23 @@ async def test_tool_output_schemas_match_models() -> None:
         assert output_schema == schema, f"{name} outputSchema does not match its model"
 
 
+def test_server_card_lookup_company_output_schema_matches_model() -> None:
+    """Review fix 5 (T30, ``REVIEW.md`` "T26f + T28 + T29"): nothing pinned
+    ``static/well-known/mcp/server-card.json``'s hand-maintained
+    ``outputSchema`` to ``CompanyReport`` — T17, T26c and T29 have all
+    hand-edited that file, and the next model change would desynchronise it
+    with nothing to catch it. Compared against
+    ``dereference_refs(CompanyReport.model_json_schema())``, not the raw
+    ``model_json_schema()`` — the same reasoning as
+    `test_tool_output_schemas_match_models` above: that dereferenced form is
+    what FastMCP actually serves, and what the card is meant to mirror.
+    """
+    card_path = Path(__file__).parent.parent / "static" / "well-known" / "mcp" / "server-card.json"
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+    (entry,) = [tool for tool in card["tools"] if tool["name"] == "lookup_company"]
+    assert entry["outputSchema"] == dereference_refs(CompanyReport.model_json_schema())
+
+
 async def test_tool_annotations() -> None:
     """Backlog item 2: all five tools are read-only, non-destructive and
     idempotent; the three that call a national register are `openWorldHint`

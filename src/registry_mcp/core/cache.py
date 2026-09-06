@@ -106,6 +106,23 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _key_prefix(key: str) -> str:
+    """The cache key's prefix only — everything up to and including the last
+    ``:`` — safe to put in a log line (review fix 3(b), T30). A cache key is
+    ``"{COUNTRY}:{registry}:{kind}:{normalised-id-or-query}"``; for a
+    registry whose identifier can be personal data (e.g. Sweden's
+    personnummer, ``SE:bolagsverket:entity:prod:<identitetsbeteckning>``,
+    ``registries/se/client.py``), that final segment must never reach the
+    application log. D-040(c)'s "nothing, not a hash" applies to every log
+    line, not just ``top_queries`` — nobody reads *this* line for the
+    identifier, only to correlate two failures against the same prefix. A
+    key with no ``:`` at all (should not happen; defensive only) logs as an
+    empty string rather than risk echoing the whole thing.
+    """
+    idx = key.rfind(":")
+    return key[: idx + 1] if idx != -1 else ""
+
+
 def get(key: str) -> CacheEntry | None:
     """Return the cached entry for ``key``, or ``None`` on a miss / disabled / failure.
 
@@ -131,7 +148,7 @@ def get(key: str) -> CacheEntry | None:
             status=status,
         )
     except Exception:
-        logger.warning("cache read failed for key %r", key, exc_info=True)
+        logger.warning("cache read failed for key prefix %r", _key_prefix(key), exc_info=True)
         return None
 
 
@@ -165,4 +182,4 @@ def set(
             )
             conn.commit()
     except Exception:
-        logger.warning("cache write failed for key %r", key, exc_info=True)
+        logger.warning("cache write failed for key prefix %r", _key_prefix(key), exc_info=True)

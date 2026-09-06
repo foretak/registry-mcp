@@ -513,14 +513,24 @@ def derive_status(
     blocking ``fel`` kept ``registries/se/mapping.py`` from reading one of
     the fields this function derives status from (``avregistreradOrganisation``,
     ``avregistreringsorsak`` or either spelling of ``pagaende...``), or
-    ``None`` if all of them arrived. It is consulted **only** at rung 3's
-    true "nothing above fired" default: a positive signal from rung 1 or 2
-    always wins regardless, and rung 2's own bucket-2-only "active" result
-    is real data (the field was not blocked, it said something), not
-    silence. When it is set and nothing above fired, this function returns
-    ``UNKNOWN`` rather than asserting good standing on data that never
-    arrived — the failure mode the module calls "an absence rendered as a
-    fact" (§1.6 rule 1, one field further on).
+    ``None`` if all of them arrived. It is consulted at rung 3's true
+    "nothing above fired" default **and** at rung 2's bucket-2-only branch:
+    a positive signal from rung 1, or a bucket-1 hit at rung 2, always wins
+    regardless — but bucket-2-only does not count as "rung 2 fired"
+    (``SWEDEN_SPEC.md`` §8: it "leaves status alone"), so a blocked producer
+    still overrides it to ``UNKNOWN`` rather than asserting good standing on
+    data that never arrived — the failure mode the module calls "an absence
+    rendered as a fact" (§1.6 rule 1, one field further on). The bucket-2
+    notes are carried through into that ``UNKNOWN`` result rather than
+    dropped (§8: "the lower rungs still fill their own fields and notes").
+
+    Practical reachability caveat: Bolagsverket's own partial-failure
+    example fails a whole data producer at once, which would block
+    ``pagaende...`` too and so keep ``ongoing`` empty in the same call where
+    ``unavailable_producer`` is set. Exercising this branch for real needs a
+    *per-field* failure — one producer blocked while another still supplies
+    bucket-2 codes — which §1.6 models but the one fixture this module has
+    does not.
     """
     bankruptcy_date = next((from_datum for kod, _kt, from_datum in ongoing if kod == "KK"), None)
 
@@ -595,6 +605,23 @@ def derive_status(
             return StatusResult(
                 status=CompanyStatus.UNKNOWN,
                 status_detail=detail,
+                is_active=False,
+                bankruptcy_date=bankruptcy_date,
+                procedure_kod=None,
+                notes=notes,
+            )
+
+        # Review fix 2 (T30): bucket-2-only does not count as "rung 2 fired" —
+        # SWEDEN_SPEC.md §8 says it "leaves status alone", so an
+        # `unavailable_producer` blocking the struck-off/bucket-1 fields must
+        # still override this to UNKNOWN, the same as rung 3's true default
+        # below. `notes` (the bucket-2 sentences already collected above) is
+        # carried through rather than dropped — §8's "the lower rungs still
+        # fill their own fields and notes" applies here too.
+        if unavailable_producer is not None:
+            return StatusResult(
+                status=CompanyStatus.UNKNOWN,
+                status_detail=_STATUS_DATA_UNAVAILABLE_DETAIL.format(producer=unavailable_producer),
                 is_active=False,
                 bankruptcy_date=bankruptcy_date,
                 procedure_kod=None,
