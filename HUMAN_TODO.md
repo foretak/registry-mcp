@@ -416,7 +416,7 @@ Free, no contract, no fee; credentials for **test and production** arrive by ema
 after a web form (the "kundanmälan"). The form sits behind bot protection, so Claude in
 Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-registers-landscape/02-sweden-bolagsverket.md` §2.
 
-- [ ] **Submit the kundanmälan** (confirmed by T26r on 2026-09-05: the form has exactly two
+- [x] **Submit the kundanmälan** — **SUBMITTED 2026-09-06 by Kim** (via Claude in Chrome): e-mail `hello@foretak.dev` (not the Gmail address the block below says — the Cloudflare route to Gmail was checked live), mobile number given, cookie banner "only necessary". Confirmation: *"Tack för din anmälan! Vi tar hand om din anmälan så snart vi kan."* The page carries a notice dated 2026-05-13 that new API sign-ups are backlogged, so handling can take longer than usual. **Credentials arrive by e-mail to hello@foretak.dev (forwarded to Gmail) as an encrypted zip, password by SMS. Any session: search Gmail for `bolagsverket` first; when the mail is in, tell Kim, who pulls the details.** *(Original instruction block kept below for the record.)* (confirmed by T26r on 2026-09-05: the form has exactly two
       required fields, e-mail and mobile number; credentials for test **and** production
       arrive as an **encrypted zip by e-mail**, with the zip **password by SMS**; a standing
       notice on the page warns of longer handling times). Instruction block for Claude in Chrome:
