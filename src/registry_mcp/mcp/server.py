@@ -51,7 +51,7 @@ from registry_mcp.core.models import (
     Surface,
     ValidationResult,
 )
-from registry_mcp.core.registry import Registry, get_registry, list_registries
+from registry_mcp.core.registry import Registry, get_registry, list_registries, loggable_query
 from registry_mcp.core.rules.common import parse_iso_date
 
 logger = logging.getLogger(__name__)
@@ -79,11 +79,22 @@ def _current_user_agent() -> str:
 
 @dataclass
 class _CallOutcome:
-    """Mutable result the `_call_context` caller fills in as it learns more."""
+    """Mutable result the `_call_context` caller fills in as it learns more.
+
+    `country`/`query` seed as the (normalised) values `_call_context` was
+    entered with, and stay there for every tool in this module — none of the
+    five needs to touch them. `mcp/connector.py`'s two aliases do: `fetch`
+    parses a country out of its `"{COUNTRY}:{identifier}"` argument only
+    after entering, and `search` learns one from `_derive_country` — both
+    overwrite the field once they know more, before the `finally` below reads
+    it (`DECISIONS.md` D-040(b)).
+    """
 
     ok: bool = True
     error_code: str | None = None
     cached: bool | None = None
+    country: str | None = None
+    query: str | None = None
 
 
 @contextmanager
@@ -107,9 +118,14 @@ def _call_context(
     is recorded as-is, with whatever the caller set on `outcome` (`error_code`
     for `validate_company_id`'s non-raising `invalid_id` case, `cached` for
     `lookup_company`/`search_company`).
+
+    Whatever `outcome.country`/`.query` hold when the block exits is what
+    gets logged — run through `core.registry.loggable_query` exactly once,
+    here, so no tool (and neither connector alias) ever calls it itself
+    (`DECISIONS.md` D-040(b)).
     """
     started = time.monotonic()
-    outcome = _CallOutcome()
+    outcome = _CallOutcome(country=country.upper() if country else None, query=query)
     try:
         yield outcome
     except RegistryError as exc:
@@ -121,8 +137,8 @@ def _call_context(
             record_call(
                 surface=Surface.MCP,
                 operation=operation,
-                country=country.upper() if country else None,
-                query=query,
+                country=outcome.country,
+                query=loggable_query(outcome.country, outcome.query),
                 user_agent=_current_user_agent(),
                 latency_ms=int((time.monotonic() - started) * 1000),
                 ok=outcome.ok,

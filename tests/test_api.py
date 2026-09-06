@@ -482,3 +482,115 @@ def test_openapi_has_descriptions_on_every_path() -> None:
         "/icon.png",
     ):
         assert hidden not in schema["paths"]
+
+
+# ---------------------------------------------------------------------------
+# D-040 — a personal identifier never reaches the usage log
+# ---------------------------------------------------------------------------
+
+
+class _RecordSpy:
+    """Stand-in for `record_call`: records every call's keyword arguments so a
+    test can assert on exactly what `_record` tried to log, with no SQLite
+    file (and no `stats.summary()` aggregation) in the way at all."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def __call__(self, **kwargs: Any) -> None:
+        self.calls.append(kwargs)
+
+
+@pytest.fixture
+def record_spy(monkeypatch: pytest.MonkeyPatch) -> _RecordSpy:
+    spy = _RecordSpy()
+    monkeypatch.setattr("registry_mcp.api.main.record_call", spy)
+    return spy
+
+
+def test_se_lookup_without_credentials_logs_no_identifier(
+    client: TestClient, ip: str, record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Swedish sole trader's identifier is a personnummer (D-040). Even a
+    failed lookup — no Bolagsverket credentials configured, so `lookup` raises
+    `upstream_error` before any socket opens (`registries/se/client.py::lookup`) —
+    must never pass it to `record_call`: the log line is written in `_record`
+    regardless of success, and the rule is blanket by country (D-040(d))."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    resp = client.get("/v1/SE/company/194009272719", headers={"X-Forwarded-For": ip})
+
+    assert resp.status_code == 502
+    assert resp.json()["error"]["code"] == "upstream_error"
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+def test_se_deadlines_without_credentials_logs_no_identifier(
+    client: TestClient, ip: str, record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`company_deadlines` looks the entity up first, so it fails the same way
+    lookup_company does with no credentials — and must log the same way."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    resp = client.get(
+        "/v1/SE/company/194009272719/deadlines", headers={"X-Forwarded-For": ip}
+    )
+
+    assert resp.status_code == 502
+    assert resp.json()["error"]["code"] == "upstream_error"
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+def test_se_validate_logs_no_identifier(
+    client: TestClient, ip: str, record_spy: _RecordSpy
+) -> None:
+    """`validate` never touches the network at all, but the identifier is
+    still a personnummer — D-040(d)'s blanket-by-country rule does not care
+    whether a call happened to reach the register."""
+    resp = client.get("/v1/SE/validate/194009272719", headers={"X-Forwarded-For": ip})
+
+    assert resp.status_code == 200
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+@respx.mock
+def test_no_lookup_still_logs_the_real_identifier(
+    client: TestClient, ip: str, record_spy: _RecordSpy
+) -> None:
+    """Regression: D-040 flags Sweden only (today) — a Norwegian orgnr is a
+    company number, not a natural person's, and must keep reaching the log
+    unchanged."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(
+        return_value=httpx.Response(200, json=EQUINOR)
+    )
+
+    resp = client.get("/v1/NO/company/923609016", headers={"X-Forwarded-For": ip})
+
+    assert resp.status_code == 200
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] == "NO"
+    assert last["query"] == "923609016"
+
+
+def test_dockerfile_uvicorn_cmd_disables_access_log() -> None:
+    """D-040(e): uvicorn's default access log would write the request path — the
+    identifier included, e.g. `GET /v1/SE/company/<personnummer>` — to Railway's log
+    stream, duplicating `calls` with an IP address added and none of `loggable_query`'s
+    redaction. `--no-access-log` on the uvicorn branch of the `CMD` closes that; the
+    stdio branch (`exec registry-mcp`) has no HTTP access log to disable."""
+    dockerfile = (Path(__file__).parent.parent / "Dockerfile").read_text(encoding="utf-8")
+    (cmd_line,) = [line for line in dockerfile.splitlines() if line.startswith("CMD ")]
+    assert "uvicorn registry_mcp.api.main:app" in cmd_line
+    assert "--no-access-log" in cmd_line
