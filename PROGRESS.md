@@ -64,7 +64,7 @@ Completed phases are rolled up to one line each; the full done-check trails live
 
 ## Phase 7 — Third country: Sweden, `registries/se/` (T26, started 2026-09-05 ~21:45 local on Kim's instruction "set up a team creating the Sweden folder"; brief in `tasks/T26.md`)
 
-Denmark (T16) stays queued behind Erhvervsstyrelsen's answer (~2026-09-23); Sweden needs only a self-service credential form, so it goes first and Denmark reuses the recipe. Rules: zero `core/` edits (R-2 not authorised — REKLAMSPÄRR goes to `notes`; architect writes a recommendation for Kim), deadline rules ship only with a primary-source citation, no invented JSON shapes (VERIFY until live), no production calls.
+**New countries are on HOLD (Kim, 2026-09-06: "I'll hold on more countries") — Ireland (`tasks/T27.md`) stays unassigned and Finland is not opened until Kim lifts it; Sweden go-live (T26d) and Denmark's pending reply (T16) are unaffected.** Denmark (T16) stays queued behind Erhvervsstyrelsen's answer (~2026-09-23); Sweden needs only a self-service credential form, so it goes first and Denmark reuses the recipe. Rules: zero `core/` edits (R-2 not authorised — REKLAMSPÄRR goes to `notes`; architect writes a recommendation for Kim), deadline rules ship only with a primary-source citation, no invented JSON shapes (VERIFY until live), no production calls.
 
 | id | owner | status | done-check | blocker |
 |---|---|---|---|---|
