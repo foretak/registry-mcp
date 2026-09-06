@@ -7,6 +7,7 @@
 [![npm](https://img.shields.io/npm/v/registry-mcp?label=npm%20registry-mcp)](https://www.npmjs.com/package/registry-mcp)
 [![CI](https://github.com/foretak/registry-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/foretak/registry-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/foretak/registry-mcp)
 
 **Company data for AI agents, any country.** One MCP server and REST API, two national registers today: Norway's **Enhetsregisteret** / **Brønnøysundregistrene** (**brreg**), looked up by **organisasjonsnummer** (**orgnr**), and the United Kingdom's **Companies House**, looked up by **company number** — one JSON shape either way.
 
