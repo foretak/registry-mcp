@@ -72,18 +72,21 @@ The same two commands as above — Streamable HTTP or local stdio. To add it as 
 $ curl https://api.foretak.dev/v1/NO/company/923609016
 {
   "country": "NO", "registry": "brreg",
-  "id": "923609016", "id_formatted": "923 609 016", "id_scheme": "organisasjonsnummer",
+  "id": "923609016", "id_formatted": "923 609 016", "id_scheme": "organisasjonsnummer", "euid": null,
   "name": "EQUINOR ASA",
   "legal_form_code": "ASA", "legal_form": "Public limited company", "legal_form_local": "Allmennaksjeselskap",
   "status": "active", "is_active": true, "registered_at": "1995-03-12",
   "vat_registered": true, "vat_number": "NO923609016MVA", "vat_registered_at": "1989-07-01",
   "employees": 21239, "share_capital": 5976872600.0, "share_capital_currency": "NOK",
   "business_address": {"lines": ["Forusbeen 50"], "postal_code": "4035", "city": "STAVANGER"},
+  "advertising_protected": null,
   "source": "Enhetsregisteret (Brønnøysundregistrene)", "license": "NLOD 2.0"
 }
 ```
 
 Abridged — the full `CompanyReport` also carries `previous_names`, `industry_codes`, `registers`, `purpose`, `parent_id`, `confidence`, `cached`, `fetched_at` and `notes`. Every field is documented in [`llms-full.txt`](static/llms-full.txt) §5.
+
+`euid` is the EU-wide identifier some member-state registers publish (Finland does; none of ours do yet) — never the LEI, never constructed from parts. `advertising_protected` is `true`/`false`/`null`: whether the register marks this entity as protected against direct-marketing use, `null` meaning the register publishes no such flag at all (Norway and the UK, today); where it is `true` (Sweden's *reklamspärr*, for one), a `notes` sentence states it and that marking must travel with any contact details you pass on.
 
 The United Kingdom, same shape, same abridgement:
 
@@ -91,7 +94,7 @@ The United Kingdom, same shape, same abridgement:
 $ curl https://api.foretak.dev/v1/GB/company/00445790
 {
   "country": "GB", "registry": "companies-house",
-  "id": "00445790", "id_formatted": null, "id_scheme": "company number",
+  "id": "00445790", "id_formatted": null, "id_scheme": "company number", "euid": null,
   "name": "TESCO PLC",
   "legal_form_code": "plc", "legal_form": "Public limited company",
   "status": "active", "is_active": true, "registered_at": "1947-11-27",
@@ -100,6 +103,7 @@ $ curl https://api.foretak.dev/v1/GB/company/00445790
   "registers": {"charges": false, "insolvency": false},
   "industry_codes": [{"code": "47110", "description": null, "scheme": "SIC 2007", "rank": 1}],
   "business_address": {"lines": ["Tesco House, Shire Park", "Kestrel Way"], "postal_code": "AL7 1GA", "city": "Welwyn Garden City"},
+  "advertising_protected": null,
   "published_deadlines": [
     {"kind": "annual_accounts", "due_date": "2027-08-26", "period_end": "2027-02-26", "overdue": false, "source": "accounts.next_accounts.due_on"},
     {"kind": "confirmation_statement", "due_date": "2027-07-02", "period_end": "2027-06-18", "overdue": false, "source": "confirmation_statement.next_due"}

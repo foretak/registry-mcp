@@ -137,6 +137,19 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   the identifier *is* the proprietor's personnummer, which is why
   Bolagsverket's own read operations are POSTs rather than GETs (D-039).
 
+### Added (R-2: `euid` and `advertising_protected`)
+- `CompanyReport` gains two nullable keys, both additive and both `null` by
+  default — no existing key changes shape or meaning: `euid` (the EU-wide
+  identifier some member-state registers publish, e.g. Finland; carried
+  verbatim, never constructed, and never the LEI) and `advertising_protected`
+  (`true`/`false`/`null` — whether the register marks this entity as
+  protected against direct-marketing use; `null`, the default, means the
+  register publishes no such flag at all). A model validator rejects any
+  report with `advertising_protected=true` unless `notes` carries a matching
+  "direct marketing" sentence (D-026(a),(b)). Sweden's `reklamsparr` now sets
+  `advertising_protected` directly, alongside its existing `notes` sentence,
+  instead of the field going unset (D-036).
+
 ### Fixed
 - Norwegian `annual_accounts` and `general_meeting` deadlines no longer roll
   forward off a weekend or holiday: no provision grants that, and

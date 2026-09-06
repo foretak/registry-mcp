@@ -156,6 +156,7 @@ Response (abridged — every field is documented in §5):
       "id": "923609016",
       "id_formatted": "923 609 016",
       "id_scheme": "organisasjonsnummer",
+      "euid": null,
       "name": "EQUINOR ASA",
       "previous_names": ["STATOIL ASA", "STATOILHYDRO ASA", "STATOIL ASA",
                          "Den norske stats oljeselskap a.s"],
@@ -203,6 +204,7 @@ Response (abridged — every field is documented in §5):
       "website": "www.equinor.com",
       "email": null,
       "phone": "51 99 00 00",
+      "advertising_protected": null,
       "parent_id": null,
       "is_subunit": false,
       "in_group": true,
@@ -233,6 +235,7 @@ Response (abridged the same way; MCP
       "id": "00445790",
       "id_formatted": null,
       "id_scheme": "company number",
+      "euid": null,
       "name": "TESCO PLC",
       "previous_names": ["TESCO STORES (HOLDINGS) PUBLIC LIMITED COMPANY",
                          "TESCO STORES (HOLDINGS) LIMITED"],
@@ -262,6 +265,7 @@ Response (abridged the same way; MCP
         "municipality": null, "municipality_code": null,
         "country_code": "GB", "country_name": "United Kingdom"
       },
+      "advertising_protected": null,
       "last_annual_accounts_year": 2026,
       "published_deadlines": [
         {"kind": "annual_accounts", "due_date": "2027-08-26",
@@ -732,7 +736,7 @@ handling in §3 applies unchanged.
 
 Groups, in the order they appear:
 
-- **Identity** — `country`, `registry`, `id`, `id_formatted`, `id_scheme`.
+- **Identity** — `country`, `registry`, `id`, `id_formatted`, `id_scheme`, `euid`.
 - **Names** — `name`, `previous_names` (newest first).
 - **Legal form** — `legal_form_code` (national, e.g. `AS`, `ASA`, `ENK`),
   `legal_form` (English label), `legal_form_local`, `limited_liability`,
@@ -755,7 +759,7 @@ Groups, in the order they appear:
 - **Capital** — `share_capital`, `share_capital_currency`.
 - **Contact** — `business_address`, `postal_address` (each with `lines`,
   `postal_code`, `city`, `municipality`, `municipality_code`, `country_code`,
-  `country_name`), `website`, `email`, `phone`.
+  `country_name`), `website`, `email`, `phone`, `advertising_protected`.
 - **Structure** — `parent_id`, `is_subunit`, `in_group`.
 - **Accounts** — `last_annual_accounts_year`, plus `published_deadlines`: the
   filing dates the *register itself* publishes for this company, each with
@@ -769,7 +773,7 @@ Groups, in the order they appear:
 - **Provenance** — `confidence` (0.0–1.0), `confidence_basis`, `cached`,
   `fetched_at`, `source`, `source_url`, `license`, `notes`.
 
-Three fields deserve special attention:
+Five fields deserve special attention:
 
 `notes` is a list of plain-English caveats meant to be surfaced to the user, not
 swallowed. If a company is bankrupt, or its legal form is unclassified, or a
@@ -796,6 +800,28 @@ with significant control) register is a separate regime again — neither is
 House publishes no parent or group field on the company profile, so it is
 always `null` for the United Kingdom, and a UK group has to be inferred from
 ownership filings this endpoint does not return.
+
+`euid` is the EU-wide identifier some member-state registers publish under
+Commission Implementing Regulation (EU) 2021/1042 — Finland hands one over
+unprompted, ours do not yet. It is **not the LEI** (register-issued,
+mandatory in the EU and free, versus the LEI's voluntary, global, LOU-issued
+and fee-bearing regime — an entity can carry both, one or neither), it is
+**not the EU Digital Identity wallet** (an unrelated personal credential
+that happens to share the name), and it is carried verbatim from the
+register, **never constructed from parts**, because it is not stable across
+a register reorganisation (it encodes the register of origin, and registers
+do get replaced — France's RNE succeeded the RCS in 2023).
+
+`advertising_protected` is `true`/`false`/`null`, and always present, never
+omitted. `true` means the register marks this entity as protected against
+direct-marketing use; `false` means the register publishes such a flag for
+this entity and it is not set; `null` — the default, and it must never
+default to `false` — means this register publishes no such flag at all
+(Norway and the UK, today). When it is `true`, `notes` carries a
+plain-English sentence stating the protection, because the marking is a
+legal condition of passing this record's contact details on (Danish
+CVR-loven § 19; Swedish *reklamspärr* is the same concept), and that
+sentence must travel with them.
 
 Coverage differs by country, and that is what `null` is for. Norway publishes
 VAT registration, employees, share capital, sector and a purpose clause; the UK

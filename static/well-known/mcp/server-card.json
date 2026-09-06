@@ -80,6 +80,19 @@
             "description": "Name of the identifier scheme, e.g. 'organisasjonsnummer'.",
             "title": "Id Scheme"
           },
+          "euid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "European Unique Identifier (EUID, Commission Implementing Regulation (EU) 2021/1042 Article 9), where the register publishes one, e.g. Finland's 'FIFPRO.0112038-9'. None for a register that does not (today: all of ours). Three traps: (1) this is not the LEI — the EUID is register-issued, mandatory in the EU and free, the LEI is voluntary, global, LOU-issued and fee-bearing; an entity may carry both, one or neither. (2) 'EUid' also names the EU Digital Identity wallet, a personal credential unrelated to company registers. (3) it is not stable across a register reorganisation, since it encodes the register of origin (e.g. France's RNE replacing the RCS in 2023). Carried verbatim from the register; never constructed from parts.",
+            "title": "Euid"
+          },
           "name": {
             "description": "Current registered name.",
             "title": "Name",
@@ -739,6 +752,19 @@
             "default": null,
             "description": "Contact phone as registered.",
             "title": "Phone"
+          },
+          "advertising_protected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Whether the register marks this entity as protected against direct-marketing use (Danish CVR-loven § 19 'reklamebeskyttelse', Swedish 'reklamspärr'). True: the register marks it. False: the register publishes such a flag for this entity and it is not set. None: this register publishes no such flag at all — the default, and it must never default to False, since False asserts a claim about a register that made none. When True, a country module must also append a `notes` entry containing the phrase 'direct marketing' (case-insensitive) stating the protection — that phrase is the contract this model enforces (see the validator below) — because the marking is a legal condition of passing this record's contact details on, and it must travel with them.",
+            "title": "Advertising Protected"
           },
           "parent_id": {
             "anyOf": [

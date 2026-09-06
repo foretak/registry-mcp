@@ -942,3 +942,42 @@ def test_modulus10_ok_matches_the_spec_table() -> None:
 def test_id_caveat_none_for_ten_digit_gd_nummer_when_check_passes() -> None:
     # A ten-digit GD-nummer is checked exactly like an organisationsnummer.
     assert id_caveat("5560160680") is None
+
+
+# ---------------------------------------------------------------------------
+# advertising_protected — reklamsparr -> the field (D-026(b), D-036), 122-125
+# ---------------------------------------------------------------------------
+
+
+def test_122_reklamsparr_ja_sets_advertising_protected_true_and_n4() -> None:
+    report = _map(reklamsparr=_kod_klartext("JA"))
+    assert report.advertising_protected is True
+    assert any("reklamspärr" in n.lower() for n in report.notes)
+
+
+def test_123_reklamsparr_nej_sets_advertising_protected_false_and_no_n4() -> None:
+    report = _map(reklamsparr=_kod_klartext("NEJ"))
+    assert report.advertising_protected is False
+    assert not any("reklamspärr" in n.lower() for n in report.notes)
+
+
+def test_124_reklamsparr_absent_is_advertising_protected_none() -> None:
+    report = _map(reklamsparr=None)
+    assert report.advertising_protected is None
+    assert not any("reklamspärr" in n.lower() for n in report.notes)
+
+
+def test_125_reklamsparr_blocked_by_fel_is_advertising_protected_none() -> None:
+    """SWEDEN_SPEC.md §14 test 125: blocked by `fel` -> `None`, and N13 names
+    the data producer that could not answer (here, SCB)."""
+    report = _map(
+        reklamsparr={
+            "kod": None,
+            "klartext": None,
+            "fel": {"typ": "OTILLGANGLIG_UPPGIFTSKALLA"},
+            "dataproducent": "SCB",
+        }
+    )
+    assert report.advertising_protected is None
+    assert not any("reklamspärr" in n.lower() for n in report.notes)
+    assert any("could not be retrieved" in n and "SCB" in n for n in report.notes)

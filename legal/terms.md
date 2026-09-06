@@ -37,6 +37,13 @@ We are **not affiliated with, endorsed by, or acting on behalf of
 Brønnøysundregistrene**, Skatteetaten, or any other authority named in a
 response.
 
+**Where a register marks an entity as protected against direct marketing
+(`advertising_protected: true`), that marking is a condition of our passing
+the record on, and of you passing it on further.** Keep it with the contact
+details: do not use or forward `email`, `phone` or an address from such a
+record for direct-marketing purposes, and do not strip the corresponding
+`notes` sentence when you relay the record.
+
 ## No warranty
 
 The service is provided **as is, with no warranty of any kind**, express or

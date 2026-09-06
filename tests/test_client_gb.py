@@ -160,6 +160,17 @@ def test_79_unpublished_fields_are_honestly_none_and_no_notes() -> None:
     assert published["confirmation_statement"].due_date == date(2027, 7, 2)
 
 
+def test_euid_and_advertising_protected_are_null_for_the_uk() -> None:
+    """R-2 (D-026(a),(b)): both keys are always present in the serialised
+    document and `null` for the United Kingdom, which publishes neither a
+    EUID nor an advertising-protection flag (D-004: always present, never
+    omitted)."""
+    report = mapping.map_entity(TESCO)
+    dumped = report.model_dump(mode="json")
+    assert dumped["euid"] is None
+    assert dumped["advertising_protected"] is None
+
+
 def test_80_natwest_no_locality_no_country_code_but_jurisdiction_note() -> None:
     report = mapping.map_entity(NATWEST)
     assert report.business_address is not None
