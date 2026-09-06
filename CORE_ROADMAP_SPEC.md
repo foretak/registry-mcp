@@ -145,6 +145,14 @@ Digital Identity wallet; not stable across a register reorganisation).
 `True` **must** also append a plain-English `notes` sentence stating the protection — the
 CVR-loven § 19 marking has to reach a caller that reads only `notes`.
 
+**Ruled at dispatch (2026-09-06, T29, authorised by Kim).** The "must also append a `notes`
+sentence" rule is enforced in `core/models.py` by a model validator (D-020 precedent), not only by
+fixtures: `advertising_protected is True` with no `notes` entry containing the phrase
+**"direct marketing"** (case-insensitive) raises. That phrase is the contract a country module
+meets — Sweden's N4 already does — and the field description says so. Sweden maps `reklamsparr`
+`JA`/`NEJ`/absent → `True`/`False`/`None` (`SWEDEN_SPEC.md` §2.6); `euid` stays `None` on every
+country we have.
+
 **Done-check.** Both keys present and `null` on every NO and GB report (D-004: always present,
 never omitted); `registries/no/`, `registries/gb/` and `registries/xx/` unedited; a synthetic
 report with `advertising_protected=True` and no matching `notes` entry fails a test;
