@@ -22,7 +22,7 @@ if more than a month has passed.
 | 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** — auto-indexed as https://mcpmarket.com/server/registry-10 ("Registry"); resubmission 2026-09-05 answered "already listed" |
 | 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **Badge added 2026-09-05** (fork commit 0726bb2e on `add-registry-mcp`; line also mentions the UK). Badge renders once Glama has a score → needs #3's claim + Dockerfile |
 | 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo archived |
-| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **Submitted 2026-09-05** (free, Finance; review "within 12 hours", e-mail to hello@foretak.dev) |
+| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **LIVE — approved 2026-09-05 22:02Z** (https://mcpservers.org/servers/foretak/registry-mcp; badge offered; approval mail to hello@foretak.dev). Submitted 2026-09-05 (free, Finance; review "within 12 hours", e-mail to hello@foretak.dev) |
 | 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**missing**) | **Yes** — GitHub | Blocked on icon + a README-only install test in Cline |
 | — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Done** — 12 topics set 2026-09-04 |
 

@@ -149,7 +149,7 @@ Two schema constraints that will bite an edit:
 - [x] **MCP Market — already live** (found 2026-09-05 when submitting): auto-indexed
       from GitHub as https://mcpmarket.com/server/registry-10 under the name
       "Registry". Optional: claim it there to fix the name to `registry-mcp`.
-- [x] **mcpservers.org — submitted 2026-09-05** (free listing, category Finance,
+- [x] **mcpservers.org — submitted 2026-09-05, approved and live 2026-09-05 22:02Z** (https://mcpservers.org/servers/foretak/registry-mcp; badge added to the README 2026-09-06) (free listing, category Finance,
       contact hello@foretak.dev; "reviewed within 12 hours", confirmation by
       e-mail).
 - [ ] ~~Smithery, Glama, mcp.so, MCP Market — each needs a login.~~ **PulseMCP is

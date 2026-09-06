@@ -18,6 +18,7 @@ Format: `date · channel · who (handle or role) · what they said · what we di
 | Glama | https://glama.ai/mcp/servers/foretak/registry-mcp | 2026-09-05 | live, claimed, build + checks passed 14:36Z, score badge renders |
 | awesome-mcp-servers | punkpeye#13631 | 2026-09-04 | Glama badge added 2026-09-05; waiting for bot re-check and a Glama score |
 | Erhvervsstyrelsen | cvrselvbetjening@erst.dk (T16) | 2026-09-05 | application sent, acknowledged as sagsnummer 177481; reply due ~2026-09-23 |
+| mcpservers.org | https://mcpservers.org/servers/foretak/registry-mcp | 2026-09-05 | approved and live 22:02Z (mail to hello@foretak.dev); badge in README 2026-09-06 |
 
 ## Stats baseline — reset considered and declined 2026-09-05 (Kim: "leave it, it's fine")
 
