@@ -150,7 +150,7 @@ sentence" rule is enforced in `core/models.py` by a model validator (D-020 prece
 fixtures: `advertising_protected is True` with no `notes` entry containing the phrase
 **"direct marketing"** (case-insensitive) raises. That phrase is the contract a country module
 meets — Sweden's N4 already does — and the field description says so. Sweden maps `reklamsparr`
-`JA`/`NEJ`/absent → `True`/`False`/`None` (`SWEDEN_SPEC.md` §2.6); `euid` stays `None` on every
+`JA`/`NEJ`/absent → `True`/`False`/`None` (`SWEDEN_SPEC.md` §2.7); `euid` stays `None` on every
 country we have.
 
 **Done-check.** Both keys present and `null` on every NO and GB report (D-004: always present,

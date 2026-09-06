@@ -506,7 +506,7 @@ guess (D-004, D-011). **Read `fel` before every value** (§1.6).
 | N1 | `status != ACTIVE` | §8's per-status sentence |
 | N2 | An ongoing procedure code is present that §8's table does not classify | "Bolagsverket records an ongoing winding-up or restructuring procedure for this organisation ({kod}: {klartext}, registered {fromDatum}) that registry-mcp does not classify. Treat this organisation as not plainly active and check with Bolagsverket before contracting with it." |
 | N3 | `verksamOrganisation.kod == "NEJ"` | "Statistics Sweden does not mark this organisation as economically active (*verksam*): it holds no F-skatt, VAT or employer registration. It is on the register and is not being wound up, so `is_active` is true — but it may be dormant, and that is a different question." |
-| N4 | `reklamsparr.kod == "JA"` (D-036; since R-2 landed, 2026-09-06, set **together with** `advertising_protected = True` — §2.6) | "This organisation is marked with a *reklamspärr* (advertising block) in Statistics Sweden's register: it has asked not to receive direct marketing. If you pass this record's contact details on, that marking must travel with them." |
+| N4 | `reklamsparr.kod == "JA"` (D-036; since R-2 landed, 2026-09-06, set **together with** `advertising_protected = True` — §2.7) | "This organisation is marked with a *reklamspärr* (advertising block) in Statistics Sweden's register: it has asked not to receive direct marketing. If you pass this record's contact details on, that marking must travel with them." |
 | N5 | `legal_form_code` came from `juridiskForm` (§7) | "The legal form shown comes from Statistics Sweden's *juridisk form* code list (code {kod}), not from Bolagsverket's *organisationsform*. The two are different code lists — the Tax Agency's is coarser — and Bolagsverket holds no organisationsform for this organisation." |
 | N6 | The legal form is unclassified by §7 | "The legal form {kod!r} is not classified by registry-mcp, so no filing deadlines are computed for it. This does not mean none apply — check with an accountant." (Norway's wording, D-009(a)) |
 | N7 | `len(organisationer) > 1` (§2.2) | "This identifier carries {n} registered businesses: {namn} (namnskyddslöpnummer {n}, registered {date}); … . In Sweden a sole trader's organisationsnummer is the proprietor's personnummer, so one number can hold several registered business names. The one shown above is the first Bolagsverket returned; it is not necessarily the one you are looking for." |
@@ -663,7 +663,7 @@ to smuggle into a Bolagsverket document.
 
 ---
 
-### 2.6 `advertising_protected` and `euid` (R-2, authorised 2026-09-06 — T29)
+### 2.7 `advertising_protected` and `euid` (R-2, authorised 2026-09-06 — T29)
 
 D-036 put the *reklamspärr* in `notes` only because the field did not exist. It exists now
 (`CORE_ROADMAP_SPEC.md` §4, D-026(b)), and Sweden is the first country to set it:
@@ -1471,7 +1471,10 @@ N13 fires as usual; N1 does not add a second sentence for `UNKNOWN`. Rung 0 is w
 because it is the precondition for rung 3, but it is *evaluated* after rungs 1 and 2 — real data
 beats absence. A struck-off date that arrived (rung 1) or a `KK` that arrived (rung 2) decides the
 status even when the other status-bearing field was blocked; rung 0 fires only when neither rung 1
-nor rung 2 fired **and** at least one status-bearing field was blocked. Reading the "highest first"
+nor rung 2 fired **and** at least one status-bearing field was blocked. A rung-2 list that holds only
+bucket-2 codes (`FUOT`, `DEOT`, `OM`, `GROM` — "leaves the status alone") does **not** count as rung 2
+having fired: the status those codes leave alone is rung 3's, and rung 3 needs rung 0's licence
+(review of T26f, fix 2, 2026-09-06). Reading the "highest first"
 sentence above literally — a blocked field overriding a real `avregistreringsdatum` — would turn
 a known strike-off into `UNKNOWN`, which is the opposite of §1.6's rule. A blocked
 **SCB** field (`verksamOrganisation`, `reklamsparr`, `juridiskForm`) never triggers rung 0: those

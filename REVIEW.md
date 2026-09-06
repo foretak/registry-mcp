@@ -864,3 +864,303 @@ Confirmed clean under `mypy --strict`.
 **F4 — `ValidationResult.id_scheme` is the registry's class attribute, so `validate_company_id("SE", "194009272719")` returns `id_scheme: "organisationsnummer"` while its own `reason` explains that twelve digits are a personnummer.** §2.4 makes `id_scheme` per-record on `CompanyReport` and the module does that correctly; `ValidationResult` has no such hook — `core/registry.py:228` passes `self.id_scheme`. Sweden is the first country where one registry issues identifiers under more than one scheme, so this is the same shape of problem as F3: real, small, and a `core/` decision that should be taken when a second country needs it. **No core edit requested.**
 
 **Verdict: APPROVED.** No test asserts anything the spec forbids, no fixture key is invented (verified against the OpenAPI document programmatically, not by eye), no credential or personnummer is written anywhere `registries/se/` controls beyond the four places §11 and §14 sanction, and neither surface crashes without credentials — both answer with the D-007 envelope and a hint naming both variables. The module is better than the spec required on the things that mattered most: the `pagaende…` misspelling is read at both nesting levels, the rate-limit bucket spends a token per attempt (Britain's does not), and §2.1's invariant holds exactly — a healthy, active, `verksam` `AB` with one name gets **exactly one** note. Fixes 1 and 2 are CI hygiene in the tests — a clock-dependent flake and two mypy narrowing artefacts — and neither touches the module. Fixes 3 and 4 are both "an absence rendered as a fact", which is this country's characteristic failure mode and the reason §1.6 opens the spec; neither is reachable from a fixture the suite currently ships, which is why the tests are green and the review is not. **Fixes 1–4 should land before T26d touches the wire**, because fix 4 will fire on the first live call §17 tells T26d to make (`5567223705`, "Aktiebolag, organisation finns ej hos SCB"). T26c is not blocked by any of them.
+
+---
+
+## T26f + T28 + T29 — 2026-09-06 — APPROVED WITH FIXES
+
+Three changes reviewed together on `main` at `32e157c`: **T26f** (`f76c43e`, the fifteen T26e
+fixes), **T28 = F1** (`b363f16`; `ad6e625` + `e398451`, D-040), **T29 = R-2** (`f8d9db1`,
+D-026(a),(b)). Every row below was executed — probe scripts under a scratch directory with
+`REGISTRY_MCP_LOG_PATH`/`REGISTRY_MCP_CACHE_PATH` pointed away from `./data`; nothing was
+committed into `tests/`, no server was started, `api.foretak.dev` was never called.
+
+**Environment, observed:**
+
+```
+uv run pytest -m "not live" -o addopts=""   618 passed, 11 deselected, 1 warning in 17.03s
+uv run mypy .                               Success: no issues found in 61 source files
+uv run ruff check .                         All checks passed!
+uv run python evals/run.py --golden         28 passed, 0 failed, 3 skipped out of 31
+```
+
+All four match the expected values. 629 tests collect in total; the 11 live tests collect
+cleanly (their helper names `client_module._read_environment`, `_fetch_organisationer` and
+`mapping._WRAPPED_FIELDS` all resolve), so nothing in T26f's live-test rewrite will
+`AttributeError` when T26d runs them.
+
+### A. T26f — the fifteen T26e fixes
+
+| # | Fix | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | `test_41` pops `fetched_at` before the `"49"` scan | **PASS** | Built the test's report three times 10 ms apart: the dump is byte-identical after the pop, `"49"` is absent, and no clock-derived value survives anywhere in the document (`registered_at` etc. are all fixture-derived) |
+| 2a | `test_52` asserts the negative first | **PASS** | `mypy .` clean (was 2 errors); test passes |
+| 2b | `is_closed` read into annotated locals | **PASS** | `mypy .` clean; the `_tokens == {}` assertion is now reachable and type-checked |
+| 3 | §8 rung 0 — a blocked status-bearing field → `UNKNOWN` | **PASS**, with a residual (fix 2 below) | `bv_uppgiftskalla_fel.json` now maps to `status=unknown`, `is_active=False`; `status_detail` is **byte-identical** to SWEDEN_SPEC §8's string; N13 still fires. Evaluation order matches the "Evaluation order" paragraph exactly: rung 1 (a real `avregistreringsdatum`) and rung 2 bucket 1 (a real `KK`) each still win over a co-occurring blocked field; a blocked **SCB** field (`verksamOrganisation`/`juridiskForm`/`reklamsparr`) never triggers rung 0 |
+| 4 | `is_not_found` scoped to the three Bolagsverket identity-bearing fields | **PASS** | Seven cases executed: `ORGANISATION_FINNS_EJ` on `juridiskForm`+`verksamOrganisation`+`reklamsparr` of `bv_ab_active.json` → `False` (and still maps as an active `AB`); the same code on each of `organisationsnamn`, `organisationsform`, `organisationsdatum` → `True`; `bv_finns_ej.json` → `True`; empty `organisationer` → `True`; `bv_scb_only.json` → `False` |
+| 5 | N14 for a classified form that computes nothing | **PASS** | Fires for `BRF`, `HB`, `KB`, `E`, `S` and for the SCB `juridiskForm` fallback code `49`; does **not** fire for `AB` (which gets N9 instead, via the `elif`), for an unclassified code (N6's case — `is_unclassified` correctly derived from `legal_form_info().notes`), or for a non-`ACTIVE` status. §2.1's one-note invariant for a healthy `AB` still holds: exactly one note |
+| 6 | `country_code = "SE"` when `land` is absent | **PASS** | `None`, missing key, `"Sverige"`, `"Sweden"`, `"  sverige  "` → `"SE"`; `"Norge"` → `None` |
+| 7 | `"n/a"` `klartext` never rendered | **PASS** | `"n/a"`, `"N/A"`, `" n/a "`, `""`, `None` all render `(VERKUPP).`; a real `klartext` still renders `(VERKUPP: Verksamheten har upphört).`; `bv_enskild_two.json` — Bolagsverket's own `"n/a"` example — is clean |
+| 8 | Test 117 walks the live payload for every field `mapping.py` reads | **PASS (by inspection; live)** | Asserts presence of every `_WRAPPED_FIELDS` entry plus `organisationsidentitet`/`namnskyddslopnummer`, treats the two `pagaende…` spellings as one logical field, and puts the missing list in the assertion message. A missing field now fails the test rather than passing silently |
+| 9 | Test 74 asserts 8 kap. 7 § on a real mapped report | **PASS** | Executed |
+| 10 | Test 78 runs `deadlines_for` under two `TZ` values | **PASS** | Executed; restores the original `TZ` in a `finally` |
+| 11 | SE REST≡MCP parity test | **PASS** | `test_rest_and_mcp_lookup_company_are_identical_se` compares the **whole documents** as dicts, minus `fetched_at` — so it also covers T29's two new keys for free, and `bv_ab_active.json` carries `reklamsparr: JA`, so the `advertising_protected=True` + N4 path is exercised across both surfaces |
+| 12 | Token endpoint 429 → `rate_limited`, before the 4xx branch | **PASS** | Executed against a mock transport: 400/401/403 → `upstream_error` + the no-credentials message; **429 → `rate_limited`**; 500 → `upstream_error` naming the status |
+| 13 | A malformed 200 body → `upstream_error`, never a bare `KeyError` | **PARTIAL — see fix 4** | Non-JSON and empty bodies, and a JSON object without `access_token`, are wrapped correctly on both the token and data calls. A body that is **valid JSON but not an object** still escapes as a raw `TypeError`/`AttributeError` |
+| 14 | Test 116 uses `warnings.warn`; test 118 uses `monkeypatch` | **PASS (by inspection; live)** | Both correct; test 118 no longer leaks `BOLAGSVERKET_ENVIRONMENT` into the rest of the live session |
+| 15a | A bucket-2 note survives a bucket-1 result | **PASS** | `[KK, FUOT]` → `status=bankrupt`, `bankruptcy_date=2024-01-26`, and the FUOT "acquiring party" note is present |
+| 15b | The full `organisationsform` ↔ juridisk form table in `rules_markdown()` | **PASS** | All 24 rows present, `FL`/`BFL` marked "none", the four codes absent from Bolagsverket's table named, and the "never run it backwards" warning kept and repeated after the table |
+
+### B. T28 = F1 (D-040)
+
+| # | Contract item | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | Exactly one `record_call(` per surface, both via `loggable_query` | **PASS** | `grep -n "record_call(" src/registry_mcp/api/main.py src/registry_mcp/mcp/*.py` → exactly two hits, `api/main.py:95` and `mcp/server.py:137`; both pass `query=loggable_query(...)`. No other `query=` in either surface reaches the logger |
+| 2 | Every SE identifier-bearing path logs `query=None` | **PASS** | Driven offline with `record_call` spied on both modules and every registry's `lookup`/`search` stubbed to raise: REST `lookup`/`deadlines`/`validate`/`search`, MCP `lookup_company`/`company_deadlines`/`validate_company_id`/`search_company` (and with `country="se"` lower-cased), connector `fetch("SE:194009272719")`, `fetch("se:…")`, `fetch("SE:19400927-2719")`, `fetch("194009272719")` (bare, no prefix — the D-031(c) short-circuit), `search("SE 194009272719")` and `search("194009272719")` — **all `query=None`, `country="SE"`** |
+| 3 | NO/GB still log the raw company number | **PASS** | REST `lookup`/`deadlines`/`validate` for NO and GB, MCP the same, and `fetch("NO:923609016")` all log `query="923609016"` / `"00000006"`; `search("Equinor")` logs `"Equinor"` |
+| 4 | `loggable_query` never raises | **PASS** | 14 inputs: `"ZZ"`, `""`, `None`, `"se-"`, `"S"`, `"SWE"`, `("SE", None)`, mixed case — none raised; unknown/`None`/empty country all pass `query` through unchanged, `"se"`/`"sE"`/`"  se  "` all redact |
+| 5 | Dockerfile CMD: `--no-access-log` on the uvicorn branch, stdio untouched | **PASS** | `CMD ["sh","-c","if [ -n \"${PORT:-}\" ]; then exec uvicorn … --no-access-log; else exec registry-mcp; fi"]`; the `else` branch is character-for-character what it was |
+| 6 | `legal/privacy.md` gained exactly one sentence, true of the code | **PASS**, conditionally — see fix 1 | `git diff --stat` = 1 insertion, 1 deletion, one bullet reflowed, one sentence added. It is true of every route keyed to `country="SE"`. It becomes unambiguously true once fix 1 lands; today a Swedish personnummer can still be written to `calls` under `country=None`/`NO`/`GB` via the connector `search` alias |
+| 7 | `core/stats.py` / dashboard cope with NULL queries | **PASS** | Wrote two `query IS NULL` SE rows and one NO row directly: `total_calls=3`, `calls_today=3`, `by_surface` counts all three, `top_queries` returns only the NO row. `GET /v1/stats/dashboard?key=…` renders 200/9726 bytes with the NULL rows present and no `None`/`null` literal in the top-queries table |
+| 8 | Nothing in `registries/se/` beyond the one line | **PASS** | `git diff ad6e625~1 ad6e625 -- src/registry_mcp/registries/se/` is exactly `+    id_may_be_personal: ClassVar[bool] = True` |
+| 9 | F2: `core/registry.py` docstring example | **PASS** | `core/registry.py:15` is `id_example = "5560160680"`; `5560212524` appears nowhere in the repo |
+
+### C. T29 = R-2 (D-026(a),(b), D-036)
+
+| # | Contract item | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | Both keys present and `null` in `model_dump(mode="json")` for NO and GB | **PASS** | Three brreg fixtures and four Companies House fixtures mapped: `"euid" in d` and `"advertising_protected" in d` both `True`, both values `None`. Field order is what D-026 asked for: `euid` is the key immediately after `id_scheme`, `advertising_protected` immediately after `phone`, in the serialised document |
+| 2 | The validator | **PASS** | `True` + a note containing "direct marketing" constructs, in lower, UPPER and Mixed case; `True` with an unrelated note or with `notes=[]` raises `ValidationError`; `False` and `None` and the omitted default all construct with no note. `model_validate` of a round-tripped document with `notes` stripped also raises — the constraint survives serialisation, not just construction |
+| 3 | Sweden's mapping | **PASS** | `JA` → `True` **and** N4; `NEJ` → `False`, no N4; absent → `None`; blocked by `fel` (`OTILLGANGLIG_UPPGIFTSKALLA`, `TIMEOUT`, `ORGANISATION_FINNS_EJ`) → `None`. Also checked: an unrecognised `kod` → `None` (not `False`), and `JA` arriving alongside a `fel` → `None` (the `_FieldReader` refuses the value, correctly). All five committed SE fixtures map as expected; `euid` is `None` on every one |
+| 4 | `euid` description | **PASS** | Carries all three traps — not the LEI (with the register-issued/mandatory/EU-only/free vs voluntary/global/LOU-issued/fee-bearing contrast), the "EUid" Digital Identity wallet, and instability across a register reorganisation with the RNE/RCS worked example — and ends "Carried verbatim from the register; never constructed from parts." Repeated accurately in `static/llms-full.txt` |
+| 5 | `advertising_protected` description | **PASS** | States all three values in D-026(b)'s exact terms, says "it must never default to False, since False asserts a claim about a register that made none", and names the "direct marketing" phrase as the contract the validator enforces |
+| 6 | `server-card.json` `outputSchema` and `_COMPANY_EXAMPLE` | **PASS on substance; the commit message's claim is inaccurate** | The embedded schema is **not** equal to `CompanyReport.model_json_schema()` (876 lines vs 99 — the raw schema uses `$defs`/`$ref`). It **is** equal, exactly, to `dereference_refs(CompanyReport.model_json_schema())`, which is what FastMCP's `DereferenceRefsMiddleware` actually puts on the wire and what `test_tool_output_schemas_match_models` compares against. So the file is right and the commit message's "byte-verified against `CompanyReport.model_json_schema()`" is not. `_COMPANY_EXAMPLE` validates as a `CompanyReport`, contains no key that is not a model field, and its key order matches the model's |
+| 7 | README / `static/llms-full.txt` | **PASS** | Both examples carry the two keys as `null` in model order; the README paragraph and the llms-full "Five fields deserve special attention" block (which does now describe exactly five) are accurate — "Norway and the UK, today" is true, "Finland hands one over unprompted, ours do not yet" is true, and neither claims we construct a EUID |
+| 8 | `legal/terms.md` | **PASS** | The sentence is a term we impose on the caller, not a claim about the data, and it matches D-026(b): the marking is a condition of the transfer, contact details are **not** withheld, and the `notes` sentence must not be stripped. It does not over-claim — it never says we suppress anything |
+| 9 | CHANGELOG "Unreleased" | **PASS** | Says additive, `null` by default, no existing key changed, and names the validator in the same entry so the one genuine behaviour change is not hidden |
+| 10 | `registries/no/`, `gb/`, `xx/` untouched | **PASS** | `git diff --stat ac44419 32e157c -- …/no …/gb …/xx` is empty |
+| 11 | REST≡MCP parity with the new keys | **PASS** | The three parity tests compare whole documents (dict equality minus `fetched_at`), so no new test was needed and none was added — correct restraint |
+
+### Fix list — owner: a Sonnet, dispatched by the orchestrator
+
+**1 (blocking — a personnummer reaches the usage log from a surface that is deployed today).**
+`src/registry_mcp/mcp/connector.py:654-658`. The `search` alias redacts only when the **whole
+remaining text** validates for a flagged registry. It therefore leaks on every query where the
+identifier is one token among several. Executed, offline, with `record_call` spied:
+
+```
+search("194009272719")            -> query=None                          (correct)
+search("SE 194009272719")         -> query=None                          (correct)
+search("194009272719 AB")         -> query='194009272719 AB'             LEAK
+search("orgnr 194009272719")      -> query='orgnr 194009272719'          LEAK
+search("Sweden 194009272719")     -> query='Sweden 194009272719'         LEAK
+search("194009272719, Stockholm") -> query='194009272719, Stockholm'     LEAK
+search("NO 194009272719")         -> query='NO 194009272719'             LEAK
+search("GB 194009272719")         -> query='GB 194009272719'             LEAK
+```
+
+`"Sweden"` does not derive SE because `_derive_country`'s name match is against
+`country_info().name`, which is `"Bolagsverket (Sweden)"`, not `"Sweden"`; and when an explicit
+`NO`/`GB` token *is* present, `candidates` is narrowed to that one registry, so scanning
+`candidates` cannot see SE at all. The implementation is faithful to D-040(b) *as written* — its
+two triggers are "the derived country's flag" and "any flagged registry validating **the text**"
+— but D-040(b) as written does not achieve F1's stated goal, and its own justifying sentence
+("an agent that types a personnummer into `search` has typed a personnummer") condemns exactly
+these cases. **Change:** scan the maximal alphanumeric runs of the query against every *live
+flagged* registry, not the whole remainder against `candidates`:
+
+```python
+_ID_RUN = re.compile(r"[0-9A-Za-z\-]+")   # module level, beside the other constants
+...
+# D-040(b): blanket, by registry flag, never by digit count (D-040(d)). Every
+# maximal alphanumeric run of the query is checked against every *live flagged*
+# registry — not just `candidates`, which an explicit "NO"/"GB" token narrows to
+# one unflagged registry, and not just `remainder`, which is the whole string
+# whenever `_derive_country` missed. `Registry.validate` is pure and cheap.
+flagged = [r for r in registries if r.id_may_be_personal]
+if flagged:
+    runs = {stripped, remainder, *_ID_RUN.findall(stripped)}
+    if any(r.validate(run).valid for r in flagged for run in runs if run):
+        outcome.query = None
+```
+
+Verified against 34 inputs: it closes all eight leaks above plus `"(194009272719)"`,
+`"id=194009272719"`, `"194009272719."`, `'"194009272719"'`, `"Bygg AB, 5560160680"` and
+`"https://x/194009272719"`, and over-redacts **nothing** — `"Equinor"`, `"Tesco PLC"`,
+`"Ostermalm Bygg AB"`, `"923609016"`, `"NO 923609016"`, `"00445790"`, `"GB 00445790"` and
+`"SE Ostermalm Bygg"` all still log their text verbatim. `outcome.country` stays whatever
+`_derive_country` produced — do not invent one. Two residuals remain and should be **left
+open**, with a comment saying so: `"x194009272719"` and `"1940092727191234"`, where the number
+is glued to other alphanumerics with no separator. Closing those needs a substring/shape scan,
+which is precisely what D-040(c) declined. Add to `tests/test_connector.py`, beside the existing
+D-040 tests: `search("194009272719 AB")`, `search("NO 194009272719")` and
+`search("orgnr 194009272719")` log `query=None`; `search("Equinor")` and `search("NO 923609016")`
+still log their text. **The orchestrator, not the implementer, adds the D-040(b) amendment
+recording the third trigger.**
+
+**2 (urgent — the residue of T26e fix 3, on the one path fix 3 did not reach).**
+`src/registry_mcp/registries/se/rules.py:604-611`. `derive_status`'s bucket-2-only branch
+returns `ACTIVE` / `is_active=True` / `_ACTIVE_DETAIL` without ever consulting
+`unavailable_producer`. Executed: a payload with `pagaende…Lista = [FUOT]` (a healthy acquiring
+company, so rung 2 explicitly "leaves status alone") **and** `avregistreradOrganisation` +
+`avregistreringsorsak` blocked by `fel` returns
+
+```
+status: active | is_active: True
+detail: "Registered with Bolagsverket and not marked as struck off or in any winding-up or
+         restructuring procedure."
+```
+
+— an affirmative "not struck off" from a payload in which the struck-off fields never arrived.
+SWEDEN_SPEC §8 rules that bucket 2 leaves the status alone, so this result is rung 3's, and
+"rung 0 is what licenses rung 3's wording". **Change:** move the `unavailable_producer` check so
+it also guards this return — simplest is to hoist it into a small local closure, or to add the
+same three-line `if unavailable_producer is not None:` block immediately before the
+`return StatusResult(status=CompanyStatus.ACTIVE, …, notes=notes)` at `:604`, carrying `notes`
+(the bucket-2 sentences) through into the `UNKNOWN` result rather than dropping them — §8's
+"the lower rungs still fill their own fields and notes" applies to rung 0 as much as to rung 2.
+Test, in `tests/test_client_se.py` as `test_126_…`: `[FUOT]` present, `avregistreradOrganisation`
+blocked → `status is UNKNOWN`, `is_active is False`, `status_detail` names the producer, and the
+FUOT note is still in `notes`. Note the practical reachability caveat honestly in the docstring:
+Bolagsverket's own partial-failure example fails a whole *data producer* at once, which would
+block `pagaende…` too; this combination needs a per-field failure, which §1.6 models but the one
+fixture we have does not exercise. **SWEDEN_SPEC §8's "Evaluation order" paragraph needs one
+clause added by the architect: rung 2 bucket-2-only does not count as "rung 2 fired".**
+
+**3 (urgent — a personnummer in Railway's log stream, on two paths D-040 did not consider).**
+Two sinks, both pre-existing and both outside T28's footprint, both demonstrated by execution:
+
+(a) `src/registry_mcp/api/errors.py:86` —
+`logger.exception("Unhandled exception in %s %s", request.method, request.url.path)`. D-040(e)
+closed uvicorn's access log precisely because `GET /v1/SE/company/<personnummer>` puts the number
+in the path; this handler writes the same path to the same stream at ERROR. It is reachable
+today: driving `GET /v1/SE/company/194009272719` against an upstream that returns a 200 with the
+body `null` produced `Unhandled exception in GET /v1/SE/company/194009272719` verbatim (that
+particular trigger is fix 4 below, but any unhandled exception on an SE route does it).
+**Change:** log `request.url.path` only when the route is not identifier-bearing, or — simpler
+and uniform — log `request.scope.get("route").path` (the *template*, `/v1/{country}/company/{id}`)
+instead of the concrete path, plus `request.method`. The template is what a reader of that line
+actually needs.
+
+(b) `src/registry_mcp/core/cache.py:134` and `:168` —
+`logger.warning("cache read failed for key %r", key, exc_info=True)`. The SE cache key is
+`SE:bolagsverket:entity:prod:<identitetsbeteckning>` (`registries/se/client.py:486-491`), so any
+cache I/O failure — a locked SQLite, a full volume — writes the personnummer to the application
+log. Executed: forcing `_connect` to raise produced
+`cache read failed for key 'SE:bolagsverket:entity:test:194009272719'` and the same for the write.
+D-040's "Considered and left alone: the cache" reasoned about the cache *contents* (bounded,
+required to serve the request) and did not notice that the *key* is logged unbounded. **Change:**
+log the key's prefix only — everything up to and including the last `:` — or a stable
+`hashlib.blake2s(key.encode(), digest_size=8).hexdigest()`; a hash is fine **here**, unlike in
+`top_queries`, because nobody reads this line for the identifier, only to correlate two failures.
+Neither of these needs a new decision to *fix*; the orchestrator should record them under D-040
+so the next reader knows they were closed deliberately.
+
+**4 (non-blocking — T26e fix 13 is incomplete).** `src/registry_mcp/registries/se/client.py:392-398`
+and `:549-554`. Both guards catch `ValueError` (which covers `json.JSONDecodeError`) and, on the
+token path, `KeyError` — but a 200 whose body is **valid JSON and not an object** escapes as a
+raw exception. Executed:
+
+```
+token call, body b'[1,2,3]'  -> TypeError: list indices must be integers or slices, not str
+token call, body b'"hello"'  -> TypeError: string indices must be integers, not 'str'
+token call, body b'null'     -> TypeError: 'NoneType' object is not subscriptable
+data  call, body b'[1,2,3]'  -> AttributeError: 'list' object has no attribute 'get'
+data  call, body b'null'     -> AttributeError: 'NoneType' object has no attribute 'get'
+data  call, body b'42'       -> AttributeError: 'int' object has no attribute 'get'
+```
+
+SWEDEN_SPEC §6.1 says "A 200 whose body is not JSON or lacks `access_token` → `upstream_error`,
+never a bare `KeyError`", and this is the same failure one type further out. It is also the
+trigger that makes fix 3(a) reachable. **Change:** on the token path add `TypeError` to the
+`except` tuple; on the data path, after `data = response.json()`, add
+`if not isinstance(data, dict): raise _malformed_response_error("the data request")`. Two tests
+in `tests/test_client_se.py`, one per path, asserting `RegistryError(upstream_error)` for a
+`b"null"` body.
+
+**5 (non-blocking — the server card will drift silently).** There is no test pinning
+`static/well-known/mcp/server-card.json`'s embedded `outputSchema` to the model. `tests/test_api.py`
+only checks the file's content type and version. T29 is the third task to hand-edit that file
+(after T17 and T26c) and the next model change will desynchronise it with nothing to catch it.
+**Change:** add to `tests/test_mcp.py`, beside `test_tool_output_schemas_match_models`, a test
+that loads the card, finds the `lookup_company` entry and asserts
+`entry["outputSchema"] == dereference_refs(CompanyReport.model_json_schema())` — that equality
+holds exactly today, so the test is green on arrival. Fix the commit-message-level claim in the
+same breath: the card matches the **dereferenced** schema, which is what FastMCP serves, not the
+raw `model_json_schema()`.
+
+**6 (non-blocking — spec hygiene).** `SWEDEN_SPEC.md` has two sections numbered `### 2.6`:
+line 638 ("VAT, and the field that would have made Sweden a VAT-verification country") and
+line 666 ("`advertising_protected` and `euid`"). The architect's own edit in `95976f6` introduced
+the collision, and `tasks/T29.md` cites "§2.6" ambiguously as a result. Renumber the second to
+`### 2.7` and fix the three cross-references to it (`§14` test 122-125 preamble, §13 item 15,
+`CORE_ROADMAP_SPEC.md` §4). Architect's fix, not a Sonnet's.
+
+### Recorded for the orchestrator, not a fix for this task
+
+**G1 — blanket-by-country protects the *country asked about*, not the *number typed*, and that
+is the declared trade.** `lookup_company(country="NO", id="194009272719")` and
+`fetch("GB:194009272719")` both log `194009272719` in full, because D-040(c)/(d) ruled the
+protection by country and explicitly declined every shape-based alternative. Fix 1 closes the
+`search` cases because `search` has no country in its contract; the country-bearing operations
+are working as designed. Worth one sentence in D-040 so it is not rediscovered as a bug.
+
+**G2 — FastMCP logs every tool call's arguments at DEBUG.**
+`.venv/…/fastmcp/server/mixins/mcp_operations.py:240` —
+`logger.debug(f"[{self.name}] Handler called: call_tool %s with %s", key, arguments)`. Off at
+the default level, so this is latent, not live; but anyone who raises the level to debug a
+production incident turns on personnummer logging as a side effect. `server.py:1505`'s
+`logger.warning("Invalid arguments for tool %r: %s", name, detail)` echoes pydantic's error
+detail, which includes the offending input — but our `id` is typed `str`, so a string never
+reaches that branch. **Recommendation for T26d's go-live checklist:** one line saying the log
+level must stay at INFO or above for the SE build.
+
+**G3 — `X-Request-ID` and the rate limiter are clean.** `api/main.py:526` echoes the *caller's*
+header or mints a UUID; it never contains our identifier. `api/ratelimit.py:88` keys its buckets
+on `client_ip(request)` alone, never the path. Both checked, both fine — recorded so the next
+review does not re-derive it.
+
+**G4 — the validator matches `"direct marketing"` with a space only.** `"direct-marketing"`
+raises. That is exactly what D-026(b) and the field description say, so it is correct as ruled —
+but it is a trap for the author of the fourth country module, whose natural English is the
+hyphenated adjective. Denmark's spec (T16) should quote the required phrase verbatim in its §1.
+
+**G5 — F4 is still open.** `ValidationResult.id_scheme` remains the registry class attribute, so
+`validate_company_id("SE", "194009272719")` still answers `id_scheme: "organisationsnummer"`
+while its own `reason` explains the number is a personnummer. Unchanged by any of these three
+tasks; still a `core/` decision for whenever a second country needs it.
+
+### Praise, where it teaches something
+
+**T28's `_CallOutcome` growing `country`/`query` is the right shape, and the reason is worth
+keeping.** The obvious implementation would have had `fetch` and `search` each call
+`loggable_query` themselves, which puts the redaction decision in two more places and guarantees
+the third one gets forgotten. Making the *outcome object* carry the correction, and leaving the
+single `loggable_query` call in the `finally`, means the connector aliases participate in the
+choke point rather than duplicating it — and it is why fix 1 above is a change to one `if`
+statement rather than to two call sites.
+
+**T26f's `_LegalForm.is_unclassified` is derived, not stored twice.** It reads
+`bool(info.notes)` — "`legal_form_info` returns a non-empty `notes` (N6) precisely and only when
+the code is unclassified" — instead of re-testing membership in `ORGANISATION_FORMS`. Two
+predicates that must agree have been collapsed into one, so N6 and N14 cannot drift apart. That
+is the fix D-009(a) would have wanted.
+
+**T29's validator earns its place by being enforced on `model_validate`, not only on
+`__init__`.** Verified: a document round-tripped through `model_dump(mode="json")` with `notes`
+emptied is rejected. A `model_copy(update=…)` still slips past, which is pydantic's documented
+behaviour and not worth fighting; the wire path — which is the one CVR-loven § 19 cares about —
+is covered.
+
+**Verdict: APPROVED WITH FIXES.** T29 is clean: eleven contract items, eleven passes, nothing to
+change in the code and only a commit-message claim to correct. T26f delivers fourteen of fifteen
+fixes outright and the fifteenth (fix 13) in part; its rung-0 work is right, including the
+judgement call on evaluation order, and its `status_detail` is byte-identical to the spec. T28's
+choke point is correct on every path that names a country, and its `NULL` rows flow through
+`stats.py` and the dashboard without a scratch — but the `search` alias, the one operation whose
+contract has no country in it, still writes a Swedish personnummer to `calls` whenever the number
+is one token among several, and that is the single thing F1 exists to prevent. **Fix 1 must land
+before the push.** Fixes 2 and 3 should land before T26d touches the wire, for the same reason
+T26e's fixes 3 and 4 had to: they are each "an absence rendered as a fact" or "a personal number
+rendered into a log", and neither is reachable from a fixture the suite ships, which is why the
+suite is green and this review is not. Fixes 4-6 can follow at leisure.
