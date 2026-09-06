@@ -233,6 +233,27 @@ _COUNTRIES_EXAMPLE = {
             "requires_api_key": False,
             "api_key_env": None,
         },
+        {
+            "country": "SE",
+            "registry": "bolagsverket",
+            "name": "Bolagsverket (Sweden)",
+            "id_scheme": "organisationsnummer",
+            "id_example": "5560160680",
+            "id_description": (
+                "A Swedish organisationsnummer: ten digits, written 556016-0680, with a "
+                "check digit. A sole trader is looked up by a twelve-digit personnummer "
+                "instead (YYYYMMDDNNNN), and one such number can carry several registered "
+                "businesses."
+            ),
+            "source_url": "https://gw.api.bolagsverket.se/vardefulla-datamangder/v1",
+            "license": (
+                "Free re-use (Bolagsverket/SCB high-value datasets, EU Open Data "
+                "Directive) — the publisher names no licence"
+            ),
+            "is_stub": False,
+            "requires_api_key": True,
+            "api_key_env": "BOLAGSVERKET_CLIENT_ID",
+        },
     ]
 }
 

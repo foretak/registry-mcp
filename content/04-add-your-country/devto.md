@@ -11,7 +11,7 @@
 ```python
 class Registry(ABC):
     country = "SE"; registry = "bolagsverket"
-    id_scheme = "organisationsnummer"; id_example = "5560212524"
+    id_scheme = "organisationsnummer"; id_example = "5560160680"
     # + name, id_description, source_url, license, is_stub
 
     def validate_id(self, id: str) -> str: ...          # sync, pure

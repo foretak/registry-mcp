@@ -68,6 +68,51 @@ case-folded by every index that reads them.
 
 ---
 
+## §SE — Sweden aliases
+
+The Sweden module (`registries/se/`, T26) adds its own set under the same
+rules: prose, not lists; beside the Norwegian and British terms rather than
+instead of them; rows 11, 11a and 12 still lead every headline.
+
+| # | Keyword | Why an agent generates it |
+|---|---|---|
+| SE-1 | `organisationsnummer` | The identifier's legal name — Swedish, and one letter from Norway's `organisasjonsnummer`, so both spellings must be present or a Swedish prompt lands on the wrong country |
+| SE-2 | `bolagsverket` | The register's name, and the term an LLM produces first for Swedish company data |
+| SE-3 | `företagsinformation` | The everyday Swedish phrase for company information |
+| SE-4 | `kontrollera företag` | The Swedish task phrase — "check a company" |
+| SE-5 | `verifiera organisationsnummer` | The validation task phrase, the cheap pre-check before a lookup |
+| SE-6 | `konkurs` | Bankruptcy — one of the three status signals a Swedish report derives |
+| SE-7 | `likvidation` | Liquidation — the second of those signals |
+| SE-8 | `årsredovisning försenad` | "Annual report late": the förseningsavgift question the `annual_accounts` deadline answers |
+| SE-9 | `F-skatt` | Swedish tax registration; SCB's *verksam* marking in the payload is F-skatt, VAT or an employer registration, and this module's notes say so |
+| SE-10 | `swedish company lookup` | The English task phrase, mirroring rows 8 and GB-4 |
+| SE-11 | `swedish company number` | The English name for the identifier, for prompts that do not reach for the Swedish word |
+
+**There is no `swedish company search` row, and that is deliberate.**
+Bolagsverket's free API has no name-search operation, so `search_company` for
+`SE` raises `not_implemented`; a keyword promising a search Sweden cannot serve
+would earn a tool call that always fails. Every Swedish surface says lookup by
+identifier instead — and says why — so an agent learns the constraint from the
+same prose it found the tool in.
+
+ASCII fallbacks, always in addition to the accented form:
+`foretagsinformation`, `arsredovisning`. Same rule as `bronnoysund`.
+
+`Bolagsverket` is capitalised in prose and lower-cased only in machine keyword
+arrays. `F-skatt` keeps its hyphen and its capital F in prose (it is a
+Skatteverket term of art) and folds to `f-skatt` in a keyword array.
+
+**Placement is deliberately partial until Sweden goes live.** T26c put these
+terms in the MCP tool docstrings, the FastMCP `instructions`, `README.md` and
+`CHANGELOG.md` only. The machine keyword arrays and marketing surfaces of §2 —
+`pyproject.toml`, both `package.json`s, `server.json`, `static/llms.txt`,
+`static/llms-full.txt`, `static/index.html`, GitHub topics and the registry
+submissions — take them at **T26d**, together with the version bump, because
+until Bolagsverket issues credentials a Swedish keyword would draw an agent to
+a country that answers `upstream_error`.
+
+---
+
 ## 2. Where each keyword must appear
 
 | Surface | Which keywords | Rule | Owner |
@@ -77,8 +122,8 @@ case-folded by every index that reads them.
 | npm `package.json` description + `keywords` | 1–12 + ASCII fallbacks | Mirror PyPI exactly, so a search on either index hits. | T11 |
 | `README.md` first line | 11, 12, then 1, 4, 5, 6 by the third line | An agent reading the repo card sees "company registry" and "MCP" immediately, and "brreg / Enhetsregisteret / organisasjonsnummer (orgnr)" before the fold. | T11 |
 | GitHub repo topics | `mcp`, `mcp-server`, `model-context-protocol`, `brreg`, `bronnoysund`, `enhetsregisteret`, `organisasjonsnummer`, `orgnr`, `norway`, `company-data`, `business-registry`, `ai-agents` | Topics are ASCII and hyphenated only — use the fallback spellings. Max 20 topics. | T11 (human clicks) |
-| MCP tool docstrings (`lookup_company`, `search_company`, `company_deadlines`, `validate_company_id`) | 1–9 and GB-1…GB-7 in the per-country tools' first two sentences | Written as prose an agent reads, not a keyword dump: *"Look up a company by its national identifier — a Norwegian organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene / Enhetsregisteret (brreg), or a UK company number (CRN) at Companies House."* One sentence per country, Norway first. Country-neutral tools stay neutral — do not push a country into `list_countries`. | T07, T15c |
-| FastMCP `instructions` and `api/main.py :: _DESCRIPTION` | 11a first, then 1–9 and GB-1…GB-7 | Both lead with "the company registry MCP" (row 11a), then name the live countries with their aliases in one sentence each. These two strings are the first thing a client model reads. | T15c |
+| MCP tool docstrings (`lookup_company`, `search_company`, `company_deadlines`, `validate_company_id`) | 1–9, GB-1…GB-7 and SE-1…SE-11 in the per-country tools' first two sentences | Written as prose an agent reads, not a keyword dump: *"Look up a company by its national identifier — a Norwegian organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene / Enhetsregisteret (brreg), or a UK company number (CRN) at Companies House."* One sentence per country, Norway first. `search_company` carries no Swedish task phrase except the one saying Sweden cannot be searched by name. Country-neutral tools stay neutral — do not push a country into `list_countries`. | T07, T15c, T26c |
+| FastMCP `instructions` and `api/main.py :: _DESCRIPTION` | 11a first, then 1–9, GB-1…GB-7 and SE-1/SE-2 | Both lead with "the company registry MCP" (row 11a), then name the live countries with their aliases in one sentence each. These two strings are the first thing a client model reads. **`instructions` carries Sweden (T26c); `_DESCRIPTION` does not yet — `api/` was out of scope for T26c and it still says "Two countries answer today". T26d.** | T15c, T26c |
 | REST OpenAPI endpoint descriptions | 1, 4, 5, 6 on `/v1/{country}/…` routes | Same prose rule. `/openapi.json` is crawled. | T06 |
 | `server.json` (`description`, `_meta…/keywords`) | `description` is capped at **100 characters** by the schema, so it carries 1, 5/6, 11 only; the full list lives in `_meta.io.modelcontextprotocol.registry/publisher-provided.keywords` | Done in this repo's `server.json`. | T05 (done) |
 | `static/llms.txt` | 1–6 in the opening paragraph | Done. | T05 (done) |

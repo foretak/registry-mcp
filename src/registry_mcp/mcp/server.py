@@ -154,15 +154,22 @@ mcp: FastMCP = FastMCP(
         "The company registry MCP: company data for AI agents, any country. One JSON shape, "
         "many national business registries — a lookup_company report here is byte-identical "
         "to the REST API's.\n\n"
-        "Two countries answer today. Norway is country=\"NO\": Enhetsregisteret / "
+        "Three countries answer today, one of them by identifier only. Norway is "
+        "country=\"NO\": Enhetsregisteret / "
         "Brønnøysundregistrene (brreg), looked up by organisasjonsnummer (orgnr, org.nr), "
         "with MVA/VAT registration. The United Kingdom is country=\"GB\": Companies House, "
         "looked up by company number (company registration number, CRN) such as 00445790, "
         "with annual accounts and confirmation statement deadlines. Use \"GB\" — \"UK\" is "
-        "not a country code here and is rejected. Call list_countries first if you are "
+        "not a country code here and is rejected. Sweden is country=\"SE\": Bolagsverket, "
+        "looked up by organisationsnummer (ten digits, e.g. 5560160680) or, for a sole "
+        "trader, a twelve-digit personnummer — lookup, deadlines and validation only, "
+        "because Bolagsverket's free API has no name-search operation at all, so "
+        "search_company for SE raises not_implemented. Call list_countries first if you are "
         "unsure a country is supported; it also tells you which registries need an API key "
-        "(requires_api_key, api_key_env) — Companies House does, and a self-hosted "
-        "deployment without COMPANIES_HOUSE_API_KEY set will answer for Norway only.\n\n"
+        "(requires_api_key, api_key_env) — Companies House and Bolagsverket both do, and a "
+        "self-hosted deployment without COMPANIES_HOUSE_API_KEY or "
+        "BOLAGSVERKET_CLIENT_ID/BOLAGSVERKET_CLIENT_SECRET set will answer for Norway "
+        "only.\n\n"
         "Every tool error is JSON: {\"error\": {\"code\", \"message\", \"hint\"}} — parse it "
         "for what to do next rather than treating it as an opaque failure."
     ),
@@ -279,7 +286,11 @@ async def lookup_company(
     org.nr). `country="GB"` is the uk company lookup at Companies House, by company number
     (company registration number, CRN) — eight characters, digits or a two-letter prefix
     and six digits, e.g. 00445790 or OC303675; short numbers are zero-padded for you, and
-    "UK" is not a country code here, use "GB".
+    "UK" is not a country code here, use "GB". `country="SE"` is the swedish company lookup
+    at Bolagsverket, by organisationsnummer — ten digits, e.g. 5560160680, written
+    556016-0680 — or, for a sole trader (enskild näringsidkare), the proprietor's
+    twelve-digit personnummer; Sweden is looked up by identifier only, since Bolagsverket's
+    free API has no name search.
 
     Use it once you have the identifier — from the user, an invoice, a contract, or a
     `search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and
@@ -349,6 +360,14 @@ async def search_company(
     search: Companies House by company name, returning each hit's company number
     (company registration number, CRN).
 
+    **Sweden cannot be searched by name.** Bolagsverket's free API has four operations and
+    none of them takes a company name, so `country="SE"` raises `not_implemented` — that is
+    a fact about the register, not a temporary gap, and it will not start working. Sweden
+    supports lookup by identifier only: call `lookup_company` with the ten-digit
+    organisationsnummer (or a sole trader's twelve-digit personnummer), or
+    `validate_company_id` first to check the shape for free. Bolagsverket publishes the
+    whole register as bulk downloadable files for callers who must search by name.
+
     Use it when a user gives you a company name, then call `lookup_company` with the `id`
     of the right hit for the full report — a search hit is deliberately thin (name, legal
     form, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).
@@ -361,7 +380,9 @@ async def search_company(
 
     On error, this tool raises with the error text `{"error": {"code", "message",
     "hint"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and
-    retry. `unsupported_country` means call `list_countries` first.
+    retry. `unsupported_country` means call `list_countries` first. `not_implemented` means
+    that country's register has no name-search operation (Sweden) — use `lookup_company`
+    with an identifier instead; retrying the search will never succeed.
     `upstream_error`/`upstream_timeout` means the national register is unavailable; wait
     roughly a minute and retry at most once more.
     """
@@ -404,7 +425,12 @@ async def company_deadlines(
     Enhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,
     aksjonærregisteroppgaven, mva-melding, a-melding. `country="GB"` covers the two
     Companies House obligations for a company number (CRN): the annual accounts filing and
-    the confirmation statement (CS01).
+    the confirmation statement (CS01). `country="SE"` covers the two Swedish obligations of
+    an aktiebolag (AB) or ekonomisk förening (EK) looked up by organisationsnummer at
+    Bolagsverket: the ordinary general meeting (ordinarie bolagsstämma / årsstämma) within
+    six months of the financial year end, aktiebolagslagen 7 kap. 10 §, and the annual
+    report (årsredovisning) at seven months, where årsredovisningslagen 8 kap. 6 §'s
+    late-filing fee (förseningsavgift) begins.
 
     Pass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's
     current UTC date. Quote `due_date`, not `statutory_date`. Each deadline's
@@ -412,12 +438,16 @@ async def company_deadlines(
     date as unconditional fact: for Norway it names the legal form or flag and any
     assumption behind a computed date, and for the UK it says whether the date is
     Companies House's own published figure or one this tool computed from the statutory
-    period. UK dates never roll forward off a weekend or bank holiday, so `due_date`
-    equals `statutory_date` there; `days_until` goes negative for a filing Companies House
-    still shows as overdue rather than rolling it to the next cycle. An empty `deadlines`
-    list is a real answer — for Norway a bankrupt, deleted or compulsorily-liquidated
-    entity or a branch/sub-unit, and for the UK any company whose status is not active —
-    and `notes` explains why.
+    period. UK and Swedish dates never roll forward off a weekend or a public holiday, so
+    `due_date` equals `statutory_date` there; `days_until` goes negative for a filing
+    Companies House still shows as overdue rather than rolling it to the next cycle.
+    Swedish dates additionally assume a financial year ending 31 December, because
+    Bolagsverket's free dataset does not publish a company's financial year, and the filing
+    date is an outer limit — a company whose general meeting was earlier must file earlier;
+    `applies_because` and `notes` say both. An empty `deadlines` list is a real answer —
+    for Norway a bankrupt, deleted or compulsorily-liquidated entity or a branch/sub-unit,
+    and for the UK and Sweden any company whose status is not active — and `notes`
+    explains why.
 
     On error, this tool raises with the error text `{"error": {"code", "message",
     "hint"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and
@@ -454,7 +484,14 @@ def validate_company_id(
     normalises a UK company number (company registration number, CRN) for Companies House:
     it zero-pads a short number ('445790' → '00445790') and upper-cases a prefix
     ('oc303675' → 'OC303675'). A CRN has no check digit, so a GB `valid: true` means the
-    shape is right and nothing more.
+    shape is right and nothing more. `country="SE"` shape-checks and normalises a Swedish
+    organisationsnummer for Bolagsverket — '556016-0680' and 'SE556016068001' both become
+    '5560160680' — and accepts the twelve-digit personnummer a sole trader is looked up by.
+    Sweden's check digit is **not** enforced here: Bolagsverket enforces it server-side and
+    no primary source for the algorithm could be found, so an `SE` `valid: true` means the
+    shape is right, `reason` may carry a caveat about the check digit, and the register's
+    own verdict arrives on the lookup. It is the cheapest way to tell a Swedish
+    organisationsnummer from a Norwegian organisasjonsnummer, which is nine digits.
 
     Use it on user input or a spreadsheet column before spending a real `lookup_company`
     call, since it is instant and free.

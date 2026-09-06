@@ -97,6 +97,46 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   unchanged. README "Add to ChatGPT"/"Add to Claude Desktop" sections and
   `docs/clients.md`'s ChatGPT entry document the connector URL.
 
+### Added (third country, Sweden — built, not yet live)
+- Sweden (`SE`): Bolagsverket's free "värdefulla datamängder" API as a third
+  registry module (`registries/se/`), one folder plus one import line, no
+  change to `core/`. **It cannot answer yet** — the API needs OAuth 2 client
+  credentials Bolagsverket issues on request, and until
+  `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET` are set every
+  `SE` call returns `upstream_error` with a hint naming both variables
+  (D-037). `SE` is listed by `GET /v1/countries` and `list_countries` with
+  `requires_api_key: true` so that is discoverable before the call.
+- **No name search for Sweden.** Bolagsverket's free API has four operations
+  and none of them takes a company name, so `search_company` for `SE` raises
+  `not_implemented` (HTTP 501) with a hint naming the alternatives: look up
+  by identifier, or use Bolagsverket's bulk downloadable files. This is a
+  fact about the register, not a gap — `lookup_company`,
+  `company_deadlines` and `validate_company_id` all answer for `SE`, and the
+  ChatGPT `search` alias drops Sweden from its fan-out unchanged.
+- Swedish identifier validation is **shape-only**: ten digits for an
+  organisationsnummer, or twelve for the personnummer a sole trader is
+  looked up by (`YYYYMMDDNNNN`); `556016-0680`, `5560160680` and
+  `SE556016068001` all normalise to the same ten digits. A check digit
+  exists and Bolagsverket enforces it server-side, but no primary source for
+  the algorithm could be found, so this module does not reject on it — the
+  modulus-10 result is reported as a caveat on an otherwise valid result
+  (D-021/D-032) rather than making a real company unfetchable.
+- Two computed Swedish deadlines for an `AB` or `EK`, both under the
+  calendar-year assumption the free dataset forces (it does not publish a
+  company's financial year): `general_meeting` — the ordinary general
+  meeting within six months of the financial year end, aktiebolagslagen
+  7 kap. 10 § — and `annual_accounts` — seven months, where
+  årsredovisningslagen 8 kap. 6 §'s förseningsavgift begins. The statute
+  that actually governs filing, ÅRL 8 kap. 3 §, is one month after the
+  meeting adopted the accounts and is not computable from published data, so
+  `applies_because` states all three steps and says the company's own
+  deadline may be earlier. Swedish dates do not roll forward off a weekend
+  or holiday: no rule saying they do could be sourced.
+- A personal-data note on a Swedish sole trader (`enskild näringsidkare`),
+  mirroring Norway's ENK note and going further because the case is worse —
+  the identifier *is* the proprietor's personnummer, which is why
+  Bolagsverket's own read operations are POSTs rather than GETs (D-039).
+
 ### Fixed
 - Norwegian `annual_accounts` and `general_meeting` deadlines no longer roll
   forward off a weekend or holiday: no provision grants that, and

@@ -130,6 +130,8 @@ $ curl "https://api.foretak.dev/v1/GB/company/00445790/deadlines?today=2026-09-0
 
 Where Companies House publishes a date, it is quoted; where it does not, the date is computed from a cited statute and `applies_because` says so. UK deadlines never roll forward off a weekend or bank holiday, and `days_until` goes negative for a filing the register still shows as overdue.
 
+**Sweden — built, awaiting Bolagsverket credentials.** [`registries/se/`](src/registry_mcp/registries/se/) is written and tested against Bolagsverket's free "värdefulla datamängder" API, but that API needs OAuth 2 client credentials Bolagsverket issues on request, so `SE` lookups return `upstream_error` naming `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET` until they are set. One limit is permanent rather than pending: **Sweden has no name search** — the free API has four operations and none takes a company name, so `search_company` for `SE` is `not_implemented` and Swedish companies are looked up by organisationsnummer (or, for a sole trader, a twelve-digit personnummer).
+
 ## Tools
 
 | Tool | What it does |
