@@ -118,6 +118,16 @@ def test_88_employees_not_reported_is_none_not_zero() -> None:
     assert report.employees_reported is False
 
 
+def test_euid_and_advertising_protected_are_null_for_norway() -> None:
+    """R-2 (D-026(a),(b)): both keys are always present in the serialised
+    document and `null` for Norway, which publishes neither a EUID nor an
+    advertising-protection flag (D-004: always present, never omitted)."""
+    report = mapping.map_entity(EQUINOR, source_url="https://example/enheter/923609016")
+    dumped = report.model_dump(mode="json")
+    assert dumped["euid"] is None
+    assert dumped["advertising_protected"] is None
+
+
 def test_89_search_result_no_embedded_key() -> None:
     result = mapping.map_search_result({}, query="nonexistent co")
     assert result.hits == []

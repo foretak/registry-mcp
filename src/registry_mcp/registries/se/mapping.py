@@ -625,9 +625,17 @@ def map_entity(
     if verksam_kod == "NEJ":
         notes.append(_N3_NOTE)
 
+    # advertising_protected (D-026(b), D-036): "JA" -> True + N4 (N4 is the
+    # required notes sentence, unchanged); "NEJ" -> False (Bolagsverket/SCB
+    # publish the flag, so an explicit no is a real no); absent or blocked by
+    # `fel` (reader.value returns None either way) -> None.
     reklamsparr_kod = reader.value("reklamsparr", "kod", label="the advertising block")
+    advertising_protected: bool | None = None
     if reklamsparr_kod == "JA":
         notes.append(_N4_NOTE)
+        advertising_protected = True
+    elif reklamsparr_kod == "NEJ":
+        advertising_protected = False
 
     # --- N8: sole-trader personal-data note (D-039) ------------------------
     if typ_kod in _PERSONAL_ID_TYP_KODS or legal_form.code == "E":
@@ -685,6 +693,7 @@ def map_entity(
         id=id_value,
         id_formatted=rules.format_id(id_value),
         id_scheme=id_scheme,
+        euid=None,  # Bolagsverket/SCB publish none (D-036)
         name=name,
         previous_names=[],
         legal_form_code=legal_form.code,
@@ -720,6 +729,7 @@ def map_entity(
         website=None,
         email=None,
         phone=None,
+        advertising_protected=advertising_protected,
         parent_id=None,
         is_subunit=False,
         in_group=None,

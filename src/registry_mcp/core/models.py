@@ -27,7 +27,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 __all__ = [
     "Address",
@@ -566,6 +566,21 @@ class CompanyReport(_Base):
         default=None,
         description="Name of the identifier scheme, e.g. 'organisasjonsnummer'.",
     )
+    euid: str | None = Field(
+        default=None,
+        description=(
+            "European Unique Identifier (EUID, Commission Implementing Regulation (EU) "
+            "2021/1042 Article 9), where the register publishes one, e.g. Finland's "
+            "'FIFPRO.0112038-9'. None for a register that does not (today: all of ours). "
+            "Three traps: (1) this is not the LEI — the EUID is register-issued, mandatory "
+            "in the EU and free, the LEI is voluntary, global, LOU-issued and fee-bearing; "
+            "an entity may carry both, one or neither. (2) 'EUid' also names the EU Digital "
+            "Identity wallet, a personal credential unrelated to company registers. (3) it is "
+            "not stable across a register reorganisation, since it encodes the register of "
+            "origin (e.g. France's RNE replacing the RCS in 2023). Carried verbatim from the "
+            "register; never constructed from parts."
+        ),
+    )
 
     # --- names --------------------------------------------------------------
     name: str = Field(description="Current registered name.")
@@ -676,6 +691,22 @@ class CompanyReport(_Base):
     website: str | None = Field(default=None, description="Website as registered.")
     email: str | None = Field(default=None, description="Contact email as registered.")
     phone: str | None = Field(default=None, description="Contact phone as registered.")
+    advertising_protected: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the register marks this entity as protected against direct-marketing "
+            "use (Danish CVR-loven § 19 'reklamebeskyttelse', Swedish 'reklamspärr'). "
+            "True: the register marks it. False: the register publishes such a flag for "
+            "this entity and it is not set. None: this register publishes no such flag at "
+            "all — the default, and it must never default to False, since False asserts a "
+            "claim about a register that made none. When True, a country module must also "
+            "append a `notes` entry containing the phrase 'direct marketing' "
+            "(case-insensitive) stating the protection — that phrase is the contract this "
+            "model enforces (see the validator below) — because the marking is a legal "
+            "condition of passing this record's contact details on, and it must travel with "
+            "them."
+        ),
+    )
 
     # --- structure ----------------------------------------------------------
     parent_id: str | None = Field(
@@ -736,6 +767,25 @@ class CompanyReport(_Base):
     @classmethod
     def _upper_country(cls, v: str) -> str:
         return v.upper()
+
+    @model_validator(mode="after")
+    def _advertising_protected_true_needs_a_notes_sentence(self) -> Self:
+        """D-026(b): ``True`` is a legal condition of passing this entity's
+        contact details on (Danish CVR-loven § 19, Swedish *reklamspärr*), and
+        that condition is only met if a caller who reads only ``notes`` can
+        see it. A country module that sets ``advertising_protected=True``
+        must also append a ``notes`` entry containing the phrase "direct
+        marketing" (case-insensitive) — enforced here, for every country, not
+        only in fixtures.
+        """
+        if self.advertising_protected is True and not any(
+            "direct marketing" in note.lower() for note in self.notes
+        ):
+            raise ValueError(
+                "advertising_protected=True requires a `notes` entry containing the "
+                "phrase 'direct marketing' (case-insensitive) — DECISIONS.md D-026(b)."
+            )
+        return self
 
     def with_cache_flag(self, cached: bool) -> Self:
         """Return a copy with ``cached`` set — used by the cache layer (T03)."""

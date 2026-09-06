@@ -6,6 +6,7 @@ Behavioural tests for Norwegian rules are T02's job (see ``NORBIZ_SPEC.md`` §5)
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import pytest
 
@@ -461,3 +462,64 @@ def test_loggable_query_never_raises_and_is_a_pure_function() -> None:
     assert loggable_query(None, None) is None
     assert loggable_query("SE", None) is None
     assert loggable_query("NO", None) is None
+
+
+# ---------------------------------------------------------------------------
+# D-026(a),(b) — `euid` and `advertising_protected` (R-2)
+# ---------------------------------------------------------------------------
+
+
+def _report(**overrides: Any) -> CompanyReport:
+    base: dict[str, Any] = {
+        "country": "XX",
+        "registry": "example",
+        "id": "1",
+        "name": "Example AS",
+    }
+    base.update(overrides)
+    return CompanyReport(**base)
+
+
+def test_euid_and_advertising_protected_default_to_none(sample_report: CompanyReport) -> None:
+    """Both keys exist and are `None` on a report built with defaults, which is
+    every register before its country module says otherwise (D-004: always
+    present, never omitted)."""
+    assert sample_report.euid is None
+    assert sample_report.advertising_protected is None
+    dumped = sample_report.model_dump(mode="json")
+    assert dumped["euid"] is None
+    assert dumped["advertising_protected"] is None
+
+
+def test_advertising_protected_true_with_a_direct_marketing_note_constructs() -> None:
+    report = _report(
+        advertising_protected=True,
+        notes=["This organisation has asked not to receive direct marketing."],
+    )
+    assert report.advertising_protected is True
+
+
+def test_advertising_protected_true_note_match_is_case_insensitive() -> None:
+    report = _report(
+        advertising_protected=True,
+        notes=["DIRECT MARKETING is refused for this entity."],
+    )
+    assert report.advertising_protected is True
+
+
+def test_advertising_protected_true_without_a_matching_note_raises() -> None:
+    """D-026(b): the boolean alone is not compliance. A country module that
+    sets `advertising_protected=True` must also append a `notes` entry
+    containing "direct marketing" (case-insensitive), or construction fails —
+    this is what makes `CORE_ROADMAP_SPEC.md` §4's synthetic-report example
+    true at runtime for every country, not only in fixtures."""
+    with pytest.raises(ValueError, match="direct marketing"):
+        _report(advertising_protected=True)
+    with pytest.raises(ValueError, match="direct marketing"):
+        _report(advertising_protected=True, notes=["Some unrelated caveat."])
+
+
+def test_advertising_protected_false_and_none_need_no_note() -> None:
+    assert _report(advertising_protected=False).advertising_protected is False
+    assert _report(advertising_protected=None).advertising_protected is None
+    assert _report().advertising_protected is None
