@@ -697,3 +697,170 @@ For any entity that has filed at least once, `regnskapsperiode.tilDato` is a **p
 **Verdict: one confirmed bug, blocking, in two deadlines.** `annual_accounts` and `general_meeting` return a `due_date` that is later than the law allows whenever the statutory date falls on a weekend — next in 2027, already published as a worked example. Everything else in §5.4 is right, including the term-3 exception the research file expected us to have got wrong. The citation defect the research file predicted is real but lives in the spec, not in the output; the fix for it is D-022, which makes the sourcing rule the same one D-016(c) already applies to Britain.
 
 **Could not verify from a primary source:** (i) whether Brønnøysundregistrene publishes a practice of rolling the 1 August fee trigger — every `brreg.no` guidance path I tried returned 404 and the session's WebSearch budget was exhausted; the fix is written the safe way and says so; (ii) whether `regnskapsperiode` ever comes back non-calendar (presence and shape verified on two entities, variance not); (iii) the `NUF` skattemelding branch, which is genuinely fact-dependent and is flagged `VERIFY` rather than changed.
+
+---
+
+## T26e — 2026-09-05 — APPROVED (no blocking fixes; fifteen non-blocking, four of them urgent)
+
+Full read of `src/registry_mcp/registries/se/{__init__,client,mapping,rules}.py` (2,197 lines), `tests/test_rules_se.py` (889) and `tests/test_client_se.py` (704), all sixteen `tests/fixtures/bv_*.json`, `tests/fixtures/README.md`, the one import line in `registries/__init__.py` and the suite edits in `tests/test_{api,connector,interface,mcp}.py` + `evals/cases.json` — against `SWEDEN_SPEC.md` (all 17 sections), `tasks/T26.md`, `tasks/T26-recon.md` and, for §3 below, the OpenAPI document itself (`~/research/registry-mcp/02-registers-landscape/02b-sweden-openapi.json`) read programmatically rather than off a field table. Every claim below was executed, not read off. `README.md`, `CHANGELOG.md`, `KEYWORDS.md`, `mcp/server.py` and `content/` were out of scope (Opus B, concurrent).
+
+Environment: `uv run pytest -q -m "not live"` → **579 passed, 11 deselected** — but see fix 1: one test fails for a whole minute in every hour. `uv run mypy src` → clean, 35 source files. **`uv run mypy .` — which is what CI runs (`.github/workflows/ci.yml:31-32`) — fails with 2 errors**, both in the new Sweden test files: fix 2. `uv run ruff check .` → clean. `uv run python evals/run.py --golden` → **28 passed, 0 failed, 3 skipped** out of 31. Suite before Sweden: 455.
+
+### Checklist
+
+| # | Item | Verdict |
+|---|---|---|
+| 1 | Zero edits to `core/`, `api/`, `mcp/`; suite edits are country-list only | **PASS** |
+| 2 | §14's 118 numbered tests, one per number, spec-conformant | **PASS** (6 weakened, table below) |
+| 3 | Wire contract against the OpenAPI document | **PASS** (one over-broad detector — fix 4) |
+| 4 | Client: token cache, scopes, environment pairing, bucket, retries, no-credentials path | **PASS** |
+| 5 | Sole-trader personal data (D-039, N8); no production payload committed | **PASS** |
+| 6 | Both surfaces answer without credentials — MCP checked in-process here | **PASS** |
+| 7 | pytest / mypy / ruff / evals | **PASS** on the commands T26e was asked to run; **CI is red** on `mypy .` (fix 2) and flaky on pytest (fix 1) |
+| 8 | Time vs the ≤2-week target | **PASS**, by three orders of magnitude |
+
+---
+
+**1. Core discipline — PASS.**
+
+`git show --stat 14ccd07` lists 29 files: four new `registries/se/*.py`, one `+1` line in `registries/__init__.py` (alphabetical `gb, no, se, xx`), two new test files, sixteen fixtures, `tests/fixtures/README.md`, and five suite files. **Not one file under `core/`, `api/` or `mcp/`.** D-001 and D-008 hold on their third real test: country #3 was one folder plus one import line, and unlike Britain it needed no `core/` change at all — D-018's `published_deadlines` was already there and Sweden uses it (as `[]`, with rung 1 implemented anyway, per §5.4).
+
+The suite edits are exactly what §16 authorises. `test_api.py` (2 country-set assertions), `test_interface.py` (4), `test_connector.py` (1, with a docstring explaining why SE appears in the zero-hit fallback without a mock), `test_mcp.py` (4 assertions + two new SE tests: `requires_api_key`/`api_key_env` and a non-empty `registry://rules/SE`), `evals/cases.json` (two `equals_set` lists). Two `SE` → `ZZ` swaps in `test_mcp.py:180` and `:386` — the T10-style carry-over, correctly spotted: those tests wanted an *unsupported* country and `SE` had just stopped being one. No test was deleted or loosened.
+
+**2. §14's 118 tests — PASS, all present, six weakened.**
+
+All 118 numbers exist, one function per number, named `test_NN_<slug>`: 1–78 in `tests/test_rules_se.py`, 79–112 in `tests/test_client_se.py`, 113–118 in the same file and all six `@pytest.mark.live` (11 deselected in total). Plus five unnumbered extras — `bv_ab_kk_and_li.json` / `bv_ab_rekonstruktion.json` mapping, the bucket-exhaustion branch, `aclose`, `format_id` via the registry, a `modulus10_ok` table check and a `rules_markdown` content check. None skipped, none merged, none stubbed.
+
+| Test | Gap |
+|---|---|
+| 71 | "an `E` gets no deadlines **and a `notes` entry**" passes only incidentally — the note it finds is N8 (sole-trader personal data), not an explanation of the empty list. A `BRF` or an SCB-fallback `AB` gets `deadlines == []` and **no note at all**. Fix 5 |
+| 74 | Calls `deadline_exemption_note(BANKRUPT, "KK")` directly instead of asserting the 8 kap. 7 § sentence reaches a real bankrupt report's `notes`. The wiring is correct (verified by hand) but untested |
+| 78 | The "does not change with the process timezone" half is not asserted. Structurally true — `deadlines_for` takes `today` and never reads a clock — but unpinned |
+| 116 | Records the check-digit experiment's outcome with `print`, which pytest swallows without `-s`. The one live test whose *output* is the deliverable |
+| 117 | Materially weakened: asserts only `report.name`. §14 makes this the test that proves every field name the mapper reads exists on the wire — "a field this spec names that the live payload does not have is a **blocking** finding" — and records which `pagaende…` and `organisationsnamntyp` spellings the wire really uses. As shipped it proves neither. Fix 8 |
+| 118 | Sets `os.environ["BOLAGSVERKET_ENVIRONMENT"]` directly rather than via `monkeypatch`, leaking it into the rest of the live session |
+
+Everything else asserts what the spec says, and a dozen tests assert **more**. Test 66 does both halves of §5.2 — it monkeypatches `core.rules.common.roll_forward` to raise *and* greps every `registries/se/*.py` for the string, which is exactly the correction T15e's nit N-4 asked for on Britain. Test 41 asserts the SCB code appears **nowhere** in the serialised report, not merely that `legal_form_code` is right. Test 51 asserts both list orderings. Test 110 drives the real `mcp/connector.py` rather than mocking it. Test 112 bundles six assertions including the credential-leak sweep over `caplog`, `str(exc)` and `to_dict()`.
+
+**The deadline arithmetic is right, and I checked it against the statute text rather than against the code.** ABL 7 kap. 10 § — *"Inom sex månader från utgången av varje räkenskapsår"* — six months from a 31 December year end is **30 June**, and `next_occurrence(6, 30, today)` is inclusive of `today` (test 64: `days_until == 0` on the day). ÅRL 8 kap. 6 § — *"inom sju månader från räkenskapsårets utgång"* — is **31 July** (test 61). `period_label` is `statutory.year - 1` with `period_start`/`period_end` 1 January/31 December of it, so the 30 June 2026 meeting is labelled FY2025: correct. Rung 1 (a published date) is implemented and unreachable, as §5.4 requires. No roll-forward anywhere: `statutory_date == due_date` and `rolled_forward=False` are literals, 31 July 2027 is a Saturday (confirmed: `weekday() == 5`) and stays 31 July (test 65), there is no `holidays.py`, and the string `roll_forward` appears in no file under `registries/se/`. Test 69 — the one that exists because this project's own library file mis-attributed seven months to ÅRL 8:3 — checks an ±80-character window around the "8 kap. 3" citation and finds "one month" there and "seven months" only next to 8 kap. 6 §. That is the correction holding.
+
+**3. Wire contract against the OpenAPI document — PASS, with one over-broad detector.**
+
+I extracted every property name from `components.schemas` plus every key appearing in Bolagsverket's own `components.examples` (52 + 49 names) and diffed all sixteen fixtures against that set: **no fixture invents a key.** `bv_enskild_two.json` and `bv_uppgiftskalla_fel.json` are byte-equal (modulo key order) to `organisationer-enskild-svar` and `organisationer-fel-fran-en-uppgiftskalla-svar`, verified by normalised JSON comparison, and correctly carry **no** `_VERIFY` key; the four `ApiError` bodies and `bv_token.json` likewise; the nine assembled ones all carry it. `mapping.py`'s `_WRAPPED_FIELDS` is exactly the thirteen `Organisation` properties whose schema carries `fel`+`dataproducent`, with `organisationsidentitet`, `namnskyddslopnummer` and `registreringsland` correctly excluded — I checked that against the schema, property by property, rather than against §1.6's prose.
+
+- **POST body, never a URL** — `client.py:417-419` is the only request construction; test 102 asserts `{"identitetsbeteckning": "…"}` and `respx` would not match a GET.
+- **Envelope array** — `_first_organisation`, `organisationer[0]`, every field from that same element (test 91).
+- **Per-field `fel` before every value** — `_FieldReader.wrapper` is the single gate and nothing in `map_entity` reads a wrapper without it.
+- **`not_found` from `fel.typ`** — works (tests 96, 111), but the scan is **wider than §6.3**: see fix 4.
+- **Two date shapes** — one `_DATE_PREFIX_RE` parser for every date; `"2023-05-05T00:00:00.000+00:00"` → `date(2023,5,5)` (tests 45, 49, 90).
+- **`pagaende…` spelling** — both spellings read at **both** the outer wrapper and the inner `…Lista` (`mapping.py:421-432`), test 98 constructs the misspelled payload and still gets `BANKRUPT`. The Altinn bug is closed.
+- **`namnskyddslopnummer` plural** — one report from element 0, N7 names both businesses and both numbers (test 92), `previous_names` stays `[]`.
+- **Twelve digits never truncated** — test 7, and `format_id` renders `19400927-2719`.
+- **`registreringsland` not ISO** — never read; test 97 injects `XX-LAND` and `country` stays `"SE"`.
+- **`organisationsnamntyp` open string** — `"FORETAGSNAMN"` matched exactly for the primary name, everything else rendered from `klartext` into N12; both foreign-language spellings tolerated because neither is branched on.
+- **`JaNej` coerced explicitly** — `verksam_kod == "NEJ"` and `reklamsparr_kod == "JA"`, never `bool()`. The most likely single-character bug in the module is not present.
+
+**4. Client — PASS.**
+
+Token cached per environment in a module-level dict with a 60 s refresh margin against `time.monotonic()` (never wall-clock), `expires_in` read from the response rather than hard-coded (`client.py:372-376`), tests 103 and 104b. Both scopes in one form-encoded request, asserted on the wire (`vardefulla-datamangder%3Aread+vardefulla-datamangder%3Aping`, test 102). `BOLAGSVERKET_ENVIRONMENT` indexes `_BASE_URLS` and `_TOKEN_URLS` as a pair so the hosts cannot be mixed, an unrecognised value raises naming both legal values and opens no socket (test 106), and the environment is a segment of the cache key (`SE:bolagsverket:entity:{prod|test}:{id}`) so a switch cannot serve test companies as production ones. **The token host is `portal.`, not `gw.`** — the correction this spec exists for — and test 102 asserts it explicitly. Fresh `uuid4` `X-Request-Id` per *attempt*, logged at DEBUG and nowhere else, distinctness asserted (test 107). Bucket capacity 60, refill 1.0/s, 2 s max wait, and `acquire()` sits **inside** both retry loops so a retry spends a second token — T15e's nit N-1 on Britain, fixed here without being asked. 5 s `httpx.Timeout`, exactly one retry on a timeout or 5xx and never on a 4xx, 250 ms backoff, the 401/403 token-refresh-and-retry layered above it and bounded to one (tests 104, 112). Credentials read inside the request path with `.strip()`; missing either raises `upstream_error` naming **both** variables plus `list_countries` and the kundanmälan URL, before any socket (test 99, mock call count 0), and importing the package with neither set still registers `SE` (test 100). Upstream 400 → `invalid_id`, not retried, and no upstream body is echoed into `message`, `hint` or `details` — `bv_400.json`'s `requestId`, `timestamp` and Swedish `detail` all stay upstream. A partial 200 is mapped but never written to the cache, pinned by a second identical call making a second HTTP request (test 111). `aclose()` closes the client **and** clears `_tokens`, asserted on both (`test_registry_aclose_closes_client_and_clears_token`).
+
+**5. Sole-trader personal data — PASS.**
+
+N8 fires on `typ.kod` in `{PERSONNUMMER, SAMORDNINGSNUMMER, GDNUMMER, DODSBO}` **or** `organisationsform.kod == "E"` (`mapping.py:566`), test 92. `rules_markdown()` states it in prose — "a Swedish national identity number for a natural person" — satisfying §13 item 3. **No note ever repeats the identifier**: test 93 asserts no note contains the digit string, and N7 carries names, `namnskyddslöpnummer` and registration dates instead. `registries/se/` writes the identifier only to the request body, the cache key, `CompanyReport.id` and the two error messages §6.4 specifies verbatim — F1 stays a `core/`+`api/` finding and is not re-opened here. `bv_enskild_two.json` is Bolagsverket's own synthetic OpenAPI example, not a recording; `tests/fixtures/README.md` reproduces §17's redaction rule including the sentence that no production sole-trader payload may ever be committed.
+
+One place the identifier reaches a fourth field: on a partial-failure 200 with no name, `map_entity` falls back to `name = requested_id` (`mapping.py:520`) — so during a Bolagsverket outage a sole-trader lookup would put a personnummer in `CompanyReport.name`. §14 test 95 explicitly authorised either behaviour and the implementer asserted the one it chose, so this is conformant, not a defect. §11's enumeration of where the identifier may appear should gain that fourth place, or the fallback should become `None` in T26d.
+
+**6. Both surfaces without credentials — PASS. MCP checked in-process, no network.**
+
+The implementer smoke-tested REST; I drove the FastMCP client against the server object with `BOLAGSVERKET_CLIENT_ID`/`_SECRET` unset, and with `REGISTRY_MCP_LOG_PATH`/`REGISTRY_MCP_CACHE_PATH` pointed at a scratch directory so no personnummer touched the operator's own SQLite:
+
+- `list_countries` → `['GB', 'NO', 'SE']`; the SE row publishes all eleven §1.10 values, `requires_api_key: true`, `api_key_env: "BOLAGSVERKET_CLIENT_ID"`, and the licence string that names no licence.
+- `lookup_company(SE, 5560160680)` → `upstream_error`, `{code, message, hint, country, registry, details}`, hint carries **both** variable names and `list_countries`. No crash, no traceback.
+- `validate_company_id(SE, "556002-1361")` → `valid: true`, `normalized: "5560021361"`, `formatted: "556002-1361"`, `hint: null`.
+- `validate_company_id(SE, "194009272719")` → `valid: true`, `hint: null`, and the reason carries the §5.1.5 personnummer caveat. `"923609016"` → `valid: false` with the Norway hint. `validate` never raised.
+- `search_company(SE, "Volvo")` → `not_implemented`, hint names `lookup_company`. **`ErrorCode.NOT_IMPLEMENTED`'s first real caller across both surfaces, and the 501 path works.**
+- The D-031 `search` alias with a Swedish name (`"Cykelbolaget AB"`, NO and GB mocked with `respx`) → `['NO:923609016']`. Sweden's `not_implemented` drops one country and the other two answer, exactly as §4 predicted from reading `mcp/connector.py:314-330`.
+
+**7. The runs — PASS on the four commands T26e was asked to run; CI would be red on two of them.**
+
+Numbers above. Two problems, both in the *tests* rather than in `registries/se/`, and both invisible to the exact command set the done-check names.
+
+The flake is real and reproducible: `test_41_both_present_organisationsform_wins_no_n5` asserts `"49" not in json.dumps(report.model_dump(mode="json"))` and the dump contains `fetched_at`, which is `datetime.now(UTC)`. It therefore fails **for the whole of minute :49 of every hour** and randomly whenever the microseconds contain `49` (measured 1.5 % of maps outside that minute). It failed one of five full-suite runs here, at 06:49 UTC. The assertion it is making is a good one and worth keeping — fix 1 is one line.
+
+The type check is worse, because it is deterministic. T26e was asked for `uv run mypy src`, which is clean; **CI runs `uv run mypy .`** (`.github/workflows/ci.yml:31-32`), and that reports two errors, both introduced by this commit:
+
+```
+tests/test_rules_se.py:574: error: Non-overlapping identity check
+    (left: Literal[CompanyStatus.UNDER_LIQUIDATION], right: Literal[CompanyStatus.BANKRUPT])  [comparison-overlap]
+tests/test_client_se.py:645: error: Statement is unreachable  [unreachable]
+```
+
+Neither is a defect in the module — both are mypy narrowing artefacts in correct tests — but the commit message's "green" is not what a CI run would report, and T26d must not discover this at release time. Fix 2, and I verified both replacements type-check under `--strict` before writing them down.
+
+`ruff format --check` still reports repo-wide drift; CI runs `ruff check`, not `ruff format` (`.github/workflows/ci.yml:28-29`), so this is pre-existing and not a T26b finding, as at T15e.
+
+**8. Time vs the ≤2-week target — PASS.**
+
+T26 opened ~21:45 local on 2026-09-05 with recon (T26r) and the architecture (T26a) in parallel; the commit landed at **23:35:22 +0200** — 2,197 lines of implementation, 1,593 lines of test, 118 numbered tests and sixteen fixtures, in **under two hours** against a target measured in weeks. Country #3 was cheaper than country #2 despite being the first with two secrets, the first with no status field, the first whose identifier is a natural person's, and the first where HTTP 200 does not mean the data arrived. The expensive half was again specification: the 2,027-line `SWEDEN_SPEC.md` and the recon digest that corrected the token host, the ÅRL citation and the check-digit claim before a line of code existed.
+
+### Fix list — owner: a Sonnet, dispatched by the orchestrator. None blocks T26c.
+
+**1 (urgent — CI will fail ~1 run in 60 on the clock alone).** `tests/test_rules_se.py:437-438`. `dumped = report.model_dump(mode="json")` then `assert "49" not in json_values(dumped)` matches the timestamp digits in `fetched_at`. Pop the volatile field before the check:
+```python
+dumped = report.model_dump(mode="json")
+dumped.pop("fetched_at", None)
+assert "49" not in json_values(dumped)
+```
+Keep the assertion — it is the right one, it is just reading one field too many.
+
+**2 (urgent — CI's `mypy .` is red; both replacements verified under `--strict`).**
+
+(a) `tests/test_rules_se.py:573-574`, test 52. Line 573 narrows `report.status` to `Literal[UNDER_LIQUIDATION]`, so line 574's `is not CompanyStatus.BANKRUPT` is a non-overlapping identity check. §14 test 52 wants both assertions, so **swap them** — the negative first, then the positive:
+```python
+assert report.status is not CompanyStatus.BANKRUPT
+assert report.status is CompanyStatus.UNDER_LIQUIDATION
+```
+Confirmed clean under `mypy --strict`; do not silence it with an ignore, and do not drop either line.
+
+(b) `tests/test_client_se.py:640,644-645`, `test_registry_aclose_closes_client_and_clears_token`. `assert http_client.is_closed is False` narrows the property to `Literal[False]` for the rest of the function, so `assert http_client.is_closed is True` after `aclose()` is unreachable and the `_tokens == {}` assertion below it is dead code to mypy — and, worse, mypy is telling us that assertion is never type-checked. Read the property into a fresh annotated local on each side:
+```python
+closed_before: bool = http_client.is_closed
+assert closed_before is False
+...
+closed_after: bool = http_client.is_closed
+assert closed_after is True
+assert client_module._tokens == {}
+```
+Confirmed clean under `mypy --strict`.
+
+**3 (urgent — a wrong answer on the field a payment check reads first).** `src/registry_mcp/registries/se/mapping.py:534-548` + `rules.py:468-571`. A partial-failure 200 (`bv_uppgiftskalla_fel.json`, Bolagsverket's own outage example) currently maps to **`status: active`, `is_active: true`** and `status_detail` "Registered with Bolagsverket and not marked as struck off or in any winding-up or restructuring procedure." — an affirmative claim about a company from a payload that carried no status data at all. `_FieldReader` correctly refuses to read the blocked values; `derive_status`'s rung 3 then turns that silence into `ACTIVE`. This is precisely the failure §1.6 rule 1 was written about, one field further on than the spec followed it. Change: `map_entity` should pass a flag (or `derive_status` should take one) set when any of `avregistreradOrganisation`, `avregistreringsorsak` or `pagaende…` was blocked by a `fel.typ` in `_BLOCKING_FEL_TYPES`; when it is set, return `CompanyStatus.UNKNOWN`, `is_active=False`, and a `status_detail` naming the unavailable producer instead of asserting good standing. N13 still fires. Add a test asserting `map_entity(UPPGIFTSKALLA_FEL, …).status is CompanyStatus.UNKNOWN`, and note the change under §14 test 95's "assert the shipped behaviour explicitly". **`SWEDEN_SPEC.md` §8 gains a rung 0 for this; I will make that spec edit when this lands.**
+
+**4 (urgent — a `not_found` for a company that exists, cached for an hour).** `src/registry_mcp/registries/se/mapping.py:74-90`. `is_not_found` scans **every** wrapped field for `fel.typ == "ORGANISATION_FINNS_EJ"` and returns `True` on the first hit. §6.3 says "on the identity-bearing fields". Consequence, reproduced here: an aktiebolag present at Bolagsverket but absent at SCB — the test workbook's own `5567223705` scenario, and the very number §17 tells T26d to record `bv_scb_only.json` from — returns `True` and the client raises `not_found` **and caches the negative for an hour**. Restrict the scan to the Bolagsverket identity-bearing fields (`organisationsnamn`, `organisationsform`, `organisationsdatum`), or require that *all* wrapped fields carry `ORGANISATION_FINNS_EJ`, or ignore any field whose `dataproducent` is `"SCB"`. `bv_finns_ej.json` satisfies all three, so test 96 keeps passing. Add a regression test built from `bv_ab_active.json` with `juridiskForm`/`verksamOrganisation`/`reklamsparr` carrying `ORGANISATION_FINNS_EJ`, asserting `is_not_found(...) is False`.
+
+**5.** `src/registry_mcp/registries/se/rules.py:670-693` and `mapping.py:573-577`. A legal form that is *classified but computes nothing* — `BRF`, `HB`, `KB`, `E`, `S`, the banks and insurers, and any SCB-fallback code such as `49` — returns `deadlines == []` with **no note explaining why**. `core/models.py:467` documents the contrary contract ("An empty list is a real answer, not an error — read `notes` for why"), and `BRF` is one of the commonest forms on the Swedish register. Add a note, fired from `map_entity` alongside N6, when `status is ACTIVE` and `legal_form_code` is classified but not in `DEADLINE_FORM_CODES`: e.g. *"registry-mcp computes filing deadlines only for aktiebolag (AB) and ekonomiska föreningar (EK) — the two forms årsredovisningslagen 8 kap. 6 § names. {english} has real filing obligations that this module does not compute, because no primary source for them has been read."* Strengthens §14 test 71 and gives test 72 something to assert. (Spec gap as much as an implementation one — §2.1's N6 covers only *unclassified* forms.)
+
+**6.** `src/registry_mcp/registries/se/mapping.py:193-196`. §3 says `country_code` is `"SE"` when `land` is **absent** or casefolds to sverige/sweden; the code sets it only on the string match, so a Swedish address with no `land` gets `country_code=None`. Two lines: `if land is None: country_code = "SE"`.
+
+**7.** `src/registry_mcp/registries/se/rules.py:491-496`. `avregistreringsorsak.klartext` can be the literal `"n/a"` — Bolagsverket's own sole-trader example is exactly that — and it is rendered straight into `status_detail`: *"Struck off the Bolagsverket register on 2001-03-15 (VERKUPP: n/a)."* §2.4 rules that `"n/a"` must never be shown to a user. Treat `klartext` in `{None, "", "n/a"}` as absent and render `({kod})` alone.
+
+**8.** `tests/test_client_se.py:691-695`, test 117. Restore the assertion §14 asked for: walk the live payload for every field name `mapping.py` reads, assert each is present or explicitly optional in §2, and record in the test's failure message (not `print`) which spelling of `pagaende…` and which `organisationsnamntyp` foreign-language code the wire uses. A missing field is a blocking finding for T26d, and as written this test cannot produce one.
+
+**9.** `tests/test_rules_se.py:791-797`, test 74. Assert the 8 kap. 7 § sentence on a real report: `report = _map(pagaende…=_pagaende([{"kod": "KK", "fromDatum": "2024-01-26"}]))`, then `assert any("8 kap. 7 §" in n for n in report.notes)` — keep the direct `deadline_exemption_note` call as well.
+
+**10.** `tests/test_rules_se.py:827-837`, test 78. Add the timezone half: run `deadlines_for` under two `TZ` values (`monkeypatch.setenv("TZ", …)` + `time.tzset()`) and assert equal lists.
+
+**11.** `tests/test_mcp.py`. `tasks/T26.md` §T26b asks for a REST≡MCP parity test for SE; there is none. Copy `test_rest_and_mcp_lookup_company_are_identical_gb` (`:445`), drive `bv_ab_active.json` through `GET /v1/SE/company/5299999994` and the MCP `lookup_company` with the token and data routes mocked, and assert the two documents are equal except `fetched_at`. Sweden is the first country where the two surfaces have a second thing to agree on (N10 and the `source` suffix).
+
+**12.** `src/registry_mcp/registries/se/client.py:365-368`. Any 4xx from the token endpoint becomes "This deployment has no Bolagsverket credentials" — which for a **429** is both wrong and misleading against the tightest rate limit in the project. Special-case `429` → `_rate_limited_error()` before the 4xx branch. (§6.1 says "4xx → upstream_error with the no-credentials hint", so this is a spec correction too; I will make it.)
+
+**13.** `src/registry_mcp/registries/se/client.py:370-371`. `body["access_token"]` raises `KeyError` — not a `RegistryError` — on a 200 whose body is malformed or not JSON, and `response.json()` at `:522` has the same exposure on the data call. Wrap both and raise `upstream_error`.
+
+**14.** `tests/test_client_se.py:679-689` and `:697-704`. Test 116's result reaches nobody without `-s`: raise it through `pytest.fail`/`warnings.warn`, or write it to a file T26d reads. Test 118 sets `os.environ["BOLAGSVERKET_ENVIRONMENT"]` without `monkeypatch`, leaking into the rest of the live run.
+
+**15.** `src/registry_mcp/registries/se/rules.py:506-522` and `:737-836`. Two small losses: (a) when `pagaende…Lista` carries both a bucket-1 and a bucket-2 code (`[KK, FUOT]`), the bucket-2 note is discarded — §8 says "the lower rungs still fill their own fields and notes", so collect bucket-2 notes before returning the bucket-1 result; (b) `rules_markdown()` satisfies thirteen of §13's fourteen points but gives only examples of the organisationsform ↔ juridisk form mapping (`AB`/`TPAB` → 49, five → 51) rather than the published table `tasks/T26-recon.md` carries in full. Add it, with the existing "never run it backwards" warning.
+
+### Recorded for the orchestrator, not a Sweden defect
+
+**F4 — `ValidationResult.id_scheme` is the registry's class attribute, so `validate_company_id("SE", "194009272719")` returns `id_scheme: "organisationsnummer"` while its own `reason` explains that twelve digits are a personnummer.** §2.4 makes `id_scheme` per-record on `CompanyReport` and the module does that correctly; `ValidationResult` has no such hook — `core/registry.py:228` passes `self.id_scheme`. Sweden is the first country where one registry issues identifiers under more than one scheme, so this is the same shape of problem as F3: real, small, and a `core/` decision that should be taken when a second country needs it. **No core edit requested.**
+
+**Verdict: APPROVED.** No test asserts anything the spec forbids, no fixture key is invented (verified against the OpenAPI document programmatically, not by eye), no credential or personnummer is written anywhere `registries/se/` controls beyond the four places §11 and §14 sanction, and neither surface crashes without credentials — both answer with the D-007 envelope and a hint naming both variables. The module is better than the spec required on the things that mattered most: the `pagaende…` misspelling is read at both nesting levels, the rate-limit bucket spends a token per attempt (Britain's does not), and §2.1's invariant holds exactly — a healthy, active, `verksam` `AB` with one name gets **exactly one** note. Fixes 1 and 2 are CI hygiene in the tests — a clock-dependent flake and two mypy narrowing artefacts — and neither touches the module. Fixes 3 and 4 are both "an absence rendered as a fact", which is this country's characteristic failure mode and the reason §1.6 opens the spec; neither is reachable from a fixture the suite currently ships, which is why the tests are green and the review is not. **Fixes 1–4 should land before T26d touches the wire**, because fix 4 will fire on the first live call §17 tells T26d to make (`5567223705`, "Aktiebolag, organisation finns ej hos SCB"). T26c is not blocked by any of them.
