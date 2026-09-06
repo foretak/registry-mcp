@@ -439,7 +439,7 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
 
 **Two decisions for Kim from the Sweden spec (Opus A, 2026-09-05; details `SWEDEN_SPEC.md` §0 and `DECISIONS.md` D-036):**
 
-- [ ] **R-2 — the two nullable core fields `euid` and `advertising_protected`** (`CORE_ROADMAP_SPEC.md` §4).
+- [x] **R-2 — the two nullable core fields `euid` and `advertising_protected`** (`CORE_ROADMAP_SPEC.md` §4). *Done 2026-09-06 (T29, merged 32e157c): both keys on every report, Sweden fills `advertising_protected` from reklamspärr; ships with the next release.*
       Architect's recommendation: **yes, and before Sweden goes live.** Sweden publishes an
       advertising block (`reklamsparr`) today and Denmark's CVR-loven § 19 makes passing the mark on a
       legal condition; landing the field after SE is live would be a response-shape change on a live
