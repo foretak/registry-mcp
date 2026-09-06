@@ -673,6 +673,48 @@ async def test_search_se_identifier_with_country_token_logs_no_identifier(
     assert last["query"] is None
 
 
+async def test_search_bare_personnummer_with_no_country_token_logs_no_identifier(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The gap the explicit-token test above did not cover: with no country token at all,
+    `_derive_country` matches nothing, so `candidates` is the full fan-out and
+    `_identifier_rows` tries every live registry — SE among them, since a 12-digit
+    personnummer validates there too. D-040(b) applies regardless of whether the caller
+    also typed the country ("an agent that types a personnummer into search has typed a
+    personnummer") — `outcome.country` stays `None`, exactly as `_derive_country` produced
+    it, but the query is still redacted because SE's `id_may_be_personal` validated it."""
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "194009272719"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] is None
+    assert last["query"] is None
+
+
+@respx.mock
+async def test_search_bare_orgnr_with_no_country_token_still_logs_it(
+    record_spy: _RecordSpy,
+) -> None:
+    """Regression: a Norwegian orgnr is a company number, not a natural person's — the new
+    D-040(b) check only redacts when a *flagged* registry validates the text, so a bare
+    orgnr with no country token must keep reaching the log unchanged, exactly like the
+    explicit-token case `test_search_identifier_with_explicit_country_token_still_short_circuits`
+    covers for the non-logging behaviour."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+
+    async with Client(mcp) as client:
+        result = await client.call_tool("search", {"query": "923609016"})
+    assert result.structured_content is not None
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["country"] is None
+    assert last["query"] == "923609016"
+
+
 @respx.mock
 async def test_search_name_query_logs_the_real_text(record_spy: _RecordSpy) -> None:
     """Regression: a name query with no recognisable country derives `None`,

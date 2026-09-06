@@ -639,6 +639,24 @@ async def search(
         if not any_validated:
             ranked = await _name_search_rows(candidates, remainder)
 
+        # D-040(b): a bare identifier that validates for a registry whose
+        # `id_may_be_personal` is set is not logged — even when `_derive_country`
+        # matched nothing above and `candidates` is therefore the full fan-out
+        # (`_identifier_rows` tried every live registry, not just the one an
+        # explicit country token would have named). "An agent that types a
+        # personnummer into search has typed a personnummer" regardless of
+        # whether it also typed "SE". Blanket, by registry flag, never by digit
+        # count (D-040(d)) — re-validate only the candidates, since
+        # `Registry.validate` is pure and cheap and this must hold even when
+        # every lookup above failed (no credentials) and dropped its row
+        # silently. `outcome.country` is left as `_derive_country` produced it
+        # (`None` here) — this redacts the query without inventing a country.
+        if any(
+            candidate.id_may_be_personal and candidate.validate(remainder).valid
+            for candidate in candidates
+        ):
+            outcome.query = None
+
         rows = _merge_sort_and_cap(ranked, remainder)
         if not rows:
             rows = _rules_rows()
