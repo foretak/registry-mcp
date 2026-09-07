@@ -9,22 +9,24 @@ post. Two of them had changed since the build plan was written (see
 [What changed](#what-changed-since-the-build-plan)). Re-check before publishing
 if more than a month has passed.
 
-**Status as of 2026-09-05** (the per-section text below keeps the original
-"how to" and each section's own status line):
+**Status as of 2026-09-07 19:33Z** (re-audited end to end after the 0.3.0/Sweden
+release — full log in [Audit — 2026-09-07](#audit--2026-09-07); the per-section
+text below keeps every original "how to" plus each section's own status line,
+corrections appended rather than erased):
 
 | # | Target | Manifest in this repo | Needs a login? | Status |
 |---|---|---|---|---|
-| 1 | [Official MCP registry](#1-official-mcp-registry) | `server.json` + `mcp-name:` marker + `mcpName` | **Yes** — GitHub (`foretak` org) | **Live** — `io.github.foretak/registry-mcp` 0.2.0 (via `publish-mcp.yml`) |
-| 2 | [Smithery](#2-smithery) | `static/well-known/mcp/server-card.json` (optional) | **Yes** — Smithery account | **Live** — `fargerod/registry-mcp` |
-| 3 | [Glama](#3-glama) | `glama.json` + admin-form build spec (Python 3.12, `uv sync`, mcp-proxy) | **Yes** — GitHub OAuth | **Live and installable 2026-09-05** — approved 13:45Z, claimed by Kim, build spec saved, Glama build succeeded 14:36Z (15.7 s; 5 tools + prompt seen through mcp-proxy), release created; "cannot be installed" cleared, score badge renders |
-| 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1 |
-| 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending** — chatmcp/mcpso#3927, no reply yet |
-| 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** — auto-indexed as https://mcpmarket.com/server/registry-10 ("Registry"); resubmission 2026-09-05 answered "already listed" |
-| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **Badge added 2026-09-05** (fork commit 0726bb2e on `add-registry-mcp`; line also mentions the UK). Badge renders once Glama has a score → needs #3's claim + Dockerfile |
-| 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo archived |
-| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **LIVE — approved 2026-09-05 22:02Z** (https://mcpservers.org/servers/foretak/registry-mcp; badge offered; approval mail to hello@foretak.dev). Submitted 2026-09-05 (free, Finance; review "within 12 hours", e-mail to hello@foretak.dev) |
-| 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**missing**) | **Yes** — GitHub | Blocked on icon + a README-only install test in Cline |
-| — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Done** — 12 topics set 2026-09-04 |
+| 1 | [Official MCP registry](#1-official-mcp-registry) | `server.json` + `mcp-name:` marker + `mcpName` | **Yes** — GitHub (`foretak` org) | **Live and correct** — `io.github.foretak/registry-mcp` **0.3.0**, `isLatest: true`, countries `[GB, NO, SE]`, re-verified live 2026-09-07 19:15Z. No action needed. |
+| 2 | [Smithery](#2-smithery) | `static/well-known/mcp/server-card.json` (optional) | **Yes** — Smithery account | **Live, was stale, fixed 2026-09-07** — `fargerod/registry-mcp`. Description named only Norway+UK and promised "Denmark (CVR) next" (not shipped); PATCHed via the documented API (credential in `~/secrets/`) to name all three countries and drop the false promise; `iconUrl` set (was `null`). `registry.smithery.ai`'s public search index lags the write host by some minutes–hours, as it did 2026-09-05 — re-check in a day. |
+| 3 | [Glama](#3-glama) | `glama.json` + admin-form build spec (Python 3.12, `uv sync`, mcp-proxy) | **Yes** — GitHub OAuth | **Live and installable, but stale** — still shows **0.2.0** and a Norway+UK-only description as of 2026-09-07 19:15Z; no Sweden. No documented API/credential exists for Glama (unlike Smithery) — fix needs a human on the admin page. See the ready block in [§3](#3-glama). |
+| 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1. Re-confirmed 2026-09-07, identical wording. |
+| 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending, unchanged, and stale** — chatmcp/mcpso#3927, no reply after 3 days; issue text is still Norway-only. Backing repo looks largely inactive (3,170 open issues, code not pushed since 2025-03-26) — see the judgement-call note in [§5](#5-mcpso) on why this was flagged rather than edited. |
+| 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** (per the 2026-09-05 "already listed" resubmission answer) — auto-indexed as https://mcpmarket.com/server/registry-10. Still unverifiable directly: 429 on every attempt again 2026-09-07. |
+| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **UK+Norway entry MERGED** 2026-09-07T13:14:35Z (PR [#13631](https://github.com/punkpeye/awesome-mcp-servers/pull/13631), live in `README.md` today, badge renders). Sweden follow-up **PR [#13893](https://github.com/punkpeye/awesome-mcp-servers/pull/13893) already open**, correctly scoped (single-line diff, badge/emoji/position unchanged) — **not duplicated**, per instructions. Two bot comments on it are false positives, already rebutted; just needs a maintainer. |
+| 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo still archived (re-checked 2026-09-07: `archived: true`, last push 2026-05-06). |
+| 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **LIVE — approved 2026-09-05 22:02Z** (https://mcpservers.org/servers/foretak/registry-mcp; badge offered; approval mail to hello@foretak.dev). **Freshness unverified 2026-09-07** — the page now sits behind a Cloudflare bot challenge for automated fetches (curl and WebFetch both got the "Just a moment…" interstitial, not the real page). Needs a human with a real browser; no PR path and no documented API either way. |
+| 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**now present**) | **Yes** — GitHub | **Icon blocker cleared** (`static/icon.png`, confirmed 400×400 PNG, shipped 2026-09-05). Still blocked on Cline's own requirement to *confirm you tested* a README-only install in Cline — no Cline runtime available to an agent here, and claiming a test that didn't happen would break the "keep it factual" rule. Ready block in [§10](#10-cline-mcp-marketplace-bonus). |
+| — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Topics done** — 20/20 slots, re-verified 2026-09-07 (includes `bolagsverket`, `sweden`, `united-kingdom`). The repo **description** this section tells you to set was still the Norway-only sentence verbatim from this file — fixed 2026-09-07 via `gh repo edit`; this file's own suggested command below is now updated to match so nobody re-pastes the stale one. |
 
 **Order matters.** Do #1 first: PulseMCP ingests from it automatically, and
 several other directories use it as a trust signal. Do #2 after the VPS is live
@@ -32,7 +34,82 @@ several other directories use it as a trust signal. Do #2 after the VPS is live
 
 ---
 
+## Audit — 2026-09-07
+
+Full re-audit after the 0.3.0 release (three countries, tag `v0.3.0`, all four
+package targets published — see `PROGRESS.md`'s "0.3.0 RELEASED" line). Every
+directory below was **fetched live tonight**, not assumed from the table above.
+Ground truth used throughout: `server.json`, `pyproject.toml`, `git log`/`git
+tag`, and live queries to the *directories themselves* — never
+`https://api.foretak.dev` (excluded by standing instruction, to keep it out of
+usage stats) and never Bolagsverket/Companies House directly.
+
+**Confirmed correct, no action:**
+- **Official MCP registry** — `io.github.foretak/registry-mcp` 0.3.0 is
+  `isLatest: true` with `countries: [GB, NO, SE]`, the full keyword set and the
+  icon. This is the one everything else (PulseMCP in principle, and several
+  directories as a trust signal) is supposed to trust — it's right.
+- **PyPI** `registry-mcp` and `brreg-mcp`, **npm** `registry-mcp` and
+  `@foretak/brreg-mcp` — all four at 0.3.0, descriptions name all three
+  countries. The unscoped npm `brreg-mcp` is still `hellosverre`'s unrelated
+  0.1.1 package, unchanged, as documented in Prerequisites below.
+- **punkpeye/awesome-mcp-servers** — merged entry is live and accurate for the
+  two countries it names; the Sweden follow-up PR is open, correct, and
+  already excluded from duplication per instructions.
+- **appcypher/awesome-mcp-servers** — still archived; skip stands.
+- **GitHub repo topics** — still 20/20 and correct.
+
+**Fixed tonight (two mechanisms only, per instructions):**
+- **Smithery** — PATCHed via `api.smithery.ai` with the stored key
+  (`~/secrets/registry-mcp/smithery-api-key.txt`): description now names all
+  three countries and drops the stale "Denmark next" promise; `iconUrl` now
+  set. Full before/after in [§2](#2-smithery).
+- **GitHub repo description** (`gh repo edit --description`, on our own repo —
+  not a third-party submission, so outside the "two mechanisms" question
+  entirely): was the literal Norway-only sentence this file itself suggested;
+  now names all three countries. See
+  [GitHub repo topics](#github-repo-topics).
+
+**Confirmed stale, cannot fix without a human (no login/API path open to an
+agent):**
+- **Glama** — still 0.2.0 / two countries. No documented API; needs the admin
+  UI. [§3](#3-glama).
+- **mcpservers.org (wong2)** — Cloudflare blocks automated re-verification;
+  status unknown either way. [§9](#9-mcpserversorg--wong2s-awesome-mcp-servers).
+- **Cline Marketplace** — icon blocker cleared, but the "tested in Cline"
+  attestation needs an actual human or a Cline-equipped agent, not a login.
+  [§10](#10-cline-mcp-marketplace-bonus).
+
+**Unchanged, re-confirmed:**
+- **PulseMCP** — still closed, identical wording.
+- **MCP Market** — still 429 on every attempt; already-confirmed live per the
+  2026-09-05 record, so left alone.
+- **mcp.so** — issue #3927 still open, unanswered, and stale (Norway-only
+  text, filed before the UK or Sweden existed). **Judgement call, not
+  guessed:** the task's authorization names exactly two mechanisms for direct
+  action — PRs to list repos, and documented HTTP APIs with a stored
+  credential. A GitHub *issue comment* on our own already-open, non-duplicate
+  submission is arguably harmless and arguably in-bounds (mcp.so's own
+  documented mechanism *is* a GitHub issue), but it isn't literally either of
+  the two named mechanisms, so this agent left it alone rather than stretch
+  the authorization on its own judgement. If you want it corrected, the exact
+  command is in [§5](#5-mcpso) — it's one line, no browser needed. Separately:
+  the backing repo (`chatmcp/mcpso`) has 3,170 open issues and hasn't had a
+  code push since 2025-03-26, so a maintainer reply of any kind may simply
+  never come regardless.
+
+---
+
 ## Prerequisites (do these once, before anything below)
+
+> **Resolved 2026-09-07.** All four package targets are live at **0.3.0**:
+> PyPI `registry-mcp` and `brreg-mcp`, npm `registry-mcp` and
+> `@foretak/brreg-mcp` (option 1 below is the one that shipped). Verified live
+> tonight against `pypi.org` and `registry.npmjs.org` directly — all four
+> summaries name Norway, the United Kingdom and Sweden. The section below is
+> kept as the record of *why* — the naming collision, the decision, and the
+> clean-machine verification commands are still correct if a fifth package
+> (a future country alias) ever needs the same treatment.
 
 ### ⚠️ Name availability, checked 2026-09-04
 
@@ -125,6 +202,18 @@ argument for this one.
 - **Docs:** <https://github.com/modelcontextprotocol/registry> → `docs/modelcontextprotocol-io/quickstart.mdx`
 - **Server name:** `io.github.foretak/registry-mcp`
 - **Manifest:** [`server.json`](server.json) — already written and validated by T05
+
+> **Re-verified live 2026-09-07 19:15Z.** `GET
+> https://registry.modelcontextprotocol.io/v0/servers?search=foretak` returns
+> all three published versions (0.1.0, 0.2.0, 0.3.0) with only the last
+> carrying `isLatest: true`; that 0.3.0 entry has `countries: [GB, NO, SE]`,
+> the full 24-keyword list, the icon, and both packages at 0.3.0. This
+> directory is correct today — no action taken. One gotcha for next time:
+> `search=registry-mcp` alone does **not** reliably surface us (the endpoint's
+> relevance ranking buries us behind unrelated servers that also contain the
+> substring "registry-mcp" in their name); `search=foretak`, or `search=
+> registry-mcp&limit=100`, does. Use the org name to check, not the package
+> name.
 
 ### Schema check (2026-09-04)
 
@@ -282,6 +371,41 @@ came back `null` after the PATCH — re-check the field name in
 <https://smithery.ai/docs/api-reference/servers/update-a-server.md> if the repo link matters. Re-apply the
 PATCH after any `smithery mcp publish` in case a re-scan resets it.
 
+**2026-09-07 19:35Z — description had gone stale again (Sweden shipped, listing didn't know).** `GET
+https://registry.smithery.ai/servers/fargerod%2Fregistry-mcp` (no auth needed to read) still described only
+Norway + UK and ended "Denmark (CVR) next" — inaccurate now (new countries are on hold per Kim's 2026-09-06
+call, and Sweden, not Denmark, actually shipped third). Fetched the docs page fresh
+(`smithery.ai/docs/api-reference/servers/update-a-server.md`) to confirm the field names before writing
+anything — `displayName`, `description`, `repositoryUrl`, `iconUrl`, `homepage`, `backlinkUrl`, `license`,
+`unlisted`, all optional, same `PATCH /servers/{qualifiedName}` endpoint, same bearer token. Sent:
+
+```bash
+# payload built with python (avoids shell-quoting the accented text and the
+# apostrophe in "Sweden's"), body written to a temp JSON file, then:
+curl -X PATCH "https://api.smithery.ai/servers/fargerod%2Fregistry-mcp" \
+  -H "Authorization: Bearer $(cat ~/secrets/registry-mcp/smithery-api-key.txt)" \
+  -H "Content-Type: application/json" \
+  --data @payload.json
+# payload.json: {"displayName": "registry-mcp — the company registry MCP",
+# "description": "<all three countries, Sweden's no-name-search caveat,
+# updated tool/key list>", "repositoryUrl": "https://github.com/foretak/registry-mcp",
+# "homepage": "https://api.foretak.dev", "iconUrl": "https://api.foretak.dev/icon.png",
+# "license": "MIT"}
+```
+
+`{"success":true,...}`. Verified on **`api.smithery.ai`** (the write host, same call with `GET`) immediately
+after: `description` and `iconUrl` both landed correctly (Sweden now named, icon no longer `null`). `homepage`,
+`repositoryUrl` and `license` do **not** come back in that response at all — not `null`, just absent — which is
+the same silent-drop behaviour the 2026-09-05 note above already found for `repositoryUrl` alone. This looks
+like a real gap between what the docs page says is writable and what the read schema surfaces, not a mistake
+in the request (field names match the docs exactly). Not worth fighting further tonight — `description` and
+`iconUrl`, the two that matter for discovery, both confirmed live.
+
+**`registry.smithery.ai`** (the public search host, read seconds later) still served the **old** text — same
+propagation lag the 2026-09-05 fix saw before it became searchable. **Re-check
+`registry.smithery.ai/servers/fargerod%2Fregistry-mcp` in a day**; if it's still the old description by then,
+re-run the PATCH above (unchanged) rather than treating it as a new problem.
+
 ---
 
 ## 3. Glama
@@ -377,6 +501,28 @@ The file must sit in the **repository root**, which it does.
 
 **Needs a human login: yes** — GitHub OAuth on glama.ai.
 
+**2026-09-07 19:16Z — re-checked, still stale.** `glama.ai/mcp/servers/foretak/registry-mcp` is still live and
+installable (no "cannot be installed" text, score badge renders as an A-grade / 4.7-ish TDQS rating), but the
+version shown is **0.2.0** and the description still names only Norway and the UK — no Sweden, two releases
+behind. The page also shows a "Maintained" / responsiveness pair that reads **"Unresponsive"**; unclear whether
+that tracks server uptime or issue-response time on the repo — worth a human glance, not something this agent
+could check without calling `api.foretak.dev`, which is off-limits.
+
+Unlike Smithery, **Glama has no documented API and no credential for one is stored in `~/secrets/`** — the only
+lever is the claimed owner's admin page, which needs a browser session. Glama's own text says it "crawls
+GitHub" for updates, so this *may* clear on its own within some days; if not, this is the fix:
+
+> **HUMAN — ready to execute, ~2 minutes:**
+> 1. Open <https://glama.ai/mcp/servers/foretak/registry-mcp/admin> (sign in with GitHub if prompted — the
+>    account that claimed it, per §3 above).
+> 2. Look for a "re-scan repository" / "rebuild" / "sync" action. If present, click it.
+> 3. If the Dockerfile-from-form step re-triggers, the values are unchanged from the table above (`debian:
+>    trixie-slim`, Node 26, **Python 3.12**, build steps `["uv sync --locked --no-dev", "mkdir -p /app/data"]`,
+>    CMD `["/app/.venv/bin/registry-mcp"]`) — nothing about 0.3.0 changed the build, only the app code.
+> 4. Confirm done: the listing shows **0.3.0** and the description mentions Sweden / Bolagsverket.
+> 5. If there is no manual re-scan control at all, no action is needed — just re-check in 48h; Glama's crawler
+>    likely runs on its own schedule.
+
 ---
 
 ## 4. PulseMCP
@@ -394,6 +540,10 @@ listings will be "picked up automatically" when they resume.
 
 **Action: none, beyond doing #1.** Re-check `https://www.pulsemcp.com/submit`
 about a month after launch. **No login needed** while it is closed.
+
+**Re-checked 2026-09-07:** identical wording, page still says "last updated September 3, 2026" — no change in
+three days. Since #1 (the official registry) is confirmed correct and current tonight, nothing more to do here
+either way. Next re-check: early October.
 
 ---
 
@@ -445,6 +595,41 @@ whatever the form asks for (Route B).
 > backing repo. Expect it to ask for roughly: name, one-sentence description,
 > tool count, transport, repo URL, homepage, optional icon.
 
+**2026-09-07 19:18Z — re-checked. Issue #3927 is still open, no reply, and now stale.** Three days with no
+maintainer response. Two new things found tonight:
+
+1. `https://mcp.so` (bare domain) now returns **200** to a plain `curl`, not 403 — the block on 2026-09-04 may
+   have been transient or IP-based. `https://mcp.so/search?q=...` also returns 200 with a browser User-Agent,
+   but it's a client-rendered shell (19 lines of HTML, no results in the static markup), so this agent could
+   not confirm whether we're actually listed anywhere on the site itself — only the GitHub-issue submission
+   status is checkable.
+2. `chatmcp/mcpso` (the backing repo) has **3,170 open issues** (up from 3,101 on 2026-09-04) and **no code
+   push since 2025-03-26** — the issue tracker gets some traffic (a handful close each day, several marked
+   "Withdrawn" by their own submitters) but the project itself looks dormant. A maintainer reply here may
+   simply never come, independent of anything about our listing.
+
+Issue #3927's body is also now factually behind: it says "First module: Norway" and lists only Norway's tags,
+filed before the UK or Sweden existed. If it is ever processed as-is, the resulting mcp.so listing would
+undersell the server by two-thirds.
+
+**Judgement call, recorded rather than acted on.** The task's authorisation for direct, human-free action names
+exactly two mechanisms: GitHub PRs to list repositories, and documented HTTP APIs with a stored credential. A
+GitHub *issue comment* — correcting our own already-open, non-duplicate submission, not filing a new one — is
+neither of those, even though it uses the same authenticated `gh` and mcp.so's own documented mechanism for
+this directory *is* a GitHub issue. Rather than stretch a two-item list on its own judgement, this agent left
+the issue untouched and is recording the exact fix here instead. If you want it corrected, this is the whole
+job, one command, no browser:
+
+```bash
+gh issue comment 3927 --repo chatmcp/mcpso --body "Update: registry-mcp is now at 0.3.0 and covers three
+countries, not one. Norway (brreg / Enhetsregisteret) is joined by the United Kingdom (Companies House,
+company-number lookup) and Sweden (Bolagsverket, organisationsnummer lookup — no name search, the free API has
+no name index). Same repo, same install commands, same 5 tools. Official MCP registry: 0.3.0."
+```
+
+Given the repo's own activity level, this may not change the outcome — but it costs one command if you decide
+it's worth sending.
+
 ---
 
 ## 6. MCP Market
@@ -471,6 +656,11 @@ before the listing goes live.
 > fields are unconfirmed. The steps above come from the site's own indexed
 > submission page and docs. Check the live form before filling it in.
 
+**Re-checked 2026-09-07:** `https://mcpmarket.com/server/registry-10` still returns **429** to both a plain
+`curl` and a browser-User-Agent request — same as three days ago, so this isn't a one-off. Not re-tried
+repeatedly to avoid making the rate-limit worse. No content could be verified either way; leaving this as
+**live-per-2026-09-05-confirmation, freshness unknown**, rather than guessing.
+
 ---
 
 ## 7. awesome-mcp-servers — punkpeye
@@ -479,9 +669,14 @@ before the listing goes live.
 - **Rules:** its `CONTRIBUTING.md`
 - **Process:** fork → edit `README.md` → PR
 - **Status:** PR opened 2026-09-04 —
-  <https://github.com/punkpeye/awesome-mcp-servers/pull/13631> (open; from fork
-  `foretak/awesome-mcp-servers`, branch `add-registry-mcp`, inserted between
-  `flox-foundation/flox-mcp` and `Fund-z/fundzwatch-mcp`).
+  <https://github.com/punkpeye/awesome-mcp-servers/pull/13631> — **MERGED
+  2026-09-07T13:14:35Z** (from fork `foretak/awesome-mcp-servers`, branch
+  `add-registry-mcp`, inserted between `flox-foundation/flox-mcp` and
+  `Fund-z/fundzwatch-mcp`; confirmed live in `punkpeye/awesome-mcp-servers`'s
+  `README.md` at the current line for `foretak/registry-mcp`, badge rendering).
+  **Follow-up PR #13893** (adds Sweden to that same line) is open — see the
+  note after the steps below. **Do not open a third PR here** — that would be
+  the duplicate the hard rules warn about.
 
 ### Rules that actually get PRs merged here
 
@@ -524,6 +719,25 @@ gh pr create --title "Add registry-mcp — national company registries (Norway: 
 
 **Needs a human login: yes** — GitHub (fork + PR). And a maintainer has to merge
 it; that is out of our hands.
+
+### The Sweden follow-up — PR #13893, already open, do not duplicate
+
+<https://github.com/punkpeye/awesome-mcp-servers/pull/13893>, open (not merged) as of 2026-09-07 19:20Z. #13631
+merged a couple of hours before Sweden shipped, so the line it landed named only the UK and Norway; #13893 is a
+one-line edit to that same entry, adding a Sweden clause, changing nothing else (same link, same badge, same
+emoji, same alphabetical position — confirmed via `gh pr diff 13893`, it is a single-line replacement, not a
+new entry).
+
+Two automated bot comments landed on it, both false positives, both already answered before this audit:
+1. A Glama-badge request — the entry already carries the badge (`[![foretak/registry-mcp MCP server]...`),
+   inherited unchanged from #13631.
+2. A "duplicate" flag — mis-fires on any diff that touches an existing `foretak/registry-mcp` line, because the
+   checker apparently just greps the diff for a URL that's already in the list, without checking whether the
+   line count actually grew.
+
+A reply from this account already walks through both points on the PR itself. **Nothing further to do** —
+per instructions, this was confirmed as the already-open PR and was not duplicated. It just needs a maintainer
+to look at it, same as #13631 eventually got.
 
 ---
 
@@ -593,6 +807,22 @@ unless there is a reason beyond impatience.
 the **contact inbox to exist** (`HUMAN_TODO.md` §3), because that is where the
 confirmation goes.
 
+**2026-09-07 19:2xZ — could not re-verify; Cloudflare, not the app, is in the way.** Both a plain `curl` and
+WebFetch against `https://mcpservers.org/servers/foretak/registry-mcp` came back **403** — but the body is a
+Cloudflare "Just a moment…" bot-challenge page (confirmed by inspecting it directly), not a real 403 from
+mcpservers.org itself. So: unknown whether the live listing still reads "Norway and United Kingdom" (the Short
+Description above, submitted 2026-09-05, predates Sweden by two days) or whether it's been refreshed.
+
+No fix path exists for an agent either way — this list explicitly refuses PRs, and nothing in its docs
+describes an update API, only the one-time submission form. Re-submitting risks creating a second, duplicate
+listing rather than editing the first, which the hard rules treat as worse than doing nothing.
+
+> **HUMAN — read-only check, ~1 minute:** open
+> <https://mcpservers.org/servers/foretak/registry-mcp> in an actual browser (Cloudflare should pass a real
+> one). If it still says only Norway and the UK: there's no documented safe way to edit it short of asking
+> wong2 directly, which is outside what an agent may do here (no e-mail/forum contact) — this becomes a
+> judgement call for a person, not something to guess at from here.
+
 ---
 
 ## 10. Cline MCP Marketplace (bonus)
@@ -615,16 +845,46 @@ Requirements, verbatim from their README:
 `llms-install.md` is **not required**: "A well-written README with clear
 installation instructions is usually sufficient."
 
-**Blocked:** we have **no 400×400 PNG icon**. One needs to be made — it is also
-useful for #2, #5 and #8. That is the only thing standing between us and this
-listing.
+**2026-09-07: the icon blocker is cleared.** `static/icon.png` exists (shipped 2026-09-05, T20) and is confirmed
+400×400 PNG (`file` reports `PNG image data, 400 x 400, 8-bit/color RGB`). Checked tonight for an existing
+submission first (`gh issue list --repo cline/mcp-marketplace --search "registry-mcp"` and broader searches for
+"foretak", "brreg", "bolagsverket", "companies house") — **nothing found**, so filing would not duplicate.
 
-**Needs a human login: yes** — GitHub, plus someone to actually run the
-README-only install test in Cline before claiming they did.
+**Still blocked, but on requirement 4, not the icon.** Cline's own template requires the submitter to *confirm
+having tested* giving Cline just the README (or `llms-install.md`) and having it work. This agent has no Cline
+runtime to actually run that test in, and claiming the test happened when it didn't would break the "keep the
+tone factual" rule as directly as an adoption-number claim would — so this stays a human (or Cline-equipped
+agent) task, not a login-only one.
+
+> **HUMAN (or an agent with Cline installed) — ready to execute once tested:**
+> 1. In Cline, install using **only** `README.md` (do not hand it `llms-install.md` or any other file) — either
+>    the `claude mcp add` line won't apply, but the stdio line will: `uvx registry-mcp` (or point Cline at the
+>    repo and let it read the README).
+> 2. Confirm it works: at minimum, `list_countries` should return `GB`, `NO`, `SE`.
+> 3. File the issue at <https://github.com/cline/mcp-marketplace/issues/new/choose> (pick the server-submission
+>    template) with:
+>    - **GitHub repo link:** `https://github.com/foretak/registry-mcp`
+>    - **Logo:** `https://api.foretak.dev/icon.png` (400×400 PNG, already hosted) or attach `static/icon.png`
+>      directly if the template wants a file upload.
+>    - **Justification (factual, no superlatives):** "Company data from three national business registries —
+>      Norway (Brønnøysundregistrene / Enhetsregisteret), the United Kingdom (Companies House) and Sweden
+>      (Bolagsverket) — behind one JSON shape and five read-only tools: lookup by national identifier, name
+>      search (not available for Sweden — the register has no name index), computed statutory filing
+>      deadlines with the rule cited, and identifier validation. No API key needed for Norway; free keys for
+>      the UK and Sweden. MIT-licensed, open source, `uvx registry-mcp` with no install step."
+>    - **Testing confirmation:** state plainly that the README-only install was tested in Cline just now, and
+>      what `list_countries` returned — do not check this box without having actually done step 1–2.
 
 ---
 
 ## GitHub repo topics
+
+> **Status 2026-09-07: topics done, 20/20 slots filled** (re-verified live tonight — includes `bolagsverket`,
+> `sweden`, `united-kingdom` alongside the original twelve, added when the UK and Sweden modules shipped). The
+> **repo description**, set in the same original pass, had not been touched since and was still the exact
+> Norway-only sentence this file suggests below — **fixed 2026-09-07** via `gh repo edit --description`; the
+> command block further down now shows the corrected text that's actually live, so copy-pasting it again is
+> safe and idempotent rather than a regression.
 
 Topics are **ASCII and hyphenated only** and capped at 20 (`KEYWORDS.md` §2).
 These twelve are the required set:
@@ -657,11 +917,23 @@ Optional extras, within the cap of 20, if you want them:
 `bronnoysundregistrene`, `company-registry`, `foretak`, `open-data`,
 `rest-api`, `fastapi`, `python`, `vat`.
 
-Also worth setting in the same pass:
+> **What's actually live (checked 2026-09-07), for the record:** the cap is full at 20 —
+> `ai-agents bolagsverket bronnoysund brreg business-registry companies-house company-data company-lookup
+> company-number company-registry enhetsregisteret mcp mcp-server model-context-protocol norway
+> organisasjonsnummer organisationsnummer orgnr sweden united-kingdom`. That's the original twelve, unchanged,
+> plus eight added as the UK and Sweden modules shipped: `bolagsverket`, `companies-house`, `company-lookup`,
+> `company-number`, `company-registry`, `organisationsnummer`, `sweden`, `united-kingdom`. Only one of those
+> (`company-registry`) was on the "optional extras" list above — the rest are UK/Sweden-specific names the list
+> couldn't have anticipated, since neither country existed yet when it was written. If a 21st ever becomes
+> worth having, something has to come out first; nothing here is redundant enough to be the obvious cut.
+
+Also worth setting in the same pass — **this was still the original Norway-only sentence, live as of
+2026-09-07 19:15Z; fixed the same night** (`gh repo edit`, confirmed via `gh api repos/foretak/registry-mcp`).
+The command below is the corrected version, safe to re-run:
 
 ```bash
 gh repo edit foretak/registry-mcp \
-  --description "Company data for AI agents, any country. MCP server and REST API over national business registries — Norway first (brreg / Enhetsregisteret, orgnr lookup)." \
+  --description "Company data for AI agents, any country. MCP server and REST API over national business registries: Norway (brreg / Enhetsregisteret), the United Kingdom (Companies House) and Sweden (Bolagsverket) — orgnr, company number or organisationsnummer lookup, VAT/deadline checks." \
   --homepage "https://api.foretak.dev"
 ```
 
@@ -700,11 +972,22 @@ One thing the build plan did not know about at all:
 
 | Account | Needed for |
 |---|---|
-| **PyPI** (+ API token) | Prerequisite: publish `registry-mcp` and `brreg-mcp` |
-| **npm** (`npm login`) | Prerequisite: publish `registry-mcp` and `brreg-mcp` |
-| **GitHub**, member of the `foretak` org | #1 (`mcp-publisher login github`), #3 (claim), #5 (issue), #7, #8 (PRs), #10 (issue), topics, labels, seeded issues |
-| **Smithery** (GitHub sign-in) | #2 — *after* the VPS is live |
-| **MCPmarket** | #6 |
-| A **real inbox** at `hello@<domain>` | #9's confirmation, the JSON-LD, and the upstream `User-Agent` |
+| **PyPI** (+ API token) | Prerequisite: publish `registry-mcp` and `brreg-mcp` — **done, 0.3.0, all four package targets live** (2026-09-07) |
+| **npm** (`npm login`) | Prerequisite: publish `registry-mcp` and `brreg-mcp` — **done**, same release |
+| **GitHub**, member of the `foretak` org | #1 (`mcp-publisher login github`, **done, 0.3.0 live**), #3 (claim, **done**; a re-scan to pick up 0.3.0 is what's still open — see §3's ready block), #5 (issue filed and open; the *update* comment in §5 is a judgement call recorded there, not executed), #7 (**#13631 merged**; #13893 open, no action needed beyond waiting), #8 (skip, archived), #10 (issue **not yet filed** — needs the Cline install test first, see §10's ready block), topics (**done, 20/20**), labels, seeded issues |
+| **Smithery** (GitHub sign-in) | #2 — published and **kept current tonight** without a fresh login, via the stored API key (see below) |
+| **MCPmarket** | #6 — account already used per the 2026-09-05 record; nothing new needed, just unverifiable right now (429) |
+| A **real inbox** at `hello@<domain>` | #9's confirmation, the JSON-LD, and the upstream `User-Agent` — inbox exists, listing approved 2026-09-05 |
+| **A browser that passes Cloudflare** | #9 — re-verifying or fixing the live listing text needs a real browser session, not a login exactly; curl/WebFetch both get the bot-challenge page instead of the site |
+| **Cline, actually installed** | #10's testing-confirmation step — this is a capability gap, not a login: no amount of GitHub access substitutes for having run the install |
 
-Nothing on this page can be completed by an agent alone.
+**The line that used to close this file — "nothing on this page can be completed by an agent alone" — is no
+longer true, and is worth flagging as the one thing in here that turned out to be wrong.** It was accurate when
+written (every open item was genuinely login-gated). Two things changed it: Smithery documented a real HTTP API
+and a key for it now lives in `~/secrets/registry-mcp/`, and this repo's own GitHub metadata (topics, and now
+the description) is something an authenticated `gh` can just fix directly — it was never actually a
+third-party submission requiring anyone's *login* in the sense the rest of this table means, just an edit
+nobody had gotten back around to. Both were done tonight without a browser. What's left after tonight genuinely
+does need a human or a capability an agent doesn't have here: a GitHub OAuth session on Glama's admin page, a
+browser that clears Cloudflare on mcpservers.org, and an actual Cline install to test before Cline's own
+submission template can be honestly filled in.
