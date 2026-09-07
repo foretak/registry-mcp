@@ -431,6 +431,8 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
       5. Copy the confirmation text shown after submitting, word for word, and report it back. If the page shows an error, report the exact text instead and do not retry.
       ```
       Afterwards: the zip comes to fargerod@gmail.com, the password by SMS. Unzip locally, never in the repo.
+**Two facts from the credential mail itself, both new (2026-09-07):** (1) **an inactive account is closed after six months** — *"Observera att ett inaktivt konto avslutas efter 6 månader"* — so if Sweden ships and then goes unqueried, the credentials die silently; the live eval or a monthly smoke call is what keeps them alive. (2) Bolagsverket says to contact them **immediately** if the connection details reach or may have reached the wrong hands, which is the procedure if the mailbox is ever compromised. The mail also confirms the token endpoint is `https://portal.api.bolagsverket.se/oauth2/token` — the `portal.` correction T26r made against the library's `gw.` was right.
+
 **CREDENTIALS ARRIVED 2026-09-07 06:02Z** — four mails from `api@bolagsverket.se` to hello@foretak.dev: two encrypted zips (one `[TEST]`, one production) and two `[DEL 2]` mails carrying the zip codes. **Note the deviation from recon: the zip codes came by e-mail, not SMS** — they are therefore sitting in plaintext in the Gmail account; delete those two `[DEL 2]` mails once the zips are open. Claude has not opened any attachment.
 
 - [ ] When the email/SMS arrive: store them as `~/secrets/registry-mcp/bolagsverket-test.txt`
