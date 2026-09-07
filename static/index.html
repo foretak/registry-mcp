@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>registry-mcp — the company registry MCP server</title>
-<meta name="description" content="The company registry MCP: an MCP server and REST API over national business registries. Norway — Brønnøysundregistrene / Enhetsregisteret, organisasjonsnummer (orgnr) lookup and VAT status. United Kingdom — Companies House, company number (CRN) lookup, accounts and confirmation statement deadlines.">
-<meta name="keywords" content="brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, company registry, company registry mcp, mcp, mcp server, model context protocol">
+<meta name="description" content="The company registry MCP: an MCP server and REST API over national business registries. Norway — Brønnøysundregistrene / Enhetsregisteret, organisasjonsnummer (orgnr) lookup and VAT status. United Kingdom — Companies House, company number (CRN) lookup, accounts and confirmation statement deadlines. Sweden — Bolagsverket, organisationsnummer lookup by identifier.">
+<meta name="keywords" content="brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, bolagsverket, organisationsnummer, företagsinformation, foretagsinformation, kontrollera företag, verifiera organisationsnummer, konkurs, likvidation, årsredovisning försenad, arsredovisning, f-skatt, swedish company lookup, swedish company number, company registry, company registry mcp, mcp, mcp server, model context protocol">
 <link rel="canonical" href="https://api.foretak.dev/">
 <link rel="icon" href="/icon.png" type="image/png">
 <style>
@@ -96,7 +96,7 @@
 <main>
 
 <h1>registry-mcp — the company registry MCP</h1>
-<p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries. Live now: Norway (Brønnøysundregistrene / Enhetsregisteret) and the United Kingdom (Companies House).</p>
+<p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries. Live now: Norway (Brønnøysundregistrene / Enhetsregisteret), the United Kingdom (Companies House) and Sweden (Bolagsverket).</p>
 
 <h2>Try it</h2>
 <p>Real calls against the live API below, not canned examples. Keep the pre-filled identifier or paste your own company number or name.</p>
@@ -107,6 +107,7 @@
     <select id="pg-country" name="country">
       <option value="NO">NO — Norway</option>
       <option value="GB">GB — United Kingdom</option>
+      <option value="SE">SE — Sweden</option>
     </select>
     <label for="pg-id" class="pg-sr">Company number or name</label>
     <input id="pg-id" name="q" type="text" value="923609016" autocomplete="off" spellcheck="false" placeholder="Company number or name">
@@ -168,7 +169,7 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
   "@type": "WebAPI",
   "name": "registry-mcp",
   "alternateName": ["brreg-mcp", "Foretak Company Registry API"],
-  "description": "The company registry MCP: an MCP server and REST API for company data from national business registries. Norway — Enhetsregisteret / Brønnøysundregistrene (brreg): look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines. United Kingdom — Companies House: look up a company number (company registration number, CRN), search by name, and read the annual accounts and confirmation statement deadlines.",
+  "description": "The company registry MCP: an MCP server and REST API for company data from national business registries. Norway — Enhetsregisteret / Brønnøysundregistrene (brreg): look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines. United Kingdom — Companies House: look up a company number (company registration number, CRN), search by name, and read the annual accounts and confirmation statement deadlines. Sweden — Bolagsverket: look up a company by organisationsnummer and read the annual accounts filing deadline; identifier only, since Bolagsverket's free API has no name search.",
   "url": "https://api.foretak.dev/",
   "image": "https://api.foretak.dev/icon.png",
   "documentation": "https://api.foretak.dev/llms-full.txt",
@@ -184,9 +185,10 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
   "inLanguage": "en",
   "areaServed": [
     {"@type": "Country", "name": "Norway", "identifier": "NO"},
-    {"@type": "Country", "name": "United Kingdom", "identifier": "GB"}
+    {"@type": "Country", "name": "United Kingdom", "identifier": "GB"},
+    {"@type": "Country", "name": "Sweden", "identifier": "SE"}
   ],
-  "keywords": "brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, company registry, company registry mcp, mcp",
+  "keywords": "brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, bolagsverket, organisationsnummer, företagsinformation, foretagsinformation, kontrollera företag, verifiera organisationsnummer, konkurs, likvidation, årsredovisning försenad, arsredovisning, f-skatt, swedish company lookup, swedish company number, company registry, company registry mcp, mcp",
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
@@ -212,7 +214,7 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
 (function () {
   "use strict";
 
-  var DEFAULT_IDS = { NO: "923609016", GB: "00445790" };
+  var DEFAULT_IDS = { NO: "923609016", GB: "00445790", SE: "5560160680" };
 
   var form = document.getElementById("playground-form");
   var countrySelect = document.getElementById("pg-country");
@@ -370,7 +372,12 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
 
       var search = await getJson("/v1/" + c + "/search?q=" + encodeURIComponent(id));
       addStep(search.url, search.body);
-      if (
+      if (search.body && search.body.error && search.body.error.hint) {
+        // e.g. SE's search_company is not_implemented (Bolagsverket has no
+        // name index) — the hint explains the constraint as prose, same as
+        // any other note, rather than leaving it buried in the JSON above.
+        addNote(search.body.error.hint);
+      } else if (
         search.body &&
         !search.body.error &&
         Array.isArray(search.body.hits) &&

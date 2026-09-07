@@ -2,7 +2,7 @@
   "name": "registry-mcp",
   "version": "0.3.0",
   "mcpName": "io.github.foretak/registry-mcp",
-  "description": "The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — first module: Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, company lookup by organisasjonsnummer, orgnr or org.nr).",
+  "description": "The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, by organisasjonsnummer, orgnr or org.nr), the United Kingdom (Companies House, by company number / CRN) and Sweden (Bolagsverket, by organisationsnummer).",
   "keywords": [
     "mcp",
     "mcp-server",
@@ -27,7 +27,23 @@
     "norway-company-lookup",
     "norwegian-business-registry",
     "vat",
-    "mva"
+    "mva",
+    "companies-house",
+    "companies-house-api",
+    "company-number",
+    "company-registration-number",
+    "uk-company-lookup",
+    "uk-company-search",
+    "confirmation-statement",
+    "united-kingdom",
+    "bolagsverket",
+    "organisationsnummer",
+    "foretagsinformation",
+    "arsredovisning",
+    "f-skatt",
+    "swedish-company-lookup",
+    "swedish-company-number",
+    "sweden"
   ],
   "homepage": "https://github.com/foretak/registry-mcp#readme",
   "bugs": {

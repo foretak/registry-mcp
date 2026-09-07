@@ -163,17 +163,17 @@ there either, so this is a 0.2.0 debt Sweden merely made visible.**
 | `static/llms.txt` | ✅ | ✅ | ✅ | **fixed 2026-09-07** — was Norway + UK only |
 | `static/llms-full.txt` | ✅ | ✅ | ✅ | **fixed 2026-09-07** — had *zero* occurrences of "Sweden", "Bolagsverket" or "organisationsnummer" in 1 020 lines |
 | `docs/clients.md` | ✅ | ✅ | ✅ | **fixed 2026-09-07** |
-| `pyproject.toml :: description` | ✅ | ❌ | ❌ | still reads "first module: Norway" |
-| `pyproject.toml :: keywords` | ✅ | ❌ | ❌ | 23 entries, no `companies-house`, no `bolagsverket` |
-| `packages/npm/registry-mcp/package.json` | ✅ | ❌ | ❌ | description and its 24 `keywords` both mirror the stale PyPI pair |
-| `server.json :: description` | ✅ | ✅ | ❌ | 91 of the schema's 100 characters used |
-| `server.json :: _meta…/keywords` | ✅ | ✅ | ❌ | 20 entries |
-| `server.json :: _meta…/countries` | ✅ | ✅ | ❌ | literally `["GB", "NO"]` |
-| `server.json :: _meta…/dataLicense` | ✅ | ✅ | ❌ | names NLOD 2.0 and Crown copyright only |
-| `static/index.html` | ✅ | ✅ | ❌ | `<meta name="description">`, `<meta name="keywords">`, the lede, the JSON-LD `description`/`keywords`/`areaServed`, and the playground `<select>` |
-| `mcpb/manifest.json` | ✅ | ✅ | ❌ | `description`, `long_description` and `keywords` all say two countries |
-| GitHub repo topics | ✅ | ❌ | ❌ | 12 of 20 set, verified live with `gh repo view --json repositoryTopics` |
-| Registry listings (§ `SUBMISSIONS.md`) | ✅ | partly | ❌ | the awesome-mcp-servers entry merged 2026-09-07 leads with the UK and Norway; no directory mentions Sweden |
+| `pyproject.toml :: description` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — three-country description pasted verbatim |
+| `pyproject.toml :: keywords` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — 16 GB/SE entries appended, 39 total, nothing removed |
+| `packages/npm/registry-mcp/package.json` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — description byte-identical to pyproject's; same 16 keywords appended |
+| `server.json :: description` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — 89 of the schema's 100 characters used; validates against the declared schema |
+| `server.json :: _meta…/keywords` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — 24 entries |
+| `server.json :: _meta…/countries` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — now `["GB", "NO", "SE"]` |
+| `server.json :: _meta…/dataLicense` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — SE clause appended byte-for-byte from §2a, matches `registries/se/__init__.py` and D-038 |
+| `static/index.html` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — both `<meta>` tags, the lede, the JSON-LD `description`/`keywords`/`areaServed`, and the playground `<select>` (+ `DEFAULT_IDS.SE` and a generic `error.hint` → `addNote()` branch so a Sweden name-search renders its `not_implemented` hint as prose, not JSON-only) |
+| `mcpb/manifest.json` | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — `description`, `long_description` (notes `search_company` is not implemented for Sweden) and `keywords` all carry three countries |
+| GitHub repo topics | ✅ | ✅ | ✅ | **fixed 2026-09-07 (T34)** — 20 of 20 set, verified live with `gh repo view --json repositoryTopics` |
+| Registry listings (§ `SUBMISSIONS.md`) | ✅ | partly | ❌ | not touched by T34 (out of scope — `T11`, human clicks); the awesome-mcp-servers entry merged 2026-09-07 leads with the UK and Norway; no directory mentions Sweden |
 
 `packages/brreg-mcp/` and `packages/npm/brreg-mcp/` are **correct as they
 stand** and must not be touched: §3 makes the alias package Norway-only on

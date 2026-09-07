@@ -1164,3 +1164,421 @@ before the push.** Fixes 2 and 3 should land before T26d touches the wire, for t
 T26e's fixes 3 and 4 had to: they are each "an absence rendered as a fact" or "a personal number
 rendered into a log", and neither is reachable from a fixture the suite ships, which is why the
 suite is green and this review is not. Fixes 4-6 can follow at leisure.
+
+## T32 — 2026-09-07 — CHANGES REQUIRED
+
+Nineteen commits, `97ff85b..28efe77` (32 files), plus the *application* of the previous review's
+fixes in `97ff85b` itself, which nobody had checked. Every row below was executed — probe scripts
+under a scratch directory with `REGISTRY_MCP_LOG_PATH`/`REGISTRY_MCP_CACHE_PATH` pointed away from
+`./data`, `record_call` spied, `respx` for transports. Nothing was committed; no file but this one
+was written. `api.foretak.dev` was called read-only (GET only); Bolagsverket was never called
+directly and `833286602` was never looked up.
+
+**Working-tree caveat, honoured throughout.** Two agents are editing this tree. Every claim about
+repository content is read from a commit (`git show <sha>:<path>`), never from the working file.
+**`HEAD` moved under me mid-review**: it was `28efe77` when I started and is `6ece116` now
+(T26h's `6b3158a` + `6ece116` landed at ~16:43). Findings 3 and 15 turn on that, and both say
+which sha they mean.
+
+**Environment, observed:**
+
+```
+uv run pytest -m "not live" -o addopts=""   630 passed, 11 deselected, 1 warning in 23.65s
+uv run mypy .                               Success: no issues found in 61 source files
+uv run ruff check .                         All checks passed!
+```
+
+630 is the expected count and it is **not** inflated by the Sonnet's uncommitted work: the two
+test files it has open carry the same number of test functions at `HEAD` as in the working tree
+(`test_client_se.py` 52/52, `test_rules_se.py` 88/88 — the Sonnet has rewritten bodies, not added
+cases). The count is trustworthy.
+
+### A. The application of the previous review's fixes (`97ff85b`) — never reviewed until now
+
+| # | Fix | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | `search` alias scans alphanumeric runs against every live flagged registry | **PASS, with a hole — finding 1** | 30 inputs through `connector.search` with `record_call` spied and every registry stubbed. All eight leaks the last review listed are closed, plus `"(194009272719)"`, `"id=194009272719"`, `"194009272719."`, `'"194009272719"'`, `"Bygg AB, 5560160680"`, `"https://x/194009272719"`, `"194009272719\xa0AB"`, `"194009272719/AB"`, `"Sok 194009272719 tack"`. Nothing over-redacts: `"Equinor"`, `"Tesco PLC"`, `"923609016"`, `"NO 923609016"`, `"00445790"`, `"GB 00445790"` all still log verbatim. Exactly the two documented residuals survive (`"x194009272719"`, `"1940092727191234"`, and the same-class `"AB194009272719"`). **But the block is unreachable on any exception — finding 1** |
+| 2 | `derive_status` bucket-2-only honours a blocked producer | **PASS** | `[FUOT]` + `unavailable_producer="Bolagsverket"` → `unknown` / `is_active=False` / detail names the producer / **the FUOT bucket-2 note is carried through**. Rung 1 (`deregistered_at`) and rung 2 bucket 1 (`KK`) still win over a blocked producer (`deleted`, `bankrupt` with `bankruptcy_date` intact); the clean path is still `active` |
+| 3a | `api/errors.py` logs the route template | **PASS** | Drove `GET /v1/SE/company/194009272719` against a registry stubbed to raise `RuntimeError`: the server log line is `Unhandled exception in GET /v1/{country}/company/{id}` — the number appears in no server-side record. (The one line in that capture containing the number came from `httpx`'s own client logger inside `TestClient`; in production our outbound SE calls are `POST` with the identifier in the body, so `httpx`'s INFO line carries no identifier) |
+| 3b | `core/cache.py` logs the key prefix | **PASS** | `_key_prefix('SE:bolagsverket:entity:prod:194009272719')` → `'SE:bolagsverket:entity:prod:'`; `'nocolon'` and `''` → `''`; `'a:b'` → `'a:'` |
+| 4 | Non-object 200 body → `upstream_error` | **PASS** | Tests 127/128 present and green; token path catches `TypeError` (covers `[1,2,3]`/`"hello"`/`42`/`null`/`true`), data path is an explicit `isinstance(data, dict)` gate that covers every non-object |
+| 5 | Server-card `outputSchema` pinned | **PASS** | `test_server_card_lookup_company_output_schema_matches_model` exists, green, compares against `dereference_refs(...)` as recommended |
+| 6 | `SWEDEN_SPEC.md`'s duplicate `### 2.6` | **PASS** | Renumbered: §2.6 VAT, §2.7 `advertising_protected`/`euid` |
+
+Five of six applied faithfully. The sixth (fix 1) is applied correctly *where it runs*; it does
+not always run. See finding 1.
+
+### B. `fbd4792` — the SCB `sni` padding filter (orchestrator-authored)
+
+| # | Check | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | The predicate on a well-formed payload | **PASS** | The live shape (`"     "` × 4 + one real code) yields exactly the one real code |
+| 2 | `kod` that is JSON `null` | **FAIL — finding 6** | `{"kod": None, "klartext": "Something"}` → `IndustryCode(code="None", …)`. `item.get("kod", "")` returns `None` (the key exists), `str(None)` is `"None"`, which is truthy, so it survives the filter *and* is emitted as the literal string `None` |
+| 3 | `kod` missing entirely | **PASS** | → dropped (the default `""` fires) |
+| 4 | `kod` that is `"0"` or `0` | **PASS** | Both survive as `"0"` — correct: a zero code is a code, and the predicate tests whitespace, not falsiness |
+| 5 | `kod` that is a non-string (`47642`) | **PASS** | → `"47642"`, correctly coerced |
+| 6 | Re-ranking from 1 | **PASS** | `["70100", blank, "47642", blank, blank]` → ranks `[1, 2]`. Nothing renumbers a *genuinely* ranked list, because SCB's ranks are positional, not carried: the source objects have no rank field, `enumerate` was always the only source of `rank`, and dropping a blank slot from between two real codes is exactly the renumbering you want. Verified no consumer reads `rank`: `mcp/connector.py:445-453` renders `industry_codes` by **list index**, not by `rank`, so order and rank cannot disagree |
+| 7 | `description=(klartext or None)` losing a legitimate falsy value | **PASS (no realistic loss)** | `klartext` is prose. `""` → `None` is the intent; `0` → `None` is the only other reachable case and a numeric description is not a thing SCB emits. Cosmetically `x if x else None` would be more honest than `or`, but nothing is lost |
+| 8 | Non-`Mapping` items | **PRE-EXISTING, unchanged** | `{"sni": ["70100"]}` and `{"sni": {"kod": "x"}}` both raise `AttributeError`. The commit neither introduced nor worsened this, and `map_address` has the same house style. Recorded, not charged to this commit |
+| 9 | Tests 129/130 | **PASS** | Both assert the right things (codes, contiguous ranks, and `all(c.description for c in codes)` which would catch the description regression). Both green |
+| 10 | Spec bookkeeping | **FAIL — finding 13** | `SWEDEN_SPEC.md` §14's numbered list jumps 125 → 129; tests 126/127/128 (added by `97ff85b`) were never written into it, and 129/130 were inserted *above* the stray item 98 |
+
+**Verdict on `fbd4792`: the fix is right, the tests are right, and it should not have needed a
+dispatch.** One genuine defect (finding 6) and one bookkeeping miss.
+
+### C. `056bd6c` — GB test 105 rewritten from wall-clock to overlap (orchestrator-authored)
+
+I mutation-tested this rather than reading it, because "does the assertion have teeth" is not a
+question inspection answers. Control plus three mutations, driven through the real client with
+`respx`:
+
+```
+control (real bucket)                        peak_in_flight=2   assert==2 PASSES
+M1  capacity-1 bucket (_TokenBucket(1.0,2.0)) peak_in_flight=1   assert==2 FAILS
+M2  lock held across the whole HTTP call      peak_in_flight=1   assert==2 FAILS
+M3  bucket sleeps 1 s per acquire, concurrent peak_in_flight=2   assert==2 PASSES  (wall clock 1.05 s)
+```
+
+| # | Check | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | Does it prove non-serialisation? | **PASS** | M1 and M2 above are the two realistic ways the bucket could serialise, and both fail the new assertion. It is a mutation-killing test, not a tautology |
+| 2 | Could a serialising bucket pass? | **PASS (no)** | Only if it serialised *after* a burst of two, which is not what "serialising" means here and was not asserted by the old test either |
+| 3 | Is the `respx` async `side_effect` sound? | **PASS** | Runs (0.17 s for the single test), and `peak_in_flight == 2` proves both handlers were entered — a side-effect that never fired would leave `peak_in_flight == 0` and fail loudly |
+| 4 | Is `nonlocal` counting race-free? | **PASS** | asyncio is single-threaded and there is no `await` between `in_flight += 1` and `peak_in_flight = max(...)`, so the read-modify-write cannot interleave. It is also **deterministic, not timing-dependent**: `gather` has both tasks queued before the first one yields at `sleep(0.05)`, so the second is scheduled immediately regardless of runner load — which is precisely why this replacement is right and the old bound was not |
+| 5 | Did the rename lose coverage? | **PARTIAL — finding 12** | Yes: M3 above. A bucket that adds a full second of latency per acquire but stays concurrent now passes; the old `elapsed2 < 1.0` would have caught it (1.05 s). "Fast" is now asserted nowhere — `grep -rn "_TokenBucket" tests/` finds one direct unit test for the **SE** bucket (`test_bucket_exhaustion_raises_rate_limited`) and **none** for GB's |
+
+**The judgement was correct even so.** The old bound could not distinguish "the bucket is slow"
+from "the runner is slow" — that is why it fired at 1.17 s on an unrelated commit — so it was
+never really testing the property it named. Trading an untrustworthy assertion for a
+deterministic one is right; the residue is that nothing replaced the discarded half.
+
+### D. `4fd1c92` — the 0.3.0 release
+
+| # | Check | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | All 13 occurrences moved | **PASS** | Counted from the diff: `marketplace.json` 1, `mcpb/manifest.json` 1, `packages/brreg-mcp/pyproject.toml` 2, both npm `package.json` 1 each, `plugin.json` 1, `pyproject.toml` 1, `server.json` 3, `__init__.py` 1, `server-card.json` 1 = **13 across 10 manifests**, plus `uv.lock`. The commit message's arithmetic is exact |
+| 2 | Nothing missed | **PASS** | `grep -rn '0\.2\.0'` over the tree excluding `.venv`, `.git`, `uv.lock`, `CHANGELOG.md` and `research/` leaves only true statements about *published* artefacts: `SUBMISSIONS.md` (MCP registry is still 0.2.0 — true), `HUMAN_TODO.md:79` ("PyPI, npm — 0.2.0 since 2026-09-04" — true), `KEYWORDS.md:187` ("no tag has been pushed, so all three indexes still serve 0.2.0" — true), and `PROGRESS.md`/`tasks/`/`research/` history. No version-bearing file was missed |
+| 3 | `packages/brreg-mcp` pin vs PyPI | **PASS on "not broken", FAIL on "not a trap" — finding 5** | Executed against PyPI: `registry-mcp` has `['0.1.0','0.2.0']`, `brreg-mcp` has `['0.1.0','0.2.0']` and the **published** `brreg-mcp` 0.2.0 still declares `requires_dist: ['registry-mcp==0.2.0']`. So no published package is broken. `packages/brreg-mcp` is not in the root workspace (`pyproject.toml` declares no `[tool.uv.workspace]`), so no `uv lock`/`uv sync`/CI job resolves it — CI is not red |
+| 4 | CHANGELOG accuracy | **FAIL — finding 9** | The 0.3.0 heading was inserted *above* the whole pre-existing `[Unreleased]` body, so `[Unreleased]` is now empty and the 0.3.0 section swallowed it |
+| 5 | Does the CHANGELOG under- or over-sell the logging change? | **Over-sells by exactly one path** | "for such countries the usage log now stores no identifier at all" is true of every route keyed to `country="SE"` — I re-verified the REST and MCP paths — and it is *not* true of the connector `search` alias whenever an exception escapes (finding 1). Otherwise the bullet is precise: "the uvicorn access log is off" (`Dockerfile:79` carries `--no-access-log`), "route template rather than the request path" and "cache failures log only a key prefix" are all verified true above. It does **not** under-sell: it correctly does not claim protection for `lookup_company("NO", <personnummer>)`, which D-040(c)/(d) rule out by design |
+| 6 | Is the 0.3.0 "Fixed" list complete? | **Minor gap** | It omits the `97ff85b` SE `derive_status` change, which turns some payloads from `active` to `unknown` — a user-visible status change that shipped in 0.3.0. Everything else from `0.2.0` forward is either covered or subsumed by "Sweden is new" |
+
+### E. `0f952bc` — the go-live text
+
+| # | Check | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | `_DESCRIPTION` is true of the deployed service | **PASS** | Live `GET /openapi.json`: `info.version == "0.3.0"`, description contains "Three countries answer today", names Sweden and Bolagsverket, and the Swedish keywords are present. Every factual clause checks out against the live service: `/v1/UK/…` is documented as a 404, `/v1/countries` names `requires_api_key`/`api_key_env` (verified live for all three), and "name search is not offered because the register publishes no name index" matches live `GET /v1/SE/search?q=ericsson` → `501 not_implemented` |
+| 2 | Does any string still say two countries? | **FAIL — findings 2, 3, 10** | Six do, all at `28efe77`: `static/well-known/mcp/server-card.json`'s `search` tool description, `static/index.html` (**zero** mentions of Sweden or Bolagsverket — and still zero at `6ece116`), `server.json`'s `description`, `mcpb/manifest.json` (description, `long_description`, and the phrase "both countries"), `.claude-plugin/marketplace.json`, `plugins/registry-mcp/.claude-plugin/plugin.json`. The commit's "three countries everywhere" is not true |
+| 3 | Did the connector docstring change alter tool-schema behaviour? | **PASS on behaviour, FAIL on consistency — finding 2** | The docstring is the tool's `description` only; `output_schema=ConnectorSearchResponse.model_json_schema()` and the `annotations` are untouched, and `tests/test_mcp.py::test_tools_list_has_five_registry_tools_plus_two_connector_aliases` and the annotation test are both green. But the *wire text* changed and the server card was not regenerated |
+| 4 | Is the README example real? | **PASS** | Compared field by field against live `GET /v1/SE/company/5560160680` and `…/deadlines?today=2026-09-07`: name, `legal_form_code`/`legal_form`/`legal_form_local`, `registered_at` 1918-08-19, the single `70100` industry code, `postal_code` 16483 / `STOCKHOLM`, the licence string, `published_deadlines: []`, and both deadlines with `days_until` 296 and 327 and `rolled_forward: false` all match exactly. It was generated from the server, as claimed |
+| 5 | README prose | **One gap** | The Swedish JSON block is abridged (≈20 of 50 keys) but, unlike the GB block above it, carries no "Abridged —" sentence. A reader is shown a `$ curl` and a body that command does not return |
+
+### F. The deployment — `https://api.foretak.dev`, read-only GET only
+
+| Endpoint | Result |
+|---|---|
+| `/health` | `{"status":"ok","version":"0.3.0","countries":["GB","NO","SE"]}` — **correct** |
+| `/status` | 200, HTML: "Version 0.3.0 · Uptime 52m 48s · Countries GB, NO, SE" — **correct** |
+| `/v1/countries` | Three entries; SE carries `requires_api_key: true`, `api_key_env: "BOLAGSVERKET_CLIENT_ID"`, the licence string, and the correct `id_description` including the sole-trader personnummer caveat — **correct** |
+| `/v1/SE/company/5560160680` | 200, Ericsson, `active`, `AB`, **exactly one** industry code (`fbd4792` is deployed), 1 note, `cached: true`, `fetched_at 2026-09-07T12:05:10Z` — **correct**, and consistent with the 12:03Z deploy |
+| `/v1/SE/company/5560160680/deadlines?today=2026-09-07` | Both deadlines, statutes cited, `rolled_forward: false`, `days_until` 296/327 — **correct** |
+| `/v1/SE/search?q=ericsson` | `501 not_implemented`, hint names `lookup_company`, the example identifier, `validate_company_id` and the bulk files — **correct** |
+| `/v1/SE/validate/5560160680` | `valid: true`, `formatted 556016-0680`, the "a valid identifier does not mean the entity exists" reason — **correct** |
+| `/openapi.json` | 0.3.0, three countries — **correct** |
+| `/.well-known/mcp/server-card.json` | `serverInfo.version 0.3.0`, but the `search` tool description says "(Norway, United Kingdom)" — **finding 2** |
+| `/llms.txt` | 1950 B, **zero** mentions of Sweden or Bolagsverket — **finding 3** |
+| `/llms-full.txt` | 50988 B, documents `/health` as `{"status": "ok", "version": "0.2.0", "countries": ["GB", "NO"]}`, zero mentions of Sweden — **finding 3** |
+| `/server.json` | `version 0.3.0` and **both** `packages[].version` at `0.3.0`, neither of which exists on PyPI or npm — **finding 4**. Description still names two countries |
+| `/` (index.html) | 19468 B, zero mentions of Sweden — **finding 10** |
+| `/robots.txt` | 200, 23 B |
+
+Both `/llms.txt` and `/llms-full.txt` were re-fetched with `Cache-Control: no-cache` and a
+cache-busting query string; the stale bytes are what the origin serves.
+
+### G. The document commits, and the secret sweep
+
+| # | Check | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | A phone number in the repo | **PASS — clean** | `git grep -E '(\+46\|\+47\|\+45)[ -]?…'` and the Nordic 8-digit patterns over the whole tree at `28efe77` (excluding `research/`): **zero hits**. `HUMAN_TODO.md:127` records that a "mobile number [was] given" on the kundanmälan without recording the number. Correct discipline |
+| 2 | Any credential written down | **PASS — clean** | No `client_secret=`, no `BOLAGSVERKET_CLIENT_SECRET=<value>`, no bearer token, no `ghp_`/`sk-`. The TEST credentials are referenced by path (`~/secrets/registry-mcp/bolagsverket-test.txt`) — a pointer outside the repo, which is right. `HUMAN_TODO` correctly records that the two `[DEL 2]` zip codes are sitting in plaintext in Gmail and must be deleted |
+| 3 | `d9d9cd2` / `8acca8b` / `b1ab823` / `eeb6d2b` | **PASS** | All four are consistent with each other and with the credential-mail quotes they carry (`"Observera att ett inaktivt konto avslutas efter 6 månader"`, the `portal.` token endpoint). The "zip codes came by e-mail, not SMS" deviation is recorded as a deviation, which is the honest form |
+| 4 | `3a22375` / `6ad723b` (Denmark) | **PASS** | Internally consistent: reply 06:52Z, application submitted 13:48:18 Danish time the same day, ~3 weeks to access, sagsnummer #177481 carried through both, and the IP-whitelisting question is correctly left recorded as open in both `HUMAN_TODO` §7.6 and `PROGRESS` T16 rather than being quietly dropped |
+
+### H. `28efe77` — D-041 and `tasks/T31.md`, read critically
+
+| # | Check | Verdict | How it was checked |
+|---|---|---|---|
+| 1 | D-041's second claim: `deadlines_for` never reads `published_deadlines` | **CONFIRMED — the orchestrator is right, and it is worse than stated** | `grep -n "published_deadlines" src/registry_mcp/registries/se/rules.py` → **zero hits** (GB's `rules.py:642` has `published = {pd.kind: pd for pd in report.published_deadlines}`, so the contrast is visible in the same repo). And `deadlines_for` calls `_general_meeting(today)` / `_annual_accounts(today)` — the helpers do not even *receive* `report`. So `SWEDEN_SPEC.md` line 993's "It is implemented anyway — three lines — so that the day a due date does appear the module prefers it without a redesign" is false twice over: it is not implemented, and adding it *is* a signature change to both helpers |
+| 2 | Does D-041 under-count the false-claim sites? | **YES, by two more than the orchestrator found — finding 8** | Full sweep of shipped strings at `28efe77`: `registries/se/rules.py` ×4 (lines 675, 690, 704, and 978's "the financial-year end" in `rules_markdown()`), `mcp/server.py` ×1, `static/well-known/mcp/server-card.json` ×1, `README.md` ×1 — **D-041's "seven across four files" is exactly right for what it names**. Missed: `static/llms-full.txt` ×2 (the orchestrator found these), **`CHANGELOG.md` ×1** (line 152, inside the 0.3.0 entry — found by nobody), and **`content/reddit-sweden-developers-post.md` ×1** (found by nobody; new at `6ece116`, so T26h is writing the false sentence into fresh content *right now*). True total: **11 shipped strings across 7 files.** `SWEDEN_SPEC.md` also has a fourth site D-041 does not name — §13's `rules_markdown()` item at line 1704, beside the §5.4.2/§5.4.3/§5.4.4 three it does |
+| 3 | Is D-041 self-consistent about the count? | **NO — finding 8** | (a) says "**seven** shipped strings across four files"; (i) says "it is **six** strings"; the "Applies to tasks" line says "(a)'s **six** strings". Three statements, two numbers, and the real answer is eleven |
+| 4 | D-041's technical rulings | **PASS on everything checkable offline** | `CompanyReport.last_annual_accounts_year` exists and is `None` for SE; `PublishedDeadline`'s docstring does say what (c) quotes; `core/registry.py::deadline_report` is synchronous and takes an already-fetched `CompanyReport`, so (b)'s "nowhere lawful to put the fetch" is correct; `core/cache.py:84-94` is where the per-kind TTL table would go. The `include=[…]`/`SourceRef` mechanism genuinely does not exist in `src/` yet, so the R-5 sequencing is right |
+
+---
+
+### Findings
+
+**1 (blocking — a Swedish personnummer reaches the usage log, and `legal/privacy.md` says it
+cannot).** `src/registry_mcp/mcp/connector.py:656-662`. The D-040(b) redaction block sits *after*
+`await _identifier_rows(...)` and `await _name_search_rows(...)`. Those helpers catch
+`RegistryError` and nothing else, and the country clients wrap only `httpx.TimeoutException`
+(`registries/no/client.py:94`, `gb/client.py:250`, `se/client.py:365,457`) — so an ordinary
+`httpx.ConnectError` (DNS blip, connection refused, TLS reset) propagates out of `search`,
+skipping the redaction, and `_call_context`'s `finally` logs the raw query. Executed with `respx`
+raising `ConnectError` at the transport for all three upstream hosts:
+
+```
+'orgnr 194009272719'    -> logged query = 'orgnr 194009272719'    ok=True  [ConnectError escaped search()]
+'194009272719 AB'       -> logged query = '194009272719 AB'       ok=True  [ConnectError escaped search()]
+'Bygg AB, 5560160680'   -> logged query = 'Bygg AB, 5560160680'   ok=True  [ConnectError escaped search()]
+```
+
+`legal/privacy.md:15` states: *"For a country where the identifier can be a natural person's
+number — today, Sweden — the identifier itself is not written to that log."* That sentence is
+false on this path, which makes this a false statement in a published legal document as well as
+the exact failure F1 exists to prevent. **Failure scenario:** brreg has a thirty-second network
+blip; an agent runs `search("orgnr 194009272719")`; the personnummer lands in `calls.query` on the
+production volume, and the privacy policy says it did not. **Change:** the redaction depends on
+nothing the awaits produce — `stripped`, `remainder` and `registries` are all known before them.
+Move the whole `flagged = [...]` / `if flagged:` block to sit **immediately after**
+`outcome.country = derived.country if derived is not None else None` (line 641) and before
+`any_validated, ranked = await _identifier_rows(...)`. No logic changes; it simply becomes
+unconditional. Add to `tests/test_connector.py`, beside the existing D-040 tests: with the
+transport mocked to raise `httpx.ConnectError`, `search("orgnr 194009272719")` still logs
+`query=None`. Consider the same audit for `fetch`, whose `outcome.country` is likewise set inside
+the block.
+
+**2 (blocking — the deployed service contradicts itself about what it covers).**
+`static/well-known/mcp/server-card.json`, the `search` tool entry. `0f952bc` changed
+`mcp/connector.py`'s `search` docstring to "(United Kingdom, Norway, Sweden)" but did not
+regenerate the card, which still serves "(Norway, United Kingdom)". Executed: I diffed **every**
+card tool description against the live `Client(mcp).list_tools()` text — `lookup_company`,
+`search_company`, `company_deadlines`, `validate_company_id`, `list_countries` and `fetch` all
+**MATCH** exactly; `search` is the **only** drift, and it is exactly the one line `0f952bc`
+touched. Confirmed on the wire: live `/.well-known/mcp/server-card.json` serves the two-country
+text while live `tools/list` serves the three-country one. **Failure scenario:** a client that
+reads the discovery card to decide whether to route a Swedish query here concludes Sweden is not
+covered, and never calls the tool that would have answered. **Change:** update that one
+`description` in `static/well-known/mcp/server-card.json` to the current docstring text, and — so
+this cannot recur, since T17, T26c, T29 and now T26d have each hand-edited that file — extend
+`tests/test_mcp.py::test_server_card_lookup_company_output_schema_matches_model` (or add a sibling)
+to assert `{t["name"]: t["description"] for t in card["tools"]} == {t.name: t.description for t in
+await client.list_tools()}`. That equality holds for six of seven tools today, so the test is one
+line of fixture away from green and would have caught this.
+
+**3 (blocking — the two files an LLM caller reads first describe a two-country 0.2.0 service).**
+`static/llms.txt` and `static/llms-full.txt`, as deployed. At `28efe77` both contain **zero**
+occurrences of "Sweden" or "Bolagsverket", and `llms-full.txt:688` documents the `/health`
+response as `{"status": "ok", "version": "0.2.0", "countries": ["GB", "NO"]}` while the live
+`/health` returns `{"status":"ok","version":"0.3.0","countries":["GB","NO","SE"]}`. Both are live
+on `api.foretak.dev` right now (re-fetched cache-busted). **Failure scenario:** `/llms-full.txt` is
+what `_DESCRIPTION` itself calls "the complete reference for an LLM caller"; an agent that reads it
+learns the service has two countries and a `/health` shape that is wrong, and never tries `SE`.
+**Change:** this is already fixed in the repo — T26h's `6ece116` rewrites both files with Sweden
+and corrects the health example to `0.3.0`/`["GB","NO","SE"]` — so the fix is **to redeploy**.
+Nothing to write. But it must be deployed before this is closed, and the reason it was missed is
+worth recording: `4fd1c92`/`0f952bc` shipped a version bump and a "three countries everywhere"
+text pass without either one touching `static/llms*.txt`, and no test relates those files to
+`__version__` or to `list_countries()`. A cheap guard: a test asserting `__version__` appears in
+`static/llms-full.txt`'s health example and that every country in `list_countries()` is named in
+`static/llms.txt`.
+
+**4 (urgent — the hosted manifest advertises package versions that do not exist).**
+`server.json:6,24,59`, served live at `https://api.foretak.dev/server.json`. `version` and both
+`packages[].version` say `0.3.0`. Executed against both indexes: PyPI `registry-mcp` has
+`['0.1.0','0.2.0']`; npm has no `0.3.0` either, because no tag was pushed and `publish-npm.yml`
+fires on a tag. **Failure scenario:** a client or a human reads the hosted `server.json` and runs
+`uvx --from registry-mcp==0.3.0 registry-mcp` — the exact form
+`packages/npm/registry-mcp/bin/registry-mcp.js` builds from `require("../package.json").version` —
+and gets a resolution failure. The authoritative MCP-registry entry is still 0.2.0, so no
+*published* index is wrong; only the copy this service serves. I did not rate this blocking
+because the harm is a failed install rather than a false fact about a company. **Change:** either
+push `v0.3.0` (after `uv publish`, in that order — see finding 5) so the manifest becomes true, or
+hold `server.json`'s three version fields at `0.2.0` until the release actually happens and bump
+them as part of it. Whichever, the go-live checklist should say that `server.json`'s package
+versions are a *release* artefact and not part of a hosted-deploy bump.
+
+**5 (non-blocking — a latent release trap, ordering-sensitive).**
+`packages/brreg-mcp/pyproject.toml:54` — `dependencies = ["registry-mcp==0.3.0"]`. Verified: not a
+broken published package (PyPI's `brreg-mcp` 0.2.0 still declares `registry-mcp==0.2.0`), and not
+CI-red (`packages/brreg-mcp` is outside the root workspace — root `pyproject.toml` declares no
+`[tool.uv.workspace]` — so nothing resolves it). The trap is ordering: `tasks/T15.md:40` has the
+runbook right (`uv publish` first, then `git tag`), but the tag *also* fires `publish-npm.yml`, and
+the npm wrapper pins `registry-mcp==<its own version>`. **Failure scenario:** whoever releases
+0.3.0 pushes the tag before running `uv publish`; npm serves a 0.3.0 wrapper that cannot resolve
+its Python package until PyPI catches up. **Change:** one line in `HUMAN_TODO.md`'s release
+section — "PyPI first, npm/tag second; the npm wrapper and `packages/brreg-mcp` both pin the PyPI
+version by exact `==`."
+
+**6 (urgent — a `kod` of JSON `null` puts the literal string `"None"` on the wire).**
+`src/registry_mcp/registries/se/mapping.py:243` and `:246`. `item.get("kod", "")` returns `None`
+when the key is present with a null value (the default only fires on a *missing* key), `str(None)`
+is `"None"`, and `"None".strip()` is truthy — so the entry passes the new filter and is emitted as
+`IndustryCode(code="None", …)`. Executed:
+
+```
+kod=None       -> [('None', 'Something', 1)]
+kod missing    -> []
+```
+
+The observed live padding uses spaces, so this is not today's data; but it is one serialisation
+choice away, the whole point of the commit is "drop entries with no real code", and `"None"` is
+the worst possible rendering of an absent one. **Change:** `mapping.py:243`, make the filter
+null-safe and reuse the value:
+
+```python
+real = [(item, str(item.get("kod") or "").strip()) for item in sni]
+return [
+    IndustryCode(code=kod, description=(item.get("klartext") or None), scheme="SNI 2007", rank=rank)
+    for rank, (item, kod) in enumerate((pair for pair in real if pair[1]), start=1)
+]
+```
+
+`or ""` handles both the missing key and the null value, and computing the stripped code once
+removes the duplicated `str(...).strip()` that let the filter and the emitted value disagree in the
+first place. Add a case to test 129: `{"kod": None, "klartext": "x"}` is dropped.
+
+**7 (non-blocking — a call that raised is logged as a success).**
+`src/registry_mcp/mcp/server.py:129-147`. `_call_context` sets `outcome.ok = False` only in the
+`except RegistryError` branch; any other exception passes through the `finally` with `ok=True` and
+`error_code=None`. Shown in the finding-1 transcript above: three `ConnectError`s, all logged
+`ok=True`. **Failure scenario:** an upstream outage makes `search` fail for every caller and the
+usage dashboard shows a 100% success rate. **Change:** add `except Exception: outcome.ok = False;
+outcome.error_code = "internal_error"; raise` before the `finally`, or set `ok=False` in a
+`BaseException` handler that re-raises. Pre-existing, not introduced by this range — recorded so it
+is not rediscovered.
+
+**8 (non-blocking — D-041 under-counts its own brief and contradicts itself).** `DECISIONS.md:825`
+vs `:897` vs `:899`. "seven shipped strings across four files" / "it is six strings" / "(a)'s six
+strings". The true figure is **eleven strings across seven files**: the seven D-041 names, plus
+`static/llms-full.txt` ×2 (the orchestrator already found these), **`CHANGELOG.md:152`** and
+**`content/reddit-sweden-developers-post.md:37`** (neither found before now). Also `SWEDEN_SPEC.md`
+has a fourth site — §13's `rules_markdown()` item at line 1704 — beside the three D-041 lists.
+**Failure scenario:** the Sonnet who takes Part A works the list in D-041, closes seven sites,
+reports done, and the false claim survives in the changelog, in a Reddit post about to be
+published under Kim's name, and in the LLM reference. **Change:** amend D-041(a) to say "eleven
+shipped strings across seven files" with the full list, make (i) and the Applies-to line agree, and
+add §13 line 1704 to the SWEDEN_SPEC list. Note especially that
+`content/reddit-sweden-developers-post.md` is **new at `6ece116`** — T26h wrote the false sentence
+into fresh content while D-041 was being written, so Part A's list has to be re-derived at the time
+it is executed, not copied from D-041.
+
+**9 (urgent — the released 0.3.0 changelog entry contradicts itself).** `CHANGELOG.md:10-198`.
+`4fd1c92` inserted `## [0.3.0] — 2026-09-07` at line 12, directly under `## [Unreleased]` and
+*above* the entire existing Unreleased body. Consequences, all verified by reading the committed
+file: `[Unreleased]` is now an empty heading; the 0.3.0 section contains **seven** `### Added`
+blocks, **two** `### Fixed` and **two** `### Changed`; the orphaned preamble "Legibility fixes
+(T17): no `core/` change, no response-shape change." now reads as if it describes 0.3.0; and
+Sweden and `euid`/`advertising_protected` are each described **twice**. The duplicate Sweden
+section is headed "**### Added (third country, Sweden — built, not yet live)**" and says "**It
+cannot answer yet**". **Failure scenario:** a reader of the 0.3.0 release notes is told in one
+section that Sweden goes live and in another, under the same version heading, that it cannot
+answer — and the second one is what a changelog-reading tool would quote. That same duplicate
+section is also the `CHANGELOG.md` instance of the D-041 false claim (finding 8). **Change:**
+promote the pre-existing body into the 0.3.0 section properly — merge the seven `Added` blocks into
+one, delete the "built, not yet live" bullet's contradicted clauses (or rewrite the heading to
+"Sweden, in detail"), fold the two `Fixed` blocks together and add the `derive_status` change
+noted in D.6, and leave `## [Unreleased]` genuinely empty below a filled 0.3.0.
+
+**10 (non-blocking — the commit message's "three countries everywhere" is not true).** `0f952bc`.
+Six shipped descriptions still say two countries at `28efe77`, and `static/index.html` still says
+it at `6ece116`: `static/index.html` (zero mentions of Sweden — this is the landing page, with the
+meta/JSON-LD keywords T15c added), `server.json:5`, `mcpb/manifest.json` (description,
+`long_description`, and the literal phrase "both countries"), `.claude-plugin/marketplace.json`,
+`plugins/registry-mcp/.claude-plugin/plugin.json`, and the server card (finding 2). Only
+`api/main.py::_DESCRIPTION`, the connector docstring and `README.md` were changed. **Failure
+scenario:** the four manifests were bumped to 0.3.0 by `4fd1c92` *and* describe a two-country
+service, so whichever directory ingests them next publishes "Norway and the UK" against version
+0.3.0. **Change:** finish the pass — those six strings — and say so accurately in the next
+PROGRESS entry. `static/index.html` matters most: it is the page a human lands on.
+
+**11 (non-blocking — the connector `search` docstring now over-claims Sweden).**
+`src/registry_mcp/mcp/connector.py:620`. The new text says it "Finds companies in this server's
+national business registers (United Kingdom, Norway, Sweden) from one free-text query — a name, a
+national identifier, or a name plus a country". For Sweden only the identifier half is true;
+`search_company`'s own description gets this right ("**Sweden cannot be searched by name.**"), and
+so does `_DESCRIPTION`. **Failure scenario:** a ChatGPT connector session sends `search("Ericsson")`
+expecting the Swedish parent, gets the British and Norwegian Ericsson entities, and reports the
+Swedish register as broken. **Change:** append one clause — "…and a name plus a country (Sweden by
+identifier only: Bolagsverket publishes no name index)". Fix it in the same edit as finding 2 so
+the card and the docstring are regenerated together.
+
+**12 (non-blocking — the "fast" half of GB test 105 is now asserted nowhere).**
+`tests/test_client_gb.py:483`. Demonstrated by mutation M3 above: a bucket sleeping a full second
+per `acquire()` but staying concurrent passes the new test (wall clock 1.05 s), and the old
+`elapsed2 < 1.0` would have failed it. There is no direct unit test of GB's `_TokenBucket` — SE has
+one (`tests/test_client_se.py:970`), GB has none. **Failure scenario:** someone changes
+`_BUCKET_REFILL_PER_SECOND` or adds a sleep to `acquire()` and every GB call silently gains a
+second; the suite stays green. **Change:** do not restore a wall-clock bound — it was flaky for a
+real reason. Add a deterministic unit test instead, mirroring SE's: assert that
+`_TokenBucket(600.0, 2.0).acquire()` returns without yielding to a timer while tokens remain (e.g.
+that 600 sequential `acquire()` calls complete inside one event-loop pass), and that the 601st
+raises `rate_limited` after `_BUCKET_MAX_WAIT_SECONDS`. That tests the arithmetic, which is what
+"fast" actually means here.
+
+**13 (non-blocking — `SWEDEN_SPEC.md` §14's numbered contract has drifted from the suite).**
+`SWEDEN_SPEC.md:1934-1941`. The list jumps 125 → 129: tests **126, 127 and 128** exist in
+`tests/test_client_se.py:404,597,614` (added by `97ff85b`) and were never written into the spec, so
+`fbd4792` numbered its new tests 129/130 over a gap. The new entries were also inserted *above* the
+stray item 98, which was already out of order. **Failure scenario:** the numbered list is the
+spec's contract with the suite; a reader who checks "is 126 implemented?" finds nothing.
+**Change:** add 126/127/128 under a dated "*Added 2026-09-06 with T30's review fixes*" heading, and
+move item 98 back into numeric order while you are there.
+
+**14 (non-blocking — the README's Swedish example lacks the abridged marker its GB sibling has).**
+`README.md`, the `$ curl https://api.foretak.dev/v1/SE/company/5560160680` block added by
+`0f952bc`. The GB block above it is followed by "Abridged — the full `CompanyReport` also
+carries…"; the SE block shows ~20 of 50 keys with no such sentence, and reformats several onto
+shared lines. Every value in it is real (verified against the live service), which is the important
+part. **Change:** one sentence after the block, matching the GB one. *(`README.md` is open in
+T26h's editor; this is for whoever closes that file.)*
+
+### Praise, where it teaches something
+
+**`api/errors.py`'s fallback is the part most people would get wrong.** The obvious
+implementation of "log the route template" is `request.scope["route"].path`, and the obvious
+failure handling is `or request.url.path`. `97ff85b` instead does
+`isinstance(route, StarletteRoute)` and, when it is not, **logs the method alone** — with a comment
+saying why: a raw ASGI failure or middleware raising before routing means there is no template, and
+substituting the concrete path there would reintroduce exactly the leak the fix exists to close.
+That is the case where the fix would have quietly failed open, and it was the case that was
+handled.
+
+**`derive_status`'s new UNKNOWN branch carries `notes` through.** The two-line version of review
+fix 2 returns a bare `UNKNOWN`. This one passes `notes=notes`, so the FUOT "acquiring party in a
+merger" sentence survives into a result whose status is `unknown` — verified. §8's "the lower rungs
+still fill their own fields and notes" is a rule about rung 2; applying it to rung 0 as well is the
+non-obvious reading, and it is the one that keeps the report explaining itself when the status
+becomes least informative.
+
+**`056bd6c` is a rare case of a test that got stronger by dropping an assertion.** The wall-clock
+bound looked like it tested two things and actually tested neither reliably; the overlap counter
+tests one thing deterministically, and I could not construct a serialising bucket that survives it.
+The lesson worth keeping is the mechanism: because `asyncio.gather` has both tasks queued before
+the first one yields, the overlap is a *scheduling* fact rather than a *timing* fact, and no runner
+load can change it. That is the shape to reach for whenever a concurrency test is tempted to look
+at a clock.
+
+**And the orchestrator's own second finding on D-041 is the best catch in the range.** D-041 was
+written by an Opus, reviewed by nobody, and the orchestrator still went and checked its incidental
+claim about `SWEDEN_SPEC` line 993 against the code — and found that a *previous review* had
+asserted the rung-1 hook was implemented when `deadlines_for` does not so much as name
+`published_deadlines`. I confirmed it independently: zero occurrences in `registries/se/rules.py`,
+and the two helpers do not take `report` at all. Checking a decision's throwaway sentence against
+the source is what nobody does, and it is what found this.
+
+**Verdict: CHANGES REQUIRED.** The two orchestrator-authored commits are both defensible — the
+`sni` filter is correct on the data it was written for, its tests assert the right things, and the
+GB test rewrite is a genuine improvement I could not break. The standing rule was worth breaking
+for the second one and arguably for the first; the cost of breaking it shows up not in the code but
+in the bookkeeping around it (findings 10, 13) and in the one edge the author of a one-line filter
+does not stop to probe (finding 6). What must land before this range is called done: **finding 1**
+(a personnummer reaches the usage log on an ordinary upstream connect error, and `legal/privacy.md`
+states in print that it cannot — the same class of defect as the last review's fix 1, one layer
+further out); **finding 2** (the live server card and the live tool list disagree about which
+countries this service covers); and **finding 3** (the two files this service itself calls "the
+complete reference for an LLM caller" describe a two-country 0.2.0 build — already fixed in
+`6ece116`, so this one is a redeploy, not an edit). Findings 4, 6 and 9 should follow the same day:
+a manifest naming package versions that exist nowhere, a null `kod` that would ship the string
+`"None"` as an industry code, and a release note that announces Sweden live and not-yet-live under
+one heading. The rest can follow at leisure — but **finding 8 should be applied to D-041 before
+Part A is dispatched**, or its Sonnet will close seven sites and leave four.

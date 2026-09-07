@@ -1,7 +1,7 @@
 [project]
 name = "registry-mcp"
 version = "0.3.0"
-description = "The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — first module: Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, company lookup by organisasjonsnummer, orgnr or org.nr)."
+description = "The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, by organisasjonsnummer, orgnr or org.nr), the United Kingdom (Companies House, by company number / CRN) and Sweden (Bolagsverket, by organisationsnummer)."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -33,6 +33,24 @@ keywords = [
     "norwegian-business-registry",
     "vat",
     "mva",
+    # United Kingdom — KEYWORDS.md §GB
+    "companies-house",
+    "companies-house-api",
+    "company-number",
+    "company-registration-number",
+    "uk-company-lookup",
+    "uk-company-search",
+    "confirmation-statement",
+    "united-kingdom",
+    # Sweden — KEYWORDS.md §SE
+    "bolagsverket",
+    "organisationsnummer",
+    "foretagsinformation",
+    "arsredovisning",
+    "f-skatt",
+    "swedish-company-lookup",
+    "swedish-company-number",
+    "sweden",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

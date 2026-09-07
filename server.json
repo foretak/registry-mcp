@@ -2,14 +2,16 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.foretak/registry-mcp",
   "title": "registry-mcp — national company registries",
-  "description": "The company registry MCP: UK Companies House company number, Norway brreg orgnr, deadlines.",
+  "description": "The company registry MCP: brreg orgnr, Companies House, Bolagsverket organisationsnummer.",
   "version": "0.3.0",
   "websiteUrl": "https://api.foretak.dev",
   "icons": [
     {
       "src": "https://api.foretak.dev/icon.png",
       "mimeType": "image/png",
-      "sizes": ["400x400"]
+      "sizes": [
+        "400x400"
+      ]
     }
   ],
   "repository": {
@@ -49,6 +51,27 @@
           "format": "string",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "BOLAGSVERKET_CLIENT_ID",
+          "description": "Bolagsverket OAuth 2 client id, required for Sweden (SE) together with BOLAGSVERKET_CLIENT_SECRET. Free, no contract: request both from Bolagsverket's kundanmälan form. Unset means SE lookups return an upstream_error naming both variables; every other country still answers.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BOLAGSVERKET_CLIENT_SECRET",
+          "description": "Bolagsverket OAuth 2 client secret, the other half of BOLAGSVERKET_CLIENT_ID. Both are needed before Sweden (SE) can answer.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BOLAGSVERKET_ENVIRONMENT",
+          "description": "Which Bolagsverket environment the Swedish credentials belong to: 'production' (default) or 'test'. It selects the data host and the token host as a pair, so the two can never be mixed.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     },
@@ -76,6 +99,27 @@
           "format": "string",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "BOLAGSVERKET_CLIENT_ID",
+          "description": "Bolagsverket OAuth 2 client id, required for Sweden (SE) together with BOLAGSVERKET_CLIENT_SECRET. Free, no contract: request both from Bolagsverket's kundanmälan form. Unset means SE lookups return an upstream_error naming both variables; every other country still answers.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BOLAGSVERKET_CLIENT_SECRET",
+          "description": "Bolagsverket OAuth 2 client secret, the other half of BOLAGSVERKET_CLIENT_ID. Both are needed before Sweden (SE) can answer.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BOLAGSVERKET_ENVIRONMENT",
+          "description": "Which Bolagsverket environment the Swedish credentials belong to: 'production' (default) or 'test'. It selects the data host and the token host as a pair, so the two can never be mixed.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
@@ -110,11 +154,16 @@
         "confirmation statement",
         "company registry",
         "company registry mcp",
-        "mcp"
+        "mcp",
+        "bolagsverket",
+        "organisationsnummer",
+        "swedish company lookup",
+        "swedish company number"
       ],
       "countries": [
         "GB",
-        "NO"
+        "NO",
+        "SE"
       ],
       "documentation": {
         "llmsTxt": "https://api.foretak.dev/llms.txt",
@@ -122,7 +171,7 @@
         "openapi": "https://api.foretak.dev/openapi.json"
       },
       "license": "MIT",
-      "dataLicense": "NLOD 2.0 (Enhetsregisteret, Brønnøysundregistrene); Crown copyright, free to re-use (Companies House public register)"
+      "dataLicense": "NLOD 2.0 (Enhetsregisteret, Brønnøysundregistrene); Crown copyright, free to re-use (Companies House public register); free re-use, publisher names no licence (Bolagsverket/SCB high-value datasets, EU Open Data Directive)"
     }
   }
 }
