@@ -19,3 +19,7 @@ docker-compose.yml
 Dockerfile
 Caddyfile
 .dockerignore
+
+# Served at runtime (/legal/privacy, /legal/terms) — must survive the *.md rule.
+!legal/
+!legal/*.md

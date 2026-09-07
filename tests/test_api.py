@@ -665,3 +665,18 @@ def test_legal_pages_escape_before_they_render(client: TestClient, ip: str) -> N
     assert "<strong>bold</strong>" in body
     assert '<a href="https://example.com">' in body
     assert title == "T <b>x</b>"
+
+
+def test_dockerfile_ships_every_directory_the_app_reads_at_runtime() -> None:
+    """A route can be correct and still 404 in production if the image lacks the
+    files. `/legal/privacy` did exactly that: the runtime stage copied `.venv`,
+    `src`, `static` and `server.json` and nothing else, and `.dockerignore`
+    excluded markdown on top. Local tests read the working tree and saw nothing
+    wrong. This pins the set instead."""
+    from registry_mcp.api.main import _repo_root
+
+    dockerfile = (_repo_root() / "Dockerfile").read_text(encoding="utf-8")
+    runtime_copies = [ln for ln in dockerfile.splitlines() if ln.startswith("COPY --from=builder")]
+    shipped = " ".join(runtime_copies)
+    for needed in ("/app/src", "/app/static", "/app/server.json", "/app/legal"):
+        assert needed in shipped, f"the runtime image never receives {needed}"

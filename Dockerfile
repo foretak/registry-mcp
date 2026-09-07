@@ -42,6 +42,10 @@ COPY --from=builder --chown=app:app /app/src /app/src
 # even if that heuristic ever changes (`REVIEW.md` T04 note).
 COPY --from=builder --chown=app:app /app/static /app/static
 COPY --from=builder --chown=app:app /app/server.json /app/server.json
+# The legal documents are served at /legal/privacy and /legal/terms, so they are
+# runtime assets, not repository furniture. Without this line the routes 404 in
+# production while passing every local test — which is exactly what happened.
+COPY --from=builder --chown=app:app /app/legal /app/legal
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
