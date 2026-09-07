@@ -98,5 +98,8 @@
     "runtimes": {
       "python": ">=3.12"
     }
-  }
+  },
+  "privacy_policies": [
+    "https://api.foretak.dev/legal/privacy"
+  ]
 }
