@@ -20,10 +20,26 @@ response is built directly in this route rather than via
 hasn't installed those handlers (e.g. the throwaway `FastAPI()` test apps
 `tests/test_dashboard.py` uses).
 
-Every user-supplied string that reaches the page (user agents, queries) is
-passed through `html.escape` — `core/stats.py` reads straight from the
-`calls` table, so nothing in `top_queries` or `user_agents` should be trusted
-as safe markup.
+Every user-supplied string that reaches the page (user agents, queries,
+country codes) is passed through `html.escape` — `core/stats.py` reads
+straight from the `calls` table, so nothing in `top_queries`, `user_agents`
+or `by_country` should be trusted as safe markup.
+
+**Country (T36).** `by_country` (`core/stats.py::summary()`) adds a country
+dimension: a count and a share per country, sorted highest first. Rows with
+no resolved country (`list_countries`, the D-031 connector aliases before a
+country is derived, or an error before resolution — never a redaction:
+`DECISIONS.md` D-040 empties `query` for a flagged country such as Sweden,
+never `country`) are keyed `core.stats.NO_COUNTRY_KEY` and rendered as an
+honest "no country" pill, never as if that key were itself a country code.
+No per-country error breakdown: today's `not_implemented` errors are almost
+entirely Sweden's `search_company`, which is expected behaviour (Bolagsverket's
+free API has no name search) rather than a fault, and nothing in `core/`
+today records which operations are *intentionally* unsupported per country.
+A raw country x error_code table would present that expected `501` next to a
+real failure with no way to tell them apart: alarming, and meaningless. That
+distinction is a policy decision (`DECISIONS.md` territory), not a rendering
+one, so it is left for a follow-up task rather than guessed at here.
 """
 
 from __future__ import annotations
@@ -50,6 +66,21 @@ _LABEL_COLOR: dict[Label, str] = {
     "script": "#f59e0b",
     "unknown": "#94a3b8",
 }
+
+# The "no country" bucket (`core.stats.NO_COUNTRY_KEY`) is not a classifier
+# label and must never render as if it were a country code (`DECISIONS.md`
+# D-040). It gets the same pill treatment as a UA class, reusing
+# `_LABEL_COLOR`'s "unknown" grey since both mean "doesn't fit a normal
+# bucket" — but as its own constant, not a `_LABEL_COLOR` entry, because that
+# dict is typed to `ua_classify.Label` and a country string is not one.
+_NO_COUNTRY_LABEL = "no country"
+_NO_COUNTRY_TITLE = (
+    "Not tied to a single country: list_countries, a search/lookup alias "
+    "before the country was resolved, or an error raised before "
+    "resolution. Never a redacted country — D-040 clears the query for "
+    "a flagged country, not the country itself."
+)
+_NO_COUNTRY_COLOR = _LABEL_COLOR["unknown"]
 
 dashboard_router = APIRouter()
 
@@ -84,6 +115,7 @@ def get_dashboard(key: str | None = None) -> HTMLResponse | JSONResponse:
 def _render_page(data: dict[str, Any]) -> str:
     calls_per_day: list[dict[str, Any]] = data["calls_per_day"]
     by_surface: dict[str, int] = data["by_surface"]
+    by_country: list[dict[str, Any]] = data["by_country"]
     top_queries: list[dict[str, Any]] = data["top_queries"]
     user_agents: list[dict[str, Any]] = data["user_agents"]
     total_calls: int = data["total_calls"]
@@ -93,6 +125,13 @@ def _render_page(data: dict[str, Any]) -> str:
 
     rest_count = by_surface.get("rest", 0)
     mcp_count = by_surface.get("mcp", 0)
+
+    country_rows_html = [
+        f"<tr><td>{_country_cell(str(row['country']))}</td>"
+        f"<td class='num'>{int(row['count'])}</td>"
+        f"<td class='num'>{_share_pct(int(row['count']), total_calls)}</td></tr>"
+        for row in by_country
+    ]
 
     label_rollup: dict[Label, int] = dict.fromkeys(_LABEL_ORDER, 0)
     ua_rows_html = []
@@ -206,6 +245,7 @@ def _render_page(data: dict[str, Any]) -> str:
   .pill-browser {{ background: {_LABEL_COLOR["browser"]}; }}
   .pill-script {{ background: {_LABEL_COLOR["script"]}; }}
   .pill-unknown {{ background: {_LABEL_COLOR["unknown"]}; }}
+  .pill-nocountry {{ background: {_NO_COUNTRY_COLOR}; }}
   .rollup-row {{ display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; font-size: 0.85rem; }}
   .dot {{ width: 0.6rem; height: 0.6rem; border-radius: 50%; flex-shrink: 0; }}
   .rollup-label {{ flex: 1; }}
@@ -242,6 +282,15 @@ def _render_page(data: dict[str, Any]) -> str:
     <div class="card">
       <h2>User agents by class</h2>
       {rollup_html}
+    </div>
+    <div class="card">
+      <h2>Calls by country</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Country</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
+          <tbody>{"".join(country_rows_html) or "<tr><td colspan='3'>No calls logged yet.</td></tr>"}</tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -342,3 +391,29 @@ def _render_surface_split(rest_count: int, mcp_count: int) -> str:
         "</div>"
     )
     return bar + legend
+
+
+def _country_cell(code: str) -> str:
+    """Escaped `<td>` inner HTML for one `by_country` row's country column.
+
+    `code` is a raw value out of `core/stats.py::summary()`'s `by_country`
+    list — either an ISO-3166-1 alpha-2 code as logged, or
+    `stats_module.NO_COUNTRY_KEY` for a call with no resolved country. The
+    former renders as plain escaped text, same as any other database-sourced
+    string on this page (`top_queries`, `user_agents`); the latter renders as
+    a pill with an honest label and an explanatory tooltip, deliberately
+    never as if it were itself a country code (`DECISIONS.md` D-040 — this
+    bucket is calls with *no* country, never a flagged country's redacted
+    one).
+    """
+    if code == stats_module.NO_COUNTRY_KEY:
+        return (
+            f"<span class='pill pill-nocountry' title='{escape(_NO_COUNTRY_TITLE)}'>"
+            f"{escape(_NO_COUNTRY_LABEL)}</span>"
+        )
+    return escape(code)
+
+
+def _share_pct(count: int, total: int) -> str:
+    """`count` as a percentage of `total`, one decimal place, `"0.0%"` when `total` is 0."""
+    return f"{(count / total * 100):.1f}%" if total else "0.0%"

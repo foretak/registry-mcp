@@ -24,12 +24,25 @@ from typing import Any
 
 from registry_mcp.core import log
 
-__all__ = ["summary"]
+__all__ = ["NO_COUNTRY_KEY", "summary"]
 
 logger = logging.getLogger(__name__)
 
 _CALLS_PER_DAY_WINDOW = 30
 _TOP_QUERIES_LIMIT = 20
+
+#: `by_country` key for rows where `calls.country` is `NULL` (or, defensively,
+#: `''`) — `list_countries`, the two D-031 connector aliases before a country
+#: is derived, and any error raised before resolution all log `country` this
+#: way. Every real country code is exactly two upper-case letters
+#: (`core/registry.py::register` enforces `len(country) == 2 and
+#: country.isalpha()`), so a four-character lower-case key can never collide
+#: with one. Not a redaction: D-040 empties `query` for a flagged country
+#: (Sweden) but never touches `country`, so this bucket never hides a country
+#: that *was* resolved — it only ever means no single country applies to the
+#: call. `api/dashboard.py` (T36) imports this to render an honest label
+#: instead of a fake country code.
+NO_COUNTRY_KEY = "none"
 
 
 def _empty_summary(today: date) -> dict[str, Any]:
@@ -42,6 +55,7 @@ def _empty_summary(today: date) -> dict[str, Any]:
         "calls_today": 0,
         "calls_per_day": calls_per_day,
         "by_surface": {},
+        "by_country": [],
         "top_queries": [],
         "user_agents": [],
         "error_rate": 0.0,
@@ -60,11 +74,14 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
     Returns:
         A dict with ``total_calls``, ``calls_today``, ``calls_per_day`` (last
         30 days, oldest first, ``{"date", "count"}``), ``by_surface`` (surface
-        -> count), ``top_queries`` (top 20 ``{"query", "count"}``, highest
-        count first), ``user_agents`` (every distinct user agent seen,
-        ``{"user_agent", "count"}``, highest count first), ``error_rate``
-        (fraction of calls with ``ok=False``, ``0.0`` when there are no
-        calls) and ``distinct_user_agents``.
+        -> count), ``by_country`` (every distinct country seen, highest count
+        first then country code ascending, ``{"country", "count"}`` —
+        ``country`` is the ISO-3166-1 alpha-2 code as stored, or
+        ``NO_COUNTRY_KEY`` for rows with no resolved country), ``top_queries``
+        (top 20 ``{"query", "count"}``, highest count first), ``user_agents``
+        (every distinct user agent seen, ``{"user_agent", "count"}``, highest
+        count first), ``error_rate`` (fraction of calls with ``ok=False``,
+        ``0.0`` when there are no calls) and ``distinct_user_agents``.
     """
     today = datetime.now(UTC).date()
     path = Path(db_path) if db_path is not None else log.log_path()
@@ -77,7 +94,7 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
 
     try:
         rows = conn.execute(
-            "SELECT ts, surface, query, user_agent, ok FROM calls"
+            "SELECT ts, surface, country, query, user_agent, ok FROM calls"
         ).fetchall()
     except Exception:
         logger.warning("stats: could not read `calls` table at %s", path, exc_info=True)
@@ -89,11 +106,12 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
     calls_today = 0
     per_day: Counter[str] = Counter()
     by_surface: Counter[str] = Counter()
+    by_country: Counter[str] = Counter()
     by_query: Counter[str] = Counter()
     by_user_agent: Counter[str] = Counter()
     error_count = 0
 
-    for ts, surface, query, user_agent, ok in rows:
+    for ts, surface, country, query, user_agent, ok in rows:
         call_date: date | None
         try:
             call_date = datetime.fromisoformat(ts).date()
@@ -104,6 +122,7 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
             if call_date == today:
                 calls_today += 1
         by_surface[str(surface)] += 1
+        by_country[str(country) if country else NO_COUNTRY_KEY] += 1
         if query:
             by_query[str(query)] += 1
         if user_agent:
@@ -119,6 +138,10 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
         for i in range(_CALLS_PER_DAY_WINDOW - 1, -1, -1)
     ]
 
+    by_country_list = [
+        {"country": c, "count": n}
+        for c, n in sorted(by_country.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
     top_queries = [
         {"query": q, "count": c}
         for q, c in sorted(by_query.items(), key=lambda kv: (-kv[1], kv[0]))[:_TOP_QUERIES_LIMIT]
@@ -133,6 +156,7 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
         "calls_today": calls_today,
         "calls_per_day": calls_per_day,
         "by_surface": dict(by_surface),
+        "by_country": by_country_list,
         "top_queries": top_queries,
         "user_agents": user_agents,
         "error_rate": (error_count / total_calls) if total_calls else 0.0,

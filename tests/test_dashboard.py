@@ -125,6 +125,10 @@ def test_dashboard_200_with_correct_key(tmp_path: Path, monkeypatch: pytest.Monk
     assert "Calls today" in html
     assert "Error rate" in html
 
+    # The country breakdown section is present, with the seeded country in it.
+    assert "Calls by country" in html
+    assert ">NO<" in html
+
 
 def test_dashboard_escapes_malicious_user_agent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -203,3 +207,48 @@ def test_dashboard_renders_with_a_null_query_row_present(
     assert resp.status_code == 200
     assert "923609016" in resp.text
     assert "Total calls" in resp.text
+
+
+def test_dashboard_renders_with_a_null_country_row_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A call with no resolved country (`list_countries`, a D-031 connector
+    alias before the country is derived, or an error raised before
+    resolution) logs `country=NULL`. `core/stats.py` keys that row
+    `stats.NO_COUNTRY_KEY` ("none") in `by_country`; the dashboard must
+    render it as an honest label alongside a real country's row — never as
+    if the raw key were itself a country code, and this is never a D-040
+    redaction (D-040 empties `query` for a flagged country, not `country`)."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="curl/8.4.0",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="curl/8.4.0",
+        latency_ms=5,
+        ok=True,
+    )
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Calls by country" in html
+    assert ">NO<" in html
+    # An honest label, styled like a classifier pill — never the raw
+    # `NO_COUNTRY_KEY` value rendered as if it were a country code.
+    assert "no country" in html
+    assert "pill-nocountry" in html

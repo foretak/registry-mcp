@@ -64,6 +64,7 @@ def test_summary_on_empty_database_is_zeroed(tmp_path: Path) -> None:
     assert len(result["calls_per_day"]) == 30
     assert all(day["count"] == 0 for day in result["calls_per_day"])
     assert result["by_surface"] == {}
+    assert result["by_country"] == []
     assert result["top_queries"] == []
     assert result["user_agents"] == []
     assert result["error_rate"] == 0.0
@@ -151,6 +152,56 @@ def test_summary_null_query_counts_everywhere_but_top_queries(tmp_path: Path) ->
     assert result["by_surface"] == {"rest": 2}
     assert result["error_rate"] == pytest.approx(0.5)
     assert result["top_queries"] == [{"query": "923609016", "count": 1}]
+
+    # D-040 empties `query`, never `country` — the SE row's country is still
+    # "SE", not `stats.NO_COUNTRY_KEY`. Tied at 1 each, so alphabetical order.
+    assert result["by_country"] == [
+        {"country": "NO", "count": 1},
+        {"country": "SE", "count": 1},
+    ]
+
+
+def test_summary_by_country_counts_and_orders_with_null_bucket(tmp_path: Path) -> None:
+    """`by_country`: highest count first, then country code ascending as a
+    tiebreak (GB and NO tie at 3 calls each below). A `country=NULL` row —
+    `list_countries`, a D-031 connector alias before the country is derived,
+    or an error raised before resolution (`api/dashboard.py`'s T36 module
+    docstring) — lands under `stats.NO_COUNTRY_KEY` ("none"), sorted by its
+    count like any other bucket, never dropped and never merged into a real
+    country's count."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    calls: list[tuple[str | None, str | None]] = [
+        ("GB", "00445790"),
+        ("GB", "00445790"),
+        ("GB", "00445790"),
+        ("NO", "923609016"),
+        ("NO", "923609016"),
+        ("NO", "923609016"),
+        ("SE", "5560160680"),
+        (None, None),
+        (None, None),
+    ]
+    for country, query in calls:
+        log.log_call(
+            surface=Surface.REST,
+            operation="lookup_company",
+            country=country,
+            query=query,
+            user_agent="agent/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 9
+    assert result["by_country"] == [
+        {"country": "GB", "count": 3},
+        {"country": "NO", "count": 3},
+        {"country": stats.NO_COUNTRY_KEY, "count": 2},
+        {"country": "SE", "count": 1},
+    ]
 
 
 def _make_app() -> FastAPI:
