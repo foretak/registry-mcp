@@ -40,6 +40,47 @@ A raw country x error_code table would present that expected `501` next to a
 real failure with no way to tell them apart: alarming, and meaningless. That
 distinction is a policy decision (`DECISIONS.md` territory), not a rendering
 one, so it is left for a follow-up task rather than guessed at here.
+
+**Operation.** `by_operation` (`core/stats.py::summary()`) breaks calls down
+by what was actually called: `lookup_company`, `search_company`,
+`company_deadlines`, `validate_company_id`, `list_countries`, or the D-031
+connector aliases `search`/`fetch` — same shape and table treatment as
+`by_country`, minus the "none" bucket (`operation` is `NOT NULL`, so every
+row has one). This is the point of the exercise: `list_countries` is what an
+MCP client calls on connect, before it has asked about anything, so a rise
+in it with no matching rise in the rest means clients are connecting and
+nobody is asking — a different diagnosis from silence that raw totals
+cannot tell apart.
+
+**Cache and latency.** `latency_ms` and `cached` were recorded from day one
+and never surfaced. `cached` is only ever non-`NULL` for a successful
+`lookup_company`/`search_company` — every other operation, and any failed
+call, has no cache verdict to give — so the hit rate is shown next to its
+own `cache_hits`/`cacheable_calls` counts rather than as a bare percentage
+that would read as if it covered every call. Latency is nearest-rank
+`p50`/`p95` plus a mean over every call regardless of operation or outcome:
+enough to notice an upstream register going slow without a metrics stack.
+
+**Last call, twice.** `last_call_at` advances on every operation, including
+`list_countries` — so it can read as "fresh" purely from a client
+reconnecting. `last_non_connect_call_at` excludes exactly that one
+operation, so it answers a different question: when did anyone last
+actually ask this service something.
+
+**Deliberately not shown.** Nothing here separates Kim's own testing from
+anyone else's, and nothing here shows whether a caller *came back* — both
+would need a stable per-caller signal (an IP, a session, an API key), and
+`calls` has none by design: `DECISIONS.md` D-040(e) already declined to log
+IP addresses on privacy grounds, and the public API is keyless. The UA-class
+rollup below (`core/ua_classify.py`) is the closest proxy for *what kind of
+client* called, but it is not a first-party/third-party split —
+`coding_agent` in particular is how this product is meant to be used, not a
+sign of internal testing, so treating that bucket as "not real" would
+misclassify the intended use as noise. A "first real query" marker was
+considered for the same reason and rejected: no column distinguishes an
+example call from a real one, and guessing from the query string (e.g. a
+hard-coded "known test company") would be confidently wrong the moment that
+habit changes.
 """
 
 from __future__ import annotations
@@ -82,6 +123,15 @@ _NO_COUNTRY_TITLE = (
 )
 _NO_COUNTRY_COLOR = _LABEL_COLOR["unknown"]
 
+# Tooltip for the "Last non-connect call" tile — explains the one operation
+# it excludes (`core.stats._CONNECT_ONLY_OPERATION`) without importing a
+# private name across the module boundary.
+_NON_CONNECT_TITLE = (
+    "Excludes list_countries — what an MCP client calls on connect, "
+    "before asking about a company. Can lag behind “Last call” "
+    "when only reconnects have happened recently."
+)
+
 dashboard_router = APIRouter()
 
 
@@ -116,12 +166,23 @@ def _render_page(data: dict[str, Any]) -> str:
     calls_per_day: list[dict[str, Any]] = data["calls_per_day"]
     by_surface: dict[str, int] = data["by_surface"]
     by_country: list[dict[str, Any]] = data["by_country"]
+    by_operation: list[dict[str, Any]] = data["by_operation"]
     top_queries: list[dict[str, Any]] = data["top_queries"]
     user_agents: list[dict[str, Any]] = data["user_agents"]
     total_calls: int = data["total_calls"]
     calls_today: int = data["calls_today"]
     error_rate: float = data["error_rate"]
     distinct_user_agents: int = data["distinct_user_agents"]
+    cache_hits: int = data["cache_hits"]
+    cacheable_calls: int = data["cacheable_calls"]
+    cache_hit_rate: float = data["cache_hit_rate"]
+    latency_ms_avg: float = data["latency_ms_avg"]
+    latency_ms_p50: int = data["latency_ms_p50"]
+    latency_ms_p95: int = data["latency_ms_p95"]
+    last_call_at: str | None = data["last_call_at"]
+    days_since_last_call: int | None = data["days_since_last_call"]
+    last_non_connect_call_at: str | None = data["last_non_connect_call_at"]
+    days_since_last_non_connect_call: int | None = data["days_since_last_non_connect_call"]
 
     rest_count = by_surface.get("rest", 0)
     mcp_count = by_surface.get("mcp", 0)
@@ -131,6 +192,13 @@ def _render_page(data: dict[str, Any]) -> str:
         f"<td class='num'>{int(row['count'])}</td>"
         f"<td class='num'>{_share_pct(int(row['count']), total_calls)}</td></tr>"
         for row in by_country
+    ]
+
+    operation_rows_html = [
+        f"<tr><td>{escape(str(row['operation']))}</td>"
+        f"<td class='num'>{int(row['count'])}</td>"
+        f"<td class='num'>{_share_pct(int(row['count']), total_calls)}</td></tr>"
+        for row in by_operation
     ]
 
     label_rollup: dict[Label, int] = dict.fromkeys(_LABEL_ORDER, 0)
@@ -167,6 +235,11 @@ def _render_page(data: dict[str, Any]) -> str:
     surface_bar = _render_surface_split(rest_count, mcp_count)
 
     error_pct = f"{error_rate * 100:.1f}%"
+    cache_pct = f"{cache_hit_rate * 100:.1f}%"
+    last_call_html = _recency_stat(last_call_at, days_since_last_call)
+    last_non_connect_html = _recency_stat(
+        last_non_connect_call_at, days_since_last_non_connect_call
+    )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -226,6 +299,9 @@ def _render_page(data: dict[str, Any]) -> str:
     margin: 0 0 0.5rem;
   }}
   .stat {{ font-size: 1.8rem; font-weight: 600; }}
+  .stat-sub {{ font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }}
+  .latency-row {{ display: flex; gap: 1.5rem; }}
+  .latency-stat .stat {{ font-size: 1.3rem; }}
   .wide {{ max-width: 1100px; margin: 0 auto 1.5rem; }}
   table {{ width: 100%; border-collapse: collapse; font-size: 0.85rem; }}
   th, td {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }}
@@ -267,6 +343,16 @@ def _render_page(data: dict[str, Any]) -> str:
     <div class="card"><h2>Calls today</h2><div class="stat">{calls_today}</div></div>
     <div class="card"><h2>Error rate</h2><div class="stat">{error_pct}</div></div>
     <div class="card"><h2>Distinct user agents</h2><div class="stat">{distinct_user_agents}</div></div>
+    <div class="card">
+      <h2>Cache hit rate</h2>
+      <div class="stat">{cache_pct}</div>
+      <div class="stat-sub">{cache_hits} of {cacheable_calls} cacheable calls</div>
+    </div>
+    <div class="card"><h2>Last call</h2>{last_call_html}</div>
+    <div class="card">
+      <h2 title="{escape(_NON_CONNECT_TITLE)}">Last non-connect call</h2>
+      {last_non_connect_html}
+    </div>
   </div>
 
   <div class="wide card">
@@ -284,12 +370,29 @@ def _render_page(data: dict[str, Any]) -> str:
       {rollup_html}
     </div>
     <div class="card">
+      <h2>Calls by operation</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Operation</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
+          <tbody>{"".join(operation_rows_html) or "<tr><td colspan='3'>No calls logged yet.</td></tr>"}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
       <h2>Calls by country</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Country</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
           <tbody>{"".join(country_rows_html) or "<tr><td colspan='3'>No calls logged yet.</td></tr>"}</tbody>
         </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Latency (ms)</h2>
+      <div class="latency-row">
+        <div class="latency-stat"><div class="stat">{latency_ms_avg:.1f}</div><div class="stat-sub">avg</div></div>
+        <div class="latency-stat"><div class="stat">{latency_ms_p50}</div><div class="stat-sub">p50</div></div>
+        <div class="latency-stat"><div class="stat">{latency_ms_p95}</div><div class="stat-sub">p95</div></div>
       </div>
     </div>
   </div>
@@ -417,3 +520,26 @@ def _country_cell(code: str) -> str:
 def _share_pct(count: int, total: int) -> str:
     """`count` as a percentage of `total`, one decimal place, `"0.0%"` when `total` is 0."""
     return f"{(count / total * 100):.1f}%" if total else "0.0%"
+
+
+def _recency_stat(at: str | None, days: int | None) -> str:
+    """Big-number-plus-caption HTML for a "how long since X" stat tile.
+
+    `at` / `days` are one of `core/stats.py::summary()`'s two matched pairs
+    (`last_call_at`/`days_since_last_call` or `last_non_connect_call_at`/
+    `days_since_last_non_connect_call`) — both `None` together means no
+    qualifying call has ever been logged, rendered as an honest "no calls
+    yet" rather than a misleading `0`. `at` is a server-generated
+    `datetime.isoformat()` string (never user-supplied — `core/log.py::log_call`
+    writes `ts` itself), but it is still passed through `escape` like every
+    other string this module renders, per this file's module docstring.
+    """
+    if at is None or days is None:
+        return "<div class='stat'>&mdash;</div><div class='stat-sub'>no calls yet</div>"
+    if days == 0:
+        headline = "today"
+    elif days == 1:
+        headline = "1 day ago"
+    else:
+        headline = f"{days} days ago"
+    return f"<div class='stat'>{headline}</div><div class='stat-sub'>{escape(at)}</div>"

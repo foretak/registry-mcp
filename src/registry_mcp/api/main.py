@@ -23,10 +23,12 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from html import escape
 from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
@@ -577,6 +579,121 @@ async def llms_full_txt() -> Response:
 @app.get("/server.json", include_in_schema=False)
 async def server_json() -> Response:
     return _serve_static(_server_json_path(), "application/json; charset=utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Legal documents (`legal/*.md`), served as HTML.
+#
+# They existed in the repository from the start and were reachable nowhere: every
+# candidate URL returned 404. That is not only untidy — a service that logs usage
+# should link its own privacy notice, and a missing public privacy policy is an
+# automatic rejection from every connector directory that reviews submissions.
+#
+# Rendered by a deliberately small converter rather than a library. The two
+# documents between them use headings, bullets, bold, inline code and bare URLs
+# and nothing else (checked, not assumed), and the only markdown renderer present
+# in this environment arrives transitively via `rich` — depending on a package we
+# do not declare is how a deploy breaks later for no visible reason.
+# ---------------------------------------------------------------------------
+
+_MD_PAGE = (
+    "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+    "<title>{title} — registry-mcp</title>"
+    "<style>:root{{color-scheme:light dark;--bg:#fdfdfc;--fg:#1b1b19;--muted:#5c5c56;"
+    "--rule:#e2e1dc;--code-bg:#f4f3ef;--link:#0f5c4a}}"
+    "@media(prefers-color-scheme:dark){{:root{{--bg:#14140f;--fg:#ececd8;--muted:#9c9c8f;"
+    "--rule:#2d2d26;--code-bg:#1e1e17;--link:#6fd6b3}}}}"
+    "body{{margin:0;padding:3rem 1.25rem 4rem;background:var(--bg);color:var(--fg);"
+    "font:16px/1.65 ui-sans-serif,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif}}"
+    "main{{max-width:44rem;margin:0 auto}}h1{{font-size:1.5rem;letter-spacing:-.01em;margin:0 0 1.2rem}}"
+    "h2{{font-size:1.05rem;margin:2.2rem 0 .5rem}}h3{{font-size:.95rem;margin:1.6rem 0 .4rem}}"
+    "a{{color:var(--link)}}code{{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;"
+    "font-size:.875em;background:var(--code-bg);border:1px solid var(--rule);border-radius:4px;padding:.05em .3em}}"
+    "li{{margin-bottom:.3rem}}footer{{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--rule);"
+    "color:var(--muted);font-size:.875rem}}</style></head><body><main>{body}"
+    "<footer><a href=\"/\">registry-mcp</a> · <a href=\"/legal/privacy\">Privacy</a> · "
+    "<a href=\"/legal/terms\">Terms</a> · <a href=\"/status\">Status</a></footer></main></body></html>"
+)
+
+_MD_INLINE = (
+    (re.compile(r"`([^`]+)`"), r"<code>\1</code>"),
+    (re.compile(r"\*\*([^*]+)\*\*"), r"<strong>\1</strong>"),
+    (re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)"), r'<a href="\2">\1</a>'),
+    (re.compile(r"(?<![\">])(https?://[^\s<)]+)"), r'<a href="\1">\1</a>'),
+)
+
+
+def _md_inline(text: str) -> str:
+    out = escape(text)
+    for pattern, repl in _MD_INLINE:
+        out = pattern.sub(repl, out)
+    return out
+
+
+def _render_markdown(source: str) -> tuple[str, str]:
+    """Return ``(title, html_body)`` for the small markdown subset `legal/*.md` uses."""
+    title = ""
+    parts: list[str] = []
+    para: list[str] = []
+    bullets: list[str] = []
+
+    def flush() -> None:
+        nonlocal para, bullets
+        if bullets:
+            parts.append("<ul>" + "".join(f"<li>{_md_inline(b)}</li>" for b in bullets) + "</ul>")
+            bullets = []
+        if para:
+            parts.append(f"<p>{_md_inline(' '.join(para))}</p>")
+            para = []
+
+    for raw in source.splitlines():
+        line = raw.rstrip()
+        heading = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if heading:
+            flush()
+            level = min(len(heading.group(1)), 6)
+            text = heading.group(2).strip()
+            if not title:
+                title = re.sub(r"[*`]", "", text)
+            parts.append(f"<h{level}>{_md_inline(text)}</h{level}>")
+            continue
+        bullet = re.match(r"^[-*]\s+(.*)$", line)
+        if bullet:
+            if para:
+                flush()
+            bullets.append(bullet.group(1))
+            continue
+        if not line.strip():
+            flush()
+            continue
+        if bullets:
+            bullets[-1] += " " + line.strip()
+        else:
+            para.append(line.strip())
+    flush()
+    return title or "Legal", "".join(parts)
+
+
+def _serve_legal(name: str) -> Response:
+    path = _repo_root() / "legal" / f"{name}.md"
+    if not path.is_file():
+        return _missing_static_response(path)
+    title, body = _render_markdown(path.read_text(encoding="utf-8"))
+    return Response(
+        content=_MD_PAGE.format(title=escape(title), body=body),
+        media_type="text/html; charset=utf-8",
+    )
+
+
+@app.get("/legal/privacy", include_in_schema=False)
+async def legal_privacy() -> Response:
+    return _serve_legal("privacy")
+
+
+@app.get("/legal/terms", include_in_schema=False)
+async def legal_terms() -> Response:
+    return _serve_legal("terms")
 
 
 @app.get("/robots.txt", include_in_schema=False)

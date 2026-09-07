@@ -629,3 +629,39 @@ def test_dockerfile_uvicorn_cmd_disables_access_log() -> None:
     (cmd_line,) = [line for line in dockerfile.splitlines() if line.startswith("CMD ")]
     assert "uvicorn registry_mcp.api.main:app" in cmd_line
     assert "--no-access-log" in cmd_line
+
+
+def test_legal_pages_are_served_and_readable(client: TestClient, ip: str) -> None:
+    """`legal/privacy.md` and `legal/terms.md` existed from the start and were
+    reachable at no URL — every candidate path returned 404. A service that keeps
+    a usage log should link its own privacy notice, and a connector directory
+    rejects a submission without a public one outright (growth audit, 2026-09-07).
+    """
+    for path, must_contain in (
+        ("/legal/privacy", "Privacy policy"),
+        ("/legal/terms", "Terms"),
+    ):
+        r = client.get(path, headers={"X-Forwarded-For": ip})
+        assert r.status_code == 200, path
+        assert r.headers["content-type"].startswith("text/html")
+        body = r.text
+        assert must_contain in body
+        assert body.startswith("<!doctype html>")
+        # rendered, not dumped: no raw markdown headings survive
+        assert "\n# " not in body
+        assert "<h1>" in body
+        # every page links the other, so a reviewer can reach both
+        assert 'href="/legal/privacy"' in body and 'href="/legal/terms"' in body
+
+
+def test_legal_pages_escape_before_they_render(client: TestClient, ip: str) -> None:
+    """The renderer escapes first and marks up second, so a stray angle bracket in
+    a legal document can never become live markup."""
+    from registry_mcp.api.main import _render_markdown
+
+    title, body = _render_markdown("# T <b>x</b>\n\nA `<script>` and **bold** and https://example.com\n")
+    assert "<b>" not in body and "&lt;b&gt;" in body
+    assert "<code>&lt;script&gt;</code>" in body
+    assert "<strong>bold</strong>" in body
+    assert '<a href="https://example.com">' in body
+    assert title == "T <b>x</b>"

@@ -10,6 +10,7 @@ file via `core/log.py::set_sink()` + `log_call()`, exactly like
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,50 @@ def _seed_calls(db: Path) -> None:
             ok=ok,
             error_code=error_code,
         )
+
+
+def _insert_historical_call(
+    db: Path,
+    *,
+    ts: str,
+    surface: Surface,
+    operation: str,
+    country: str | None,
+    query: str | None,
+    user_agent: str | None,
+    latency_ms: int,
+    ok: bool,
+    cached: bool | None = None,
+) -> None:
+    """Write one `calls` row with an explicit `ts`, bypassing `log_call`'s own
+    `datetime.now(UTC)` stamp — the only way to test "days ago" wording
+    deterministically without a time-mocking dependency this project does
+    not have. Duplicated from `tests/test_stats.py` rather than imported
+    across test modules, deliberately: keeps this file independent of
+    whatever another task is doing to that one. Schema via `log.connect`, the
+    same function `log_call`/`summary` both use.
+    """
+    conn = log.connect(db)
+    try:
+        conn.execute(
+            "INSERT INTO calls "
+            "(ts, surface, operation, country, query, user_agent, latency_ms, ok, cached) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                ts,
+                surface.value,
+                operation,
+                country,
+                query,
+                user_agent,
+                latency_ms,
+                int(ok),
+                None if cached is None else int(cached),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _make_app() -> FastAPI:
@@ -252,3 +297,135 @@ def test_dashboard_renders_with_a_null_country_row_present(
     # `NO_COUNTRY_KEY` value rendered as if it were a country code.
     assert "no country" in html
     assert "pill-nocountry" in html
+
+
+def test_dashboard_shows_calls_by_operation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.MCP,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="stdio",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="curl/8.4.0",
+        latency_ms=10,
+        ok=True,
+    )
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Calls by operation" in html
+    assert "list_countries" in html
+    assert "lookup_company" in html
+
+
+def test_dashboard_shows_cache_and_latency_stats(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    for latency_ms in (100, 200):
+        log.log_call(
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="NO",
+            query="923609016",
+            user_agent="curl/8.4.0",
+            latency_ms=latency_ms,
+            ok=True,
+            cached=True,
+        )
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Cache hit rate" in html
+    assert "100.0%" in html
+    assert "2 of 2 cacheable calls" in html
+    assert "Latency (ms)" in html
+    assert "150.0" in html  # mean of 100 and 200
+
+
+def test_dashboard_shows_last_call_recency_tiles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`list_countries` today, a real lookup 4 days ago: "Last call" must
+    read as fresh ("today") while "Last non-connect call" must show the
+    4-day gap — the divergence the two tiles exist to make visible (see
+    `core/stats.py`'s `_CONNECT_ONLY_OPERATION`)."""
+    db = tmp_path / "calls.sqlite3"
+    today = datetime.now(UTC).date()
+    four_days_ago = today - timedelta(days=4)
+    _insert_historical_call(
+        db,
+        ts=datetime.combine(today, datetime.min.time(), tzinfo=UTC).isoformat(),
+        surface=Surface.MCP,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="stdio",
+        latency_ms=5,
+        ok=True,
+    )
+    _insert_historical_call(
+        db,
+        ts=datetime.combine(four_days_ago, datetime.min.time(), tzinfo=UTC).isoformat(),
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="curl/8.4.0",
+        latency_ms=10,
+        ok=True,
+    )
+    log.set_sink(db)
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Last call" in html
+    assert "Last non-connect call" in html
+    assert "today" in html
+    assert "4 days ago" in html
+
+
+def test_dashboard_empty_database_shows_no_calls_yet_for_recency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log.set_sink(tmp_path / "empty.sqlite3")
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Last call" in html
+    assert "Last non-connect call" in html
+    assert "no calls yet" in html
+    assert "Cache hit rate" in html
+    assert "0.0%" in html
+    assert "0 of 0 cacheable calls" in html
+    # A `None` day-count or timestamp must never leak into the page as text.
+    assert ">None<" not in html
