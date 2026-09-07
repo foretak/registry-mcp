@@ -49,5 +49,17 @@ jobs:
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          sleep 15
-          npm view "$NAME@$VERSION" version
+          # npm answers the publish before the version is queryable — it says so
+          # ("Your package is being processed and may take a few minutes to become
+          # available"). A flat 15 s lost the 0.3.0 release: both packages published
+          # fine and the job still went red. Poll for up to five minutes instead.
+          for i in $(seq 1 30); do
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION is queryable after $((i * 10))s"
+              npm view "$NAME@$VERSION" version
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$NAME@$VERSION was published but is still not queryable after 300s"
+          exit 1
