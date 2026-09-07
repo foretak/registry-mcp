@@ -398,6 +398,44 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
       a declaration to sign (protected entities); processing is up to 12 business
       days → expect an answer by about **2026-09-23**. Source: datahub.virk.dk
       dataset "System-til-system adgang til CVR-data".
+### Chrome-agent mission — fetch the Bolagsverket **TEST** zip (2026-09-07)
+
+Why a mission rather than a click: the test and production credential mails arrived in **one Gmail
+conversation** six seconds apart, and their attachments have the **identical filename**
+(`Vardefulla_datamangder_9999999999_Vardefulla_datamangder.zip`). Three download attempts all
+fetched the production file. A copy of the test mail has been forwarded to the same inbox so its
+attachment stands alone. Paste the block below to Claude in Chrome.
+
+```
+Goal: download ONE email attachment and save it under a specific name. Do not open it.
+
+1. Open https://mail.google.com and make sure the account is fargerod@gmail.com.
+2. Search for:  Anslutningsuppgifter
+3. Open the conversation titled "Anslutningsuppgifter för Värdefulla datamängder".
+4. Scroll to the NEWEST message at the bottom. It was sent on 7 September 2026 at about
+   16:00, from fargerod@gmail.com to fargerod@gmail.com, and its subject begins with
+   "Fwd: [TEST]". Expand it if it is collapsed.
+5. Confirm you have the right message before downloading: its body must mention
+   portal-accept2.api.bolagsverket.se. If you only see portal.api.bolagsverket.se without
+   "accept2", you are on the production message — that is the WRONG one. Stop and say so.
+6. That message has exactly one attachment, a .zip. Download it.
+7. Rename the downloaded file to:  bolagsverket-TEST.zip
+   Keep it in the Downloads folder. Do not move it into any project or repository folder.
+8. Report back: the final filename, its size in bytes, and where it was saved.
+
+Rules:
+- Do NOT open, unzip or extract the file. It is password-protected and the password stays out
+  of the browser.
+- Do NOT type any password anywhere.
+- Do NOT click links inside the email, and do not forward, reply to or delete anything.
+- Do NOT paste the file anywhere, upload it, or share it.
+- If Gmail asks you to sign in, or shows a security prompt, stop and let Kim handle it.
+```
+
+Afterwards: tell the orchestrator the file is in place. It unpacks with the code from the
+"[TEST] … [DEL 2]" mail and is stored as `~/secrets/registry-mcp/bolagsverket-test.txt`, which
+unblocks re-recording the nine `_VERIFY` fixtures against Bolagsverket's test workbook.
+
 **APPLICATION SUBMITTED 2026-09-07 13:48:18 dansk tid** via `datacvr.virk.dk` — receipt from `noreply@virk.dk` ("Kvittering for indsendelse") with two PDFs: the submitted form and its receipt. **Brugeradgang promised within about three weeks, so ~2026-09-28.** No case number in the receipt; quote sagsnummer #177481 (the e-mail thread) if chasing. **The IP-whitelisting question is still unanswered** — nothing in the receipt addresses it, and it decides whether the hosted deployment can use the access at all. Ask Thomas Andreasen on the #177481 thread rather than waiting three weeks to find out. Save both PDFs somewhere outside the repo; the form PDF is the record of what was declared.
 
 **REPLY RECEIVED 2026-09-07 06:52Z** from Thomas Andreasen, Forretningsspecialist at Erhvervsstyrelsen (sagsnummer #177481) — **sixteen days earlier than the ~2026-09-23 estimate.** He answers neither question. The whole reply is a pointer to the self-service page: <https://datacvr.virk.dk/artikel/system-til-system-adgang-til-cvr-data>. **So Denmark is no longer blocked on an e-mail; it is an online application Kim fills in.** The form has a *Udenlandsk virksomhed* (foreign company) step, which answers question 1 in practice: a Norwegian ENK without a Danish CVR number can apply. **Question 2 — IP whitelisting — is still unanswered**, and it is the one that decides whether the hosted deployment can use the access at all (Railway has no fixed IP). Watch for it in the form and in the *tro- og loveerklæring*; if the form does not settle it, ask Thomas directly on this thread before signing. Kim was mid-application 2026-09-07 (steps seen: systemløsning → udenlandsk virksomhed → reelle ejere → tro- og loveerklæring → opsummering). **Answer *Nej* to beneficial owners** — Denmark closed public UBO access on 2025-09-01 and we meet none of the three access grounds.
