@@ -1816,7 +1816,7 @@
     },
     {
       "name": "search",
-      "description": "ChatGPT connector alias; other clients should prefer `search_company`, which takes an\nexplicit `country` and returns the full SearchResult. Finds companies in this server's\nnational business registers (Norway, United Kingdom) from one free-text query — a name, a\nnational identifier, or a name plus a country — and returns {\"results\": [{\"id\", \"title\",\n\"url\"}]}. Pass a result's `id` to `fetch`.",
+      "description": "ChatGPT connector alias; other clients should prefer `search_company`, which takes an\nexplicit `country` and returns the full SearchResult. Finds companies in this server's\nnational business registers (United Kingdom, Norway, Sweden) from one free-text query — a name, a\nnational identifier, or a name plus a country — and returns {\"results\": [{\"id\", \"title\",\n\"url\"}]}. Pass a result's `id` to `fetch`.",
       "inputSchema": {
         "properties": {
           "query": {
