@@ -431,6 +431,8 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
       5. Copy the confirmation text shown after submitting, word for word, and report it back. If the page shows an error, report the exact text instead and do not retry.
       ```
       Afterwards: the zip comes to fargerod@gmail.com, the password by SMS. Unzip locally, never in the repo.
+**CREDENTIALS ARRIVED 2026-09-07 06:02Z** — four mails from `api@bolagsverket.se` to hello@foretak.dev: two encrypted zips (one `[TEST]`, one production) and two `[DEL 2]` mails carrying the zip codes. **Note the deviation from recon: the zip codes came by e-mail, not SMS** — they are therefore sitting in plaintext in the Gmail account; delete those two `[DEL 2]` mails once the zips are open. Claude has not opened any attachment.
+
 - [ ] When the email/SMS arrive: store them as `~/secrets/registry-mcp/bolagsverket-test.txt`
       and `bolagsverket-prod.txt` (client id + secret each), never in the repo, and tell the
       orchestrator. Env-variable names are fixed by D-032(f) in `DECISIONS.md`; the
