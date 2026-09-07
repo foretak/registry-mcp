@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>registry-mcp — the company registry MCP server</title>
-<meta name="description" content="The company registry MCP: an MCP server and REST API over national business registries. Norway — Brønnøysundregistrene / Enhetsregisteret, organisasjonsnummer (orgnr) lookup and VAT status. United Kingdom — Companies House, company number (CRN) lookup, accounts and confirmation statement deadlines. Sweden — Bolagsverket, organisationsnummer lookup by identifier.">
+<title>registry-mcp — the company registry MCP</title>
+<meta name="description" content="An MCP server and REST API over the company registers of the UK, Norway and Sweden. One JSON shape, and every answer names the register it came from.">
 <meta name="keywords" content="brreg, brønnøysund, brønnøysundregistrene, enhetsregisteret, organisasjonsnummer, orgnr, org.nr, norway company lookup, norwegian business registry, foretak, companies house, companies house api, company number, company registration number, uk company lookup, uk company search, confirmation statement, bolagsverket, organisationsnummer, företagsinformation, foretagsinformation, kontrollera företag, verifiera organisationsnummer, konkurs, likvidation, årsredovisning försenad, arsredovisning, f-skatt, swedish company lookup, swedish company number, company registry, company registry mcp, mcp, mcp server, model context protocol">
 <link rel="canonical" href="https://api.foretak.dev/">
 <link rel="icon" href="/icon.png" type="image/png">
@@ -14,154 +14,459 @@
     --bg: #fdfdfc;
     --fg: #1b1b19;
     --muted: #5c5c56;
+    --faint: #a9a8a0;
     --rule: #e2e1dc;
     --code-bg: #f4f3ef;
     --link: #0f5c4a;
+    --on-link: #fdfdfc;
+    --chip-bg: rgba(255, 255, 255, .18);
+    --chip-rule: rgba(255, 255, 255, .32);
+    --warn: #8a4b1f;
+    --warn-rule: rgba(138, 75, 31, .3);
+    --warn-soft: rgba(138, 75, 31, .05);
+    --good-rule: rgba(15, 92, 74, .28);
+    --good-soft: rgba(15, 92, 74, .04);
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #14140f;
       --fg: #ececd8;
       --muted: #9c9c8f;
+      --faint: #5e5e54;
       --rule: #2d2d26;
       --code-bg: #1e1e17;
       --link: #6fd6b3;
+      --on-link: #14140f;
+      --chip-bg: rgba(0, 0, 0, .2);
+      --chip-rule: rgba(0, 0, 0, .32);
+      --warn: #d8a15c;
+      --warn-rule: rgba(216, 161, 92, .32);
+      --warn-soft: rgba(216, 161, 92, .07);
+      --good-rule: rgba(111, 214, 179, .3);
+      --good-soft: rgba(111, 214, 179, .06);
     }
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
-    padding: 3rem 1.25rem 4rem;
     background: var(--bg);
     color: var(--fg);
-    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font: 16px/1.6 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
-  main { max-width: 46rem; margin: 0 auto; }
-  h1 { font-size: 1.55rem; margin: 0 0 .35rem; letter-spacing: -.01em; }
-  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 2.5rem 0 .6rem; font-weight: 600; }
-  p { margin: 0 0 1rem; }
-  .lede { color: var(--muted); margin-bottom: 2rem; }
-  pre {
-    background: var(--code-bg);
-    border: 1px solid var(--rule);
-    border-radius: 6px;
-    padding: .85rem 1rem;
-    overflow-x: auto;
-    margin: 0 0 .75rem;
-  }
-  code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .875rem; }
-  a { color: var(--link); }
-  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
-  th, td { text-align: left; padding: .4rem .6rem .4rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; }
-  ul { margin: 0 0 1rem; padding-left: 1.15rem; }
-  li { margin-bottom: .3rem; }
-  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .875rem; }
+  main { display: block; overflow-x: clip; }
+  .wrap { max-width: 68rem; margin: 0 auto; padding-inline: clamp(1.25rem, 5vw, 2.75rem); }
+  h1, h2, h3 { margin: 0; font-weight: 700; }
+  p { margin: 0; }
+  a { color: var(--link); text-decoration: none; border-bottom: 1px solid currentColor; }
+  a:hover { opacity: .8; }
+  code, pre { font-family: var(--font-mono); }
+  code { overflow-wrap: anywhere; }
+  pre { overflow-x: auto; margin: 0; }
+  ul { margin: 0; padding: 0; list-style: none; }
+  img { display: block; max-width: 100%; height: auto; }
 
-  /* Playground (T24) — every rule below reuses the tokens above, so light
-     and dark both stay readable with no separate dark-mode overrides. */
-  .pg-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .6rem; }
-  .pg-row label { font-size: .8rem; color: var(--muted); }
+  .eyebrow {
+    font-size: .9rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  /* ── masthead ─────────────────────────────────────────────── */
+  .masthead .wrap {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: .6rem 1rem;
+    padding-block: 1.5rem;
+  }
+  .brand { display: flex; align-items: center; gap: .55rem; }
+  .brand svg { flex: none; }
+  .brand-name { font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+  .brand-badge { font-family: var(--font-mono); font-size: .9rem; letter-spacing: .02em; color: var(--muted); }
+
+  /* ── hero ─────────────────────────────────────────────────── */
+  .hero { padding-block: 1rem 2.75rem; display: flex; flex-direction: column; gap: 1.3rem; }
+  .hero h1 {
+    font-size: clamp(2.05rem, 4.6vw + 1rem, 3.35rem);
+    line-height: 1.08;
+    letter-spacing: -.022em;
+    max-width: 18ch;
+  }
+  .hero .lede { font-size: 1.15rem; line-height: 1.55; color: var(--muted); max-width: 58ch; }
+
+  /* ── diptych ──────────────────────────────────────────────── */
+  .diptych-head { padding-block: 0 1.4rem; display: flex; flex-direction: column; gap: .6rem; }
+  .diptych-q { font-family: var(--font-mono); font-size: 1.05rem; letter-spacing: -.01em; }
+  .diptych-q b { font-weight: 600; }
+  .diptych-q span { color: var(--muted); }
+  .diptych { display: grid; grid-template-columns: 1fr; gap: 1.15rem; padding-bottom: 2.75rem; }
+  @media (min-width: 46rem) { .diptych { grid-template-columns: 1fr 1fr; gap: 1.35rem; align-items: stretch; } }
+
+  .panel { border-radius: 10px; padding: 1.4rem 1.4rem 1.55rem; display: flex; flex-direction: column; gap: 1.05rem; }
+  .panel-bad { border: 1px solid var(--warn-rule); background: var(--warn-soft); }
+  .panel-good { border: 1px solid var(--good-rule); background: var(--good-soft); }
+  .panel-tag { display: flex; align-items: center; gap: .5rem; font-size: .9rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+  .panel-bad .panel-tag { color: var(--warn); }
+  .panel-good .panel-tag { color: var(--link); }
+  .panel-quote { font-style: italic; font-size: 1.28rem; line-height: 1.4; letter-spacing: -.005em; }
+  .missing-list { display: flex; flex-direction: column; gap: .45rem; font-family: var(--font-mono); font-size: .92rem; padding-top: .2rem; border-top: 1px solid var(--warn-rule); }
+  .missing-row { display: grid; grid-template-columns: 7rem 1fr; gap: .6rem; padding-top: .5rem; }
+  .missing-row span { overflow-wrap: anywhere; }
+  .missing-row span:first-child { color: var(--muted); }
+  .missing-row span:last-child { color: var(--warn); }
+  .panel-note { font-size: .92rem; line-height: 1.55; color: var(--muted); padding-top: .1rem; }
+  .panel-good .panel-note { border-top: 1px solid var(--good-rule); padding-top: .85rem; margin-top: .1rem; }
+
+  .kv-list { display: flex; flex-direction: column; gap: .55rem; font-family: var(--font-mono); font-size: .92rem; line-height: 1.5; }
+  .kv-row { display: grid; grid-template-columns: 7.3rem 1fr; gap: .3rem .7rem; }
+  .kv-row span { overflow-wrap: anywhere; }
+  .kv-row span:first-child { color: var(--muted); }
+  .tone-fg { color: var(--fg); }
+  .tone-accent { color: var(--link); font-weight: 500; }
+  .tone-muted { color: var(--muted); }
+
+  /* ── refusal ──────────────────────────────────────────────── */
+  .refusal { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--code-bg); }
+  .refusal .wrap { padding-block: 2.75rem; }
+  .refusal-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
+  @media (min-width: 46rem) { .refusal-grid { grid-template-columns: 1fr 1fr; gap: 2.75rem; } }
+  .refusal-copy { display: flex; flex-direction: column; gap: .9rem; }
+  .refusal-statement { font-weight: 600; font-size: 1.45rem; line-height: 1.28; letter-spacing: -.01em; }
+  .refusal-copy p { font-size: 1rem; line-height: 1.6; color: var(--muted); }
+  .refusal-panel { border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); padding: 1.3rem 1.35rem; display: flex; flex-direction: column; gap: .95rem; font-family: var(--font-mono); font-size: .92rem; line-height: 1.55; overflow-x: auto; }
+  .refusal-panel .empty { color: var(--muted); }
+  .refusal-panel .empty b { color: var(--link); font-weight: 600; }
+  .notes-block { border-left: 2px solid var(--link); padding-left: .9rem; color: var(--muted); font-size: .9rem; line-height: 1.6; display: flex; flex-direction: column; gap: .7rem; }
+  .notes-block .notes-open { color: var(--fg); }
+
+  /* ── generic section ──────────────────────────────────────── */
+  .section { padding-block: 2.75rem; display: flex; flex-direction: column; gap: 1.6rem; }
+  .section-head { display: flex; flex-direction: column; gap: .55rem; }
+  .section-head p { max-width: 66ch; font-size: 1.03rem; line-height: 1.6; }
+  .section-head p.muted { color: var(--muted); }
+
+  /* ── try it ───────────────────────────────────────────────── */
+  .pg-row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+  .pg-row label { font-size: .9rem; color: var(--muted); }
   .pg-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   #pg-country, #pg-id {
-    font: inherit; font-size: .9rem; padding: .4rem .55rem;
+    font: inherit; font-family: var(--font-mono); font-size: .95rem; padding: .55rem .65rem;
     border: 1px solid var(--rule); border-radius: 6px;
     background: var(--bg); color: var(--fg);
   }
   #pg-id { flex: 1 1 14rem; min-width: 10rem; }
   #pg-submit, .pg-copy {
-    font: inherit; font-size: .85rem; padding: .45rem .9rem; cursor: pointer;
-    border: 1px solid var(--link); border-radius: 6px; background: var(--link); color: var(--bg);
+    font: inherit; font-family: var(--font-sans); font-size: .95rem; font-weight: 600; padding: .55rem 1.15rem; cursor: pointer;
+    border: 1px solid var(--link); border-radius: 6px; background: var(--link); color: var(--on-link);
   }
   #pg-submit:disabled { opacity: .6; cursor: default; }
-  .pg-copy { padding: .2rem .55rem; font-size: .75rem; }
-  .pg-output { margin: 1rem 0 1.5rem; }
-  .pg-step { margin-bottom: 1rem; }
-  .pg-req { font-size: .8rem; color: var(--muted); margin: 0 0 .3rem; }
-  .pg-note { color: var(--muted); font-style: italic; }
-  .pg-hits { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: .4rem; }
+  .pg-copy { padding: .3rem .7rem; font-size: .9rem; }
+  .pg-output { margin-top: 1.1rem; display: flex; flex-direction: column; gap: 1rem; }
+  .pg-output pre { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: .9rem 1rem; font-size: .875rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .pg-step { display: flex; flex-direction: column; gap: .4rem; }
+  .pg-req { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere; }
+  .pg-note { color: var(--muted); font-style: italic; font-size: .95rem; line-height: 1.55; }
+  .pg-hits { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
   .pg-hit {
-    font: inherit; font-size: .8rem; padding: .3rem .6rem; cursor: pointer;
+    font: inherit; font-family: var(--font-mono); font-size: .875rem; padding: .4rem .7rem; cursor: pointer;
     border: 1px solid var(--rule); border-radius: 999px; background: var(--code-bg); color: var(--fg);
   }
   .pg-hit:hover { border-color: var(--link); }
-  .pg-install { margin: 1.25rem 0 2rem; }
-  .pg-install-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .6rem; }
-  .pg-install-line code { flex: 1 1 auto; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: .5rem .7rem; }
-  .pg-badges { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+  .pg-install { margin-top: 1.6rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: .7rem; }
+  .pg-install > p:first-child { font-size: .95rem; color: var(--muted); }
+  .pg-install-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .pg-install-line code { flex: 1 1 auto; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 6px; padding: .6rem .8rem; font-size: .875rem; overflow-wrap: anywhere; }
+  .pg-badges { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-top: .3rem; }
   .pg-badges img { display: block; height: 1.4rem; width: auto; }
+
+  /* ── install band ─────────────────────────────────────────── */
+  .install { background: var(--link); color: var(--on-link); }
+  .install .wrap { padding-block: 2.5rem; display: flex; flex-direction: column; gap: 1.1rem; }
+  .install .eyebrow { color: var(--on-link); opacity: .75; }
+  .install-row { display: flex; align-items: stretch; gap: .6rem; flex-wrap: wrap; }
+  .install-row code {
+    flex: 1 1 20rem; font-size: 1rem; background: var(--chip-bg); border: 1px solid var(--chip-rule);
+    border-radius: 7px; padding: .85rem 1.05rem; overflow-wrap: anywhere;
+  }
+  .install-row button {
+    font: inherit; font-family: var(--font-sans); font-size: .95rem; font-weight: 700; padding: 0 1.4rem; cursor: pointer;
+    border: 1px solid var(--on-link); border-radius: 7px; background: var(--on-link); color: var(--link);
+  }
+  .install p.note { font-size: .95rem; line-height: 1.6; opacity: .88; max-width: 68ch; }
+  .install p.note code { font-size: 1em; background: var(--chip-bg); border-radius: 4px; padding: .1em .3em; }
+  .install .pg-badges { margin-top: .1rem; }
+
+  /* ── three registers / payload plate ─────────────────────── */
+  .curl-chip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .7rem; font-family: var(--font-mono); font-size: .95rem;
+    border: 1px solid var(--rule); border-radius: 8px; padding: .8rem 1.05rem; background: var(--code-bg);
+  }
+  .curl-chip .prompt { color: var(--link); font-weight: 700; flex: none; }
+  .curl-chip span:last-child { overflow-wrap: anywhere; min-width: 0; }
+
+  .plate { border: 1px solid var(--rule); border-radius: 8px; padding: 1.3rem 1.15rem; background: var(--bg); }
+  .plate-row { display: grid; grid-template-columns: 1.65rem minmax(0, 1fr); column-gap: .8rem; row-gap: .2rem; padding: .12rem 0; align-items: baseline; }
+  .plate-num { font-family: var(--font-mono); font-size: .9rem; line-height: 1.7; color: var(--faint); text-align: right; user-select: none; }
+  .plate-code { font-family: var(--font-mono); font-size: .875rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .plate-code .k { color: var(--muted); }
+  .plate-code .v { color: var(--fg); }
+  .plate-code .v-lit { color: var(--link); font-weight: 500; }
+  .plate-annot { grid-column: 1 / -1; padding-left: 1.65rem; font-size: .9rem; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
+  .plate-annot:not(:empty) { padding-top: .1rem; padding-bottom: .35rem; }
+  .plate-annot:not(:empty)::before { content: "— "; color: var(--link); }
+  @media (min-width: 50rem) {
+    .plate-row { grid-template-columns: 1.65rem minmax(0, 1fr) minmax(0, 15rem); column-gap: 1.15rem; align-items: start; }
+    .plate-annot { grid-column: auto; padding-left: 1.1rem; border-left: 1px solid var(--rule); padding-top: 0; }
+    .plate-annot:not(:empty)::before { content: ""; }
+  }
+  .plate-caption { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-family: var(--font-mono); font-size: .9rem; color: var(--muted); }
+
+  .bridge { font-size: 1rem; line-height: 1.6; color: var(--muted); max-width: 66ch; }
+
+  .aside-grid { display: grid; grid-template-columns: 1fr; gap: 1.1rem; margin-top: .4rem; }
+  @media (min-width: 42rem) { .aside-grid { grid-template-columns: 1fr 1fr; } }
+  .aside { border: 1px solid var(--rule); border-radius: 8px; padding: 1.2rem 1.3rem; background: var(--code-bg); display: flex; flex-direction: column; gap: .75rem; }
+  .aside h3 { font-size: 1.02rem; font-weight: 650; }
+  .aside p { font-size: .93rem; line-height: 1.55; color: var(--muted); }
+  .aside-code { font-family: var(--font-mono); font-size: .875rem; line-height: 1.65; border-left: 2px solid var(--rule); padding-left: .8rem; overflow-wrap: anywhere; }
+  .aside-code .accent { color: var(--link); font-weight: 600; }
+  .aside-code .warn { color: var(--warn); font-weight: 600; }
+
+  /* ── tools ────────────────────────────────────────────────── */
+  .tools-grid { display: grid; grid-template-columns: 1fr; }
+  @media (min-width: 42rem) { .tools-grid { grid-template-columns: 1fr 1fr; column-gap: 2.75rem; } }
+  .tool-row { display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: .85rem 0; border-bottom: 1px solid var(--rule); }
+  .tool-name { font-family: var(--font-mono); font-size: .9rem; color: var(--link); overflow-wrap: anywhere; flex: none; max-width: 11rem; padding-top: .1rem; }
+  .tool-what { font-size: .95rem; color: var(--muted); }
+  .tools-note { font-size: .93rem; color: var(--muted); line-height: 1.55; max-width: 66ch; }
+
+  /* ── footer ───────────────────────────────────────────────── */
+  footer { border-top: 1px solid var(--rule); }
+  footer .wrap { padding-block: 2.25rem 3rem; display: flex; flex-direction: column; gap: 1.15rem; }
+  .footer-links { display: flex; gap: .5rem 1.6rem; flex-wrap: wrap; font-size: .95rem; }
+  footer p { font-size: .9rem; line-height: 1.65; color: var(--muted); }
+  footer code { font-size: 1em; }
 </style>
 </head>
 <body>
 <main>
 
-<h1>registry-mcp — the company registry MCP</h1>
-<p class="lede">Company data for AI agents, any country — an MCP server and REST API over national business registries. Live now: Norway (Brønnøysundregistrene / Enhetsregisteret), the United Kingdom (Companies House) and Sweden (Bolagsverket).</p>
-
-<h2>Try it</h2>
-<p>Real calls against the live API below, not canned examples. Keep the pre-filled identifier or paste your own company number or name.</p>
-<noscript><p>The playground needs JavaScript. Every <code>curl</code> example further down works with none.</p></noscript>
-<form id="playground-form" action="/" method="get">
-  <div class="pg-row">
-    <label for="pg-country">Country</label>
-    <select id="pg-country" name="country">
-      <option value="NO">NO — Norway</option>
-      <option value="GB">GB — United Kingdom</option>
-      <option value="SE">SE — Sweden</option>
-    </select>
-    <label for="pg-id" class="pg-sr">Company number or name</label>
-    <input id="pg-id" name="q" type="text" value="923609016" autocomplete="off" spellcheck="false" placeholder="Company number or name">
-    <button id="pg-submit" type="submit">Look up</button>
+<div class="masthead">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: var(--link)" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-6h4v6"/></svg>
+      <span class="brand-name">foretak.dev</span>
+    </div>
+    <div class="brand-badge">GB · NO · SE &nbsp; / &nbsp; read-only &nbsp; / &nbsp; no account</div>
   </div>
-</form>
-<div id="pg-output" class="pg-output" hidden aria-live="polite"></div>
-<div class="pg-install">
-  <p>Same server, in your own agent:</p>
-  <p class="pg-install-line"><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code><button type="button" class="pg-copy" data-copy="claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp">Copy</button></p>
-  <p class="pg-install-line"><code>uvx registry-mcp</code><button type="button" class="pg-copy" data-copy="uvx registry-mcp">Copy</button></p>
-  <p class="pg-badges">
-    <a href="https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D"><img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&amp;label=Install%20Server&amp;color=0098FF" alt="Install in VS Code"></a>
-    <a href="https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D"><img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&amp;label=Install%20Server&amp;color=24bfa5"></a>
-    <a href="https://cursor.com/en/install-mcp?name=registry-mcp&amp;config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D"><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor"></a>
-  </p>
 </div>
 
-<h2>Add to an MCP client</h2>
-<pre><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code></pre>
-<pre><code>uvx registry-mcp    # local stdio server (Python)
-npx registry-mcp    # local stdio server (Node)</code></pre>
+<div class="wrap hero">
+  <h1>An agent without a register still gives you an answer.</h1>
+  <p class="lede">It won&#8217;t say it doesn&#8217;t know. It will describe a company as it stood in its training data, present tense, with nothing attached that you could check. Below is the same question, asked twice.</p>
+</div>
 
-<h2>Or call it directly</h2>
-<p>Norway, by organisasjonsnummer (orgnr):</p>
-<pre><code>curl https://api.foretak.dev/v1/NO/company/923609016</code></pre>
-<pre><code>curl "https://api.foretak.dev/v1/NO/search?q=equinor&amp;limit=5"
-curl "https://api.foretak.dev/v1/NO/company/923609016/deadlines?today=2026-01-15"
-curl https://api.foretak.dev/v1/NO/validate/923609016
-curl https://api.foretak.dev/v1/countries</code></pre>
-<p>The United Kingdom, by company number (CRN) — same routes, same JSON shape. The code is <code>GB</code>, not <code>UK</code>:</p>
-<pre><code>curl https://api.foretak.dev/v1/GB/company/00445790</code></pre>
-<pre><code>curl "https://api.foretak.dev/v1/GB/search?q=tesco&amp;limit=5"
-curl "https://api.foretak.dev/v1/GB/company/00445790/deadlines?today=2026-09-04"
-curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
-<p>Companies House publishes each company's own filing dates, so a UK <code>deadlines</code> call quotes the register where it can and computes only from a cited statute where it cannot — every deadline says which in its <code>applies_because</code>.</p>
+<div class="wrap diptych-head">
+  <h2 class="eyebrow">One question, two ways of answering it</h2>
+  <div class="diptych-q">Is <b>CARILLION PLC</b> still trading? <span>&mdash; GB 03782379</span></div>
+</div>
 
-<h2>Tools</h2>
-<table>
-  <tr><th>Tool</th><th>What it does</th></tr>
-  <tr><td><code>lookup_company(id, country)</code></td><td>Full report for one company by national identifier</td></tr>
-  <tr><td><code>search_company(name, country)</code></td><td>Find a company by name; returns candidates with identifiers</td></tr>
-  <tr><td><code>company_deadlines(id, country, today)</code></td><td>Next statutory filing deadline of each kind</td></tr>
-  <tr><td><code>validate_company_id(id, country)</code></td><td>Validate and normalise an identifier with no network call (MOD11 checksum for Norway; shape rules for the UK)</td></tr>
-  <tr><td><code>list_countries()</code></td><td>Which national registries are supported</td></tr>
-</table>
-<p>Resource <code>registry://rules/{country}</code>. Prompt <code>explain_company</code>. REST and MCP return the same JSON.</p>
+<div class="wrap diptych">
 
-<h2>For agents</h2>
-<ul>
-  <li><a href="/llms.txt">/llms.txt</a> — what this is, in under 40 lines</li>
-  <li><a href="/llms-full.txt">/llms-full.txt</a> — every endpoint, tool, field and error code</li>
-  <li><a href="/server.json">/server.json</a> — MCP registry manifest</li>
-</ul>
+  <div class="panel panel-bad">
+    <h3 class="panel-tag">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      Answered from memory
+    </h3>
+    <p class="panel-quote">&ldquo;Carillion plc is a large UK construction and facilities-management group.&rdquo;</p>
+    <div class="missing-list">
+      <div class="missing-row"><span>source</span><span>none given</span></div>
+      <div class="missing-row"><span>as of</span><span>none given</span></div>
+      <div class="missing-row"><span>licence</span><span>none given</span></div>
+      <div class="missing-row"><span>checkable</span><span>no</span></div>
+    </div>
+    <p class="panel-note">Illustrative, not a transcript. The fault isn&#8217;t the sentence &mdash; it&#8217;s that nothing is attached to it. No register named, no date, no licence, nothing a reviewer could open.</p>
+  </div>
+
+  <div class="panel panel-good">
+    <h3 class="panel-tag">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      Answered from the register
+    </h3>
+    <div class="kv-list">
+      <div class="kv-row"><span>&quot;name&quot;</span><span class="tone-fg">&quot;CARILLION PLC&quot;</span></div>
+      <div class="kv-row"><span>&quot;status&quot;</span><span class="tone-accent">&quot;under_liquidation&quot;</span></div>
+      <div class="kv-row"><span>&quot;is_active&quot;</span><span class="tone-accent">false</span></div>
+      <div class="kv-row"><span>&quot;status_detail&quot;</span><span class="tone-fg">&quot;In liquidation. Companies House does not say whether the liquidation is voluntary or compulsory.&quot;</span></div>
+      <div class="kv-row"><span>&quot;registers&quot;</span><span class="tone-fg">{ &quot;charges&quot;: true, &quot;insolvency&quot;: true }</span></div>
+      <div class="kv-row"><span>&quot;source_url&quot;</span><span class="tone-muted">&quot;https://find-and-update.company-information.service.gov.uk/company/03782379&quot;</span></div>
+      <div class="kv-row"><span>&quot;fetched_at&quot;</span><span class="tone-muted">&quot;2026-09-07T15:23:23Z&quot;</span></div>
+      <div class="kv-row"><span>&quot;license&quot;</span><span class="tone-muted">&quot;Crown copyright &mdash; Companies House public register, free to re-use&quot;</span></div>
+    </div>
+    <p class="panel-note">Verbatim from <code>GET /v1/GB/company/03782379</code>, fetched 2026-09-07. Abridged &mdash; the report carries forty-seven more fields.</p>
+  </div>
+
+</div>
+
+<div class="refusal">
+  <div class="wrap refusal-grid">
+    <div class="refusal-copy">
+      <h2 class="eyebrow">And where it cannot know, it says so</h2>
+      <h3 class="refusal-statement">The next question is when Carillion must file. There&#8217;s no honest answer, so none is given.</h3>
+      <p>A service that always produces a number is a service that sometimes makes one up. This is the entire deadlines response for a company in liquidation.</p>
+    </div>
+    <div class="refusal-panel">
+      <div class="empty">&quot;deadlines&quot;: <b>[]</b></div>
+      <div class="notes-block">
+        <span class="notes-open">&quot;notes&quot;: [</span>
+        <span>&quot;In liquidation. Companies House does not say whether the liquidation is voluntary or compulsory.&quot;,</span>
+        <span>&quot;This company&#8217;s Companies House status is &#8216;liquidation&#8217;, so no filing deadlines are given. Once a company is dissolved, in liquidation, in administration or under a voluntary arrangement, what must still be filed is decided by the insolvency practitioner or the registrar and is not derivable from the public register.&quot;</span>
+        <span class="notes-open">]</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap section">
+  <div class="section-head">
+    <h2 class="eyebrow">Try it yourself</h2>
+    <p class="muted">Real calls against the live API below, not canned examples. Keep the pre-filled identifier or paste your own company number or name.</p>
+  </div>
+  <noscript><p>The playground needs JavaScript. Every <code>curl</code> example on this page works with none.</p></noscript>
+  <form id="playground-form" action="/" method="get">
+    <div class="pg-row">
+      <label for="pg-country">Country</label>
+      <select id="pg-country" name="country">
+        <option value="NO">NO — Norway</option>
+        <option value="GB">GB — United Kingdom</option>
+        <option value="SE">SE — Sweden</option>
+      </select>
+      <label for="pg-id" class="pg-sr">Company number or name</label>
+      <input id="pg-id" name="q" type="text" value="923609016" autocomplete="off" spellcheck="false" placeholder="Company number or name">
+      <button id="pg-submit" type="submit">Look up</button>
+    </div>
+  </form>
+  <div id="pg-output" class="pg-output" hidden aria-live="polite"></div>
+  <div class="pg-install">
+    <p>Same server, in your own agent:</p>
+    <p class="pg-install-line"><code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code><button type="button" class="pg-copy" data-copy="claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp">Copy</button></p>
+    <p class="pg-install-line"><code>uvx registry-mcp</code><button type="button" class="pg-copy" data-copy="uvx registry-mcp">Copy</button></p>
+    <p class="pg-badges">
+      <a href="https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D"><img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&amp;label=Install%20Server&amp;color=0098FF" alt="Install in VS Code"></a>
+      <a href="https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D"><img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&amp;label=Install%20Server&amp;color=24bfa5"></a>
+      <a href="https://cursor.com/en/install-mcp?name=registry-mcp&amp;config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D"><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor"></a>
+    </p>
+  </div>
+</div>
+
+<div class="install">
+  <div class="wrap">
+    <h2 class="eyebrow">Give it the register &mdash; one line</h2>
+    <div class="install-row">
+      <code>claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp</code>
+      <button type="button" class="pg-copy" data-copy="claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp" style="padding: 0 1.4rem; font-size: .95rem;">Copy</button>
+    </div>
+    <p class="note">Hosted at <code>api.foretak.dev</code>: no account and no key for any of the three countries, and 60 requests a minute. Plain REST works the same way &mdash; <code>curl https://api.foretak.dev/v1/GB/company/00445790</code>.</p>
+    <p class="note"><code>uvx registry-mcp</code> or <code>npx registry-mcp</code> runs the same server yourself, over stdio. Norway needs no credential; a self-hosted <code>GB</code> needs a free Companies House key and <code>SE</code> a Bolagsverket OAuth&nbsp;2 client pair &mdash; without them those two countries answer <code>upstream_error</code> naming the missing variable, and every other country keeps working.</p>
+  </div>
+</div>
+
+<div class="wrap section">
+  <div class="section-head">
+    <h2 class="eyebrow">Three registers, one shape</h2>
+    <p>Three registers that agree on almost nothing about how they say it. Norway derives &ldquo;active&rdquo; from four separate brreg flags; the UK reads one published status field; Sweden has no status field at all, and it&#8217;s inferred from three independent signals. All three come back as <code>status: &quot;active&quot;</code>, with <code>status_detail</code> giving the sentence behind it.</p>
+    <p class="bridge">Below is what one of the three looks like in full. Norway and Sweden return the same fifty-five field names against the same shape &mdash; what differs is what each register has to fill in.</p>
+  </div>
+
+  <div class="curl-chip"><span class="prompt">$</span><span>curl -s https://api.foretak.dev/v1/GB/company/00445790</span></div>
+
+  <div class="plate">
+    <div class="plate-row"><span class="plate-num">1</span><code class="plate-code">{</code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">2</span><code class="plate-code"><span class="k">&quot;country&quot;: </span><span class="v">&quot;GB&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">3</span><code class="plate-code"><span class="k">&quot;registry&quot;: </span><span class="v">&quot;companies-house&quot;,</span></code></div><div class="plate-annot">named on every response</div>
+    <div class="plate-row"><span class="plate-num">4</span><code class="plate-code"><span class="k">&quot;id&quot;: </span><span class="v">&quot;00445790&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">5</span><code class="plate-code"><span class="k">&quot;name&quot;: </span><span class="v">&quot;TESCO PLC&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">6</span><code class="plate-code"><span class="k">&quot;legal_form&quot;: </span><span class="v">&quot;Public limited company&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">7</span><code class="plate-code"><span class="k">&quot;status&quot;: </span><span class="v">&quot;active&quot;,</span></code></div><div class="plate-annot">one enum, three countries</div>
+    <div class="plate-row"><span class="plate-num">8</span><code class="plate-code"><span class="k">&quot;status_detail&quot;: </span><span class="v">&quot;Active on the Companies House register.&quot;,</span></code></div><div class="plate-annot">the sentence behind the enum</div>
+    <div class="plate-row"><span class="plate-num">9</span><code class="plate-code"><span class="k">&quot;is_active&quot;: </span><span class="v v-lit">true,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">10</span><code class="plate-code"><span class="k">&quot;registered_at&quot;: </span><span class="v">&quot;1947-11-27&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">11</span><code class="plate-code"><span class="k">&quot;vat_registered&quot;: </span><span class="v v-lit">null,</span></code></div><div class="plate-annot">null &mdash; not published, never &quot;no&quot;</div>
+    <div class="plate-row"><span class="plate-num">12</span><code class="plate-code"><span class="k">&quot;industry_codes&quot;: </span><span class="v">[{ &quot;code&quot;: &quot;47110&quot;, &quot;scheme&quot;: &quot;SIC 2007&quot; }],</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">13</span><code class="plate-code"><span class="k">&quot;published_deadlines&quot;: [</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">14</span><code class="plate-code">&nbsp;&nbsp;{ <span class="k">&quot;kind&quot;: </span><span class="v">&quot;annual_accounts&quot;, </span><span class="k">&quot;due_date&quot;: </span><span class="v">&quot;2027-08-26&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">15</span><code class="plate-code">&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">&quot;source&quot;: </span><span class="v">&quot;accounts.next_accounts.due_on&quot; },</span></code></div><div class="plate-annot">the register&#8217;s own figure, not a calculation</div>
+    <div class="plate-row"><span class="plate-num">16</span><code class="plate-code">&nbsp;&nbsp;{ <span class="k">&quot;kind&quot;: </span><span class="v">&quot;confirmation_statement&quot;, &quot;due_date&quot;: &quot;2027-07-02&quot;, ... }</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">17</span><code class="plate-code">],</code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">18</span><code class="plate-code"><span class="k">&quot;confidence&quot;: </span><span class="v v-lit">1.0,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">19</span><code class="plate-code"><span class="k">&quot;confidence_basis&quot;: </span><span class="v">&quot;exact identifier lookup in the Companies House register&quot;,</span></code></div><div class="plate-annot">why this is the right company</div>
+    <div class="plate-row"><span class="plate-num">20</span><code class="plate-code"><span class="k">&quot;fetched_at&quot;: </span><span class="v">&quot;2026-09-06T22:40:28Z&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">21</span><code class="plate-code"><span class="k">&quot;source_url&quot;: </span><span class="v">&quot;https://find-and-update.company-information.service.gov.uk/company/00445790&quot;,</span></code></div><div class="plate-annot"></div>
+    <div class="plate-row"><span class="plate-num">22</span><code class="plate-code"><span class="k">&quot;license&quot;: </span><span class="v">&quot;Crown copyright &mdash; Companies House public register, free to re-use&quot;</span></code></div><div class="plate-annot">with source_url: enough to cite it</div>
+    <div class="plate-row"><span class="plate-num">23</span><code class="plate-code">}</code></div><div class="plate-annot"></div>
+  </div>
+  <div class="plate-caption"><span>200 &middot; companies-house &middot; 55 fields returned, 17 shown</span><span>Crown copyright &mdash; free to re-use</span></div>
+
+  <div class="aside-grid">
+    <div class="aside">
+      <h3>Sweden&#8217;s dates are computed, not quoted</h3>
+      <p>Bolagsverket publishes no filing calendar, so both Swedish deadlines are derived from statute &mdash; and the response names the provision in the same breath as the date.</p>
+      <div class="aside-code">
+        general_meeting &nbsp;<span class="accent">2027-06-30</span><br>
+        aktiebolagslagen 7 kap. 10 §<br><br>
+        annual_accounts &nbsp;&nbsp;<span class="accent">2027-07-31</span><br>
+        årsredovisningslagen 8 kap. 6 §
+      </div>
+      <p>Both assume a financial year ending 31 December &mdash; Bolagsverket&#8217;s free dataset doesn&#8217;t publish the real one. If it differs, both dates move by the same number of months.</p>
+    </div>
+    <div class="aside">
+      <h3>An honest 501</h3>
+      <p>Bolagsverket&#8217;s free API has no name search &mdash; not the register, the API. Ask it by name and you get a refusal, not a guess.</p>
+      <div class="aside-code">
+        <span class="warn">501 not_implemented</span><br>
+        &quot;Bolagsverket&#8217;s free API cannot<br>
+        search by company name.&quot;
+      </div>
+      <p>The hint names <code>lookup_company</code> with the organisationsnummer, <code>validate_company_id</code> to check the shape first, and Bolagsverket&#8217;s downloadable register files for a real name search.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap section">
+  <div class="section-head">
+    <h2 class="eyebrow">Five tools, plus two connector aliases</h2>
+    <p class="muted">All read-only. Nothing here writes to a register, or anywhere else.</p>
+  </div>
+  <div class="tools-grid">
+    <div class="tool-row"><code class="tool-name">lookup_company</code><span class="tool-what">the full report, by national identifier</span></div>
+    <div class="tool-row"><code class="tool-name">search_company</code><span class="tool-what">by name &mdash; the UK and Norway; Sweden&#8217;s register API has no name search, and says so</span></div>
+    <div class="tool-row"><code class="tool-name">company_deadlines</code><span class="tool-what">the next filing deadline of each kind, quoted or computed</span></div>
+    <div class="tool-row"><code class="tool-name">validate_company_id</code><span class="tool-what">is it well-formed &mdash; no network call</span></div>
+    <div class="tool-row"><code class="tool-name">list_countries</code><span class="tool-what">which registers can answer right now</span></div>
+    <div class="tool-row"><code class="tool-name">search / fetch</code><span class="tool-what">ChatGPT connector aliases for the two above</span></div>
+  </div>
+  <p class="tools-note">Seven tools, not fifty. Tool-selection accuracy degrades once an agent is carrying more than about thirty, and some clients cap near forty.</p>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-links">
+      <a href="/llms-full.txt">Documentation</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="https://github.com/foretak/registry-mcp">Source</a>
+      <a href="https://github.com/foretak/registry-mcp/blob/main/CONTRIBUTING.md#add-your-country">Add your country</a>
+      <a href="/status">Status</a>
+    </div>
+    <p>Norwegian data comes from Enhetsregisteret (Brønnøysundregistrene) under NLOD 2.0, which requires attribution &mdash; an obligation that passes to you if you republish it. UK data comes from the Companies House public register, Crown copyright, free to re-use. Swedish data comes from Bolagsverket and Statistics Sweden; every response&#8217;s <code>license</code> field for it reads &ldquo;Free re-use (Bolagsverket/SCB high-value datasets, EU Open Data Directive) &mdash; the publisher names no licence&rdquo;, quoted exactly because no familiar licence name would be accurate here. Every response carries <code>source</code>, <code>source_url</code> and <code>license</code>, so the citation travels with the data. Not affiliated with or endorsed by Brønnøysundregistrene, Companies House or Bolagsverket.</p>
+    <p>Source and the country-module template: <a href="https://github.com/foretak/registry-mcp">github.com/foretak/registry-mcp</a> &mdash; MIT licensed. A new country is one folder and one import line; nothing in <code>core/</code> changes.</p>
+  </div>
+</footer>
+
+</main>
 
 <script type="application/ld+json">
 {
@@ -169,7 +474,7 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
   "@type": "WebAPI",
   "name": "registry-mcp",
   "alternateName": ["brreg-mcp", "Foretak Company Registry API"],
-  "description": "The company registry MCP: an MCP server and REST API for company data from national business registries. Norway — Enhetsregisteret / Brønnøysundregistrene (brreg): look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines. United Kingdom — Companies House: look up a company number (company registration number, CRN), search by name, and read the annual accounts and confirmation statement deadlines. Sweden — Bolagsverket: look up a company by organisationsnummer and read the annual accounts filing deadline; identifier only, since Bolagsverket's free API has no name search.",
+  "description": "The company registry MCP: an MCP server and REST API for company data from national business registries, returning one JSON shape for every country. Norway — Enhetsregisteret / Brønnøysundregistrene (brreg): look up a company by organisasjonsnummer (orgnr), search by name, check VAT registration, and compute statutory filing deadlines. United Kingdom — Companies House: look up a company number (company registration number, CRN), search by name, and read the annual accounts and confirmation statement dates the register publishes for that company. Sweden — Bolagsverket: look up a company by organisationsnummer, or a sole trader by personnummer, and compute the ordinary general meeting and annual accounts filing deadlines; identifier only, since Bolagsverket's free API has no name search. Every response carries source, source_url and license. Read-only throughout.",
   "url": "https://api.foretak.dev/",
   "image": "https://api.foretak.dev/icon.png",
   "documentation": "https://api.foretak.dev/llms-full.txt",
@@ -202,13 +507,6 @@ curl https://api.foretak.dev/v1/GB/validate/445790</code></pre>
   "sameAs": ["https://github.com/foretak/registry-mcp"]
 }
 </script>
-
-<footer>
-<p>Source, issues and the country-module template: <a href="https://github.com/foretak/registry-mcp">github.com/foretak/registry-mcp</a> — MIT licensed.</p>
-<p>Norwegian data comes from Enhetsregisteret (Brønnøysundregistrene), published under NLOD 2.0 — attribution required. UK data comes from the Companies House public register, Crown copyright, free to re-use. Every response carries <code>source</code>, <code>source_url</code> and <code>license</code>, so the citation travels with the data. Not affiliated with or endorsed by Brønnøysundregistrene or Companies House.</p>
-</footer>
-
-</main>
 
 <script>
 (function () {
