@@ -617,7 +617,7 @@ async def search(
 ) -> dict[str, Any]:
     """ChatGPT connector alias; other clients should prefer `search_company`, which takes an
     explicit `country` and returns the full SearchResult. Finds companies in this server's
-    national business registers (Norway, United Kingdom) from one free-text query — a name, a
+    national business registers (United Kingdom, Norway, Sweden) from one free-text query — a name, a
     national identifier, or a name plus a country — and returns {"results": [{"id", "title",
     "url"}]}. Pass a result's `id` to `fetch`.
     """

@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/foretak/registry-mcp)
 
-**Company data for AI agents, any country.** One MCP server and REST API, two national registers today: Norway's **Enhetsregisteret** / **Brønnøysundregistrene** (**brreg**), looked up by **organisasjonsnummer** (**orgnr**), and the United Kingdom's **Companies House**, looked up by **company number** — one JSON shape either way.
+**Company data for AI agents, any country.** One MCP server and REST API, three national registers today: the United Kingdom's **Companies House**, looked up by **company number**; Norway's **Enhetsregisteret** / **Brønnøysundregistrene** (**brreg**), looked up by **organisasjonsnummer** (**orgnr**); and Sweden's **Bolagsverket**, looked up by **organisationsnummer** — one JSON shape whichever you ask.
 
 ```bash
 claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
@@ -112,7 +112,42 @@ $ curl https://api.foretak.dev/v1/GB/company/00445790
 }
 ```
 
-`published_deadlines` carries the dates the register publishes itself, with the upstream field each came from. It is `[]` for Norway, which computes all of its own.
+`published_deadlines` carries the dates the register publishes itself, with the upstream field each came from. It is `[]` for Norway and Sweden, which compute all of their own.
+
+Sweden, added in 0.3.0, is where "one shape" starts to earn the claim:
+
+```console
+$ curl https://api.foretak.dev/v1/SE/company/5560160680
+{
+  "country": "SE", "registry": "bolagsverket",
+  "id": "5560160680", "id_formatted": "556016-0680", "id_scheme": "organisationsnummer", "euid": null,
+  "name": "Telefonaktiebolaget LM Ericsson",
+  "legal_form_code": "AB", "legal_form": "Private or public limited company", "legal_form_local": "Aktiebolag",
+  "status": "active", "is_active": true, "registered_at": "1918-08-19",
+  "vat_registered": null, "vat_number": null,
+  "employees": null, "employees_reported": false,
+  "industry_codes": [{"code": "70100", "description": "Verksamheter som utövas av huvudkontor", "scheme": "SNI 2007", "rank": 1}],
+  "postal_address": {"postal_code": "16483", "city": "STOCKHOLM", "country_code": "SE"},
+  "advertising_protected": null,
+  "published_deadlines": [],
+  "source": "Bolagsverket (bolagsverket.se)",
+  "license": "Free re-use (Bolagsverket/SCB high-value datasets, EU Open Data Directive) — the publisher names no licence"
+}
+```
+
+Bolagsverket names no licence for this data, so neither do we: the string says what the permission is and says plainly that there is no licence name to quote, because a familiar name in that field would be a fabrication.
+
+Sweden publishes no status field at all. `status` is derived from three independent signals — a strike-off date, an ongoing winding-up or restructuring procedure, and Statistics Sweden's "economically active" flag — and `is_active` therefore means *on the register and not winding down*, which is not the same as trading. Where any of that is unavailable the answer is `unknown`, never `active`.
+
+Two dates are computed, and each carries the provision it comes from:
+
+```console
+$ curl "https://api.foretak.dev/v1/SE/company/5560160680/deadlines?today=2026-09-07"
+{"kind": "general_meeting",  "due_date": "2027-06-30", "days_until": 296, "rolled_forward": false, "period_label": "2026"}
+{"kind": "annual_accounts",  "due_date": "2027-07-31", "days_until": 327, "rolled_forward": false, "period_label": "2026"}
+```
+
+Six months to the annual general meeting (aktiebolagslagen 7 kap. 10 §) and seven to the filing before a late fee bites (årsredovisningslagen 8 kap. 6 §). Neither date is rolled forward off a weekend, because no Swedish source says it moves. Both assume a financial year ending 31 December, which the free dataset does not publish — and a `notes` sentence says exactly that, including how to shift both dates if the year end is different. `search_company` answers `not_implemented` for Sweden: the free API has four operations and none of them accepts a name.
 
 Note the `null`s. Companies House publishes no VAT status, no employee count and no share capital for any company, so those fields are `null` rather than guessed — `null` means "this register does not say", never "no". That honesty is the point of one shape across countries.
 
@@ -317,6 +352,7 @@ src/registry_mcp/mcp/         FastMCP server (stdio + Streamable HTTP at /mcp)
 
 - [`NORBIZ_SPEC.md`](NORBIZ_SPEC.md) — technical spec of the Norwegian module
 - [`UK_SPEC.md`](UK_SPEC.md) — technical spec of the UK module
+- [`SWEDEN_SPEC.md`](SWEDEN_SPEC.md) — technical spec of the Swedish module
 - [`DECISIONS.md`](DECISIONS.md) — interface and schema decisions
 - [`KEYWORDS.md`](KEYWORDS.md) — the canonical alias list
 - [`SUBMISSIONS.md`](SUBMISSIONS.md) — registry submission status
