@@ -234,14 +234,21 @@ def map_industry_codes(naringsgren: Mapping[str, Any] | None) -> list[IndustryCo
     if not naringsgren:
         return []
     sni = naringsgren.get("sni") or []
+    # SCB pads `sni` to five fixed slots and fills the unused ones with a
+    # whitespace `kod` and an empty `klartext` — observed live on production
+    # 2026-09-07 (Ericsson, 5560160680: one real code and four blanks). Passing
+    # those through put four junk `IndustryCode` entries on nearly every Swedish
+    # report. Drop any entry whose code has no non-space characters, and rank
+    # what survives from 1 so the ranks stay contiguous.
+    real = [item for item in sni if str(item.get("kod", "")).strip()]
     return [
         IndustryCode(
-            code=str(item.get("kod", "")),
-            description=item.get("klartext"),
+            code=str(item.get("kod", "")).strip(),
+            description=(item.get("klartext") or None),
             scheme="SNI 2007",
             rank=rank,
         )
-        for rank, item in enumerate(sni, start=1)
+        for rank, item in enumerate(real, start=1)
     ]
 
 

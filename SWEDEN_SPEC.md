@@ -1932,6 +1932,13 @@ reconciles names to numbers.*
 123. `reklamsparr.kod == "NEJ"` → `advertising_protected is False` and no N4.
 124. `reklamsparr` absent → `advertising_protected is None`.
 125. `reklamsparr` blocked by `fel` → `advertising_protected is None` (and N13 names SCB).
+
+*Added 2026-09-07 from the first live production call (§17).*
+
+129. SCB pads `naringsgrenOrganisation.sni` to five fixed slots, filling the unused ones with
+     `{"kod": "     ", "klartext": ""}` — observed live on `5560160680`. Blank-code entries are
+     dropped and the surviving ranks stay contiguous from 1.
+130. An `sni` array that is entirely padding yields `industry_codes == []`.
 98. A fixture using the **misspelled** `pagandeAvvecklingsEllerOmstruktureringsforfarande` key with
     a `KK` inside still yields `status == BANKRUPT`. This is the Altinn bug (§15) and the test that
     stops a silent regression to "healthy company".

@@ -981,3 +981,35 @@ def test_125_reklamsparr_blocked_by_fel_is_advertising_protected_none() -> None:
     assert report.advertising_protected is None
     assert not any("reklamspärr" in n.lower() for n in report.notes)
     assert any("could not be retrieved" in n and "SCB" in n for n in report.notes)
+
+
+def test_129_scb_pads_sni_with_blank_slots_and_they_are_dropped() -> None:
+    """SCB pads `sni` to five fixed slots with a whitespace `kod` and an empty
+    `klartext`. Observed live on production 2026-09-07 (5560160680: one real
+    code, four blanks). Blanks must not reach `industry_codes`, and the ranks
+    of what survives must stay contiguous from 1."""
+    codes = mapping.map_industry_codes(
+        {
+            "sni": [
+                {"kod": "70100", "klartext": "Verksamheter som utövas av huvudkontor"},
+                {"kod": "     ", "klartext": ""},
+                {"kod": "47642", "klartext": "Specialiserad butikshandel med cyklar"},
+                {"kod": "     ", "klartext": ""},
+                {"kod": "     ", "klartext": ""},
+            ],
+            "dataproducent": "SCB",
+            "fel": None,
+        }
+    )
+    assert [c.code for c in codes] == ["70100", "47642"]
+    assert [c.rank for c in codes] == [1, 2]
+    assert all(c.description for c in codes)
+
+
+def test_130_sni_entirely_blank_yields_no_industry_codes() -> None:
+    """A company whose every SNI slot is padding gets an empty list, not five
+    entries with whitespace codes."""
+    codes = mapping.map_industry_codes(
+        {"sni": [{"kod": "     ", "klartext": ""} for _ in range(5)], "dataproducent": "SCB", "fel": None}
+    )
+    assert codes == []
