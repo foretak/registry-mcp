@@ -11,7 +11,6 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import time
 from collections.abc import AsyncIterator, Iterator
 from datetime import date
 from pathlib import Path
@@ -482,24 +481,40 @@ async def test_104_api_key_never_leaks(caplog: pytest.LogCaptureFixture) -> None
 
 
 @respx.mock
-async def test_105_token_bucket_fast_and_not_serialising() -> None:
-    respx.get(f"{BASE_URL}/company/00445790").mock(return_value=httpx.Response(200, json=TESCO))
-    respx.get(f"{BASE_URL}/company/09446231").mock(return_value=httpx.Response(200, json=MONZO))
+async def test_105_token_bucket_does_not_serialise_concurrent_lookups() -> None:
+    """The rate-limit bucket must not turn concurrent lookups into a queue.
 
-    start = time.monotonic()
-    await client_module.lookup("00445790")
-    elapsed = time.monotonic() - start
-    assert elapsed < 0.5  # generous CI-safe bound; the bucket itself is sub-10ms
-
+    Asserted by observing overlap rather than by timing the wall clock. The
+    previous version bounded a mocked round trip at 0.5 s, which is a property
+    of the CI runner's load, not of the bucket: it failed on GitHub Actions at
+    1.17 s on 2026-09-07 (run 34120021824) with nothing in the module changed.
+    Here each mocked response holds the connection open while it counts how many
+    requests are in flight; if the bucket serialised, the peak would be 1.
+    """
     import asyncio
 
-    start2 = time.monotonic()
+    in_flight = 0
+    peak_in_flight = 0
+
+    async def _counting_response(request: httpx.Request) -> httpx.Response:
+        nonlocal in_flight, peak_in_flight
+        in_flight += 1
+        peak_in_flight = max(peak_in_flight, in_flight)
+        try:
+            await asyncio.sleep(0.05)
+        finally:
+            in_flight -= 1
+        body = TESCO if "00445790" in str(request.url) else MONZO
+        return httpx.Response(200, json=body)
+
+    respx.get(f"{BASE_URL}/company/00445790").mock(side_effect=_counting_response)
+    respx.get(f"{BASE_URL}/company/09446231").mock(side_effect=_counting_response)
+
     results = await asyncio.gather(
         client_module.lookup("00445790"),
         client_module.lookup("09446231"),
     )
-    elapsed2 = time.monotonic() - start2
-    assert elapsed2 < 1.0
+    assert peak_in_flight == 2, "the bucket serialised two concurrent lookups"
     assert {r.id for r in results} == {"00445790", "09446231"}
 
 
