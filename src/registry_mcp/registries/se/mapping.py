@@ -238,17 +238,27 @@ def map_industry_codes(naringsgren: Mapping[str, Any] | None) -> list[IndustryCo
     # whitespace `kod` and an empty `klartext` — observed live on production
     # 2026-09-07 (Ericsson, 5560160680: one real code and four blanks). Passing
     # those through put four junk `IndustryCode` entries on nearly every Swedish
-    # report. Drop any entry whose code has no non-space characters, and rank
-    # what survives from 1 so the ranks stay contiguous.
-    real = [item for item in sni if str(item.get("kod", "")).strip()]
+    # report. `_clean_text` (§2, already used for `verksamhetsbeskrivning`)
+    # drops a `kod`/`klartext` that is missing, JSON `null`, a non-string, or
+    # whitespace-only, treating all four the same as the blank-padding slots.
+    #
+    # T33 (2026-09-07): the previous filter, `str(item.get("kod", "")).strip()`,
+    # only substituted `""` when the *key* was absent — a `kod` key present
+    # with value `null` made `.get` return `None`, and `str(None)` is the
+    # four-character string `"None"`, which is non-blank and survived both
+    # the filter and `.strip()`. That shipped a fabricated `IndustryCode`
+    # with `code="None"` that looked like a real SNI code. Rank what
+    # survives from 1 so the ranks stay contiguous.
+    cleaned = [(item, _clean_text(item.get("kod"))) for item in sni]
+    real = [(item, kod) for item, kod in cleaned if kod is not None]
     return [
         IndustryCode(
-            code=str(item.get("kod", "")).strip(),
-            description=(item.get("klartext") or None),
+            code=kod,
+            description=_clean_text(item.get("klartext")),
             scheme="SNI 2007",
             rank=rank,
         )
-        for rank, item in enumerate(real, start=1)
+        for rank, (item, kod) in enumerate(real, start=1)
     ]
 
 
@@ -360,8 +370,39 @@ _N8_SOLE_TRADER_NOTE = (
     "reach access logs."
 )
 
-_PERSONAL_ID_TYP_KODS = frozenset({"PERSONNUMMER", "SAMORDNINGSNUMMER", "GDNUMMER", "DODSBO"})
+#: `typ.kod` values whose scheme is personal (fires N8 together with
+#: `legal_form.code == "E"` — keep both halves, D-039: the `or` is what kept
+#: N8 firing correctly below even while this set only held the undocumented
+#: codes). `"PERSON"` was added T33 (2026-09-07): it is what the live
+#: Bolagsverket TEST wire sends for a sole trader (`198101052382`,
+#: `bv_enskild_three.json`), confirmed across eight live recordings that day
+#: — see `_ID_SCHEME_BY_TYP_KOD` below for the full finding. The four
+#: documented codes are kept as-is; none has ever been observed live.
+_PERSONAL_ID_TYP_KODS = frozenset(
+    {"PERSON", "PERSONNUMMER", "SAMORDNINGSNUMMER", "GDNUMMER", "DODSBO"}
+)
 
+#: `organisationsidentitet.typ.kod` -> `CompanyReport.id_scheme` (§2.4).
+#:
+#: `ORGANISATIONSNUMMER` through `UTLANDSK_JURIDISK_IDENTITETSBETECKNING` are
+#: `SWEDEN_SPEC.md` §2.4's documented codes, sourced from Bolagsverket's own
+#: OpenAPI schema and its sole-trader example (`"typ": {"kod":
+#: "PERSONNUMMER", "klartext": "n/a"}`, still used by the deliberately
+#: synthetic `bv_enskild_two.json`). None of the eight has ever been
+#: observed on live traffic.
+#:
+#: `ORGNR` and `PERSON` were added T33 (2026-09-07), after eight live
+#: Bolagsverket TEST recordings (`tests/fixtures/README.md` "SE —
+#: Bolagsverket") showed the real wire never sends any documented code:
+#: every populated `typ.kod` among them was one of these two — `ORGNR`
+#: seven times (six aktiebolag/förening records plus, unexpectedly, the
+#: deregistered sole trader `193403223328`) and `PERSON` three times, on the
+#: one other live sole trader, `198101052382`. A ninth recording
+#: (`198101032384`, not found) sent `typ: null`. Both vocabularies are kept
+#: side by side — neither a documented nor an observed value may be
+#: misread — rather than one replacing the other, because the documented
+#: codes are Bolagsverket's own and a register that ships an undocumented
+#: short form today may ship the long one tomorrow.
 _ID_SCHEME_BY_TYP_KOD: dict[str, str] = {
     "ORGANISATIONSNUMMER": "organisationsnummer",
     "PERSONNUMMER": "personnummer",
@@ -369,6 +410,8 @@ _ID_SCHEME_BY_TYP_KOD: dict[str, str] = {
     "GDNUMMER": "GD-nummer",
     "DODSBO": "dödsbonummer",
     "UTLANDSK_JURIDISK_IDENTITETSBETECKNING": "foreign identifier",
+    "ORGNR": "organisationsnummer",
+    "PERSON": "personnummer",
 }
 
 
@@ -518,11 +561,24 @@ def _status_data_unavailable_producer(org: Mapping[str, Any]) -> str | None:
 # The mapper
 # ---------------------------------------------------------------------------
 
-_N3_NOTE = (
+_N3_NOTE_ACTIVE = (
     "Statistics Sweden does not mark this organisation as economically active (verksam): "
     "it holds no F-skatt, VAT or employer registration. It is on the register and is not "
     "being wound up, so is_active is true — but it may be dormant, and that is a "
     "different question."
+)
+#: T33 (2026-09-07): the live deregistered sole trader `193403223328`
+#: (`bv_enskild_avregistrerad.json`) is `status=DELETED`, `is_active=False`,
+#: and also carries `verksamOrganisation.kod == "NEJ"` — the single fixed
+#: `_N3_NOTE` wording used to assert "so is_active is true" on a record
+#: where that is false. Used instead of `_N3_NOTE_ACTIVE` whenever the
+#: derived status is not active: the SCB signal is still worth reporting
+#: (kept), the false is_active clause is not (dropped).
+_N3_NOTE_NOT_ACTIVE = (
+    "Statistics Sweden does not mark this organisation as economically active (verksam): "
+    "it holds no F-skatt, VAT or employer registration. That is a different question from "
+    "the register's own status for this organisation — see status_detail for the reason "
+    "it is not active."
 )
 _N4_NOTE = (
     "This organisation is marked with a reklamspärr (advertising block) in Statistics "
@@ -630,7 +686,10 @@ def map_entity(
         "verksamOrganisation", "kod", label="whether it is economically active"
     )
     if verksam_kod == "NEJ":
-        notes.append(_N3_NOTE)
+        # T33: which wording is true depends on the status this record's
+        # *other* rung already decided (§8) — never assert "so is_active is
+        # true" on a record a higher rung already marked not active.
+        notes.append(_N3_NOTE_ACTIVE if status_result.is_active else _N3_NOTE_NOT_ACTIVE)
 
     # advertising_protected (D-026(b), D-036): "JA" -> True + N4 (N4 is the
     # required notes sentence, unchanged); "NEJ" -> False (Bolagsverket/SCB

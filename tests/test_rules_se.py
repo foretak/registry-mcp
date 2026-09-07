@@ -652,6 +652,35 @@ def test_59_verksam_absent_no_n3() -> None:
     assert not any("economically active" in n for n in report.notes)
 
 
+def test_verksam_nej_not_active_drops_is_active_clause() -> None:
+    """T33 (2026-09-07): the same D-035 signal test_58 exercises
+    (`verksamOrganisation.kod == "NEJ"`) can also fire on a record a
+    *different* rung already marked not active — here rung 1, deregistered.
+    `_N3_NOTE_ACTIVE`'s "so is_active is true" clause would be false for
+    this record; `map_entity` must pick `_N3_NOTE_NOT_ACTIVE` instead, which
+    keeps the SCB signal and drops the false clause. Synthetic, isolated
+    version of the same fix the real `193403223328` fixture pins in
+    `tests/test_client_se.py::test_enskild_avregistrerad_fixture_is_deleted`."""
+    report = _map(
+        avregistreradOrganisation={
+            "avregistreringsdatum": "2020-01-01",
+            "fel": None,
+            "dataproducent": "Bolagsverket",
+        },
+        avregistreringsorsak=_kod_klartext("VERKUPP", "Verksamheten har upphört"),
+        verksamOrganisation=_kod_klartext("NEJ"),
+    )
+    assert report.status is CompanyStatus.DELETED
+    assert report.is_active is False
+    assert any("Statistics Sweden" in n for n in report.notes)
+    assert not any("so is_active is true" in n for n in report.notes)
+    assert any(
+        "does not mark this organisation as economically active" in n
+        and "different question from the register's own status" in n
+        for n in report.notes
+    )
+
+
 def test_60_kkav_reason_never_sets_bankruptcy_date() -> None:
     report = _map(
         avregistreradOrganisation={
@@ -1013,3 +1042,29 @@ def test_130_sni_entirely_blank_yields_no_industry_codes() -> None:
         {"sni": [{"kod": "     ", "klartext": ""} for _ in range(5)], "dataproducent": "SCB", "fel": None}
     )
     assert codes == []
+
+
+def test_131_sni_null_and_non_string_kod_dropped_like_blank_padding() -> None:
+    """T33 (2026-09-07): a `kod` key present with JSON `null`, or a non-string
+    value, must be dropped exactly like SCB's whitespace blank-padding slots
+    (test 129) — not stringified into a fabricated code. Before the fix,
+    `str(item.get("kod", ""))` turned a present-but-`null` `kod` into the
+    literal, non-blank string `"None"`, which survived `.strip()` and shipped
+    as a real-looking `IndustryCode`. A non-string `klartext` must likewise
+    become an honest `None`, never a stringified or raw non-`str` value."""
+    codes = mapping.map_industry_codes(
+        {
+            "sni": [
+                {"kod": None, "klartext": "should never surface"},
+                {"kod": 12345, "klartext": None},
+                {"kod": "47642", "klartext": "Specialiserad butikshandel med cyklar"},
+                {"kod": "     ", "klartext": ""},
+            ],
+            "dataproducent": "SCB",
+            "fel": None,
+        }
+    )
+    assert [c.code for c in codes] == ["47642"]
+    assert [c.rank for c in codes] == [1]
+    assert codes[0].description == "Specialiserad butikshandel med cyklar"
+    assert not any(c.code == "None" for c in codes)

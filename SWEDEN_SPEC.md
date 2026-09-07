@@ -362,7 +362,7 @@ carry the result.
 > `tests/test_client_se.py`'s `test_94_scb_only` carries the live-corrected assertions and explains
 > this in its own docstring.
 
-> **Live-confirmed gap, reported but not fixed by T26g: `organisationsidentitet.typ.kod` on the wire
+> **Live-confirmed by T26g, fixed 2026-09-07 in T33: `organisationsidentitet.typ.kod` on the wire
 > is `"ORGNR"` / `"PERSON"`, never the `"ORGANISATIONSNUMMER"` / `"PERSONNUMMER"` this section's §2.4
 > table and `mapping._ID_SCHEME_BY_TYP_KOD`/`_PERSONAL_ID_TYP_KODS` expect** — true on all eight T26g
 > recordings without exception, including every sole trader (`193403223328`, `198101032384`,
@@ -372,14 +372,14 @@ carry the result.
 > intends — a labelling gap only, since N8's personal-data note fires independently through
 > `legal_form.code == "E"` and is unaffected. `mapping.py` is outside this task's footprint; the gap
 > is pinned by `tests/test_client_se.py`'s `test_enskild_avregistrerad_fixture_is_deleted` and
-> `test_enskild_three_fixture_three_not_two_and_id_scheme_gap`, not corrected there.
+> `test_enskild_three_fixture_three_not_two_and_id_scheme_personnummer`, not corrected there.
 
 > **Also live-confirmed, on `bv_enskild_avregistrerad.json` (`193403223328`)**: this record has both
 > `avregistreradOrganisation` set (§8 Rung 1 fires, `status = DELETED`) **and**
 > `verksamOrganisation.kod == "NEJ"` — the trigger for the N3 note, whose fixed text ends "...so
 > `is_active` is true". For this record `is_active` is `False` (Rung 1 outranks Rung 3). N3's wording
 > assumes Rung 3 decided `status`; it was never written to also cover a record where a different rung
-> did. Also outside this footprint — pinned, not fixed, in the same test.
+> did. Also **fixed 2026-09-07 in T33**, in the same test.
 
 `bv_ab_dormant.json`, `bv_ab_konkurs.json`, `bv_ab_kk_and_li.json`, `bv_ab_rekonstruktion.json`,
 `bv_ab_fusion_overtagande.json` and `bv_ab_avregistrerad.json` are the six fixtures that stayed
@@ -553,7 +553,7 @@ guess (D-004, D-011). **Read `fel` before every value** (§1.6).
 |---|---|---|
 | N1 | `status != ACTIVE` | §8's per-status sentence |
 | N2 | An ongoing procedure code is present that §8's table does not classify | "Bolagsverket records an ongoing winding-up or restructuring procedure for this organisation ({kod}: {klartext}, registered {fromDatum}) that registry-mcp does not classify. Treat this organisation as not plainly active and check with Bolagsverket before contracting with it." |
-| N3 | `verksamOrganisation.kod == "NEJ"` | "Statistics Sweden does not mark this organisation as economically active (*verksam*): it holds no F-skatt, VAT or employer registration. It is on the register and is not being wound up, so `is_active` is true — but it may be dormant, and that is a different question." |
+| N3 | `verksamOrganisation.kod == "NEJ"` | **Two variants, chosen by whether this record's derived `status` is active** (T33, 2026-09-07 — the live deregistered sole trader `193403223328` proved the single fixed wording below could describe a status it contradicted). **Active**: "Statistics Sweden does not mark this organisation as economically active (*verksam*): it holds no F-skatt, VAT or employer registration. It is on the register and is not being wound up, so `is_active` is true — but it may be dormant, and that is a different question." **Not active**: "Statistics Sweden does not mark this organisation as economically active (*verksam*): it holds no F-skatt, VAT or employer registration. That is a different question from the register's own status for this organisation — see `status_detail` for the reason it is not active." |
 | N4 | `reklamsparr.kod == "JA"` (D-036; since R-2 landed, 2026-09-06, set **together with** `advertising_protected = True` — §2.7) | "This organisation is marked with a *reklamspärr* (advertising block) in Statistics Sweden's register: it has asked not to receive direct marketing. If you pass this record's contact details on, that marking must travel with them." |
 | N5 | `legal_form_code` came from `juridiskForm` (§7) | "The legal form shown comes from Statistics Sweden's *juridisk form* code list (code {kod}), not from Bolagsverket's *organisationsform*. The two are different code lists — the Tax Agency's is coarser — and Bolagsverket holds no organisationsform for this organisation." |
 | N6 | The legal form is unclassified by §7 | "The legal form {kod!r} is not classified by registry-mcp, so no filing deadlines are computed for it. This does not mean none apply — check with an accountant." (Norway's wording, D-009(a)) |
@@ -664,10 +664,34 @@ across both sources — and treat every other value as "an additional name", ren
 | `GDNUMMER` | `"GD-nummer"` | **yes** — N8 |
 | `DODSBO` | `"dödsbonummer"` | **yes** — N8 (an estate of a deceased person) |
 | `UTLANDSK_JURIDISK_IDENTITETSBETECKNING` | `"foreign identifier"` | no |
+| `ORGNR` | `"organisationsnummer"` | no |
+| `PERSON` | `"personnummer"` | **yes** — N8 |
 | *(absent, or unrecognised)* | `"organisationsnummer"` | no |
 
 Bolagsverket's own sole-trader example carries `"typ": {"kod": "PERSONNUMMER", "klartext": "n/a"}` —
 so `klartext` can be the literal string `"n/a"` and must never be rendered to a user. Read `kod`.
+
+**`ORGNR` and `PERSON`, added T33 (2026-09-07).** The first eight fixtures ever recorded against
+Bolagsverket's live TEST environment never sent any of the six codes above: every populated
+`typ.kod` was `ORGNR` (seven times) or `PERSON` (three times, all on the one sole trader
+`198101052382`); a ninth, not-found recording sent `typ: null`. Before this entry, every real
+Swedish sole trader this project could reach mapped to `id_scheme == "organisationsnummer"` —
+wrong, and the opposite of N8's "yes" column for that record. Both vocabularies are kept side by
+side rather than one replacing the other: the six documented codes are still what Bolagsverket's
+own OpenAPI schema and examples publish (and `bv_enskild_two.json` is deliberately kept synthetic
+so `PERSONNUMMER` stays under test coverage), and a register that ships an undocumented short form
+today may ship the long one tomorrow.
+
+**Not resolved by this entry.** The live deregistered sole trader `193403223328` is a twelve-digit,
+personnummer-shaped identifier (D-032's own accept/`format_id` distinction between ten and twelve
+digits) for an `organisationsform.kod == "E"` record — yet its `typ.kod` is `ORGNR`, which the table
+above maps to `"organisationsnummer"`. `id_scheme` follows the wire's own `typ` rather than the
+digit count, so this is correct on what Bolagsverket actually sent. Whether it should *also* fall
+back to the twelve-digit shape when `typ` disagrees with it, or is absent, is a policy question left
+open here: D-032 already declined to enforce a check-digit *algorithm* it could not source, which is
+a neighbouring but not identical question to reading a *shape* the same decision already treats as
+meaningful. This spec does not rule on it and neither does this fix — N8 is unaffected either way,
+since it fires independently off `legal_form.code == "E"` (D-039).
 
 ### 2.5 Dates — two shapes for the same field
 
@@ -1987,6 +2011,14 @@ reconciles names to numbers.*
      `{"kod": "     ", "klartext": ""}` — observed live on `5560160680`. Blank-code entries are
      dropped and the surviving ranks stay contiguous from 1.
 130. An `sni` array that is entirely padding yields `industry_codes == []`.
+
+*Added 2026-09-07 (T33): a live TEST recording exposed a `kod`/`klartext` key present with JSON
+`null` mapping to the fabricated string `"None"` instead of being dropped like blank padding.*
+
+131. `naringsgrenOrganisation.sni` containing `{"kod": null}` and `{"kod": 12345}` (a non-string)
+     alongside one real code → only the real code survives as an `IndustryCode`, its rank is `1`
+     (contiguous from 1, same rule tests 129–130 establish), and no `IndustryCode.code` is ever the
+     string `"None"`.
 98. A fixture using the **misspelled** `pagandeAvvecklingsEllerOmstruktureringsforfarande` key with
     a `KK` inside still yields `status == BANKRUPT`. This is the Altinn bug (§15) and the test that
     stops a silent regression to "healthy company".

@@ -131,6 +131,9 @@ def test_79_core_fields() -> None:
     assert report.status is CompanyStatus.ACTIVE
     assert report.id == "5560021361"
     assert report.id_formatted == "556002-1361"
+    # T33: the wire's typ.kod is "ORGNR" for this record (not the documented
+    # "ORGANISATIONSNUMMER") — id_scheme is unaffected by that either way.
+    assert report.id_scheme == "organisationsnummer"
 
 
 def test_80_previous_names_empty_and_n12() -> None:
@@ -554,17 +557,36 @@ def test_enskild_avregistrerad_fixture_is_deleted() -> None:
     `is_not_found` is `False` for it: Bolagsverket's own identity-bearing
     fields carry the deregistration, not a `fel`.
 
-    Known, live-confirmed spec contradiction pinned here rather than hidden:
-    `verksamOrganisation.kod == "NEJ"` on this record still appends the N3
-    note, whose fixed wording says "...so is_active is true" — but this
-    record's real `is_active` is `False` (rung 1, deregistered, outranks
-    rung 3's dormancy signal). N3's text assumes rung 3 decided status and
-    was never written to also cover a record where a *different* rung did.
-    That is a `registries/se/mapping.py` fix, out of this task's footprint —
-    reported upstream, not corrected here. The assertions below pin the real,
-    *correct* fields (`status`, `is_active`, `deregistered_at`) alongside the
-    real, currently-misleading note text, so a future fix to the note is
-    forced to touch this test rather than silently changing behaviour."""
+    T33 (2026-09-07) fixed two live-confirmed defects this fixture exposed;
+    both are pinned below so neither can silently return.
+
+    (1) `verksamOrganisation.kod == "NEJ"` on this record fires N3.
+    `_N3_NOTE_ACTIVE`'s "...so is_active is true" clause is false for this
+    record (`is_active` is `False` — rung 1, deregistered, outranks rung 3's
+    dormancy signal), so `map_entity` now picks `_N3_NOTE_NOT_ACTIVE`
+    instead, which keeps the SCB signal and drops the false clause. Before
+    the fix, this test pinned the wrong "so is_active is true" wording
+    deliberately, as a known, reported-not-fixed contradiction.
+
+    (2) This record's wire `organisationsidentitet.typ.kod` is `"ORGNR"`
+    (`{"kod": "ORGNR", "klartext": "Organisationsnummer"}`) — an
+    undocumented-but-now-recognised code (`SWEDEN_SPEC.md` §2.4) that maps
+    to `id_scheme == "organisationsnummer"`. That value is unchanged by the
+    T33 fix (it matched the unrecognised-code default before too) but is now
+    reached for the right, documented reason rather than by accident. Worth
+    reading twice: `193403223328` is a twelve-digit, personnummer-shaped
+    identifier for an `organisationsform.kod == "E"` sole trader — same
+    shape as `198101052382` below — yet the wire itself calls it an
+    organisationsnummer. `id_scheme` follows the wire's own `typ`, not the
+    digit count, so this is correct by construction on what Bolagsverket
+    actually sent; whether it should *also* fall back to shape when `typ`
+    disagrees with a personnummer-looking twelve digits is a policy
+    question T33 reports rather than decides (see its final report; D-032
+    already declined to enforce a check digit from an unsourced rule, which
+    is the neighbouring but not identical question). N8 fires regardless,
+    via `legal_form.code == "E"` (D-039's `or`, still doing its job here
+    since `"ORGNR"` was never a personal-id code, before or after T33) —
+    the near-miss D-039 built in on purpose."""
     assert mapping.is_not_found(ENSKILD_AVREGISTRERAD) is False
     report = mapping.map_entity(ENSKILD_AVREGISTRERAD, "193403223328")
     assert report.legal_form_code == "E"
@@ -579,27 +601,42 @@ def test_enskild_avregistrerad_fixture_is_deleted() -> None:
         for n in report.notes
     )
     assert any("sole trader" in n and "personal data" in n for n in report.notes)
-    # Pinned, not endorsed — see the docstring's N3 paragraph.
-    assert any("so is_active is true" in n for n in report.notes)
-    # id_scheme gap, live-confirmed on every sole trader recorded for this
-    # project: the wire's `organisationsidentitet.typ.kod` is `"PERSON"`,
-    # not the `"PERSONNUMMER"` SWEDEN_SPEC.md §2.4 and
-    # `mapping._ID_SCHEME_BY_TYP_KOD` expect (that table's `"PERSON"`-less
-    # code list came from Bolagsverket's OpenAPI *example*, not the live
-    # wire). `_PERSONAL_ID_TYP_KODS` never sees `"PERSON"` either, but N8
-    # above still fires correctly via its `legal_form.code == "E"` fallback
-    # — this gap is cosmetic on `id_scheme`, not a privacy hole. Reported
-    # upstream; not fixed here (out of footprint).
+    # (1) N3 fix: the false "so is_active is true" clause is gone, and the
+    # corrected wording — still naming Statistics Sweden, still keeping the
+    # substance that verksam is a different question from the register
+    # status — is present instead.
+    assert not any("so is_active is true" in n for n in report.notes)
+    assert any(
+        "does not mark this organisation as economically active" in n
+        and "different question from the register's own status" in n
+        for n in report.notes
+    )
+    # (2) id_scheme: value unchanged (see docstring part 2) but now reached
+    # via an explicit, documented "ORGNR" mapping rather than the
+    # unrecognised-code fallback.
     assert report.id_scheme == "organisationsnummer"
 
 
-def test_enskild_three_fixture_three_not_two_and_id_scheme_gap() -> None:
+def test_enskild_three_fixture_three_not_two_and_id_scheme_personnummer() -> None:
     """`198101052382` is the workbook's "enskild firma, två
     namnskyddslöpnummer" number (SWEDEN_SPEC.md §17, §14 test 114) — the real
     TEST recording has **three** (`namnskyddslopnummer` 1, 2 and 3; the last
     two are both named "Sol i maj"). See `test_114_live_enskild_two_...`'s
     amended docstring for the live (`@pytest.mark.live`) version of this same
-    finding."""
+    finding.
+
+    T33 (2026-09-07) regression pin for defect 1: this record's wire
+    `organisationsidentitet.typ.kod` is `"PERSON"`
+    (`{"kod": "PERSON", "klartext": "Identitetsbeteckning person"}`), an
+    undocumented-but-now-recognised code (`SWEDEN_SPEC.md` §2.4) that must
+    map to `id_scheme == "personnummer"`. Before the fix this fell through
+    to the unrecognised-code default, `"organisationsnummer"`, on every real
+    Swedish sole trader this project could reach — this test used to pin
+    that wrong value under the name `..._id_scheme_gap`. N8 now fires via
+    *both* halves of D-039's `or` for this record (`typ_kod` is in
+    `mapping._PERSONAL_ID_TYP_KODS` now, and `legal_form.code == "E"` still
+    holds independently) — either half alone remains sufficient, which is
+    why D-039 wrote it as an `or` rather than picking one."""
     report = mapping.map_entity(ENSKILD_THREE, "198101052382")
     assert report.legal_form_code == "E"
     assert report.status is CompanyStatus.ACTIVE
@@ -611,8 +648,8 @@ def test_enskild_three_fixture_three_not_two_and_id_scheme_gap() -> None:
         for n in report.notes
     )
     assert any("sole trader" in n and "personal data" in n for n in report.notes)
-    # Same live id_scheme gap as `test_enskild_avregistrerad_fixture_is_deleted`.
-    assert report.id_scheme == "organisationsnummer"
+    # Defect 1, fixed: was "organisationsnummer" (wrong) before T33.
+    assert report.id_scheme == "personnummer"
 
 
 # ---------------------------------------------------------------------------
@@ -1041,8 +1078,8 @@ async def test_114_live_enskild_two_namnskyddslopnummer() -> None:
     (`namnskyddslopnummer` 1, 2, 3; the last two both named "Sol i maj"). The
     function name and §14's text are stale pending a spec correction; the
     assertion below matches the confirmed live body. See
-    `test_enskild_three_fixture_three_not_two_and_id_scheme_gap` for the
-    offline (fixture-based) version of this same finding."""
+    `test_enskild_three_fixture_three_not_two_and_id_scheme_personnummer` for
+    the offline (fixture-based) version of this same finding."""
     report = await client_module.lookup("198101052382")
     assert any("This identifier carries 3 registered businesses" in n for n in report.notes)
 

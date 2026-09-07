@@ -35,7 +35,7 @@ recognise — live `id_scheme` for a real sole trader is currently
 `"organisationsnummer"`, not `"personnummer"` (the sole-trader personal-data
 note still fires correctly, via the independent `legal_form.code == "E"`
 check — this is a labelling gap, not a privacy one). **Live-confirmed,
-reported, not fixed by T26g** — see `SWEDEN_SPEC.md` §1.8. Replacing
+reported by T26g and fixed in T33** — see `SWEDEN_SPEC.md` §1.8 and §2.4. Replacing
 `bv_enskild_two.json` would have silently swapped the one fixture that tests
 the *documented* mapping for one that only exposes the *undocumented* gap.
 
