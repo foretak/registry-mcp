@@ -2,6 +2,8 @@
 
 Hosted server: `https://api.foretak.dev/mcp` (Streamable HTTP, no authentication). Local: `uvx registry-mcp` (stdio). Full tool/response reference: [`../README.md`](../README.md), [`../static/llms-full.txt`](../static/llms-full.txt).
 
+Three countries answer as of 0.3.0 — the United Kingdom (`GB`, Companies House, by company number), Norway (`NO`, brreg / Enhetsregisteret, by organisasjonsnummer) and Sweden (`SE`, Bolagsverket, by organisationsnummer). Every client below reaches all three through the same five tools; nothing on this page changes per country. Two things do: `search_company` returns `not_implemented` for `SE`, because Bolagsverket's free API has no name index, and a self-hosted install needs a credential for `GB` and for `SE` (see the last section).
+
 ## Claude Code
 
 ```bash
@@ -81,10 +83,10 @@ the URL from <https://chatgpt.com/plugins>.
 
 `search(query)` takes one free-text query — a name, a national identifier, or a name plus a
 country — and returns `{"results": [{"id", "title", "url"}]}`; `fetch(id)` takes a result's
-`id` (`"NO:923609016"`) and returns that company's register record and statutory filing
-deadlines as Markdown, with both full JSON reports in `metadata`.
-
-## Generic stdio (any MCP client)
+`id` (`"NO:923609016"`, `"SE:5560160680"`) and returns that company's register record and
+statutory filing deadlines as Markdown, with both full JSON reports in `metadata`. A Swedish
+company reaches ChatGPT through `search` only when the query is the identifier itself — the
+name fan-out skips `SE`, which has no name index.
 
 ## Generic stdio (any MCP client)
 
@@ -99,4 +101,6 @@ deadlines as Markdown, with both full JSON reports in `metadata`.
 }
 ```
 
-Optional env vars (`REGISTRY_MCP_CONTACT_EMAIL`, `REGISTRY_MCP_CACHE_PATH`, `COMPANIES_HOUSE_API_KEY`): see [`../README.md#configuration`](../README.md#configuration).
+Optional env vars: `REGISTRY_MCP_CONTACT_EMAIL`, `REGISTRY_MCP_CACHE_PATH`, `COMPANIES_HOUSE_API_KEY` (`GB`, free and instant) and `BOLAGSVERKET_CLIENT_ID` / `BOLAGSVERKET_CLIENT_SECRET` (`SE`, an OAuth 2 pair Bolagsverket issues on request). Norway needs none of them. A missing credential takes out only its own country: the others keep answering, and the failing one returns `upstream_error` naming the variable. Full table: [`../README.md#configuration`](../README.md#configuration).
+
+The hosted server at `api.foretak.dev` has all of these configured already, which is why every "no authentication" line above is true — the credentials are the *upstream registers'*, not yours.

@@ -3,8 +3,15 @@
 One MCP server and one REST API over national business registries — same JSON
 from both: lookup, name search, statutory filing deadlines. Live now: Norway
 (NO), Enhetsregisteret / Brønnøysundregistrene ("brreg"), by organisasjonsnummer
-(orgnr), with VAT status; and the United Kingdom (GB, never UK), Companies
-House, by company number (CRN), with accounts and confirmation statement dates.
+(orgnr), with VAT status; the United Kingdom (GB, never UK), Companies House, by
+company number (CRN), with accounts and confirmation statement dates; and Sweden
+(SE), Bolagsverket, by organisationsnummer, with the aktiebolag general-meeting
+and årsredovisning deadlines.
+
+Sweden has no name search: Bolagsverket's free API has four operations and none
+takes a company name, so search_company for SE returns not_implemented. Look a
+Swedish company up by its ten-digit organisationsnummer (a sole trader is looked
+up by their twelve-digit personnummer, which is that trader's company number).
 
 ## Add it as an MCP server
 
@@ -20,11 +27,18 @@ list_countries(). Resource: registry://rules/{country}. Prompt: explain_company.
 
     curl https://api.foretak.dev/v1/NO/company/923609016
     curl https://api.foretak.dev/v1/GB/company/00445790
+    curl https://api.foretak.dev/v1/SE/company/5560160680
 
 Returns a CompanyReport: name, legal_form, status, vat_registered, addresses,
-industry_codes, employees, share_capital, confidence, cached, fetched_at, and
-source_url + license for citation. A field one register publishes and another
-does not is null — never "", never 0, never invented.
+industry_codes, employees, share_capital, euid, advertising_protected,
+confidence, cached, fetched_at, and source_url + license for citation. A field
+one register publishes and another does not is null — never "", never 0, never
+invented. status is a lifecycle enum and status_detail is the sentence behind
+it: read status_detail and notes, because "active" is derived differently in
+each register — from four brreg flags in Norway, from one published status
+in the UK, and from three independent signals in Sweden, which publishes no
+status field at all. For SE, is_active means "on the register and not winding
+down", which is not the same as trading.
 Other routes: GET /v1/countries, GET /v1/{country}/search?q={name},
 GET /v1/{country}/company/{id}/deadlines?today=YYYY-MM-DD,
 GET /v1/{country}/validate/{id}, GET /health.
@@ -37,4 +51,6 @@ Full endpoint and tool docs: https://api.foretak.dev/llms-full.txt
 MCP manifest: https://api.foretak.dev/server.json
 Source (MIT): https://github.com/foretak/registry-mcp
 Data: Enhetsregisteret (NLOD 2.0, attribution required); Companies House (Crown
-copyright, free to re-use).
+copyright, free to re-use); Bolagsverket and Statistics Sweden (free re-use
+under the EU high-value-datasets regime — the publisher names no licence, so
+neither do we).

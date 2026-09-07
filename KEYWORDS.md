@@ -102,14 +102,24 @@ ASCII fallbacks, always in addition to the accented form:
 arrays. `F-skatt` keeps its hyphen and its capital F in prose (it is a
 Skatteverket term of art) and folds to `f-skatt` in a keyword array.
 
-**Placement is deliberately partial until Sweden goes live.** T26c put these
-terms in the MCP tool docstrings, the FastMCP `instructions`, `README.md` and
-`CHANGELOG.md` only. The machine keyword arrays and marketing surfaces of §2 —
-`pyproject.toml`, both `package.json`s, `server.json`, `static/llms.txt`,
-`static/llms-full.txt`, `static/index.html`, GitHub topics and the registry
-submissions — take them at **T26d**, together with the version bump, because
-until Bolagsverket issues credentials a Swedish keyword would draw an agent to
-a country that answers `upstream_error`.
+**Sweden went live on 2026-09-07 (0.3.0), so the reason for holding these
+back is gone.** `GET /health` returns `{"version":"0.3.0","countries":["GB","NO","SE"]}`
+and `GET /v1/SE/company/5560160680` returns Telefonaktiebolaget LM Ericsson. A
+Swedish keyword now leads an agent to a country that answers, which is the
+condition T26c wrote the hold against. What has actually been placed and what
+has not is audited in **§2a** — the short version is that the code-side
+surfaces carry Sweden and none of the machine keyword arrays do.
+
+**No keyword row for `euid`, and none for `advertising_protected`/*reklamspärr*,
+for the same reason there is no `swedish company search` row.** Both fields
+exist on every `CompanyReport` as of 0.3.0, and both came back `null` from
+every live call made on go-live day: none of the three registers we read
+publishes an EUID at all, and Statistics Sweden's *reklamspärr* flag was absent
+from the Swedish record checked (`5560160680`). A keyword earns a tool call, and a tool call that can only
+return `null` is a keyword that costs the caller a round trip. These terms go
+back on the table the first time a register answers one of them with a value —
+the Danish module (CVR-loven § 19) is the likely first, and Finland is the
+likely first EUID.
 
 ---
 
@@ -121,9 +131,9 @@ a country that answers `upstream_error`.
 | PyPI `keywords` array | 1–12 + ASCII fallbacks + umbrella | One entry each, lower-case, hyphenated where multiword. Already done. | T11 |
 | npm `package.json` description + `keywords` | 1–12 + ASCII fallbacks | Mirror PyPI exactly, so a search on either index hits. | T11 |
 | `README.md` first line | 11, 12, then 1, 4, 5, 6 by the third line | An agent reading the repo card sees "company registry" and "MCP" immediately, and "brreg / Enhetsregisteret / organisasjonsnummer (orgnr)" before the fold. | T11 |
-| GitHub repo topics | `mcp`, `mcp-server`, `model-context-protocol`, `brreg`, `bronnoysund`, `enhetsregisteret`, `organisasjonsnummer`, `orgnr`, `norway`, `company-data`, `business-registry`, `ai-agents` | Topics are ASCII and hyphenated only — use the fallback spellings. Max 20 topics. | T11 (human clicks) |
+| GitHub repo topics | The twelve set on 2026-09-04: `mcp`, `mcp-server`, `model-context-protocol`, `brreg`, `bronnoysund`, `enhetsregisteret`, `organisasjonsnummer`, `orgnr`, `norway`, `company-data`, `business-registry`, `ai-agents` | Topics are ASCII and hyphenated only — use the fallback spellings. Max 20 topics, so **eight slots are free and no British or Swedish term has one** (§2a). | T11 (human clicks) |
 | MCP tool docstrings (`lookup_company`, `search_company`, `company_deadlines`, `validate_company_id`) | 1–9, GB-1…GB-7 and SE-1…SE-11 in the per-country tools' first two sentences | Written as prose an agent reads, not a keyword dump: *"Look up a company by its national identifier — a Norwegian organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene / Enhetsregisteret (brreg), or a UK company number (CRN) at Companies House."* One sentence per country, Norway first. `search_company` carries no Swedish task phrase except the one saying Sweden cannot be searched by name. Country-neutral tools stay neutral — do not push a country into `list_countries`. | T07, T15c, T26c |
-| FastMCP `instructions` and `api/main.py :: _DESCRIPTION` | 11a first, then 1–9, GB-1…GB-7 and SE-1/SE-2 | Both lead with "the company registry MCP" (row 11a), then name the live countries with their aliases in one sentence each. These two strings are the first thing a client model reads. **`instructions` carries Sweden (T26c); `_DESCRIPTION` does not yet — `api/` was out of scope for T26c and it still says "Two countries answer today". T26d.** | T15c, T26c |
+| FastMCP `instructions` and `api/main.py :: _DESCRIPTION` | 11a first, then 1–9, GB-1…GB-7 and SE-1/SE-2 | Both lead with "the company registry MCP" (row 11a), then name the live countries with their aliases in one sentence each. These two strings are the first thing a client model reads. **Both carry all three countries since 0.3.0** (T26d, commit `0f952bc`); `mcp/connector.py`'s `search` description does too. | T15c, T26c, T26d |
 | REST OpenAPI endpoint descriptions | 1, 4, 5, 6 on `/v1/{country}/…` routes | Same prose rule. `/openapi.json` is crawled. | T06 |
 | `server.json` (`description`, `_meta…/keywords`) | `description` is capped at **100 characters** by the schema, so it carries 1, 5/6, 11 only; the full list lives in `_meta.io.modelcontextprotocol.registry/publisher-provided.keywords` | Done in this repo's `server.json`. | T05 (done) |
 | `static/llms.txt` | 1–6 in the opening paragraph | Done. | T05 (done) |
@@ -131,6 +141,98 @@ a country that answers `upstream_error`.
 | `static/index.html` | 1–12 in `<meta name="keywords">`, the JSON-LD `keywords` and `alternateName` | Done. | T05 (done) |
 | Registry submissions (Smithery, Glama, PulseMCP, mcp.so, MCP Market) | 1–12 wherever a tag/keyword field exists | Copy from §1 verbatim; do not re-word per site. | T11 |
 | Article titles and first paragraphs (`content/`) | At least 1, 5 and 6 per article | The articles are search surface, not just prose. | T12 |
+
+---
+
+## 2a. Placement audit — 2026-09-07, the day Sweden went live
+
+Checked against the files in this repo and against the running 0.3.0 service,
+not against a task's status column. **Every code-side surface carries all three
+countries. Not one machine keyword array does — and the British terms never got
+there either, so this is a 0.2.0 debt Sweden merely made visible.**
+
+| Surface | Norway | UK | Sweden | Evidence |
+|---|---|---|---|---|
+| MCP tool docstrings (`mcp/server.py`) | ✅ | ✅ | ✅ | 16 hits for `bolagsverket`/`organisationsnummer` |
+| FastMCP `instructions` | ✅ | ✅ | ✅ | same file |
+| `mcp/connector.py` `search` description | ✅ | ✅ | ✅ | 1 hit |
+| `api/main.py :: _DESCRIPTION` | ✅ | ✅ | ✅ | "Three countries answer today", + the alias line |
+| `static/well-known/mcp/server-card.json` | ✅ | ✅ | ✅ | 4 hits |
+| `README.md` | ✅ | ✅ | ✅ | Sweden section, live example |
+| `CHANGELOG.md` | ✅ | ✅ | ✅ | 0.3.0 entry |
+| `static/llms.txt` | ✅ | ✅ | ✅ | **fixed 2026-09-07** — was Norway + UK only |
+| `static/llms-full.txt` | ✅ | ✅ | ✅ | **fixed 2026-09-07** — had *zero* occurrences of "Sweden", "Bolagsverket" or "organisationsnummer" in 1 020 lines |
+| `docs/clients.md` | ✅ | ✅ | ✅ | **fixed 2026-09-07** |
+| `pyproject.toml :: description` | ✅ | ❌ | ❌ | still reads "first module: Norway" |
+| `pyproject.toml :: keywords` | ✅ | ❌ | ❌ | 23 entries, no `companies-house`, no `bolagsverket` |
+| `packages/npm/registry-mcp/package.json` | ✅ | ❌ | ❌ | description and its 24 `keywords` both mirror the stale PyPI pair |
+| `server.json :: description` | ✅ | ✅ | ❌ | 91 of the schema's 100 characters used |
+| `server.json :: _meta…/keywords` | ✅ | ✅ | ❌ | 20 entries |
+| `server.json :: _meta…/countries` | ✅ | ✅ | ❌ | literally `["GB", "NO"]` |
+| `server.json :: _meta…/dataLicense` | ✅ | ✅ | ❌ | names NLOD 2.0 and Crown copyright only |
+| `static/index.html` | ✅ | ✅ | ❌ | `<meta name="description">`, `<meta name="keywords">`, the lede, the JSON-LD `description`/`keywords`/`areaServed`, and the playground `<select>` |
+| `mcpb/manifest.json` | ✅ | ✅ | ❌ | `description`, `long_description` and `keywords` all say two countries |
+| GitHub repo topics | ✅ | ❌ | ❌ | 12 of 20 set, verified live with `gh repo view --json repositoryTopics` |
+| Registry listings (§ `SUBMISSIONS.md`) | ✅ | partly | ❌ | the awesome-mcp-servers entry merged 2026-09-07 leads with the UK and Norway; no directory mentions Sweden |
+
+`packages/brreg-mcp/` and `packages/npm/brreg-mcp/` are **correct as they
+stand** and must not be touched: §3 makes the alias package Norway-only on
+purpose, carrying rows 1–9 and nothing else.
+
+### The strings to paste
+
+These are not code changes; they are the keyword arrays and listing copy this
+file already owns. Whoever cuts the next release applies them in one pass,
+because they only reach PyPI, npm and the MCP registry when a tag is pushed —
+and as of 2026-09-07 no tag has been, so all three indexes still serve 0.2.0.
+
+**`pyproject.toml :: description`** and the npm `registry-mcp` description
+(keep them byte-identical — the §2 rule is "mirror PyPI exactly"):
+
+> The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, by organisasjonsnummer, orgnr or org.nr), the United Kingdom (Companies House, by company number / CRN) and Sweden (Bolagsverket, by organisationsnummer).
+
+**`pyproject.toml :: keywords` and the npm `keywords`** — add to what is there,
+remove nothing, lower-case throughout:
+
+```
+companies-house  companies-house-api  company-number  company-registration-number
+uk-company-lookup  uk-company-search  confirmation-statement  united-kingdom
+bolagsverket  organisationsnummer  foretagsinformation  arsredovisning
+f-skatt  swedish-company-lookup  swedish-company-number  sweden
+```
+
+Note `organisationsnummer` (Swedish, **-tion-**) beside the existing
+`organisasjonsnummer` (Norwegian, **-sjon-**). One letter apart, and SE-1 exists
+precisely because an index that carries only one of them sends half the Nordic
+prompts to the wrong country.
+
+**`server.json :: description`** — the schema caps this at 100 characters; the
+line below is 89, and carries rows 1, 6, 11a, GB-1, SE-1 and SE-2:
+
+> The company registry MCP: brreg orgnr, Companies House, Bolagsverket organisationsnummer.
+
+**`server.json :: _meta."io.modelcontextprotocol.registry/publisher-provided"`** —
+append `"bolagsverket"`, `"organisationsnummer"`, `"swedish company lookup"` and
+`"swedish company number"` to `keywords`; set `countries` to
+`["GB", "NO", "SE"]`; and append to `dataLicense`:
+`"; free re-use, publisher names no licence (Bolagsverket/SCB high-value datasets, EU Open Data Directive)"`.
+
+**GitHub repo topics** — eight free slots, and eight terms that want them.
+One authenticated command, the same shape as `SUBMISSIONS.md`'s:
+
+```
+companies-house  company-number  united-kingdom  bolagsverket
+organisationsnummer  sweden  company-lookup  company-registry
+```
+
+**`static/index.html` and `mcpb/manifest.json`** carry executable code and a
+bundle contract respectively, so their copy is listed here and changed by
+whoever owns those files. `index.html` needs Sweden in six places — the two
+`<meta>` tags, the lede, and the JSON-LD `description`, `keywords` and
+`areaServed` — plus a decision the copy cannot make on its own: the playground
+`<select>` offers `NO` and `GB`, and adding `SE` means the form must handle a
+country whose `search_company` is `not_implemented`. That is a behaviour change,
+not a keyword.
 
 ---
 

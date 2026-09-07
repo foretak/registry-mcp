@@ -15,7 +15,10 @@ Aliases you may be searching for: brreg, Brønnøysund, Brønnøysundregistrene,
 Enhetsregisteret, organisasjonsnummer, orgnr, org.nr, Norway company lookup,
 Norwegian business registry, foretak, Companies House, Companies House API,
 company number, company registration number, CRN, UK company lookup, UK company
-search, confirmation statement, company registry, company registry MCP, MCP.
+search, confirmation statement, Bolagsverket, organisationsnummer, svenskt
+företag, företagsinformation, kontrollera företag, årsredovisning, F-skatt,
+Swedish company lookup, Swedish company number, company registry,
+company registry MCP, MCP.
 
 
 ## 0. The one thing to know first
@@ -38,6 +41,7 @@ Country codes are ISO-3166-1 alpha-2, upper-case.
 |---|---|---|---|---|
 | Norway | `NO` | Enhetsregisteret (Brønnøysundregistrene), slug `brreg` | organisasjonsnummer (orgnr) | `923609016` |
 | United Kingdom | `GB` | Companies House, slug `companies-house` | company number (company registration number, CRN) | `00445790` |
+| Sweden | `SE` | Bolagsverket (with Statistics Sweden/SCB in the same payload), slug `bolagsverket` | organisationsnummer — ten digits; a sole trader's is their twelve-digit personnummer | `5560160680` |
 
 Do not hard-code this table — call `list_countries()` / `GET /v1/countries`.
 Countries are added as separate modules; the list grows without the tool shape
@@ -57,12 +61,37 @@ variable while every other country keeps answering — the flag tells you a key
 is *needed*, not whether this deployment *has* one, so read the error when one
 arrives rather than pre-judging from the flag.
 
+**Bolagsverket needs a credential too**, an OAuth 2 client pair rather than a
+key: `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET`, issued on
+request. `requires_api_key` is `true` for `SE` and `api_key_env` names the
+first of the pair. The hosted service has them configured and `SE` answers.
+
+**Sweden has no name search, permanently.** Bolagsverket's free "värdefulla
+datamängder" API has four operations and none of them takes a company name, so
+`search_company` for `SE` returns `501 not_implemented` with a hint naming the
+alternatives. This is a fact about the register, not a gap in this module: look
+a Swedish company up by its organisationsnummer, or use Bolagsverket's bulk
+downloadable files if you genuinely need a name index.
+
+**Sweden publishes no status field.** Norway publishes four lifecycle flags and
+this service derives `active` from the absence of all four; the UK publishes one
+status string and it is mapped one-to-one; Sweden publishes neither, and
+`status` is derived from three independent signals — a strike-off date, any
+ongoing winding-up or restructuring procedure, and Statistics Sweden's
+"economically active" marking. The consequence is worth carrying into your
+answer: **for `SE`, `is_active: true` means "on the register and not winding
+down", which is not the same as trading.** A dormant but perfectly registered
+Swedish company is `active` with a `notes` entry saying Statistics Sweden does
+not mark it as economically active. Read `status_detail` and `notes`, not just
+the boolean.
+
 
 ## 2. Choosing a call
 
 - You have a national identifier and want facts  → `lookup_company`
 - You have only a company name                    → `search_company`, then
-  `lookup_company` with the `id` of the right hit
+  `lookup_company` with the `id` of the right hit. Not available for `SE`:
+  Bolagsverket's free API has no name index, so `SE` needs an identifier
 - You want to know if an identifier is well-formed, with no network round-trip
   → `validate_company_id`
 - You want filing dates for a company             → `company_deadlines`
@@ -74,8 +103,17 @@ picking one silently.
 
 Pick the country code before the call, not after: `NO` for a Norwegian
 organisasjonsnummer (nine digits), `GB` for a UK company number (eight
-characters, digits or two letters and six digits). A user saying "this UK
+characters, digits or two letters and six digits), `SE` for a Swedish
+organisationsnummer (ten digits, written `556016-0680`). A user saying "this UK
 supplier" means `country="GB"`.
+
+Nine digits, ten digits, eight characters — the lengths are the fastest
+discriminator when a user pastes a bare number with no country. But do not rely
+on length alone across the two Nordic spellings: Norwegian
+*organisasjonsnummer* and Swedish *organisationsnummer* differ by one letter and
+mean different registers. If the user's text is ambiguous, ask, or call
+`validate_company_id` in each candidate country first — it costs no network
+round trip.
 
 
 ## 3. REST endpoints
@@ -120,6 +158,19 @@ response today, not an excerpt:
           "is_stub": false,
           "requires_api_key": false,
           "api_key_env": null
+        },
+        {
+          "country": "SE",
+          "registry": "bolagsverket",
+          "name": "Bolagsverket (Sweden)",
+          "id_scheme": "organisationsnummer",
+          "id_example": "5560160680",
+          "id_description": "A Swedish organisationsnummer: ten digits, written 556016-0680, with a check digit. A sole trader is looked up by a twelve-digit personnummer instead (YYYYMMDDNNNN), and one such number can carry several registered businesses.",
+          "source_url": "https://gw.api.bolagsverket.se/vardefulla-datamangder/v1",
+          "license": "Free re-use (Bolagsverket/SCB high-value datasets, EU Open Data Directive) — the publisher names no licence",
+          "is_stub": false,
+          "requires_api_key": true,
+          "api_key_env": "BOLAGSVERKET_CLIENT_ID"
         }
       ]
     }
@@ -330,6 +381,70 @@ outage: no Companies House API key configured on this deployment. Its `message`
 says so and its `hint` names `COMPANIES_HOUSE_API_KEY`; that one is not fixed
 by retrying, so tell the user rather than looping.
 
+The same call for Sweden, and the same document shape again — this is the live
+0.3.0 response, abridged to the fields that differ:
+
+    curl https://api.foretak.dev/v1/SE/company/5560160680
+
+    {
+      "country": "SE",
+      "registry": "bolagsverket",
+      "id": "5560160680",
+      "id_formatted": "556016-0680",
+      "id_scheme": "organisationsnummer",
+      "euid": null,
+      "name": "Telefonaktiebolaget LM Ericsson",
+      "legal_form_code": "AB",
+      "legal_form": "Private or public limited company",
+      "legal_form_local": "Aktiebolag",
+      "limited_liability": true,
+      "has_board_duty": true,
+      "has_annual_accounts_duty": true,
+      "status": "active",
+      "status_detail": "Registered with Bolagsverket and not marked as struck off or in any winding-up or restructuring procedure.",
+      "is_active": true,
+      "registered_at": "1918-08-19",
+      "vat_registered": null,
+      "employees": null,
+      "employees_reported": false,
+      "industry_codes": [
+        {"code": "70100", "description": "Verksamheter som utövas av huvudkontor", "scheme": "SNI 2007", "rank": 1}
+      ],
+      "postal_address": {"lines": [], "postal_code": "16483", "city": "STOCKHOLM", "country_code": "SE"},
+      "advertising_protected": null,
+      "published_deadlines": [],
+      "confidence": 1.0,
+      "confidence_basis": "exact identifier lookup in the Bolagsverket register",
+      "source": "Bolagsverket (bolagsverket.se)",
+      "source_url": "https://gw.api.bolagsverket.se/vardefulla-datamangder/v1",
+      "license": "Free re-use (Bolagsverket/SCB high-value datasets, EU Open Data Directive) — the publisher names no licence",
+      "notes": ["Filing deadlines are computed assuming a financial year ending 31 December. …"]
+    }
+
+Four things about `SE` specifically.
+
+**`status` was derived, not read.** See §1: Bolagsverket publishes no status
+field. `status_detail` is the sentence that says which of the three signals
+decided it, and it is the field to quote. `is_active` for `SE` means *on the
+register and not winding down* — a company can be `active` here and not be
+trading, and when Statistics Sweden does not mark it economically active a
+`notes` entry says exactly that, in English.
+
+**`license` names no licence, deliberately.** Bolagsverket publishes this data
+free under the EU high-value-datasets regime and names no licence for it, so
+the string says what the permission is and says plainly that there is no licence
+name to quote. A familiar name in that field would be a fabrication.
+
+**What Bolagsverket's free dataset does not publish, and therefore returns as
+`null`:** `vat_registered` and everything VAT (Skatteverket's register, not
+Bolagsverket's); `employees`, so `employees_reported` is always `false` for
+`SE`; `share_capital`; officers and beneficial owners; any financial figure;
+the financial-year end; a visiting address, `email`, `phone` and `website`.
+`business_address` is `null` and `postal_address` carries what there is.
+
+**`published_deadlines` is `[]`.** Sweden publishes no per-company filing dates,
+so both Swedish deadlines are computed from statute — see §3.4.
+
 ### 3.3 GET /v1/{country}/search?q={name}
 
 **For:** turning a company name into candidate identifiers.
@@ -427,6 +542,28 @@ Zero hits for `GB` says the same thing in UK terms: sole traders and ordinary
 partnerships are not on the Companies House register, so no spelling of the
 name will find them. UK names usually end in `LIMITED`, `LTD`, `PLC` or `LLP` —
 drop the suffix before concluding a company does not exist.
+
+**Sweden does not implement this endpoint at all**, and never will on the free
+API. This is the whole response:
+
+    curl "https://api.foretak.dev/v1/SE/search?q=ericsson"      # HTTP 501
+
+    {
+      "error": {
+        "code": "not_implemented",
+        "message": "Bolagsverket's free API cannot search by company name.",
+        "hint": "Sweden can only be looked up by identifier: call lookup_company with the ten-digit organisationsnummer (e.g. 5560160680), or the twelve-digit personnummer for a sole trader — validate_company_id will check the shape first without spending a lookup. Bolagsverket publishes the whole register as downloadable files for callers who need to search by name. search_company works for the other countries list_countries returns.",
+        "country": "SE",
+        "registry": "bolagsverket",
+        "details": {}
+      }
+    }
+
+Do not retry it, do not try a different spelling, and do not fall back to
+guessing an identifier. If the user has only a Swedish company name, say that
+the register offers no name index and ask them for the organisationsnummer —
+it is on every Swedish invoice, in the footer of most Swedish websites, and in
+the company's own annual report.
 
 ### 3.4 GET /v1/{country}/company/{id}/deadlines?today=YYYY-MM-DD
 
@@ -590,6 +727,70 @@ Four differences from Norway, all deliberate:
   entry explaining that what remains to be filed is the insolvency
   practitioner's or the registrar's to decide.
 
+**Sweden computes both of its deadlines**, because Bolagsverket publishes none
+per company. Live, asked on 2026-09-07:
+
+    curl "https://api.foretak.dev/v1/SE/company/5560160680/deadlines?today=2026-09-07"
+
+    {
+      "country": "SE",
+      "registry": "bolagsverket",
+      "company_name": "Telefonaktiebolaget LM Ericsson",
+      "today": "2026-09-07",
+      "deadlines": [
+        {
+          "kind": "general_meeting",
+          "name": "Ordinary general meeting",
+          "local_name": "Ordinarie bolagsstämma (årsstämma)",
+          "authority": "Company shareholders (no external filing)",
+          "statutory_date": "2027-06-30", "due_date": "2027-06-30",
+          "rolled_forward": false, "period_label": "2026",
+          "period_start": "2026-01-01", "period_end": "2026-12-31",
+          "days_until": 296,
+          "applies_because": "An aktiebolag must hold its ordinary general meeting (årsstämma) within six months of the end of each financial year (aktiebolagslagen 7 kap. 10 §). …",
+          "source_url": "https://lagen.nu/2005:551"
+        },
+        {
+          "kind": "annual_accounts",
+          "name": "Annual accounts filing",
+          "local_name": "Årsredovisning",
+          "authority": "Bolagsverket",
+          "statutory_date": "2027-07-31", "due_date": "2027-07-31",
+          "rolled_forward": false, "period_label": "2026",
+          "days_until": 327,
+          "applies_because": "… a late fee of 7 500 kr (15 000 kr for a public company) starts if the documents have not arrived within seven months of the financial year end (årsredovisningslagen 8 kap. 6 §). …",
+          "source_url": "https://lagen.nu/1995:1554"
+        }
+      ],
+      "notes": ["Filing deadlines are computed assuming a financial year ending 31 December. …"]
+    }
+
+Three things to carry into your answer:
+
+- **The financial year is assumed, not known.** Bolagsverket's free dataset
+  does not publish a company's financial year, and a Swedish financial year
+  need not be the calendar year. Both dates assume 31 December, the `notes`
+  entry says so, and it also says how to shift them: a 30 June year end gives
+  31 December for the meeting and 31 January for the filing. If the user knows
+  their year end and it is not December, move both dates by the same number of
+  months yourself and tell them you did.
+- **The filing date is an outer limit, not this company's own.**
+  Årsredovisningslagen 8 kap. 3 § requires filing within one month of the
+  general meeting that adopts the accounts; Bolagsverket does not publish the
+  meeting date, so the seven-month fee threshold of 8 kap. 6 § is emitted
+  instead. A company whose meeting was earlier must file earlier.
+- **Nothing rolls forward, and for a different reason than the UK's.** For
+  `GB` there is a rule saying a weekend deadline stays put. For `SE` there is
+  no sourced rule either way, so `rolled_forward` is `false` because nothing
+  was found saying the date moves — not because something was found saying it
+  does not. `registry://rules/SE` states that distinction; it matters if a
+  Swedish deadline lands on a Sunday.
+
+Skatteverket's deadlines — inkomstdeklaration 2, moms, arbetsgivardeklaration —
+are real Swedish obligations that this endpoint does **not** compute, for the
+same reason as UK corporation tax: the inputs (the financial-year end, the VAT
+period) are not in Bolagsverket's dataset. Do not infer them.
+
 Corporation tax is **not** included for `GB`, and neither is the first-accounts
 deadline after incorporation. Both rules are real and both are stated in
 `registry://rules/GB`, but the inputs they need — HMRC's accounting period,
@@ -682,10 +883,47 @@ back `404 not_found` from `lookup_company`. `normalized` is the value to feed
 onward: `445790` becomes `00445790`, `oc303675` becomes `OC303675`.
 `formatted` is `null` because there is no UK grouping convention.
 
+**Sweden is the third variation: a check digit that exists but that this
+service does not enforce.** `formatted` groups the ten digits as `556016-0680`,
+and `reason` carries the whole position rather than hiding it:
+
+    curl https://api.foretak.dev/v1/SE/validate/5560212524
+
+    {
+      "country": "SE",
+      "registry": "bolagsverket",
+      "id_scheme": "organisationsnummer",
+      "input": "5560212524",
+      "valid": true,
+      "normalized": "5560212524",
+      "formatted": "556021-2524",
+      "reason": "Well-formed organisationsnummer for SE. A valid identifier does not mean the entity exists — call lookup_company (MCP) or GET /v1/{country}/company/{id} (REST) to find out. Note that this number does not satisfy the modulus-10 check digit that Swedish identifiers are generally described as carrying. registry-mcp has not been able to confirm that rule against a primary source, as of 2026-09, so the number is not rejected here — but Bolagsverket validates a check digit server-side and may answer 'Identitetsbeteckning har ogiltig kontrollsiffra'. Check the digits before relying on it.",
+      "hint": null
+    }
+
+So for `SE`, `valid: true` can be followed by a `400 invalid_id` from the
+register itself — that same number returns
+
+    {"error": {"code": "invalid_id",
+      "message": "Bolagsverket rejected 5560212524 as a malformed identitetsbeteckning.",
+      "hint": "Bolagsverket validates a check digit that this module does not: it answers 'Identitetsbeteckning har ogiltig kontrollsiffra' for a number of the right length whose check digit is wrong. Check the digits. An organisationsnummer is ten digits and a personnummer is twelve (YYYYMMDDNNNN).",
+      "country": "SE", "registry": "bolagsverket", "details": {}}}
+
+Read `reason` for `SE`, not only `valid`. Three countries, three meanings of
+the same boolean: Norway's MOD11 is enforced and a failing number never reaches
+the register; the UK has no check digit to enforce; Sweden has one that this
+module cannot source and therefore defers to Bolagsverket rather than
+implementing from memory.
+
+`validate_company_id` for `SE` accepts twelve digits as well as ten — a Swedish
+sole trader is looked up by their personnummer, which is that trader's company
+number. §7 says what this service does with such an identifier, which is: not
+log it.
+
 ### 3.6 GET /health
 
 Liveness for monitoring:
-`{"status": "ok", "version": "0.2.0", "countries": ["GB", "NO"]}`. Not part of
+`{"status": "ok", "version": "0.3.0", "countries": ["GB", "NO", "SE"]}`. Not part of
 the data API; do not call it in a loop — `GET /v1/countries` is the discovery
 document, this is only a heartbeat.
 
@@ -712,12 +950,17 @@ returns the `DeadlineReport` object of §3.4, not a bare array of deadlines, and
 `validate_company_id` returns the `ValidationResult` object of §3.5 with
 `valid: false` rather than raising on a bad identifier.
 
-`country` defaults to `"NO"` on every tool that takes it, so a UK call must
-pass it explicitly — `lookup_company("00445790", country="GB")`,
+`country` defaults to `"NO"` on every tool that takes it, so a UK or Swedish
+call must pass it explicitly — `lookup_company("00445790", country="GB")`,
 `search_company("tesco", country="GB")`,
 `company_deadlines("00445790", country="GB", today="2026-09-04")`,
-`validate_company_id("445790", country="GB")`. The value is `"GB"`; `"UK"`
-raises `unsupported_country`.
+`validate_company_id("445790", country="GB")`;
+`lookup_company("5560160680", country="SE")`,
+`company_deadlines("5560160680", country="SE", today="2026-09-07")`,
+`validate_company_id("556016-0680", country="SE")`. The UK value is `"GB"`;
+`"UK"` raises `unsupported_country`. `search_company(..., country="SE")` raises
+`not_implemented` — Sweden has no name index (§3.3), so it is the one
+tool/country pair in the table above that has no answer to give.
 
 Resource `registry://rules/{country}` — the country's identifier rules, legal
 forms and deadline rules as a document you can read once and reason with,
@@ -747,6 +990,18 @@ Groups, in the order they appear:
   `under_compulsory_liquidation`, `bankrupt`, `dissolved`, `deleted`,
   `unknown`. `status_detail` is one English sentence naming the flag it came
   from; `is_active` mirrors `status == "active"` so you need no enum table.
+  **The enum is shared; the derivation is not.** Norway publishes four
+  lifecycle flags (`konkurs`, `underAvvikling`,
+  `underTvangsavviklingEllerTvangsopplosning`, `slettedato`) and `active` is
+  the absence of all four — with all four missing rather than false mapping to
+  `unknown`, because absence is not a negative. The UK publishes one status
+  string, mapped one-to-one, and it can read `active` while
+  `company_status_detail` says a strike-off has already been proposed; that
+  detail arrives as a `notes` sentence, so a UK `active` with a note is a
+  different fact from a UK `active` without one. Sweden publishes no status at
+  all and three signals are combined instead (§1). Quote `status_detail`, and
+  read `notes`; a bare `"status": "active"` means less than it looks like
+  across three registers.
 - **Dates** — `registered_at`, `founded_at`,
   `business_register_registered_at`, `bankruptcy_date`, `deregistered_at`.
 - **Tax/VAT** — `vat_registered`, `vat_registered_at`, `vat_number` (Norway:
@@ -817,7 +1072,8 @@ omitted. `true` means the register marks this entity as protected against
 direct-marketing use; `false` means the register publishes such a flag for
 this entity and it is not set; `null` — the default, and it must never
 default to `false` — means this register publishes no such flag at all
-(Norway and the UK, today). When it is `true`, `notes` carries a
+(Norway and the UK), or that this particular Swedish record did not carry
+Statistics Sweden's flag. When it is `true`, `notes` carries a
 plain-English sentence stating the protection, because the marking is a
 legal condition of passing this record's contact details on (Danish
 CVR-loven § 19; Swedish *reklamspärr* is the same concept), and that
@@ -826,13 +1082,20 @@ sentence must travel with them.
 Coverage differs by country, and that is what `null` is for. Norway publishes
 VAT registration, employees, share capital, sector and a purpose clause; the UK
 publishes none of those, and the UK publishes charge and insolvency flags and
-its own filing due dates, which Norway does not. Read `null` as "this register
+its own filing due dates, which Norway does not. Sweden publishes fewer fields
+than either — no VAT, no employees, no share capital, no financial year — but
+publishes an `activity` clause and a *reklamspärr* direct-marketing flag that
+neither of the others has. Read `null` as "this register
 does not say" and never as a fact about the company. `notes` is where a country
 module explains anything that a bare `null` would understate.
 
 Attribution: Norwegian data is published under NLOD 2.0 and attribution is
 required. UK data comes from the Companies House public register, Crown
 copyright, free to re-use with no attribution condition — cite it anyway.
+Swedish data comes from Bolagsverket and Statistics Sweden, free to re-use
+under the EU high-value-datasets regime; Bolagsverket names no licence, so the
+`license` string says what the permission is and says that there is no licence
+name to quote. Do not substitute a familiar licence name for it.
 Cite `source` and `source_url` whenever you present the data to a user; for
 `GB`, `source_url` is the human-readable Companies House record, so it is a
 link the user can open.
@@ -897,6 +1160,16 @@ shares the same code. If the `message` or `hint` names
 is not configured for the United Kingdom; the other countries in
 `list_countries` still work.
 
+Two `SE` cases worth recognising:
+
+- **`501 not_implemented` on `search_company`** is permanent, not a
+  capability that arrives later — Bolagsverket's free API has no name index
+  (§3.3). Ask the user for the organisationsnummer instead of retrying.
+- **`400 invalid_id` can arrive after `validate_company_id` said `valid:
+  true`.** Bolagsverket enforces a check digit that this module does not
+  (§3.5), and its `message` says the register rejected the number. Treat it
+  exactly like any other `invalid_id`: do not retry the same string.
+
 `GB` also has a rate limit of its own, upstream of ours: Companies House allows
 600 requests per five minutes per key, and a `429 rate_limited` from `GB`
 carries a `hint` with the wait derived from the register's own `Retry-After` or
@@ -920,10 +1193,23 @@ for every user of the same key.
 - Companies House allows 600 requests per five minutes **per key**, and that
   budget is shared with anything else using the same key. The 24 h cache is
   what keeps a spreadsheet-sized job inside it.
+- Set `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET` when running
+  locally if you want `SE` to answer. Bolagsverket issues the OAuth 2 pair on
+  request. Without them only `SE` returns `upstream_error`.
 - Data is company data — public, non-personal. Sole proprietorships (ENK) are
   registered in a person's name, so treat those records with the care you would
   give personal data. UK sole traders are not on the register at all, so a
   missing UK business is often a real business rather than a bad identifier.
+- **A Swedish sole trader's company number is their personnummer** — the same
+  string is the national identity number of a living person. The hosted
+  service therefore stores **no identifier at all** in its usage log for a
+  country that declares its identifiers can be a natural person's, which today
+  means Sweden: the country, route, time, outcome and `User-Agent` are logged
+  and the identifier is not. Bolagsverket takes the identifier in a POST body
+  rather than a URL path for the same reason. If you build on this data, hold
+  a twelve-digit Swedish identifier to the standard you would hold any national
+  ID number to, not the standard you would hold a company number to.
+  `legal/privacy.md` in the repository states this in full.
 - **This service does not perform sanctions, PEP or adverse-media screening,
   and it does not verify bank account details.** It returns identity and
   filing data from the national register only. A clean `lookup_company`

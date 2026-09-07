@@ -27,7 +27,7 @@ What makes it worth a tool slot:
 - **Never more than 24 hours stale, and it says so.** Every response carries `cached` and `fetched_at`. OpenCorporates' own knowledge base tells users to ["allow 30 days"](https://knowledge.opencorporates.com/knowledge-base/the-data-on-opencorporates-is-out-of-date/) for a correction to reach its site — a 30× freshness gap, stated by the incumbent about itself.
 - **Seven tools, not fifty** — five registry tools plus two ChatGPT connector aliases. Tool-selection accuracy [degrades past 30-50 tools loaded into an agent's context](https://code.claude.com/docs/en/agent-sdk/tool-search), and some clients cap around 40. Seven tools is roughly 17% of that budget, next to competitors in this space shipping 23 to 78 tools for the same job.
 
-**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Two named upstreams, and nothing else is ever called: `data.brreg.no` and `api.company-information.service.gov.uk`. No personal data beyond what each national register already publishes about the entity itself. This service does not perform sanctions, PEP or adverse-media screening, and it does not verify bank account details. Details: [SECURITY.md](SECURITY.md).
+**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Three named upstreams, and nothing else is ever called: `data.brreg.no`, `api.company-information.service.gov.uk` and `gw.api.bolagsverket.se`. No personal data beyond what each national register already publishes about the entity itself — and because a Swedish sole trader's company number *is* their personnummer, the usage log stores no identifier at all for a country whose identifiers can be a natural person's ([`legal/privacy.md`](legal/privacy.md)). This service does not perform sanctions, PEP or adverse-media screening, and it does not verify bank account details. Details: [SECURITY.md](SECURITY.md).
 
 One-click install, for a remote streamable-HTTP server:
 
@@ -60,7 +60,7 @@ Claude Desktop takes the same URL as a custom connector: **Settings → Connecto
 connector**, then `https://api.foretak.dev/mcp`. No key. For a local stdio install instead, see
 [Configuration](#configuration).
 
-> Status: `0.2.0`. The five registry tools and their response shapes are frozen; two connector aliases (`search`, `fetch`) wrap them for ChatGPT and add no new shape. The hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: Norway (brreg), United Kingdom (Companies House) — see [below](#tools) for both countries' identifier formats and example calls.
+> Status: `0.3.0`, live — `GET /health` returns `{"version":"0.3.0","countries":["GB","NO","SE"]}`. The five registry tools and their response shapes are frozen; two connector aliases (`search`, `fetch`) wrap them for ChatGPT and add no new shape. The hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: United Kingdom (Companies House), Norway (brreg), Sweden (Bolagsverket) — see [below](#tools) for each country's identifier format and example calls.
 
 ## Add to Claude Code
 
@@ -170,7 +170,7 @@ $ curl "https://api.foretak.dev/v1/GB/company/00445790/deadlines?today=2026-09-0
 
 Where Companies House publishes a date, it is quoted; where it does not, the date is computed from a cited statute and `applies_because` says so. UK deadlines never roll forward off a weekend or bank holiday, and `days_until` goes negative for a filing the register still shows as overdue.
 
-**Sweden — built, awaiting Bolagsverket credentials.** [`registries/se/`](src/registry_mcp/registries/se/) is written and tested against Bolagsverket's free "värdefulla datamängder" API, but that API needs OAuth 2 client credentials Bolagsverket issues on request, so `SE` lookups return `upstream_error` naming `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET` until they are set. One limit is permanent rather than pending: **Sweden has no name search** — the free API has four operations and none takes a company name, so `search_company` for `SE` is `not_implemented` and Swedish companies are looked up by organisationsnummer (or, for a sole trader, a twelve-digit personnummer).
+**Running it yourself?** The hosted service at `api.foretak.dev` has every credential configured. A self-hosted copy needs a free [Companies House key](https://developer.company-information.service.gov.uk/get-started) for `GB` and an OAuth 2 client pair from Bolagsverket (`BOLAGSVERKET_CLIENT_ID`, `BOLAGSVERKET_CLIENT_SECRET`) for `SE`; without them those two countries return `upstream_error` naming the variable, and every other country keeps answering. Norway needs nothing.
 
 ## Tools
 
@@ -292,6 +292,7 @@ Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 | `REGISTRY_MCP_CONTACT_EMAIL` | Contact address sent in the `User-Agent` to the national registry, as Brønnøysundregistrene asks of API clients. Unset means an anonymous client, which may be throttled or blocked upstream. |
 | `REGISTRY_MCP_CACHE_PATH` | Path to the local SQLite response cache (24 h TTL). Defaults to `./data/cache.sqlite3`. |
 | `COMPANIES_HOUSE_API_KEY` | Required for the United Kingdom (`GB`). A key is [free and instant](https://developer.company-information.service.gov.uk/get-started). Unset means `GB` lookups return `upstream_error` with a hint naming this variable — every other country keeps working. |
+| `BOLAGSVERKET_CLIENT_ID`, `BOLAGSVERKET_CLIENT_SECRET` | Required for Sweden (`SE`). An OAuth 2 client pair Bolagsverket issues on request; the data itself is free under the EU high-value-datasets regulation. Unset means `SE` lookups return `upstream_error` naming both variables — every other country keeps working. |
 
 ## REST
 
@@ -318,13 +319,19 @@ curl https://api.foretak.dev/v1/GB/company/00445790
 curl "https://api.foretak.dev/v1/GB/search?q=tesco&limit=5"
 curl "https://api.foretak.dev/v1/GB/company/00445790/deadlines?today=2026-09-04"
 curl https://api.foretak.dev/v1/GB/validate/445790
+
+# Sweden — four of the five. /search returns 501 not_implemented: the free
+# Bolagsverket API has no name index, and the error's hint says so.
+curl https://api.foretak.dev/v1/SE/company/5560160680
+curl "https://api.foretak.dev/v1/SE/company/5560160680/deadlines?today=2026-09-07"
+curl https://api.foretak.dev/v1/SE/validate/556016-0680
 ```
 
 Machine-readable docs: [`/llms.txt`](https://api.foretak.dev/llms.txt), [`/llms-full.txt`](https://api.foretak.dev/llms-full.txt), [`/openapi.json`](https://api.foretak.dev/openapi.json).
 
 ## Adding your country
 
-Norway is one folder. So is the United Kingdom: [`registries/gb/`](src/registry_mcp/registries/gb/) was added as four files and one import line, and `GB` appeared in `list_countries`, in every tool, in `/openapi.json` and in `registry://rules/GB` on its own.
+Norway is one folder. So is the United Kingdom: [`registries/gb/`](src/registry_mcp/registries/gb/) was added as four files and one import line, and `GB` appeared in `list_countries`, in every tool, in `/openapi.json` and in `registry://rules/GB` on its own. So is Sweden — [`registries/se/`](src/registry_mcp/registries/se/) shipped in 0.3.0 with **no change to `core/`**, including the parts of Sweden that fit the abstraction worst: a register that publishes no status field, an operation the upstream does not offer (`search_company` answers `not_implemented`), and an identifier that can be a natural person's national ID.
 
 Copy `src/registry_mcp/registries/xx/` to `registries/<cc>/`, implement four methods, add one import line — nothing in `core/` changes, and both surfaces plus the manifests light up for the new country automatically.
 
@@ -343,7 +350,7 @@ Layout:
 
 ```
 src/registry_mcp/core/        country-neutral models, Registry ABC, rules, date helpers
-src/registry_mcp/registries/  one folder per country — no/ (Norway), gb/ (UK), xx/ (template)
+src/registry_mcp/registries/  one folder per country — no/ (Norway), gb/ (UK), se/ (Sweden), xx/ (template)
 src/registry_mcp/api/         FastAPI REST surface
 src/registry_mcp/mcp/         FastMCP server (stdio + Streamable HTTP at /mcp)
 ```
@@ -360,4 +367,4 @@ src/registry_mcp/mcp/         FastMCP server (stdio + Streamable HTTP at /mcp)
 
 ## Data source and licence
 
-Norwegian data comes from **Enhetsregisteret (Brønnøysundregistrene)**, published under **NLOD 2.0** — attribution required. UK data comes from the **Companies House public register**, Crown copyright, free to re-use with no attribution condition; we cite it anyway. Every response carries `source`, `source_url` and `license` so the attribution travels with the data. This project's own code is MIT licensed. Not affiliated with or endorsed by Brønnøysundregistrene or Companies House.
+Norwegian data comes from **Enhetsregisteret (Brønnøysundregistrene)**, published under **NLOD 2.0** — attribution required. UK data comes from the **Companies House public register**, Crown copyright, free to re-use with no attribution condition; we cite it anyway. Swedish data comes from **Bolagsverket**, with Statistics Sweden (**SCB**) as a second producer inside the same payload, free to re-use as a *värdefull datamängd* under the EU high-value-datasets regime — Bolagsverket's own words are *"Det krävs inget avtal för att du ska få använda vårt API för värdefulla datamängder"* and *"Värdefulla datamängder är avgiftsfritt"* — and **Bolagsverket names no licence**, so neither do we: the `license` string states the permission and states plainly that there is no licence name to quote. Every response carries `source`, `source_url` and `license` so the attribution travels with the data. This project's own code is MIT licensed. Not affiliated with or endorsed by Brønnøysundregistrene, Companies House or Bolagsverket.
