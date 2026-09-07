@@ -641,10 +641,6 @@ async def search(
         outcome.country = derived.country if derived is not None else None
         candidates = [derived] if derived is not None else registries
 
-        any_validated, ranked = await _identifier_rows(candidates, remainder)
-        if not any_validated:
-            ranked = await _name_search_rows(candidates, remainder)
-
         # D-040(b): blanket, by registry flag, never by digit count (D-040(d)). Every
         # maximal alphanumeric run of the query is checked against every *live flagged*
         # registry — not just `candidates`, which an explicit "NO"/"GB" token narrows to
@@ -652,6 +648,14 @@ async def search(
         # whenever `_derive_country` missed. `Registry.validate` is pure and cheap.
         # `outcome.country` is left as `_derive_country` produced it — this redacts the
         # query without inventing a country.
+        #
+        # **This runs BEFORE the two awaits below, and must stay there** (review T32,
+        # finding 1). `_call_context` logs in a `finally`, but it only *catches*
+        # `RegistryError`; an `httpx.ConnectError` from a registry client escapes the
+        # tool body uncaught, so a redaction placed after the awaits would be skipped
+        # while the log line still fired — with the raw query. It depends on nothing
+        # the awaits produce (`registries`, `stripped` and `remainder` are all already
+        # computed), so there is no cost to doing it first.
         #
         # Residual, left open: a personnummer glued to other alphanumerics with no
         # separator (e.g. "x194009272719", "1940092727191234") is not a maximal run by
@@ -662,6 +666,12 @@ async def search(
             runs = {stripped, remainder, *_ID_RUN.findall(stripped)}
             if any(r.validate(run).valid for r in flagged for run in runs if run):
                 outcome.query = None
+
+
+        any_validated, ranked = await _identifier_rows(candidates, remainder)
+        if not any_validated:
+            ranked = await _name_search_rows(candidates, remainder)
+
 
         rows = _merge_sort_and_cap(ranked, remainder)
         if not rows:

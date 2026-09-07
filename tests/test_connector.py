@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import contextlib
 import pytest
 import respx
 from fastmcp import Client
@@ -815,3 +816,29 @@ async def test_search_no_orgnr_with_explicit_country_token_still_logs_it(
     last = record_spy.calls[-1]
     assert last["country"] == "NO"
     assert last["query"] == "NO 923609016"
+
+
+@respx.mock
+async def test_search_redacts_before_the_network_so_a_transport_error_cannot_leak(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review T32 finding 1, blocking: the D-040(b) redaction used to sit *after*
+    `_identifier_rows`/`_name_search_rows`. Those catch only `RegistryError`, and the
+    country clients wrap only `httpx.TimeoutException` — so an ordinary
+    `httpx.ConnectError` escaped the tool body uncaught, skipped the redaction, and
+    `_call_context`'s `finally` still logged the raw query. `legal/privacy.md` says the
+    identifier is not written to that log, so this was a false statement in a legal
+    document as well as a leak. The redaction now runs before any await.
+    """
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BOLAGSVERKET_CLIENT_SECRET", raising=False)
+    respx.route().mock(side_effect=httpx.ConnectError("no route to host"))
+
+    async with Client(mcp) as client:
+        with contextlib.suppress(Exception):
+            await client.call_tool("search", {"query": "orgnr 194009272719"})
+
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["query"] is None, f"personnummer reached the usage log: {last['query']!r}"
+
