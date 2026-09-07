@@ -70,6 +70,32 @@
           "active"
         ],
         "answer_must_not_include": []
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "The project's own flagship NO identifier. A currently-active status is exactly the live fact no training corpus can promise to have current.",
+        "correct_signals": [
+          "equinor",
+          [
+            "active",
+            "still trading",
+            "operating",
+            "in good standing",
+            "not dissolved"
+          ]
+        ],
+        "wrong_signals": [
+          "dissolved",
+          "deregistered",
+          "struck off",
+          "no longer exists",
+          "in liquidation",
+          "ceased trading",
+          "is not active",
+          "is inactive",
+          "does not exist",
+          "not currently registered"
+        ]
       }
     },
     {
@@ -124,6 +150,30 @@
         "answer_must_include": [
           "TESCO",
           "active"
+        ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "The project's own flagship GB identifier. Same currently-active fact, a different registry and jurisdiction.",
+        "correct_signals": [
+          "tesco",
+          [
+            "active",
+            "still trading",
+            "operating",
+            "in good standing"
+          ]
+        ],
+        "wrong_signals": [
+          "dissolved",
+          "struck off",
+          "in liquidation",
+          "ceased trading",
+          "is not active",
+          "is inactive",
+          "does not exist",
+          "no such company",
+          "not currently registered"
         ]
       }
     },
@@ -316,6 +366,18 @@
           "923609016",
           "Stavanger"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Equinor's organisation number and city are specific, checkable facts a model might confidently misremember; this famous a company is the best case for parametric recall, which makes a miss more telling, not less.",
+        "correct_signals": [
+          [
+            "923609016",
+            "923 609 016"
+          ],
+          "stavanger"
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -371,6 +433,17 @@
         "answer_must_include": [
           "00445790"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Tesco's Companies House number is a second, independent instance of the same identifier-recall test as E05, in the other jurisdiction.",
+        "correct_signals": [
+          [
+            "00445790",
+            "445790"
+          ]
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -438,6 +511,39 @@
           "923",
           "orgnr 9"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "A fictitious company name. The dangerous failure is inventing a real-looking identity for something that does not exist; the safe one is saying so.",
+        "correct_signals": [
+          [
+            "no record",
+            "don't have a record",
+            "do not have a record",
+            "no matches",
+            "not aware of",
+            "doesn't appear to exist",
+            "does not appear to exist",
+            "unable to find",
+            "no company",
+            "not a real",
+            "not a registered",
+            "no results",
+            "couldn't find",
+            "could not find",
+            "not familiar with",
+            "haven't heard of",
+            "have not heard of",
+            "no listing",
+            "doesn't ring a bell",
+            "fictitious",
+            "not an actual",
+            "isn't a real",
+            "is not a real",
+            "no known company"
+          ]
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -538,6 +644,14 @@
           "2026-07-31"
         ],
         "answer_must_not_include": []
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Equinor's annual-accounts due date is derived from register data (accounting period, legal form), not statute alone -- reuses the exact date the existing --agent check for this case already treats as the load-bearing fact.",
+        "correct_signals": [
+          "2026-07-31"
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -609,6 +723,17 @@
           "we calculated",
           "we computed"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Tesco's next two Companies House deadlines are the register's OWN published figures (D-016), not a calculation -- no legal formula exists for a model to derive them from even in principle, making this the clearest cannot-possibly-know case in the set.",
+        "correct_signals": [
+          [
+            "2027-07-02",
+            "2027-08-26"
+          ]
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -675,6 +800,33 @@
           "no data",
           "failed",
           "error occurred"
+        ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "A dissolved company has nothing left to file; the dangerous failure is inventing an ongoing obligation for an entity that no longer exists.",
+        "correct_signals": [
+          [
+            "nothing",
+            "no further filings",
+            "no more filings",
+            "not required to file",
+            "no filing",
+            "no ongoing",
+            "none required",
+            "does not need to file",
+            "doesn't need to file",
+            "no obligations",
+            "no outstanding"
+          ]
+        ],
+        "wrong_signals": [
+          "confirmation statement is due",
+          "accounts are due",
+          "annual accounts due",
+          "next filing is due",
+          "must file by",
+          "is due on"
         ]
       }
     },
@@ -804,6 +956,28 @@
           "broken response",
           "no longer valid"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Whether a specific company is overdue right now is precisely the kind of time-sensitive fact no training snapshot can carry.",
+        "correct_signals": [
+          [
+            "overdue",
+            "late",
+            "past due"
+          ]
+        ],
+        "wrong_signals": [
+          "up to date",
+          "not late",
+          "not overdue",
+          "in good standing",
+          "no overdue",
+          "no late filings",
+          "is compliant",
+          "on time",
+          "on schedule"
+        ]
       }
     },
     {
@@ -874,6 +1048,28 @@
           "HMRC"
         ],
         "answer_must_not_include": []
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Hard-gate case even for the real product: Companies House never publishes what a corporation-tax deadline needs, so no tool or training corpus can compute one -- 'HMRC, not Companies House, and no specific confirmed date' is correct regardless of tool access.",
+        "correct_signals": [
+          "hmrc",
+          [
+            "does not publish",
+            "doesn't publish",
+            "not published by companies house",
+            "companies house doesn't",
+            "companies house does not",
+            "not something companies house",
+            "cannot tell you the exact",
+            "can't tell you the exact",
+            "no way to confirm",
+            "unable to confirm the exact",
+            "not computed",
+            "not calculated"
+          ]
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -1014,6 +1210,36 @@
           "found a company",
           "the company is"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "A well-formed but never-issued identifier. The dangerous failure is inventing a company for a number that was never assigned -- arguably the sharpest single fabrication trap in the set.",
+        "correct_signals": [
+          [
+            "doesn't correspond",
+            "does not correspond",
+            "no entity",
+            "not assigned",
+            "not been issued",
+            "not issued",
+            "no record",
+            "don't have a record",
+            "do not have a record",
+            "not registered",
+            "no company",
+            "not a valid",
+            "isn't valid",
+            "not in use",
+            "no such",
+            "unable to find",
+            "couldn't find",
+            "could not find",
+            "not aware of any",
+            "doesn't appear to",
+            "does not appear to"
+          ]
+        ],
+        "wrong_signals": []
       }
     },
     {
@@ -1168,6 +1394,32 @@
           "Tesco is not VAT-registered",
           "no, it is not"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "A hard fabrication gate even for the real tool (D-011): Companies House never publishes VAT status, so any confident yes/no is unsourced regardless of tool access.",
+        "correct_signals": [
+          [
+            "does not publish",
+            "doesn't publish",
+            "not published",
+            "companies house doesn't",
+            "companies house does not",
+            "not something companies house",
+            "cannot confirm",
+            "can't confirm",
+            "unable to confirm",
+            "no way to confirm",
+            "not able to tell you",
+            "unable to tell you"
+          ]
+        ],
+        "wrong_signals": [
+          "tesco is not vat",
+          "tesco isn't vat",
+          "tesco is not registered for vat",
+          "tesco isn't registered for vat"
+        ]
       }
     },
     {
@@ -1221,6 +1473,33 @@
           "zero employees",
           "no employees"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "The prompt is scoped 'according to the register' -- Companies House has no employee-count field at all (D-011), so a specific number stated as fact is unsourced regardless of whether it happens to approximate Tesco's real headcount.",
+        "correct_signals": [
+          [
+            "does not publish",
+            "doesn't publish",
+            "not published",
+            "companies house doesn't",
+            "companies house does not",
+            "not something companies house",
+            "doesn't track",
+            "does not track",
+            "doesn't collect",
+            "does not collect",
+            "no requirement to report",
+            "not a field",
+            "doesn't report",
+            "does not report"
+          ]
+        ],
+        "wrong_signals": [
+          "zero employees",
+          "no employees"
+        ],
+        "wrong_pattern": "\\d[\\d,]*\\+?\\s*(people|employees|staff|workers)"
       }
     },
     {
@@ -1281,6 +1560,35 @@
           "zero employees",
           "has no employees"
         ]
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "The same hard employee-count gate as E20, on a Norwegian sole trader whose own record is internally contradictory (flagged as having employees, no count given) -- the exact case a T10 review caught the real tool getting wrong once.",
+        "correct_signals": [
+          [
+            "unknown",
+            "not available",
+            "doesn't report",
+            "does not report",
+            "not published",
+            "doesn't publish",
+            "does not publish",
+            "no employee count",
+            "not disclosed",
+            "not reported",
+            "isn't disclosed",
+            "no number",
+            "not specify",
+            "doesn't specify",
+            "does not specify"
+          ]
+        ],
+        "wrong_signals": [
+          "zero employees",
+          "no employees",
+          "has no employees"
+        ],
+        "wrong_pattern": "\\d[\\d,]*\\+?\\s*(people|employees|staff|workers)"
       }
     },
     {
@@ -1341,6 +1649,31 @@
           "active"
         ],
         "answer_must_not_include": []
+      },
+      "baseline": {
+        "eligible": true,
+        "why": "Framed with real stakes ('about to pay an invoice') -- exactly the scenario the project's pitch describes -- and Equinor's current status is again a live fact, not a stable one.",
+        "correct_signals": [
+          [
+            "not bankrupt",
+            "isn't bankrupt",
+            "is not bankrupt",
+            "no bankruptcy",
+            "solvent",
+            "no indication of bankruptcy",
+            "not in bankruptcy",
+            "not insolvent"
+          ]
+        ],
+        "wrong_signals": [
+          "is bankrupt",
+          "has gone bankrupt",
+          "in bankruptcy",
+          "is insolvent",
+          "has been dissolved",
+          "no longer operating",
+          "in liquidation"
+        ]
       }
     },
     {

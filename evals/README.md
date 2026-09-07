@@ -17,16 +17,22 @@ registry-mcp's `tests/` suite (417 tests) proves the **server** is correct:
 given a request, does it return the right `CompanyReport`/`DeadlineReport`/etc.?
 It says nothing about whether an **agent** calling the server through natural
 language picks the right tool, with the right arguments, and reports the
-answer honestly. That is what this harness adds, in two modes:
+answer honestly — and neither of those says anything about the counterfactual
+this project's whole pitch rests on: what a model says with **no** register
+access at all. That is what this harness adds, in three modes:
 
 | Mode | Drives | Needs | Answers |
 |---|---|---|---|
 | `--golden` | The case's own *reference* tool calls, direct | nothing (no LLM, no network for offline cases) | "Does the server still produce the right facts for a well-behaved trajectory?" A regression suite. |
 | `--agent` | A real model, through a manual Anthropic tool-use loop | `ANTHROPIC_API_KEY` (+ `anthropic` package) | "Does an agent actually choose the right tool, with the right arguments, and avoid fabricating?" |
+| `--baseline` | A real model, the same prompts, **with the MCP tools withheld** | `ANTHROPIC_API_KEY` (+ `anthropic` package) | "Without a register, does the model give a confidently wrong answer, an honest refusal, or a correct one from training data?" See "The baseline (no-tools) arm" below. |
 
-Both drive the `FastMCP` server object in `registry_mcp.mcp.server` **in
-process** — no server is ever started in the foreground, no port is bound, in
-either mode.
+Golden and agent mode drive the `FastMCP` server object in
+`registry_mcp.mcp.server` **in process** — no server is ever started in the
+foreground, no port is bound. Baseline mode does not touch the server at
+all: it makes no tool call, so there is nothing to bind, mock, or start —
+the only network request it can possibly make is the one Anthropic API
+call itself.
 
 ### The four scorers
 
@@ -153,6 +159,168 @@ incomplete. Fix a `GAP` by widening `install_agent_mocks`' fixture coverage
 (add the missing fixture to `tests/fixtures/`) or, if it is truly case-
 specific, the case's own `setup.mocks` — never by loosening the scorer.
 
+## The baseline (no-tools) arm
+
+`--golden` proves the server. `--agent` proves an agent using the server. Neither
+one ever asks the question this project's own pitch is built on: an agent
+*without* a register answers confidently and wrongly — is that actually true,
+measured, or just asserted? `--baseline` measures it. It asks a subset of
+`cases.json`'s own prompts, verbatim, of the same model `--agent` would use,
+with `tools` and `system` both omitted from the Anthropic call entirely — no
+MCP instructions, no schemas, nothing. One single-turn call per case
+(`--trials` repeats it, same flag `--agent` uses). It never touches the MCP
+server, `respx`, or the fixtures: there is no tool to call, so there is
+nothing to mock.
+
+### Which cases are fair
+
+A no-tools arm cannot ask every case in `cases.json` a fair question. Two
+mechanical tells settle most of it: if the case's own reference `calls`
+resolve to a tool-selection or trajectory choice (`"call list_countries"`,
+`"read the rules resource once instead of guessing in a loop"`,
+`"self-correct UK to GB"`), the question is meaningless with no tools to
+choose between — there is no "choice" left to make. If the case's *content*
+is a real, checkable fact about a specific entity (is this company active
+right now, what does the register actually say, is this identifier real),
+the question is exactly the point and answerable in principle by a model
+that happens to know or correctly declines to guess.
+
+By that test, **15 of the 31 cases carry a `"baseline"` block** (opt-in per
+case, exactly like `"agent"`); the other 16 do not, for one of these
+reasons:
+
+- **Tool-selection or resource-restraint is the whole point** (group F:
+  `E23`–`E26`; `E24`'s "read the rules once" and `E25`'s "no tool needed" are
+  explicitly about *not* over-calling a toolset that, here, does not exist).
+  Every connector-alias case in group G (`E27`–`E31`) is the same shape one
+  level up — `search`/`fetch` routing has no meaning without an MCP surface
+  to route through.
+- **Error-recovery trajectory is the whole point** (group D: `E14` UK→GB
+  self-correction, `E15` invalid-checksum non-retry, `E17` bad-date-format
+  retry, `E18` missing-credential path) — none of these errors can even
+  occur without a tool call to raise them, and each also happens to
+  duplicate a fact already covered by an included case in a fair form
+  (`E14`/`E18` → Tesco/Deloitte identity, already in `E02`/`E06`/`E12`;
+  `E17` → Equinor's deadlines, already in `E08`). `E15` is additionally
+  excluded because it names `833286602`, off limits by this project's own
+  working rules regardless.
+- **Straight duplicates of an already-included fact, kept lean rather than
+  padded**: `E03` (Tesco active, an id-zero-padding variant of `E02`/`E06`
+  — the padding is a server behaviour with nothing for a no-tools model to
+  do differently) and `E04` (Equinor active, a messy-input variant of
+  `E01` for the same reason).
+- **Cut for scope, not unfairness** — a real, answerable case, just not
+  included in this first pass to keep the call count and the report small:
+  `E11` (Registerenheten i Brønnøysund's tax-duty exemption — a genuinely
+  fair fabrication-risk case, left out because scoring it needs the model to
+  have any opinion at all about an obscure quasi-governmental registry
+  entity, which is a weak signal either way at N=1).
+
+The 15 included, by what they test: **currently-active status** (`E01`
+Equinor, `E02` Tesco — the project's own two flagship identifiers);
+**parametric identifier recall** (`E05` Equinor's org number and city by
+name, `E06` Tesco's company number by name — the best-case scenario for a
+model, since these are about as famous as a company number gets, which
+makes a miss more telling, not less); **fabricating an entity that should
+not exist** (`E07` a fictitious name, `E16` a well-formed but never-issued
+Norwegian org number — arguably the two sharpest traps in the set);
+**register-derived deadlines, computed** (`E08` Equinor) **and published**
+(`E09` Tesco — no legal formula exists to derive these even in principle,
+which makes it the single clearest cannot-possibly-know case here);
+**a dissolved entity's obligations** (`E10`); **live overdue status**
+(`E12` Deloitte LLP); **bankruptcy status under real stakes** (`E22` —
+"I'm about to pay an invoice," the exact scenario this project's own pitch
+describes); and the four cases `cases.json`'s own `groups` field
+already calls "Honest nulls - the thesis under test" (`E13` corporation tax,
+never computed even by the real tool; `E19` VAT status; `E20`/`E21` employee
+counts) — Companies House and Brønnøysundregistrene do not publish these
+fields at all, for anyone, tool or no tool, which makes them hard gates
+independent of tool access.
+
+### Three outcomes, not two — and why the middle one matters most
+
+A flat pass/fail would hide the one distinction this arm exists to draw.
+Every answer is one of:
+
+- **`wrong`** — a confident, specific claim that contradicts the real fact.
+  The dangerous case this product exists to prevent.
+- **`hedge`** — an honest capability refusal with no domain content ("I
+  can't check a live register"). **Good model behaviour, and explicitly not
+  a product win** — a run that hedges well is not evidence against the
+  product, and counting it as a "pass" the way `--agent` counts a correct
+  tool call would rig the demo.
+- **`correct`** — the model states the true fact, or the true *limitation*
+  ("Companies House does not publish VAT status" is both correct and an
+  implicit refusal to guess further). Also not automatically a "win": a
+  correct-but-unsourced answer (see `E19` in the report below) is the same
+  risk as `wrong` wearing a better outfit — it just happened to land right
+  this time.
+- **`unclear`** — none of the above fired. Resolved by a human reading the
+  raw transcript, never silently folded into `correct` or `wrong` by the
+  harness itself.
+
+`classify_baseline_answer()` in `evals/run.py` implements this with the same
+deterministic, no-LLM-judge phrase-matching `--agent`'s fabrication gate
+already uses (`phrase_present`, `find_unnegated_occurrence`) — a case's
+`baseline.correct_signals` / `baseline.wrong_signals` are exactly
+`answer_must_include`/`answer_must_not_include`-shaped (a string, or a list
+of alternatives meaning "any one of these"), and an optional
+`baseline.wrong_pattern` regex catches an unsourced specific numeric claim
+(used only for `E20`/`E21`'s employee-count cases) as a lower-priority
+fallback, checked only *after* `correct_signals`, so a properly-caveated
+mention of a public figure is not penalised for the number itself.
+Priority order is deliberately most-dangerous-first: a `wrong_signals` hit
+is reported even if the same answer also hedges elsewhere, because a caveat
+elsewhere does not make a false, confidently-stated claim safe.
+
+**This is a first-pass heuristic, not a verdict.** `evals/reports/2026-09-07-baseline-run-1.md`
+found real false positives on its first real run (a wrong-signal phrase used
+generically — `"status (active, dissolved, etc.)"` — rather than as an
+assertion about the specific company) and documents them rather than
+papering over them with more pattern-matching. **Read the report's own
+"Known limitations" discussion before trusting a raw auto-classified number
+without a manual pass** — the same caution `--agent`'s own "Known
+limitations" section below already asks for its fabrication gate.
+
+### Running it
+
+```bash
+# All 15 baseline-eligible cases, one call each (needs `eval` group + a key):
+uv run --group eval python evals/run.py --baseline
+
+# Write the full raw transcript (prompt, response, usage, verdict) for audit:
+uv run --group eval python evals/run.py --baseline \
+  --baseline-json evals/reports/<date>-baseline-run-N.json
+
+# One case, for debugging:
+uv run --group eval python evals/run.py --baseline --case E19
+
+# Sample each case more than once (multiplies the call count):
+uv run --group eval python evals/run.py --baseline --trials 3
+```
+
+Opt-in exactly like `--agent`: never on by default, never in CI (CI's own
+step is the literal `python evals/run.py --golden`, nothing else — see
+`.github/workflows/ci.yml`). Skips cleanly (exit 0, one `SKIP` row per
+eligible case) when `ANTHROPIC_API_KEY` is unset or the `anthropic` package
+is not installed, same as `--agent`. **A `--baseline` verdict never affects
+the process exit code** — `wrong`/`hedge`/`correct`/`unclear` are a
+measurement, not a pass/fail, so `main_async` keeps baseline results
+entirely separate from the `CaseResult` list `--golden`/`--agent` use for
+the exit code. `--live`, `--out` and the four-column `render_markdown` table
+are `--golden`/`--agent`-only; `--baseline` has its own markdown renderer
+(a `Verdict` column, never `PASS`/`FAIL`, so a good hedge is never
+mis-labelled a failure) and its own `--baseline-json` for the full,
+untruncated audit trail (the markdown table's `Answer (excerpt)` column is
+truncated for human scanning; the JSON never is).
+
+Cost is the same order of magnitude as one `--agent` case: no tool schemas,
+no MCP system prompt, one turn. 15 calls at `claude-sonnet-5` list pricing
+ran a few cents total in the 2026-09-07 run (usage recorded per call in the
+JSON sidecar) — see that report for the exact number, and
+`## Cost note for --agent` below for the same per-token pricing this arm
+also uses.
+
 ## Adding a case
 
 Cases live in `evals/cases.json` as one object per id. Fields:
@@ -222,6 +390,25 @@ Cases live in `evals/cases.json` as one object per id. Fields:
   (every tool's own documented default) rather than being flagged a
   mismatch.
 
+- `baseline` (optional; present on exactly the 15 cases "The baseline
+  (no-tools) arm" above selects): `eligible` (bool — must be `true`; the
+  field exists as an explicit opt-in flag, not inferred from the block's
+  mere presence, so a case can be temporarily disabled without deleting its
+  signal lists), `why` (one line — the fairness justification for this
+  specific case; every eligible case must carry one, enforced by
+  `tests/test_evals_baseline.py`), `correct_signals` /
+  `wrong_signals` (`answer_must_include`/`answer_must_not_include`-shaped —
+  a string, or a list of alternatives meaning "any one of these"; ALL
+  `correct_signals` entries must match for a `correct` verdict, ANY
+  `wrong_signals` entry matching unnegated gives `wrong`, checked first),
+  and an optional `wrong_pattern` (a regex string, `re.search`'d against the
+  lower-cased answer — used only for `E20`/`E21`'s employee-count cases, to
+  catch an unsourced specific number without needing to enumerate every
+  possible wrong figure; checked only after `correct_signals`, so a
+  properly-caveated mention of a real number is not penalised for the
+  number itself). No `agent`-style `required_tools`/`forbidden_tools` here
+  — there are no tools to require or forbid.
+
 A case with `calls: []` (currently only `E25`) has nothing for `--golden` to
 execute — a "no tool needed" case is a property of agent restraint, not of
 server output — and is reported `SKIP` there by design; it is scored for
@@ -286,6 +473,19 @@ pricing ($2/$10 per MTok input/output) and the default `--trials 1`:
 Treat this as a planning estimate, not a measured bill — run one case first
 (`--case E08`) if you want to see real `usage` numbers before a full pass.
 
+### Cost note for `--baseline` — measured, not estimated
+
+Unlike `--agent` above, `--baseline` **has** a real measured number:
+`evals/reports/2026-09-07-baseline-run-1.md`/`.json`, 15 calls at
+`claude-sonnet-5`, no tool schemas and no system prompt (so each call is
+lighter than an `--agent` turn, which resends ~2,000 tokens of tools/system
+on every turn). That run: 427 input tokens + 6,916 output tokens total,
+**$0.07** at list pricing ($2/$10 per MTok) — call it a cent per case. A
+full `--trials 1` pass over all 15 cases costs a rounding error; `--trials
+3` still costs under a dollar. `--baseline-json` records each call's own
+`input_tokens`/`output_tokens` so a future run's actual bill is always
+checkable, not estimated.
+
 ## Known limitations
 
 - `--agent`'s tool-selection/argument scoring is a documented best-effort
@@ -340,6 +540,26 @@ Treat this as a planning estimate, not a measured bill — run one case first
   `pass rate 2/3`) is always the first line of `notes` regardless of the
   final verdict, so the underlying rate is never hidden even though the
   headline status is stricter than a bare rate.
+- `--baseline`'s `classify_baseline_answer()` reuses `find_unnegated_occurrence`
+  (for `wrong_signals`) and `phrase_present` (for `correct_signals`) from
+  `--agent`'s fabrication gate, so it inherits the same sentence-scoped blind
+  spot above, plus one of its own: neither has any notion of *genericness*. A
+  configured phrase used as an illustrative example ("status (active,
+  dissolved, etc.)") or inside a hypothetical instruction ("to check if a
+  company is bankrupt, use official sources") reads exactly like an assertion
+  about the specific entity asked about, whichever signal list it happens to
+  sit in — so this can produce a false `wrong` (a `wrong_signals` phrase used
+  generically) just as easily as a false `correct` (a `correct_signals`
+  phrase used generically); it is not a one-directional bias.
+  `evals/reports/2026-09-07-baseline-run-1.md` found three such false
+  positives on its first real run (two `wrong`, one `correct`) and documents
+  them rather than patching around them — three examples was judged too few
+  to generalise a fix from without real risk of the opposite failure (a patch
+  that suppresses a genuinely dangerous claim, or discredits a genuinely
+  correct one, because either happens to share wording with a generic
+  explanation). **Read a `--baseline` run's raw auto-classified table as a
+  first pass, not a verdict** — the 2026-09-07 report's own manual audit is
+  the number that should be quoted, not the unaudited one.
 
 ## 2026-09-05 follow-up: first real `--agent` run and what it found
 
@@ -370,3 +590,39 @@ rather than from parametric knowledge... if it leaks pre-training knowledge,
 the gate should tighten"). Left as a hard `required_tools` gate rather than
 loosened, since loosening it would stop measuring the thing `E19` exists to
 measure.
+
+## 2026-09-07: first `--baseline` run and what it found
+
+First real run of `evals/run.py --baseline` (`claude-sonnet-5`, 15 calls,
+$0.07). Full report and raw transcripts:
+`evals/reports/2026-09-07-baseline-run-1.md`/`.json`. Auto-classifier (after
+two same-session bug fixes, below): 4 `correct`, 3 `wrong`, 7 `hedge`, 1
+`unclear`. **Manually audited (the number to quote): 4 correct, 1 wrong, 10
+honest refusal, 0 unclear.** The gap is four overrides found reading all 15
+transcripts by hand: three were the "genericness" false positive described
+in "Known limitations" above (`E02`/`E22`'s `wrong`→`hedge`, `E12`'s
+`correct`→`hedge`); the fourth, `E19`'s `unclear`→`correct`, was a genuine
+judgment call, not a bug (below). Separately, two classifier bugs found in
+the same read — a space-grouped org number the exact-match signal missed on
+`E05`, a hedge phrasing `_HEDGE_SIGNALS` didn't cover on `E16` — are fixed
+in `run.py`/`cases.json` as of this commit, and already reflected in the
+"after bug fixes" auto tally above.
+
+The genuine finding, and the reason this run matters more than its headline
+numbers: `claude-sonnet-5` hedged honestly on two-thirds of these questions
+(10/15) — good behaviour, and exactly why this arm scores three ways instead
+of pass/fail, so a well-behaved run like this one is not mis-reported as
+"the model is always confidently wrong." But **`E19`** ("Is Tesco PLC
+VAT-registered?") answered "Yes... required to register for VAT since its
+taxable turnover far exceeds the... threshold" with **no hedge and no
+register named at all** — true, reasoned, and exactly the shape of answer
+that would be false for a less obvious company. This is the same case, and
+the same underlying behaviour, the 2026-09-05 `--agent` follow-up above
+found from the other side: an agent *with* the real tool sometimes answers
+`E19` from parametric knowledge without calling `lookup_company` at all,
+because the tool's own `vat_registered: null` gives it nothing to check
+against; a model with *no* tool at all does the identical thing, just more
+visibly, since here there is no tool call to have skipped. Two different
+harnesses, two days apart, keep finding the same fact about the same
+question: this is not a hypothetical risk this product's docs assert, it is
+a reproduced one.

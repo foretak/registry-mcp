@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Agent eval harness for registry-mcp's five MCP tools (T19).
 
-Two independent modes, selected by CLI flag:
+Three independent modes, selected by CLI flag:
 
 * ``--golden`` (default, no LLM): for every case in ``cases.json``, execute
   the case's own *reference* tool calls against the in-process MCP server
@@ -22,11 +22,24 @@ Two independent modes, selected by CLI flag:
   group, never in the project's runtime dependencies — see
   ``evals/README.md``).
 
-Neither mode starts a real server process or binds a port: both drive the
-``FastMCP`` server object directly, in-process.
+* ``--baseline``: the counterfactual the other two modes never measure —
+  the same prompts, asked of the same model, with the MCP tools withheld
+  entirely (no ``tools``, no MCP ``system`` instructions). Answers a single
+  question: without a register, does the model give a confidently *wrong*
+  answer, an honest refusal, or a correct one from training data? Only the
+  subset of cases where that question is fair (a real, checkable fact about
+  a specific entity) carries a ``"baseline"`` block in ``cases.json`` — see
+  ``evals/README.md`` "The baseline (no-tools) arm" for which cases and why.
+  Same skip-cleanly behaviour as ``--agent`` when the key or the package is
+  missing, and never runs in CI.
+
+No mode starts a real server process or binds a port: golden and agent mode
+drive the ``FastMCP`` server object directly, in-process; baseline mode
+never touches the server at all (there is nothing to mock — it makes no
+tool calls, so no HTTP request is ever at risk of reaching a real registry).
 
 See ``evals/README.md`` for what this measures, how to add a case, and the
-cost note for ``--agent``.
+cost note for ``--agent``/``--baseline``.
 """
 
 from __future__ import annotations
@@ -40,7 +53,7 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -78,6 +91,12 @@ FIXTURES_DIR = EVALS_DIR.parent / "tests" / "fixtures"
 DEFAULT_MODEL = "claude-sonnet-5"
 MAX_AGENT_TURNS = 6
 AGENT_MAX_TOKENS = 4096
+#: --baseline's single-turn calls carry no tool schemas and no MCP system
+#: prompt, so they need far less headroom than --agent's; generous enough
+#: that a verbose hedge-and-explain answer still fits (stop_reason is
+#: recorded per trial, so a truncated one is never silently mistaken for a
+#: short, confident one).
+BASELINE_MAX_TOKENS = 2048
 
 # A sentinel distinct from `None`: `None` is a real value a check may assert
 # on (e.g. `vat_registered is null`); `_MISSING` means the path did not
@@ -1188,6 +1207,353 @@ async def run_agent_mode(
 
 
 # ---------------------------------------------------------------------------
+# Baseline mode (no tools) — the counterfactual golden/agent mode never
+# measure. Both of those prove something about *this product*: given the
+# tools, does the server return the right facts, and does an agent use them
+# correctly? Neither says anything about the thing the product's whole pitch
+# rests on: what a model says with NO register access at all. This mode asks
+# a deliberately narrow subset of cases.json's own prompts, verbatim, of the
+# same model, with no `tools` parameter and no MCP `system` instructions —
+# the bare model, nothing else — and classifies the answer into outcomes
+# that must not be collapsed into one another (2026-09-07 design note; see
+# evals/README.md "The baseline (no-tools) arm" for the full case-by-case
+# inclusion/exclusion reasoning):
+#
+#   * "wrong"   — a confident, specific claim that contradicts the real
+#                 fact. The dangerous case this product exists to prevent.
+#   * "hedge"   — an honest capability refusal with no domain content
+#                 ("I can't check a live register"). GOOD model behaviour,
+#                 and explicitly NOT a product win — counting it as one
+#                 would rig the demo.
+#   * "correct" — the model states the true fact, or the true *limitation*
+#                 ("Companies House does not publish VAT status" is both
+#                 correct and an implicit refusal to guess further).
+#   * "unclear" — neither a configured signal nor a hedge phrase fired.
+#                 Resolved by a human reading the raw transcript
+#                 (`--baseline-json`), never silently folded into "correct"
+#                 or "wrong" by the harness itself.
+#
+# Only cases carrying a `"baseline"` block in cases.json are eligible —
+# opt-in per case, exactly like `"agent"`. This mode never touches the MCP
+# server, respx, or any registry: there is nothing to mock, because there
+# is nothing to call. Cost/CI posture mirrors --agent exactly: opt-in flag,
+# skips cleanly without a key or the `anthropic` package, never runs in CI.
+# ---------------------------------------------------------------------------
+
+#: Phrases indicating the model is declining to assert a fact specifically
+#: because it lacks live/tool access — an HONEST outcome, and, per the
+#: module note above, one that must never be counted as "correct" just
+#: because it is not "wrong". Deliberately generic and shared across every
+#: case, unlike `correct_signals`/`wrong_signals`, which are per-case facts
+#: (cases.json). Not a general paraphrase engine, in the same spirit as
+#: `_SYNONYM_GROUPS` above — extend it when a real run finds a miss, don't
+#: try to anticipate every phrasing up front.
+_HEDGE_SIGNALS: list[str] = [
+    "i can't verify",
+    "i cannot verify",
+    "i can't check",
+    "i cannot check",
+    "i can't confirm",
+    "i cannot confirm",
+    "i can't access",
+    "i cannot access",
+    "i don't have the ability to",
+    "i do not have the ability to",
+    "i don't have access",
+    "i do not have access",
+    "no access to a live",
+    "no access to the live",
+    "without access to a live",
+    "without access to the live",
+    "i don't have real-time",
+    "i do not have real-time",
+    "i don't have live",
+    "i do not have live",
+    "i don't have current",
+    "i do not have current",
+    "i can't look up",
+    "i cannot look up",
+    "i can't look this up",
+    "i'm not able to look up",
+    "i am not able to look up",
+    "no way for me to confirm",
+    "no way to confirm this",
+    "no way to verify",
+    "as of my knowledge cutoff",
+    "as of my last update",
+    "my training data",
+    "i'd recommend checking",
+    "i would recommend checking",
+    "you should check",
+    "please verify",
+    "check directly with",
+    "check the official register",
+    "consult the register",
+    "i don't have a way to",
+    "i do not have a way to",
+    "i'm unable to access",
+    "i am unable to access",
+    "i don't have direct access",
+    "i do not have direct access",
+]
+
+
+def _all_signals_present(lowered_text: str, entries: list[Any]) -> bool:
+    """True iff every `answer_must_include`-shaped entry (a string, or a
+    list of alternatives meaning "any one of these") has at least one
+    alternative present in `lowered_text` — the same AND-of-OR semantics
+    `_score_agent_trial` already uses for `agent.answer_must_include`."""
+    for entry in entries:
+        options = entry if isinstance(entry, list) else [entry]
+        if not any(phrase_present(lowered_text, opt) for opt in options):
+            return False
+    return True
+
+
+def _first_unnegated_signal(text: str, entries: list[Any]) -> tuple[str, str] | None:
+    """The first (phrase, sentence) pair from an `answer_must_not_include`
+    -shaped entry list that appears unnegated in `text`, or `None`. Entries
+    are checked in order; within one entry, alternatives are checked in
+    order — the same semantics `_score_agent_trial` uses for
+    `agent.answer_must_not_include`, reusing the same negation-aware
+    `find_unnegated_occurrence` the agent-mode fabrication gate does."""
+    for entry in entries:
+        options = entry if isinstance(entry, list) else [entry]
+        for phrase in options:
+            sentence = find_unnegated_occurrence(text, phrase)
+            if sentence is not None:
+                return phrase, sentence
+    return None
+
+
+def classify_baseline_answer(case: dict[str, Any], text: str) -> tuple[str, str]:
+    """Three-way (plus "unclear") verdict for one baseline (no-tools)
+    answer. Returns `(verdict, evidence)` — never a bare label — so a
+    manual audit (this mode's whole point; see the module note above) has
+    something concrete to check against the raw transcript.
+
+    Priority order, most-dangerous-first: a `baseline.wrong_signals` hit is
+    reported even if the answer also hedges elsewhere in the same text (a
+    caveat does not make a false, confidently-stated claim safe) or
+    coincidentally also contains a `correct_signals` phrase. The optional
+    `baseline.wrong_pattern` regex (used only for the two employee-count
+    cases, E20/E21, to catch "N employees" asserted as if it were a
+    register fact) is checked only *after* `correct_signals`, so a
+    properly-caveated mention of a public headcount figure is not
+    penalised for the number itself.
+    """
+    baseline_cfg = case.get("baseline", {})
+    lowered = text.lower()
+
+    wrong_hit = _first_unnegated_signal(text, baseline_cfg.get("wrong_signals", []))
+    if wrong_hit is not None:
+        phrase, sentence = wrong_hit
+        return "wrong", f"asserted {phrase!r}: {sentence!r}"
+
+    correct_entries = baseline_cfg.get("correct_signals", [])
+    if correct_entries and _all_signals_present(lowered, correct_entries):
+        return "correct", f"matched every required signal: {correct_entries!r}"
+
+    wrong_pattern = baseline_cfg.get("wrong_pattern")
+    if wrong_pattern:
+        match = re.search(wrong_pattern, lowered)
+        if match is not None:
+            return "wrong", f"unsourced specific claim matched {wrong_pattern!r}: {match.group(0)!r}"
+
+    for phrase in _HEDGE_SIGNALS:
+        if phrase in lowered:
+            return "hedge", f"hedge phrase {phrase!r}"
+
+    return "unclear", "no configured signal matched — needs a manual read"
+
+
+@dataclass
+class BaselineTrial:
+    requested_at: str  # ISO-8601 UTC timestamp of the API call
+    response_text: str  # full, untruncated model text — never truncated here
+    stop_reason: str
+    input_tokens: int
+    output_tokens: int
+    verdict: str  # "correct" | "wrong" | "hedge" | "unclear"
+    evidence: str
+
+
+@dataclass
+class BaselineResult:
+    case_id: str
+    group: str
+    prompt: str
+    why: str
+    status: str  # "measured" | "skip"
+    skip_reason: str = ""
+    trials: list[BaselineTrial] = field(default_factory=list)
+
+
+async def run_baseline_case(
+    async_client: Any,
+    model: str,
+    case: dict[str, Any],
+    trials: int,
+    max_tokens: int = BASELINE_MAX_TOKENS,
+) -> BaselineResult:
+    """One case, `trials` independent single-turn calls, each with NO
+    `tools` and NO `system` — the entire point of this mode (see the module
+    note above). Never touches the MCP server, respx, or any registry:
+    there is nothing to mock, because there is nothing to call — every
+    HTTP request this function could possibly cause is the one Anthropic
+    API call itself."""
+    baseline_cfg = case["baseline"]
+    result = BaselineResult(
+        case_id=case["id"],
+        group=case["group"],
+        prompt=case["prompt"],
+        why=baseline_cfg.get("why", ""),
+        status="measured",
+    )
+    for _ in range(trials):
+        requested_at = datetime.now(UTC).isoformat()
+        response = await async_client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": case["prompt"]}],
+        )
+        text = "".join(block.text for block in response.content if block.type == "text")
+        verdict, evidence = classify_baseline_answer(case, text)
+        usage = getattr(response, "usage", None)
+        result.trials.append(
+            BaselineTrial(
+                requested_at=requested_at,
+                response_text=text,
+                stop_reason=str(response.stop_reason),
+                input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+                output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+                verdict=verdict,
+                evidence=evidence,
+            )
+        )
+    return result
+
+
+async def run_baseline_mode(
+    cases: list[dict[str, Any]], model: str, trials: int
+) -> list[BaselineResult]:
+    eligible = [c for c in cases if c.get("baseline", {}).get("eligible")]
+    if not anthropic_key_available():
+        print("ANTHROPIC_API_KEY is not set; skipping --baseline mode.", file=sys.stderr)
+        return [
+            BaselineResult(
+                c["id"], c["group"], c["prompt"], c.get("baseline", {}).get("why", ""),
+                "skip", "ANTHROPIC_API_KEY is not set",
+            )
+            for c in eligible
+        ]
+    anthropic_module = _import_anthropic()
+    if anthropic_module is None:
+        print(
+            "The 'anthropic' package is not installed (it is kept out of the project's "
+            "runtime dependencies). Run:\n"
+            "  uv run --group eval python evals/run.py --baseline\n"
+            "to install it and try again.",
+            file=sys.stderr,
+        )
+        return [
+            BaselineResult(
+                c["id"], c["group"], c["prompt"], c.get("baseline", {}).get("why", ""),
+                "skip", "anthropic package not installed",
+            )
+            for c in eligible
+        ]
+
+    async_client = anthropic_module.AsyncAnthropic()
+    results: list[BaselineResult] = []
+    for case in eligible:
+        results.append(await run_baseline_case(async_client, model, case, trials))
+    return results
+
+
+_BASELINE_VERDICT_LABELS: dict[str, str] = {
+    "correct": "CORRECT",
+    "wrong": "WRONG",
+    "hedge": "HEDGE",
+    "unclear": "UNCLEAR",
+}
+
+
+def render_baseline_markdown(results: list[BaselineResult], model: str) -> str:
+    lines = [
+        f"Baseline (no-tools) arm — model `{model}`, generated "
+        f"{datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}.",
+        "",
+        "| Case | Group | Trial | Verdict | Evidence | Answer (excerpt) |",
+        "|---|---|---|---|---|---|",
+    ]
+    counts: dict[str, int] = {"correct": 0, "wrong": 0, "hedge": 0, "unclear": 0}
+    skipped = 0
+    calls = 0
+    for result in results:
+        if result.status == "skip":
+            skipped += 1
+            lines.append(f"| {result.case_id} | {result.group} | - | SKIP | {result.skip_reason} | |")
+            continue
+        for i, trial in enumerate(result.trials, start=1):
+            counts[trial.verdict] += 1
+            calls += 1
+            lines.append(
+                f"| {result.case_id} | {result.group} | {i} | "
+                f"{_BASELINE_VERDICT_LABELS[trial.verdict]} | {_escape_cell(trial.evidence)} | "
+                f"{_escape_cell(trial.response_text[:180])} |"
+            )
+    lines.append("")
+    summary = (
+        f"**{counts['correct']} correct, {counts['wrong']} wrong (confident, dangerous), "
+        f"{counts['hedge']} honest refusal, {counts['unclear']} unclear** "
+        f"out of {calls} answered call(s)."
+    )
+    if skipped:
+        summary += f" {skipped} case(s) skipped (see reason column)."
+    lines.append(summary)
+    lines.append(f"\n{calls} model call(s) made against `{model}`.")
+    return "\n".join(lines)
+
+
+def baseline_results_to_json(results: list[BaselineResult], model: str) -> dict[str, Any]:
+    """The full, untruncated record `--baseline-json` writes: prompt, raw
+    response, model id, timestamp and token usage for every call — so the
+    reported ratio can be re-run and independently audited later, unlike
+    the markdown table's `Answer (excerpt)` column, which is truncated for
+    human scanning."""
+    total_calls = sum(len(r.trials) for r in results)
+    return {
+        "model": model,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "total_calls": total_calls,
+        "cases": [
+            {
+                "id": r.case_id,
+                "group": r.group,
+                "prompt": r.prompt,
+                "why": r.why,
+                "status": r.status,
+                "skip_reason": r.skip_reason,
+                "trials": [
+                    {
+                        "requested_at": t.requested_at,
+                        "response_text": t.response_text,
+                        "stop_reason": t.stop_reason,
+                        "input_tokens": t.input_tokens,
+                        "output_tokens": t.output_tokens,
+                        "verdict": t.verdict,
+                        "evidence": t.evidence,
+                    }
+                    for t in r.trials
+                ],
+            }
+            for r in results
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
 
@@ -1243,19 +1609,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--agent", action="store_true", help="run agent mode (drives a real model through the MCP tools)"
     )
     parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="run the no-tools baseline arm (same prompts, same model, MCP tools withheld — see "
+        "evals/README.md 'The baseline (no-tools) arm')",
+    )
+    parser.add_argument(
         "--live",
         action="store_true",
         help="also run cases marked live:true in cases.json (needs network; GB ones also need "
-        "COMPANIES_HOUSE_API_KEY)",
+        "COMPANIES_HOUSE_API_KEY). Not read by --baseline, which never makes a registry call.",
     )
-    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"model id for --agent (default: {DEFAULT_MODEL})")
     parser.add_argument(
-        "--trials", type=int, default=1, help="repeat each --agent case this many times (default: 1)"
+        "--model", default=DEFAULT_MODEL, help=f"model id for --agent/--baseline (default: {DEFAULT_MODEL})"
+    )
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=1,
+        help="repeat each --agent/--baseline case this many times (default: 1)",
     )
     parser.add_argument("--case", action="append", default=None, help="only run this case id (repeatable)")
-    parser.add_argument("--out", type=Path, default=None, help="also write the markdown summary to this file")
+    parser.add_argument(
+        "--out", type=Path, default=None, help="also write the --golden/--agent markdown summary to this file"
+    )
+    parser.add_argument(
+        "--baseline-json",
+        type=Path,
+        default=None,
+        help="write the full raw --baseline transcript (prompt, response, usage, verdict per call) as "
+        "JSON to this path — the audit trail; the markdown table alone truncates each answer",
+    )
     args = parser.parse_args(argv)
-    if not args.golden and not args.agent:
+    if not args.golden and not args.agent and not args.baseline:
         args.golden = True
     return args
 
@@ -1269,11 +1655,28 @@ async def main_async(args: argparse.Namespace) -> int:
     if args.agent:
         all_results.extend(await run_agent_mode(cases, args.model, args.live, args.trials))
 
-    report = render_markdown(all_results)
-    print(report)
-    if args.out is not None:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(report + "\n", encoding="utf-8")
+    if args.golden or args.agent:
+        report = render_markdown(all_results)
+        print(report)
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(report + "\n", encoding="utf-8")
+
+    if args.baseline:
+        # A separate report, deliberately not merged into `all_results`:
+        # baseline verdicts ("wrong"/"hedge"/"correct"/"unclear") measure
+        # raw model behaviour, they do not pass or fail this harness, so
+        # they must never affect the exit code below (see the module note
+        # above the "Baseline mode" section) or be squeezed into the
+        # PASS/FAIL vocabulary render_markdown uses for golden/agent.
+        baseline_results = await run_baseline_mode(cases, args.model, args.trials)
+        print(render_baseline_markdown(baseline_results, args.model))
+        if args.baseline_json is not None:
+            args.baseline_json.parent.mkdir(parents=True, exist_ok=True)
+            payload = baseline_results_to_json(baseline_results, args.model)
+            args.baseline_json.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
 
     return 1 if any(r.status in {"fail", "gap"} for r in all_results) else 0
 
