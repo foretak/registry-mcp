@@ -11,13 +11,13 @@ assertions than a golden-mode case's `checks` list is meant to carry.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any
 
 import httpx
-import contextlib
 import pytest
 import respx
 from fastmcp import Client

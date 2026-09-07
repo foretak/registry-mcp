@@ -13,6 +13,13 @@ frozen as of `0.2.0`.
 
 Third country, and the first two items off the core roadmap.
 
+This section gathers everything that accumulated under *Unreleased* since 0.2.0 and
+shipped together on 2026-09-07 — which is why it carries several `### Added` blocks,
+each labelled with the work it came from. **Deployed to the hosted service at
+`api.foretak.dev`. Not published to PyPI, npm or the MCP registry:** no tag was pushed,
+so those still serve 0.2.0 and `packages/brreg-mcp` pins a `registry-mcp==0.3.0` that
+exists only in this repository until one is.
+
 ### Added
 
 - **Sweden (`SE`), Bolagsverket's free "värdefulla datamängder" API.** Lookup by
@@ -38,7 +45,7 @@ Third country, and the first two items off the core roadmap.
 
 Legibility fixes (T17): no `core/` change, no response-shape change.
 
-### Added
+### Added (tool legibility, T17)
 - Real `outputSchema` on every MCP tool, generated from the same pydantic
   model the tool already returns (`CompanyReport`, `SearchResult`,
   `DeadlineReport`, `ValidationResult`, `CountriesResponse`), in place of the
@@ -124,12 +131,12 @@ Legibility fixes (T17): no `core/` change, no response-shape change.
   unchanged. README "Add to ChatGPT"/"Add to Claude Desktop" sections and
   `docs/clients.md`'s ChatGPT entry document the connector URL.
 
-### Added (third country, Sweden — built, not yet live)
+### Added (third country, Sweden — how it was built)
 - Sweden (`SE`): Bolagsverket's free "värdefulla datamängder" API as a third
   registry module (`registries/se/`), one folder plus one import line, no
-  change to `core/`. **It cannot answer yet** — the API needs OAuth 2 client
-  credentials Bolagsverket issues on request, and until
-  `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET` are set every
+  change to `core/`. The API needs OAuth 2 client
+  credentials Bolagsverket issues on request; those arrived on 2026-09-07 and are
+  set on the hosted deployment. Without them every
   `SE` call returns `upstream_error` with a hint naming both variables
   (D-037). `SE` is listed by `GET /v1/countries` and `list_countries` with
   `requires_api_key: true` so that is discoverable before the call.
