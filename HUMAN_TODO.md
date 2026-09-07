@@ -398,6 +398,8 @@ Optional extra topics within the cap: `bronnoysundregistrene`,
       a declaration to sign (protected entities); processing is up to 12 business
       days → expect an answer by about **2026-09-23**. Source: datahub.virk.dk
       dataset "System-til-system adgang til CVR-data".
+**REPLY RECEIVED 2026-09-07 06:52Z** from Thomas Andreasen, Forretningsspecialist at Erhvervsstyrelsen (sagsnummer #177481) — **sixteen days earlier than the ~2026-09-23 estimate.** He answers neither question. The whole reply is a pointer to the self-service page: <https://datacvr.virk.dk/artikel/system-til-system-adgang-til-cvr-data>. **So Denmark is no longer blocked on an e-mail; it is an online application Kim fills in.** The form has a *Udenlandsk virksomhed* (foreign company) step, which answers question 1 in practice: a Norwegian ENK without a Danish CVR number can apply. **Question 2 — IP whitelisting — is still unanswered**, and it is the one that decides whether the hosted deployment can use the access at all (Railway has no fixed IP). Watch for it in the form and in the *tro- og loveerklæring*; if the form does not settle it, ask Thomas directly on this thread before signing. Kim was mid-application 2026-09-07 (steps seen: systemløsning → udenlandsk virksomhed → reelle ejere → tro- og loveerklæring → opsummering). **Answer *Nej* to beneficial owners** — Denmark closed public UBO access on 2025-09-01 and we meet none of the three access grounds.
+
 - [ ] When the reply arrives: sign the declaration, store the credentials in
       `~/secrets/registry-mcp/cvr-*.txt`, and tell the orchestrator so T16 can
       be specced (Opus A) the same way as `UK_SPEC.md`.
