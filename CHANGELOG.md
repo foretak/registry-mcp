@@ -9,6 +9,33 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-07
+
+Third country, and the first two items off the core roadmap.
+
+### Added
+
+- **Sweden (`SE`), Bolagsverket's free "värdefulla datamängder" API.** Lookup by
+  organisationsnummer (ten digits, or twelve for a sole trader), shape-only validation,
+  and filing deadlines from aktiebolagslagen 7 kap. 10 § and årsredovisningslagen
+  8 kap. 6 §. `search_company` answers `not_implemented`: the API has no name index.
+  Requires `BOLAGSVERKET_CLIENT_ID` and `BOLAGSVERKET_CLIENT_SECRET`.
+- **`euid` and `advertising_protected` on every company report** (D-026). Both default to
+  `null` and are present on every country. Sweden fills the advertising flag from
+  Statistics Sweden's *reklamspärr*; a `true` value always carries an explanatory note.
+
+### Changed
+
+- **A country may declare that its identifiers can be a natural person's** (D-040). A
+  Swedish sole trader's organisationsnummer is their personnummer, so for such countries
+  the usage log now stores no identifier at all. The uvicorn access log is off, the
+  unhandled-exception log records the route template rather than the request path, and
+  cache failures log only a key prefix. `legal/privacy.md` says so.
+
+### Fixed
+
+- Swedish industry codes no longer include Statistics Sweden's blank padding slots.
+
 Legibility fixes (T17): no `core/` change, no response-shape change.
 
 ### Added

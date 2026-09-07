@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "registry-mcp",
   "display_name": "registry-mcp — national company registries",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Company data for AI agents: Norway (Brønnøysundregistrene / brreg) and the UK (Companies House), read-only, one JSON shape.",
   "long_description": "registry-mcp is a read-only MCP server over national business registers: Norway's Enhetsregisteret (Brønnøysundregistrene, looked up by organisasjonsnummer/orgnr) and the United Kingdom's Companies House (looked up by company number). Five tools return one JSON shape across both countries: lookup_company, search_company, company_deadlines (statutory filing deadlines, cited to the rule that produced them), validate_company_id and list_countries. Nothing here writes to a register or anywhere else, and no caller credentials are required; this extension launches the published `registry-mcp` package with `uvx`, so no separate install step is needed beyond Python 3.12+ and uv.",
   "author": {

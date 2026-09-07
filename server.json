@@ -3,7 +3,7 @@
   "name": "io.github.foretak/registry-mcp",
   "title": "registry-mcp — national company registries",
   "description": "The company registry MCP: UK Companies House company number, Norway brreg orgnr, deadlines.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "websiteUrl": "https://api.foretak.dev",
   "icons": [
     {
@@ -21,7 +21,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "registry-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
@@ -56,7 +56,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "registry-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
