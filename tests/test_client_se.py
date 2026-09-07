@@ -3,8 +3,13 @@
 Numbered tests 79-118 of `SWEDEN_SPEC.md` §14 ("F. Mapping" / "G. Client" /
 "H. Live done-check"), named `test_NN_<slug>` to match
 `tests/test_rules_se.py`'s convention. 113-118 are `@pytest.mark.live` and
-excluded from CI (`pytest -m "not live"`) — Sweden has no credentials in this
-environment, so they are written but always skipped here.
+excluded from CI (`pytest -m "not live"`) — deselected by the marker
+regardless of credentials, so they are written but always skipped by the
+`-m "not live"` run this suite is checked with. Bolagsverket TEST credentials
+exist as of T26g (2026-09-07, `~/secrets/registry-mcp/bolagsverket-test.txt`,
+not wired into this test environment's variables) — the eight `bv_*.json`
+fixtures loaded below that are real recordings, rather than assembled ones,
+were made with them; see `tests/fixtures/README.md`.
 """
 
 from __future__ import annotations
@@ -59,6 +64,15 @@ BODY_403 = _load("bv_403.json")
 BODY_500 = _load("bv_500.json")
 TOKEN_BODY = _load("bv_token.json")
 
+# T26g: recorded 2026-09-07 against the Bolagsverket TEST environment (real
+# companies, real legal forms we had no fixture for before). See
+# `tests/fixtures/README.md` "SE — Bolagsverket" and `SWEDEN_SPEC.md` §17.
+HB_ACTIVE = _load("bv_hb_active.json")
+BRF_ACTIVE = _load("bv_brf_active.json")
+EK_ACTIVE = _load("bv_ek_active.json")
+ENSKILD_AVREGISTRERAD = _load("bv_enskild_avregistrerad.json")
+ENSKILD_THREE = _load("bv_enskild_three.json")
+
 
 @pytest.fixture(autouse=True)
 def _isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
@@ -106,56 +120,71 @@ def _mock_data(
 
 
 def test_79_core_fields() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
-    assert report.name == "Cykelbolaget AB"
+    """Amended 2026-09-07 (T26g): `bv_ab_active.json` is now the real recording
+    of `5560021361` (SWEDEN_SPEC.md §17), not the assembled `5299999994`
+    shape. `name`/`id`/`id_formatted` follow the fixture's own embedded
+    `organisationsidentitet`, which now wins over the requested id below —
+    matching what a real lookup of this number returns."""
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
+    assert report.name == "Testbolag 4 bokat av SKV Aktiebolag"
     assert report.legal_form_code == "AB"
     assert report.status is CompanyStatus.ACTIVE
-    assert report.id == "5299999994"
-    assert report.id_formatted == "529999-9994"
+    assert report.id == "5560021361"
+    assert report.id_formatted == "556002-1361"
 
 
 def test_80_previous_names_empty_and_n12() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
+    """Amended 2026-09-07 (T26g): the real `5560021361` recording publishes
+    only one name (no `SARSKILT_FORETAGSNAMN`, no foreign-language name), so
+    N12 is not demonstrated by *this* fixture any more — `previous_names`
+    stays `[]` either way. N12 with a real multi-name list is now proven by
+    `test_94_scb_only` below, against the real `5567223705` recording (three
+    names)."""
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
     assert report.previous_names == []
-    assert any("Mopedbolaget AB" in n and "Bicycle expert" in n for n in report.notes)
+    assert not any("also publishes these names" in n for n in report.notes)
 
 
 def test_81_industry_codes() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
     assert len(report.industry_codes) == 2
     first, second = report.industry_codes
-    assert first.code == "47642"
-    assert first.description == "Specialiserad butikshandel med cyklar"
+    assert first.code == "46699"
+    assert first.description == "Partihandel med diverse andra maskiner och diverse annan utrustning"
     assert first.scheme == "SNI 2007"
     assert first.rank == 1
-    assert second.code == "45400"
+    assert second.code == "46620"
     assert second.rank == 2
 
 
 def test_82_dates() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
-    assert report.registered_at == date(2000, 1, 23)
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
+    assert report.registered_at == date(1898, 2, 28)
     assert report.founded_at is None
 
 
 def test_83_postal_address() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
+    """Amended 2026-09-07 (T26g): the real recording's address has no
+    `coAdress` and no `land` (both `null`), unlike the assembled fixture —
+    `country_code` still resolves to `"SE"` from the §3 absent-`land` rule,
+    and `country_name` is honestly `None` rather than `"Sverige"`."""
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
     assert report.postal_address is not None
-    assert report.postal_address.lines == ["C/o Annat företag", "Jobbstigen 2"]
-    assert report.postal_address.postal_code == "12345"
-    assert report.postal_address.city == "Grönköping"
+    assert report.postal_address.lines == ["Testgatan 1"]
+    assert report.postal_address.postal_code == "85181"
+    assert report.postal_address.city == "SUNDSVALL"
     assert report.postal_address.country_code == "SE"
-    assert report.postal_address.country_name == "Sverige"
+    assert report.postal_address.country_name is None
     assert report.business_address is None
 
 
 def test_84_activity_is_trimmed() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
-    assert report.activity == "Bedriva handel med cyklar och tillbehör till cyklar"
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
+    assert report.activity == "Testverksamhet"
 
 
 def test_85_unpublished_fields_are_honestly_none() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
     assert report.employees is None
     assert report.employees_reported is False
     assert report.vat_registered is None
@@ -172,8 +201,17 @@ def test_85_unpublished_fields_are_honestly_none() -> None:
 
 
 def test_86_reklamsparr_note() -> None:
-    report = mapping.map_entity(AB_ACTIVE, "5299999994")
-    assert any("reklamspärr" in n.lower() for n in report.notes)
+    """Amended 2026-09-07 (T26g): none of the eight Bolagsverket TEST
+    companies recorded for this project carries `reklamsparr.kod == "JA"` —
+    the real `bv_ab_active.json` has `reklamsparr: null`, so N4 is not
+    reachable through *this* fixture any more. `advertising_protected is
+    None` and no N4 is the honest assertion for the real recording; the
+    `"JA"` -> N4 branch stays covered synthetically by
+    `test_122_reklamsparr_ja_sets_advertising_protected_true_and_n4` in
+    `tests/test_rules_se.py` (SWEDEN_SPEC.md §14 test 122)."""
+    report = mapping.map_entity(AB_ACTIVE, "5560021361")
+    assert report.advertising_protected is None
+    assert not any("reklamspärr" in n.lower() for n in report.notes)
 
 
 def test_87_dormant_active_with_n3() -> None:
@@ -230,9 +268,40 @@ def test_93_no_note_repeats_the_personnummer() -> None:
 
 
 def test_94_scb_only() -> None:
+    """Amended 2026-09-07 (T26g): `bv_scb_only.json` is now the real recording
+    of `5567223705` — the workbook's "Aktiebolag, organisation finns ej hos
+    SCB" scenario (SWEDEN_SPEC.md §17) — and the real mechanism is different
+    from what the assembled fixture guessed. The assembled version made
+    `organisationsform` entirely **absent** so `legal_form_code` fell back to
+    SCB's `juridiskForm` (`"49"`, with N5). The real wire instead keeps
+    `organisationsform` intact (`"AB"`, no `fel`) and puts
+    `fel.typ == "ORGANISATION_FINNS_EJ"` on the *SCB-sourced* fields
+    (`juridiskForm`, `verksamOrganisation`, `naringsgrenOrganisation`) —
+    exactly `test_119`'s constructed scenario (T26e fix 4), now confirmed
+    against the real thing: `is_not_found` stays `False` and the report maps
+    as an active `AB`, not an SCB-classified `"49"`. §14 test 94's text
+    ("`legal_form_code == \"49\"` and `notes` contains N5") describes the old
+    assembled fixture and is now stale pending a spec correction; this is the
+    live-verified replacement.
+
+    The three-name list (real, not assembled) also gives N12 real coverage
+    that `bv_ab_active.json` lost when it became a single-name real
+    recording (`test_80`)."""
+    assert mapping.is_not_found(SCB_ONLY) is False
+    assert mapping.is_partial_failure(SCB_ONLY) is False
     report = mapping.map_entity(SCB_ONLY, "5567223705")
-    assert report.legal_form_code == "49"
-    assert any("Statistics Sweden" in n for n in report.notes)
+    assert report.legal_form_code == "AB"
+    assert report.status is CompanyStatus.ACTIVE
+    assert report.name == "Testbolaget Aktiebolag"
+    assert not any("Statistics Sweden" in n for n in report.notes)
+    # naringsgrenOrganisation is blocked by the same (non-blocking) fel type,
+    # so it maps to no industry codes rather than raising or faking data.
+    assert report.industry_codes == []
+    assert any(
+        "Blv Banken med privilier att automatisera alla transaktioner" in n
+        and "Blv PF Banken med privilier att automatisera alla transaktioner" in n
+        for n in report.notes
+    )
 
 
 def test_95_uppgiftskalla_fel_constructs_without_raising() -> None:
@@ -251,13 +320,21 @@ def test_95_uppgiftskalla_fel_constructs_without_raising() -> None:
 
 
 def test_96_finns_ej_detected_as_not_found() -> None:
+    """Amended 2026-09-07 (T26g): `bv_finns_ej.json` is now the real recording
+    of `198101032384`, not `193403223328` — the workbook/§17 table had the
+    two numbers' scenarios swapped (`193403223328` is a real, deregistered,
+    two-business sole trader that maps fine; `198101032384` is the one that
+    actually carries `fel.typ == "ORGANISATION_FINNS_EJ"` on
+    `organisationsform`). See `SWEDEN_SPEC.md` §17 and
+    `test_enskild_avregistrerad_fixture_is_deleted` below for the corrected
+    `193403223328`."""
     assert mapping.is_not_found(FINNS_EJ) is True
 
 
 def test_97_registreringsland_never_read() -> None:
     data = copy.deepcopy(AB_ACTIVE)
     data["organisationer"][0]["registreringsland"] = {"kod": "XX-LAND", "klartext": "Nowhereland"}
-    report = mapping.map_entity(data, "5299999994")
+    report = mapping.map_entity(data, "5560021361")
     assert report.country == "SE"
 
 
@@ -406,6 +483,139 @@ def test_rekonstruktion_fixture_maps_under_liquidation() -> None:
 
 
 # ---------------------------------------------------------------------------
+# T26g: legal forms recorded for the first time against the real Bolagsverket
+# TEST environment (2026-09-07) — no fixture exercised HB/BRF/EK before, and
+# none used a real (rather than assembled) sole-trader deregistration or a
+# real sole trader with more than one registered business. Non-numbered:
+# these post-date SWEDEN_SPEC.md §14's list, same convention as
+# `test_kk_and_li_fixture_maps_bankrupt` above.
+# ---------------------------------------------------------------------------
+
+
+def test_hb_fixture_maps_general_partnership_no_deadlines() -> None:
+    report = mapping.map_entity(HB_ACTIVE, "9124001992")
+    assert report.name == "Testbolag 16 bokat av SKV Handelsbolag"
+    assert report.legal_form_code == "HB"
+    assert report.legal_form == "General partnership"
+    assert report.status is CompanyStatus.ACTIVE
+    assert report.has_board_duty is False
+    assert report.has_annual_accounts_duty is None
+    assert report.limited_liability is False
+    # HB is neither AB nor EK (rules.DEADLINE_FORM_CODES), so §5.5's "no
+    # computed deadlines" note fires instead of a calendar-year one.
+    assert any(
+        "computes filing deadlines only for aktiebolag" in n and "General partnership" in n
+        for n in report.notes
+    )
+
+
+def test_brf_fixture_maps_tenant_owners_association() -> None:
+    """Also exercises `naringsgrenOrganisation.sni` padding-removal (§2,
+    `test_129`/`test_130`'s logic in `test_rules_se.py`) against a real body
+    with three live codes — every other SE fixture in this file has at most
+    two, so this is the only one that proves the padding-removal survives a
+    third real entry, not just a second."""
+    report = mapping.map_entity(BRF_ACTIVE, "7164099017")
+    assert report.name == "Testbolag 24 bokat av SKV Bostadsrättsförening"
+    assert report.legal_form_code == "BRF"
+    assert report.legal_form == "Tenant-owners' (housing) association"
+    assert report.status is CompanyStatus.ACTIVE
+    assert report.has_board_duty is True
+    assert report.has_annual_accounts_duty is None
+    assert report.limited_liability is True
+    assert [c.code for c in report.industry_codes] == ["68310", "35300", "35140"]
+    assert [c.rank for c in report.industry_codes] == [1, 2, 3]
+    assert any(
+        "computes filing deadlines only for aktiebolag" in n
+        and "Tenant-owners' (housing) association" in n
+        for n in report.notes
+    )
+
+
+def test_ek_fixture_maps_economic_association_with_deadline_note() -> None:
+    """`EK` is the second of the only two forms in `rules.DEADLINE_FORM_CODES`
+    — unlike HB/BRF above, an active EK gets the calendar-year deadline
+    note, not the "no computed deadlines" one."""
+    report = mapping.map_entity(EK_ACTIVE, "7020008350")
+    assert report.name == "Testbolag 25 bokat av SKV Ekonomisk förening"
+    assert report.legal_form_code == "EK"
+    assert report.legal_form == "Economic (co-operative) association"
+    assert report.status is CompanyStatus.ACTIVE
+    assert report.has_board_duty is True
+    assert report.has_annual_accounts_duty is True
+    assert report.limited_liability is True
+    assert any("financial year ending 31 December" in n for n in report.notes)
+
+
+def test_enskild_avregistrerad_fixture_is_deleted() -> None:
+    """`193403223328` — the number the workbook and old §17 table called
+    "Organisation finns inte registrerad" — is actually a real, deregistered,
+    two-business sole trader (SWEDEN_SPEC.md §17, corrected 2026-09-07).
+    `is_not_found` is `False` for it: Bolagsverket's own identity-bearing
+    fields carry the deregistration, not a `fel`.
+
+    Known, live-confirmed spec contradiction pinned here rather than hidden:
+    `verksamOrganisation.kod == "NEJ"` on this record still appends the N3
+    note, whose fixed wording says "...so is_active is true" — but this
+    record's real `is_active` is `False` (rung 1, deregistered, outranks
+    rung 3's dormancy signal). N3's text assumes rung 3 decided status and
+    was never written to also cover a record where a *different* rung did.
+    That is a `registries/se/mapping.py` fix, out of this task's footprint —
+    reported upstream, not corrected here. The assertions below pin the real,
+    *correct* fields (`status`, `is_active`, `deregistered_at`) alongside the
+    real, currently-misleading note text, so a future fix to the note is
+    forced to touch this test rather than silently changing behaviour."""
+    assert mapping.is_not_found(ENSKILD_AVREGISTRERAD) is False
+    report = mapping.map_entity(ENSKILD_AVREGISTRERAD, "193403223328")
+    assert report.legal_form_code == "E"
+    assert report.status is CompanyStatus.DELETED
+    assert report.is_active is False
+    assert report.deregistered_at == date(2016, 8, 24)
+    assert report.status_detail is not None and "OVERK" in report.status_detail
+    assert any(
+        "This identifier carries 2 registered businesses" in n
+        and "Blekinge Mäklarbyrå Birgitta Andersson Karlshamn" in n
+        and "Blekinge Mäklarbyrå Birgitta Andersson, Ronneby" in n
+        for n in report.notes
+    )
+    assert any("sole trader" in n and "personal data" in n for n in report.notes)
+    # Pinned, not endorsed — see the docstring's N3 paragraph.
+    assert any("so is_active is true" in n for n in report.notes)
+    # id_scheme gap, live-confirmed on every sole trader recorded for this
+    # project: the wire's `organisationsidentitet.typ.kod` is `"PERSON"`,
+    # not the `"PERSONNUMMER"` SWEDEN_SPEC.md §2.4 and
+    # `mapping._ID_SCHEME_BY_TYP_KOD` expect (that table's `"PERSON"`-less
+    # code list came from Bolagsverket's OpenAPI *example*, not the live
+    # wire). `_PERSONAL_ID_TYP_KODS` never sees `"PERSON"` either, but N8
+    # above still fires correctly via its `legal_form.code == "E"` fallback
+    # — this gap is cosmetic on `id_scheme`, not a privacy hole. Reported
+    # upstream; not fixed here (out of footprint).
+    assert report.id_scheme == "organisationsnummer"
+
+
+def test_enskild_three_fixture_three_not_two_and_id_scheme_gap() -> None:
+    """`198101052382` is the workbook's "enskild firma, två
+    namnskyddslöpnummer" number (SWEDEN_SPEC.md §17, §14 test 114) — the real
+    TEST recording has **three** (`namnskyddslopnummer` 1, 2 and 3; the last
+    two are both named "Sol i maj"). See `test_114_live_enskild_two_...`'s
+    amended docstring for the live (`@pytest.mark.live`) version of this same
+    finding."""
+    report = mapping.map_entity(ENSKILD_THREE, "198101052382")
+    assert report.legal_form_code == "E"
+    assert report.status is CompanyStatus.ACTIVE
+    assert report.name == "Snö i april"
+    assert any(
+        "This identifier carries 3 registered businesses" in n
+        and "Snö i april" in n
+        and n.count("Sol i maj") == 2
+        for n in report.notes
+    )
+    assert any("sole trader" in n and "personal data" in n for n in report.notes)
+    # Same live id_scheme gap as `test_enskild_avregistrerad_fixture_is_deleted`.
+    assert report.id_scheme == "organisationsnummer"
+
+
+# ---------------------------------------------------------------------------
 # G. Client — respx-mocked, no network (99-112)
 # ---------------------------------------------------------------------------
 
@@ -453,7 +663,7 @@ async def test_102_two_requests_token_then_data_correct_hosts_and_shapes() -> No
     data_route = _mock_data(AB_ACTIVE)
 
     report = await client_module.lookup("5560160680")
-    assert report.name == "Cykelbolaget AB"
+    assert report.name == "Testbolag 4 bokat av SKV Aktiebolag"
 
     assert token_route.call_count == 1
     assert data_route.call_count == 1
@@ -516,7 +726,7 @@ async def test_104b_401_then_200_succeeds_with_one_refresh() -> None:
         side_effect=[httpx.Response(401, json=BODY_401), httpx.Response(200, json=AB_ACTIVE)]
     )
     report = await client_module.lookup("5560160680")
-    assert report.name == "Cykelbolaget AB"
+    assert report.name == "Testbolag 4 bokat av SKV Aktiebolag"
     assert token_route.call_count == 2
     assert data_route.call_count == 2
 
@@ -667,10 +877,13 @@ async def test_110_connector_search_alias_drops_se_keeps_no_gb_hits(
 
 @respx.mock
 async def test_111_finns_ej_not_found_uppgiftskalla_not_cached_second_call_hits_http() -> None:
+    """The identifier below is `198101032384`, not the workbook/§17-table
+    number `193403223328` this test used before T26g — `FINNS_EJ` is now the
+    real recording of `198101032384` (see `test_96`'s docstring)."""
     _mock_token()
     data_route = _mock_data(FINNS_EJ)
     with pytest.raises(RegistryError) as excinfo:
-        await client_module.lookup("193403223328")
+        await client_module.lookup("198101032384")
     assert excinfo.value.code is ErrorCode.NOT_FOUND
     assert "other" in excinfo.value.hint.lower() or "another" in excinfo.value.hint.lower()
 
@@ -720,7 +933,7 @@ async def test_112_cache_400_500_retry_and_no_secret_leak(caplog: pytest.LogCapt
         side_effect=[httpx.Response(500, json=BODY_500), httpx.Response(200, json=AB_ACTIVE)]
     )
     report = await client_module.lookup("5560986878")
-    assert report.name == "Cykelbolaget AB"
+    assert report.name == "Testbolag 4 bokat av SKV Aktiebolag"
     assert data_route.call_count == 2
     data_route.reset()
 
@@ -822,14 +1035,27 @@ async def test_113_live_lookup_cached_then_true() -> None:
 
 @pytest.mark.live
 async def test_114_live_enskild_two_namnskyddslopnummer() -> None:
+    """Amended 2026-09-07 (T26g): §14 test 114 and the workbook describe
+    `198101052382` as "två namnskyddslöpnummer" (two) — the real TEST
+    recording (`bv_enskild_three.json`) has **three**
+    (`namnskyddslopnummer` 1, 2, 3; the last two both named "Sol i maj"). The
+    function name and §14's text are stale pending a spec correction; the
+    assertion below matches the confirmed live body. See
+    `test_enskild_three_fixture_three_not_two_and_id_scheme_gap` for the
+    offline (fixture-based) version of this same finding."""
     report = await client_module.lookup("198101052382")
-    assert any("namnskyddslöpnummer" in n and "2" in n for n in report.notes)
+    assert any("This identifier carries 3 registered businesses" in n for n in report.notes)
 
 
 @pytest.mark.live
 async def test_115_live_finns_ej_not_found() -> None:
+    """Amended 2026-09-07 (T26g): §14 test 115 names `193403223328` as the
+    not-found number to record as `bv_finns_ej.json` — live, it is a real,
+    deregistered, two-business sole trader that maps fine (`is_not_found` is
+    `False`). `198101032384` is the number that actually raises `not_found`.
+    See `SWEDEN_SPEC.md` §17 and `test_96`'s docstring."""
     with pytest.raises(RegistryError) as excinfo:
-        await client_module.lookup("193403223328")
+        await client_module.lookup("198101032384")
     assert excinfo.value.code is ErrorCode.NOT_FOUND
 
 

@@ -13,12 +13,12 @@
       "naringsgrenOrganisation": {
         "sni": [
           {
-            "kod": "46699",
-            "klartext": "Partihandel med diverse andra maskiner och diverse annan utrustning"
+            "kod": "69101",
+            "klartext": "Advokatbyråverksamhet"
           },
           {
-            "kod": "46620",
-            "klartext": "Partihandel med verktygsmaskiner"
+            "kod": "     ",
+            "klartext": ""
           },
           {
             "kod": "     ",
@@ -37,19 +37,19 @@
         "fel": null
       },
       "organisationsdatum": {
-        "registreringsdatum": "1898-02-28",
+        "registreringsdatum": "1950-04-01",
         "dataproducent": "Bolagsverket",
         "fel": null,
         "infortHosScb": "2024-09-06"
       },
       "organisationsform": {
-        "kod": "AB",
-        "klartext": "Aktiebolag",
+        "kod": "EK",
+        "klartext": "Ekonomisk förening",
         "dataproducent": "Bolagsverket",
         "fel": null
       },
       "organisationsidentitet": {
-        "identitetsbeteckning": "5560021361",
+        "identitetsbeteckning": "7020008350",
         "typ": {
           "kod": "ORGNR",
           "klartext": "Organisationsnummer"
@@ -60,12 +60,12 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Testbolag 4 bokat av SKV Aktiebolag",
+            "namn": "Testbolag 25 bokat av SKV Ekonomisk förening",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"
             },
-            "registreringsdatum": "2024-03-27",
+            "registreringsdatum": "2024-03-28",
             "verksamhetsbeskrivningSarskiltForetagsnamn": null
           }
         ]
@@ -93,7 +93,7 @@
         "fel": null
       },
       "verksamhetsbeskrivning": {
-        "beskrivning": "Testverksamhet",
+        "beskrivning": "Testverksamhet ",
         "dataproducent": "Bolagsverket",
         "fel": null
       }

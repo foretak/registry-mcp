@@ -1,80 +1,124 @@
 {
-  "_VERIFY": "SHAPE ONLY — assembled from Bolagsverket's published OpenAPI examples and code lists, not recorded from a live call. Re-record with the curl recipe in tests/fixtures/README.md when credentials arrive (T26d), then delete this key.",
   "organisationer": [
     {
-      "organisationsidentitet": null,
-      "namnskyddslopnummer": null,
-      "organisationsnamn": {
-        "organisationsnamnLista": null,
-        "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
-      },
-      "registreringsland": null,
-      "reklamsparr": null,
-      "organisationsform": {
-        "kod": null,
-        "klartext": null,
-        "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
-      },
       "avregistreradOrganisation": {
         "avregistreringsdatum": null,
+        "dataproducent": "Bolagsverket",
         "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel."
+        }
       },
       "avregistreringsorsak": {
         "kod": null,
         "klartext": null,
+        "dataproducent": "Bolagsverket",
         "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel."
+        }
       },
-      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": {
-        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": null,
-        "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
+      "juridiskForm": {
+        "kod": "10",
+        "klartext": "Fysiska personer",
+        "dataproducent": "SCB",
+        "fel": null
       },
-      "juridiskForm": null,
-      "verksamOrganisation": null,
+      "namnskyddslopnummer": null,
+      "naringsgrenOrganisation": {
+        "sni": [
+          {
+            "kod": "43320",
+            "klartext": "Byggnadssnickeriarbeten"
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          }
+        ],
+        "dataproducent": "SCB",
+        "fel": null
+      },
       "organisationsdatum": {
         "registreringsdatum": null,
-        "infortHosScb": null,
+        "dataproducent": "SCB",
+        "fel": null,
+        "infortHosScb": "2024-09-06"
+      },
+      "organisationsform": {
+        "kod": null,
+        "klartext": null,
+        "dataproducent": "Bolagsverket",
         "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel."
+        }
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "198101032384",
+        "typ": null
+      },
+      "organisationsnamn": {
+        "dataproducent": "SCB",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Testbolag_91",
+            "organisationsnamntyp": null,
+            "registreringsdatum": null,
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": {
+        "dataproducent": "Bolagsverket",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel."
         },
-        "dataproducent": "Bolagsverket"
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": []
+      },
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "00000",
+          "coAdress": "",
+          "land": null,
+          "postort": "Utlandet",
+          "utdelningsadress": "23 ST JAMES BLVD BROMPTON S.A. 5007"
+        },
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "registreringsland": null,
+      "reklamsparr": {
+        "kod": "NEJ",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "verksamOrganisation": {
+        "kod": "JA",
+        "dataproducent": "SCB",
+        "fel": null
       },
       "verksamhetsbeskrivning": {
         "beskrivning": null,
+        "dataproducent": "Bolagsverket",
         "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
-      },
-      "naringsgrenOrganisation": null,
-      "postadressOrganisation": {
-        "postadress": null,
-        "fel": {
-          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel.",
-          "typ": "ORGANISATION_FINNS_EJ"
-        },
-        "dataproducent": "Bolagsverket"
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Begärd organisation finns inte registrerad i sökbar form hos aktuell dataproducent. Observera att en organisation ändå kan existera och eventuellt också finnas registrerad i sökbar form hos en annan dataproducent trots detta fel."
+        }
       }
     }
   ]

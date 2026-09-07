@@ -4,8 +4,8 @@
       "avregistreradOrganisation": null,
       "avregistreringsorsak": null,
       "juridiskForm": {
-        "kod": "49",
-        "klartext": "Övriga aktiebolag",
+        "kod": "53",
+        "klartext": "Bostadsrättsföreningar",
         "dataproducent": "SCB",
         "fel": null
       },
@@ -13,16 +13,16 @@
       "naringsgrenOrganisation": {
         "sni": [
           {
-            "kod": "46699",
-            "klartext": "Partihandel med diverse andra maskiner och diverse annan utrustning"
+            "kod": "68310",
+            "klartext": "Förmedling avseende fastighetsverksamhet"
           },
           {
-            "kod": "46620",
-            "klartext": "Partihandel med verktygsmaskiner"
+            "kod": "35300",
+            "klartext": "Försörjning av värme och kyla"
           },
           {
-            "kod": "     ",
-            "klartext": ""
+            "kod": "35140",
+            "klartext": "Handel med elektricitet"
           },
           {
             "kod": "     ",
@@ -37,19 +37,19 @@
         "fel": null
       },
       "organisationsdatum": {
-        "registreringsdatum": "1898-02-28",
+        "registreringsdatum": "1986-10-24",
         "dataproducent": "Bolagsverket",
         "fel": null,
         "infortHosScb": "2024-09-06"
       },
       "organisationsform": {
-        "kod": "AB",
-        "klartext": "Aktiebolag",
+        "kod": "BRF",
+        "klartext": "Bostadsrättsförening",
         "dataproducent": "Bolagsverket",
         "fel": null
       },
       "organisationsidentitet": {
-        "identitetsbeteckning": "5560021361",
+        "identitetsbeteckning": "7164099017",
         "typ": {
           "kod": "ORGNR",
           "klartext": "Organisationsnummer"
@@ -60,12 +60,12 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Testbolag 4 bokat av SKV Aktiebolag",
+            "namn": "Testbolag 24 bokat av SKV Bostadsrättsförening",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"
             },
-            "registreringsdatum": "2024-03-27",
+            "registreringsdatum": "2024-03-28",
             "verksamhetsbeskrivningSarskiltForetagsnamn": null
           }
         ]
@@ -93,7 +93,7 @@
         "fel": null
       },
       "verksamhetsbeskrivning": {
-        "beskrivning": "Testverksamhet",
+        "beskrivning": "Testverksamhet ",
         "dataproducent": "Bolagsverket",
         "fel": null
       }

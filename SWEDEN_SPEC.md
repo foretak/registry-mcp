@@ -311,11 +311,14 @@ such company" and "Bolagsverket has no such company".
 populated object with `fel.typ = ORGANISATION_FINNS_EJ` on every field. **§6 handles both**, because
 the workbook names the scenario but no full response body for it appears anywhere.
 
-### 1.8 Fixtures — built from Bolagsverket's own examples, and **none of them are live**
+### 1.8 Fixtures — built from Bolagsverket's own examples; most are now live (T26g)
 
-`UK_SPEC.md` §1.4 opened with sixteen live payloads. This file cannot. But it is much better placed
-than the previous pass: Bolagsverket ships **three** complete 200-response examples and **five**
-`ApiError` examples in its OpenAPI document, plus a test-company workbook with named scenarios.
+`UK_SPEC.md` §1.4 opened with sixteen live payloads. At T26b this file could not — Bolagsverket
+ships **three** complete 200-response examples and **five** `ApiError` examples in its OpenAPI
+document, plus a test-company workbook with named scenarios, and nothing more until credentials
+existed. **T26g (2026-09-07) recorded eight of the test-company workbook's numbers against the real
+TEST environment** and settled the fixture story §17 originally deferred; the table below and §17
+carry the result.
 
 > **The `organisationer-aktiebolag-svar` example is not a coherent company.** It is simultaneously
 > struck off (`avregistreradOrganisation` 2023-05-05, `avregistreringsorsak: LIAV`), in bankruptcy
@@ -328,32 +331,77 @@ than the previous pass: Bolagsverket ships **three** complete 200-response examp
 
 | Fixture | Built from | What it is the fixture *for* | Live? |
 |---|---|---|---|
-| `bv_ab_active.json` | `organisationer-aktiebolag-svar`, reduced | Healthy `AB`: no avregistrering, no ongoing procedure, `verksamOrganisation: JA`, one `FORETAGSNAMN` + one `SARSKILT_FORETAGSNAMN` + one foreign-language name. Every happy-path mapping test | No — `VERIFY-live` |
-| `bv_ab_dormant.json` | same, `verksamOrganisation: NEJ` | §8's "on the register, not winding down, not economically active" branch. **No other country in this repo has it** | No |
-| `bv_ab_konkurs.json` | same, `pagaende…Lista: [KK 2024-01-26]` | `KK` → `BANKRUPT` + `bankruptcy_date`, and no deadlines (ÅRL 8 kap. 7 §) | No |
-| `bv_ab_kk_and_li.json` | same, `[KK, LI]` **both** | The list is plural and its precedence is `KK` > `LI` (§8). Straight from Bolagsverket's own example | No |
-| `bv_ab_rekonstruktion.json` | same, `[FR 2026-02-01]` | `FR` is distress but **not** bankruptcy (§8 bucket 1) | No |
-| `bv_ab_fusion_overtagande.json` | same, `[FUOT]` | The acquiring company in a merger: an ongoing procedure that must **not** make a healthy company non-active (§8 bucket 2). The false-alarm test | No |
-| `bv_ab_avregistrerad.json` | same, `avregistrerad` + `LIAV` | → `DELETED`, `deregistered_at`, reason in `status_detail`. Also proves the **datetime-shaped date** parses (`"2023-05-05T00:00:00.000+00:00"`) | No |
-| `bv_enskild_two.json` | **`organisationer-enskild-svar` verbatim** | The real two-business sole trader `194009272719` (§2.2). `namnskyddslopnummer` 1 and 2, `typ.kod: PERSONNUMMER`, `juridiskForm: null`, leading-whitespace `beskrivning`. **The single most important fixture in the set** | No, but it is Bolagsverket's own |
-| `bv_scb_only.json` | `organisationsform: null`, `juridiskForm` present | §7's SCB fallback branch and note N5 | No |
+| `bv_ab_active.json` | live `5560021361` | Healthy `AB`. Every happy-path mapping test | **Yes — T26g, 2026-09-07** |
+| `bv_ab_dormant.json` | `organisationer-aktiebolag-svar`, reduced, `verksamOrganisation: NEJ` | §8's "on the register, not winding down, not economically active" branch. **No other country in this repo has it** | No — `_SYNTHETIC_COMBINATION`; no TEST company is a dormant AB |
+| `bv_ab_konkurs.json` | same, `pagaende…Lista: [KK 2024-01-26]` | `KK` → `BANKRUPT` + `bankruptcy_date`, and no deadlines (ÅRL 8 kap. 7 §) | No — `_SYNTHETIC_COMBINATION`; no TEST company is bankrupt |
+| `bv_ab_kk_and_li.json` | same, `[KK, LI]` **both** | The list is plural and its precedence is `KK` > `LI` (§8). Straight from Bolagsverket's own example | No — `_SYNTHETIC_COMBINATION`; no TEST company has either |
+| `bv_ab_rekonstruktion.json` | same, `[FR 2026-02-01]` | `FR` is distress but **not** bankruptcy (§8 bucket 1) | No — `_SYNTHETIC_COMBINATION`; no TEST company is in reconstruction |
+| `bv_ab_fusion_overtagande.json` | same, `[FUOT]` | The acquiring company in a merger: an ongoing procedure that must **not** make a healthy company non-active (§8 bucket 2). The false-alarm test | No — `_SYNTHETIC_COMBINATION`; no TEST company is mid-fusion |
+| `bv_ab_avregistrerad.json` | same, `avregistrerad` + `LIAV` | → `DELETED`, `deregistered_at`, reason in `status_detail`. Also proves the **datetime-shaped date** parses (`"2023-05-05T00:00:00.000+00:00"`) | No — `_SYNTHETIC_COMBINATION`; the one live deregistered TEST company (`bv_enskild_avregistrerad.json`, below) is a different legal form, a plain (not datetime-shaped) date and a different `avregistreringsorsak` |
+| `bv_enskild_two.json` | **`organisationer-enskild-svar` verbatim** | The real two-business sole trader `194009272719` (§2.2). `namnskyddslopnummer` 1 and 2, `typ.kod: PERSONNUMMER`, `juridiskForm: null`, leading-whitespace `beskrivning`. **The single most important fixture in the set** | No, but it is Bolagsverket's own — kept deliberately: see the `typ.kod` note below |
+| `bv_scb_only.json` | live `5567223705` | An `AB` with `organisationsform` intact but SCB-sourced fields (`juridiskForm`, `verksamOrganisation`, `naringsgrenOrganisation`) carrying `fel.typ: ORGANISATION_FINNS_EJ` — §1.7's caveat and `test_119`'s scenario, live. **Not** the N5/SCB-fallback branch that name once suggested — see the callout below the table | **Yes — T26g, 2026-09-07** |
 | `bv_uppgiftskalla_fel.json` | **`organisationer-fel-fran-en-uppgiftskalla-svar` verbatim** | §1.6's partial 200: maps without raising, adds note N13, **and is not cached** | No, but it is Bolagsverket's own |
-| `bv_finns_ej.json` | the workbook's `felBeskrivning` strings | `ORGANISATION_FINNS_EJ` → `not_found` (§1.7) | No — shape `VERIFY-live` |
+| `bv_finns_ej.json` | live `198101032384` | `ORGANISATION_FINNS_EJ` on `organisationsform` → `not_found` (§1.7) | **Yes — T26g, 2026-09-07**; corrected number, see the callout below the table |
+| `bv_enskild_avregistrerad.json` | live `193403223328` | A real, deregistered, two-business sole trader (`E`, plain-date `avregistreringsdatum`, `avregistreringsorsak: OVERK`). §8 Rung 1 against real data | **Yes — T26g, 2026-09-07** |
+| `bv_enskild_three.json` | live `198101052382` | A sole trader with **three** registered businesses, not the workbook's "two" — N7's arithmetic against real data | **Yes — T26g, 2026-09-07** |
+| `bv_hb_active.json` | live `9124001992` | `HB` (Handelsbolag): classified, no computed deadlines (§7.3) | **Yes — T26g, 2026-09-07** |
+| `bv_brf_active.json` | live `7164099017` | `BRF` (Bostadsrättsförening): classified, no computed deadlines; three real SNI codes (padding-removal against real data) | **Yes — T26g, 2026-09-07** |
+| `bv_ek_active.json` | live `7020008350` | `EK` (Ekonomisk förening): the second `DEADLINE_FORM_CODES` member, computed deadlines against real data | **Yes — T26g, 2026-09-07** |
 | `bv_400.json` … `bv_500.json` | the five `ApiError` examples, verbatim | §6's status table | No, but they are Bolagsverket's own |
 | `bv_token.json` | the connection guide's example | The token response (§1.2) | No |
 
-Every fixture that is **not** copied verbatim from a Bolagsverket example carries a header key:
+> **`bv_scb_only.json`'s real mechanism is not what its name once implied.** The assembled
+> fixture (T26b) made `organisationsform` entirely *absent* so `legal_form_code` fell back to SCB's
+> `juridiskForm` (§7's N5 branch) — a plausible guess at "organisation finns ej hos SCB" that turned
+> out wrong. The live `5567223705` recording instead keeps `organisationsform` intact (`AB`, no
+> `fel`) and puts `fel.typ: ORGANISATION_FINNS_EJ` on the SCB-sourced fields alongside it — Bolagsverket
+> has the company, SCB doesn't, exactly as the workbook's Swedish scenario label always said, just not
+> by the mechanism T26b assembled. `legal_form_code` is `"AB"`, not `"49"`, and N5 does not fire.
+> `SWEDEN_SPEC.md` §14 test 94's text (`legal_form_code == "49"`, N5 present) describes the retired
+> assembled fixture and is stale pending a correction outside this section's footprint;
+> `tests/test_client_se.py`'s `test_94_scb_only` carries the live-corrected assertions and explains
+> this in its own docstring.
+
+> **Live-confirmed gap, reported but not fixed by T26g: `organisationsidentitet.typ.kod` on the wire
+> is `"ORGNR"` / `"PERSON"`, never the `"ORGANISATIONSNUMMER"` / `"PERSONNUMMER"` this section's §2.4
+> table and `mapping._ID_SCHEME_BY_TYP_KOD`/`_PERSONAL_ID_TYP_KODS` expect** — true on all eight T26g
+> recordings without exception, including every sole trader (`193403223328`, `198101032384`,
+> `198101052382`). Bolagsverket's OpenAPI example (which `bv_enskild_two.json` copies verbatim, and
+> which §2.4 was written from) carries `"PERSONNUMMER"`; nothing recorded live ever has. Practical
+> effect: `id_scheme` for a real sole trader is `"organisationsnummer"`, not the `"personnummer"` §2.4
+> intends — a labelling gap only, since N8's personal-data note fires independently through
+> `legal_form.code == "E"` and is unaffected. `mapping.py` is outside this task's footprint; the gap
+> is pinned by `tests/test_client_se.py`'s `test_enskild_avregistrerad_fixture_is_deleted` and
+> `test_enskild_three_fixture_three_not_two_and_id_scheme_gap`, not corrected there.
+
+> **Also live-confirmed, on `bv_enskild_avregistrerad.json` (`193403223328`)**: this record has both
+> `avregistreradOrganisation` set (§8 Rung 1 fires, `status = DELETED`) **and**
+> `verksamOrganisation.kod == "NEJ"` — the trigger for the N3 note, whose fixed text ends "...so
+> `is_active` is true". For this record `is_active` is `False` (Rung 1 outranks Rung 3). N3's wording
+> assumes Rung 3 decided `status`; it was never written to also cover a record where a different rung
+> did. Also outside this footprint — pinned, not fixed, in the same test.
+
+`bv_ab_dormant.json`, `bv_ab_konkurs.json`, `bv_ab_kk_and_li.json`, `bv_ab_rekonstruktion.json`,
+`bv_ab_fusion_overtagande.json` and `bv_ab_avregistrerad.json` are the six fixtures that stayed
+assembled after T26g — every field name and nesting level in them also appears in one of the eight
+live recordings above or in Bolagsverket's OpenAPI document, but no TEST-register company is
+currently in the specific *combination* of states each one models. They carry a header key:
 
 ```json
-{"_VERIFY": "SHAPE ONLY — assembled from Bolagsverket's published OpenAPI examples and code lists,
-not recorded from a live call. Re-record with the curl recipe in tests/fixtures/README.md when
-credentials arrive (T26d), then delete this key."}
+{"_SYNTHETIC_COMBINATION": "SHAPE CONFIRMED, COMBINATION SYNTHETIC — every field name and nesting
+level here also appears in Bolagsverket's OpenAPI document and in eight live Bolagsverket TEST
+recordings taken 2026-09-07 (...). Only this fixture's particular *combination* of states ... is
+synthetic: no company in the Bolagsverket test register is currently in it. Re-record if one ever
+appears; see tests/fixtures/README.md."}
 ```
 
-A key, not a comment: JSON has no comments, and a key that must be deleted is harder to forget.
-`map_entity` ignores any top-level key beginning with `_`. **T26e checks that every `_VERIFY` key is
-gone before 0.3.0 ships**, and `README.md`'s country line reads "built, awaiting Bolagsverket
-credentials" until it is (T26c).
+(Full text: `tests/fixtures/README.md` and any of the six files.) A key, not a comment: JSON has no
+comments, and a key that documents a fixture's provenance belongs in the fixture. `map_entity`
+ignores any top-level key it doesn't read — true of `_SYNTHETIC_COMBINATION` exactly as it was of the
+`_VERIFY` key it replaces (T26b/T26g); nothing in `registries/se/` had to change for the rename.
+**T26g replaced every `_VERIFY` key in the repository** — with a real recording where §17's table
+found one, with `_SYNTHETIC_COMBINATION` where it did not — and `README.md`'s country line no longer
+needs the "awaiting Bolagsverket credentials" caveat T26c wrote.
 
 ### 1.9 Licence, source and attribution
 
@@ -2049,15 +2097,25 @@ them blocks the build.
 
 ## 17. Fixtures — recording the real ones
 
-**Nothing under `tests/fixtures/bv_*.json` is a live recording.** Eleven fixtures are described in
-§1.8: four are copied **verbatim** from Bolagsverket's own OpenAPI examples
-(`bv_enskild_two.json`, `bv_uppgiftskalla_fel.json`, the `ApiError` bodies, `bv_token.json`), and the
-rest are assembled from those examples' field names and nesting with different optional blocks
-present. All of the assembled ones carry the `_VERIFY` header key of §1.8 and **must be re-recorded
-in T26d**.
+**Done — T26g, 2026-09-07.** At T26b nothing under `tests/fixtures/bv_*.json` was a live recording:
+eleven fixtures were described in §1.8, four copied **verbatim** from Bolagsverket's own OpenAPI
+examples (`bv_enskild_two.json`, `bv_uppgiftskalla_fel.json`, the `ApiError` bodies, `bv_token.json`),
+the rest assembled from those examples' field names and nesting with different optional blocks
+present, each carrying the `_VERIFY` header key of §1.8. Bolagsverket TEST credentials arrived
+2026-09-07 (`HUMAN_TODO.md` §7.7); T26g recorded eight of the numbers below against the real TEST
+environment (bodies below, `tests/fixtures/README.md`'s "SE — Bolagsverket" section). Every `_VERIFY`
+key in the repository is gone: three fixtures became the real recording it names
+(`bv_ab_active.json`, `bv_scb_only.json`, `bv_finns_ej.json`), two more real recordings became new
+fixtures for legal forms and scenarios this project had none for (`bv_enskild_avregistrerad.json`,
+`bv_enskild_three.json`), three more real recordings became new fixtures for legal forms with no
+fixture at all before (`bv_hb_active.json`, `bv_brf_active.json`, `bv_ek_active.json`), and the six
+whose scenario — bankruptcy, liquidation, reconstruction, a fusion, a dormant AB, or this exact
+deregistration shape — no TEST company reproduces now carry `_SYNTHETIC_COMBINATION` instead (§1.8):
+shape confirmed against all eight live recordings, only the combination of states is synthetic.
 
-`tests/fixtures/README.md` gains an `## SE — Bolagsverket` section containing exactly this, with the
-credentials as shell variables and **no credential values committed**:
+The recipe below is confirmed working — it is how the eight real recordings were made. It lives in
+full in `tests/fixtures/README.md`'s `## SE — Bolagsverket` section, with the credentials as shell
+variables and **no credential values committed**:
 
 ```bash
 # 1. Token (test environment). Production: portal.api.bolagsverket.se
@@ -2079,19 +2137,23 @@ curl -sS -X POST \
   -d '{"identitetsbeteckning":"5560021361"}' | python3 -m json.tool
 ```
 
-**Which number to record for which fixture** (test environment; the workbook's scenarios):
+**Which number recorded which fixture** (test environment). The Number and Scenario columns are the
+workbook's own, **except the two rows marked corrected**: §17 originally carried the workbook's
+labels uncritically, and two of them do not match what the numbers actually return. Verified directly
+against the live TEST environment and corrected here 2026-09-07 (T26g):
 
 | Fixture | Number | Scenario |
 |---|---|---|
 | `bv_ab_active.json` | `5560021361` | Svar utan fel — Aktiebolag |
-| `bv_enskild_two.json` | `198101052382` | Enskild firma, **två namnskyddslöpnummer** |
-| *(a one-business sole trader)* | `198101032384` | Enskild firma |
-| `bv_finns_ej.json` | `193403223328` | Organisation finns inte registrerad |
-| `bv_scb_only.json` | `5567223705` | Aktiebolag, organisation finns ej hos SCB |
-| *(handelsbolag)* | `9124001992` | Handelsbolag |
-| *(bostadsrättsförening)* | `7164099017` | Bostadsrättsförening |
-| *(ekonomisk förening)* | `7020008350` | Ekonomisk förening |
-| *(dokumentlista, `DEFERRED`)* | `5561890038` | — |
+| `bv_scb_only.json` | `5567223705` | Aktiebolag, organisation finns ej hos SCB (real mechanism differs from what T26b assembled — §1.8's callout) |
+| `bv_finns_ej.json` | `198101032384` | Organisation finns inte registrerad. **Corrected 2026-09-07**: the workbook/original §17 gave this scenario as `193403223328`; live, `193403223328` is not this scenario (next row) — `198101032384` is. |
+| `bv_enskild_avregistrerad.json` | `193403223328` | **Corrected 2026-09-07**: the workbook/original §17 called this number "organisation finns inte registrerad". Live, it returns **two** organisations for a real, deregistered sole trader — `avregistreradOrganisation.avregistreringsdatum: "2016-08-24"`, `avregistreringsorsak: OVERK` — and `is_not_found` on it is correctly `False`. |
+| `bv_enskild_three.json` | `198101052382` | Enskild firma. The workbook calls this "**två** namnskyddslöpnummer"; live, it returns **three** (`namnskyddslopnummer` 1, 2, 3 — the last two both named "Sol i maj"). §14 test 114's text still says "two" and is stale pending a correction outside this section's footprint; the count is corrected here and pinned in `tests/test_client_se.py`. |
+| `bv_enskild_two.json` | *(not recorded — kept as Bolagsverket's own OpenAPI example, `194009272719`)* | Enskild firma, two namnskyddslöpnummer, `typ.kod: PERSONNUMMER` — see §1.8's `typ.kod` callout for why this one stays synthetic on purpose |
+| `bv_hb_active.json` | `9124001992` | Handelsbolag |
+| `bv_brf_active.json` | `7164099017` | Bostadsrättsförening |
+| `bv_ek_active.json` | `7020008350` | Ekonomisk förening |
+| *(dokumentlista, `DEFERRED`)* | `5561890038` | — (T31, not this task) |
 
 **Do not record `5560000002`, `7140000001`, `9160000001` or `198210300002` as ordinary fixtures.**
 They are the four §5.1.1 counter-examples; `5560000002` has a job of its own (§14 test 116) and the

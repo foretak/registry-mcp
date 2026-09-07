@@ -1,107 +1,107 @@
 {
-  "_VERIFY": "SHAPE ONLY — assembled from Bolagsverket's published OpenAPI examples and code lists, not recorded from a live call. Re-record with the curl recipe in tests/fixtures/README.md when credentials arrive (T26d), then delete this key.",
   "organisationer": [
     {
-      "organisationsidentitet": {
-        "identitetsbeteckning": "5567223705",
-        "typ": {
-          "kod": "ORGANISATIONSNUMMER",
-          "klartext": "Organisationsnummer"
+      "avregistreradOrganisation": null,
+      "avregistreringsorsak": null,
+      "juridiskForm": {
+        "kod": null,
+        "klartext": null,
+        "dataproducent": "SCB",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Den efterfrågade informationen gick inte att hitta."
         }
       },
       "namnskyddslopnummer": null,
+      "naringsgrenOrganisation": {
+        "sni": [],
+        "dataproducent": "SCB",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Den efterfrågade informationen gick inte att hitta."
+        }
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "1897-02-08",
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "infortHosScb": null
+      },
+      "organisationsform": {
+        "kod": "AB",
+        "klartext": "Aktiebolag",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "5567223705",
+        "typ": {
+          "kod": "ORGNR",
+          "klartext": "Organisationsnummer"
+        }
+      },
       "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
         "organisationsnamnLista": [
           {
-            "registreringsdatum": "2020-03-15",
-            "namn": "Cykelbolaget AB",
+            "namn": "Testbolaget Aktiebolag",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"
             },
+            "registreringsdatum": null,
             "verksamhetsbeskrivningSarskiltForetagsnamn": null
           },
           {
-            "registreringsdatum": "2024-03-15",
-            "namn": "Mopedbolaget AB",
+            "namn": "Blv Banken med privilier att automatisera alla transaktioner",
             "organisationsnamntyp": {
-              "kod": "SARSKILT_FORETAGSNAMN",
+              "kod": "SARS_FORNAMN",
               "klartext": "Särskilt företagsnamn"
             },
-            "verksamhetsbeskrivningSarskiltForetagsnamn": "Att bedriva handel med mopeder."
+            "registreringsdatum": "2000-01-01",
+            "verksamhetsbeskrivningSarskiltForetagsnamn": "\\n       För den del av verksamheten som avser den regionala verksamheten vid respektive kontor och regionkontor."
           },
           {
-            "registreringsdatum": "2020-04-01",
-            "namn": "Bicycle expert",
+            "namn": "Blv PF Banken med privilier att automatisera alla transaktioner",
             "organisationsnamntyp": {
-              "kod": "FORETAGSNAMN_PA_FRAMMANDE_SPRAK",
+              "kod": "FORNAMN_FRSPRAK",
               "klartext": "Företagsnamn på främmande språk"
             },
+            "registreringsdatum": "2000-01-01",
             "verksamhetsbeskrivningSarskiltForetagsnamn": null
           }
-        ],
-        "fel": null,
-        "dataproducent": "Bolagsverket"
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": null,
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "11111",
+          "coAdress": "c/o AB Testbolaget",
+          "land": "Sverige",
+          "postort": "TESTHOLMEN",
+          "utdelningsadress": "Testvägen 1"
+        },
+        "dataproducent": "Bolagsverket",
+        "fel": null
       },
       "registreringsland": {
         "kod": "SE-LAND",
         "klartext": "Sverige"
       },
-      "reklamsparr": {
-        "kod": "JA",
-        "fel": null,
-        "dataproducent": "SCB"
-      },
-      "organisationsform": null,
-      "avregistreradOrganisation": null,
-      "avregistreringsorsak": null,
-      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": null,
-      "juridiskForm": {
-        "kod": "49",
-        "klartext": "Övriga aktiebolag",
-        "fel": null,
-        "dataproducent": "SCB"
-      },
+      "reklamsparr": null,
       "verksamOrganisation": {
-        "kod": "JA",
-        "fel": null,
-        "dataproducent": "SCB"
-      },
-      "organisationsdatum": {
-        "registreringsdatum": "2000-01-23",
-        "fel": null,
-        "dataproducent": "Bolagsverket",
-        "infortHosScb": "2000-02-03"
+        "kod": null,
+        "dataproducent": "SCB",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Den efterfrågade informationen gick inte att hitta."
+        }
       },
       "verksamhetsbeskrivning": {
-        "fel": null,
+        "beskrivning": "Bolaget skall bedriva test samt idka därmed förenlig verksamhet.",
         "dataproducent": "Bolagsverket",
-        "beskrivning": "Bedriva handel med cyklar och tillbehör till cyklar"
-      },
-      "naringsgrenOrganisation": {
-        "fel": null,
-        "dataproducent": "Bolagsverket",
-        "sni": [
-          {
-            "kod": "47642",
-            "klartext": "Specialiserad butikshandel med cyklar"
-          },
-          {
-            "kod": "45400",
-            "klartext": "EU-mopeder, reservdelar och tillbehör, handel med"
-          }
-        ]
-      },
-      "postadressOrganisation": {
-        "postadress": {
-          "postnummer": "12345",
-          "utdelningsadress": "Jobbstigen 2",
-          "land": "Sverige",
-          "coAdress": "C/o Annat företag",
-          "postort": "Grönköping"
-        },
-        "fel": null,
-        "dataproducent": "SCB"
+        "fel": null
       }
     }
   ]

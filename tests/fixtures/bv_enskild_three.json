@@ -1,0 +1,298 @@
+{
+  "organisationer": [
+    {
+      "avregistreradOrganisation": null,
+      "avregistreringsorsak": null,
+      "juridiskForm": {
+        "kod": "10",
+        "klartext": "Fysiska personer",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "namnskyddslopnummer": 1,
+      "naringsgrenOrganisation": {
+        "sni": [
+          {
+            "kod": "02200",
+            "klartext": "Drivning"
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          }
+        ],
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "2025-04-23",
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "infortHosScb": "2024-09-06"
+      },
+      "organisationsform": {
+        "kod": "E",
+        "klartext": "Enskild näringsverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "198101052382",
+        "typ": {
+          "kod": "PERSON",
+          "klartext": "Identitetsbeteckning person"
+        }
+      },
+      "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Snö i april",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "registreringsdatum": "2025-04-24",
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": null,
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "85181",
+          "coAdress": null,
+          "land": null,
+          "postort": "SUNDSVALL",
+          "utdelningsadress": "Testgatan 1"
+        },
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": null,
+      "verksamOrganisation": {
+        "kod": "JA",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": "Testverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      }
+    },
+    {
+      "avregistreradOrganisation": null,
+      "avregistreringsorsak": null,
+      "juridiskForm": {
+        "kod": "10",
+        "klartext": "Fysiska personer",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "namnskyddslopnummer": 2,
+      "naringsgrenOrganisation": {
+        "sni": [
+          {
+            "kod": "02200",
+            "klartext": "Drivning"
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          }
+        ],
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "2025-04-23",
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "infortHosScb": "2024-09-06"
+      },
+      "organisationsform": {
+        "kod": "E",
+        "klartext": "Enskild näringsverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "198101052382",
+        "typ": {
+          "kod": "PERSON",
+          "klartext": "Identitetsbeteckning person"
+        }
+      },
+      "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Sol i maj",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "registreringsdatum": "2025-04-24",
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": null,
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "85181",
+          "coAdress": null,
+          "land": null,
+          "postort": "SUNDSVALL",
+          "utdelningsadress": "Testgatan 1"
+        },
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": null,
+      "verksamOrganisation": {
+        "kod": "JA",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": "Testverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      }
+    },
+    {
+      "avregistreradOrganisation": null,
+      "avregistreringsorsak": null,
+      "juridiskForm": {
+        "kod": "10",
+        "klartext": "Fysiska personer",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "namnskyddslopnummer": 3,
+      "naringsgrenOrganisation": {
+        "sni": [
+          {
+            "kod": "02200",
+            "klartext": "Drivning"
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          }
+        ],
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "2025-04-23",
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "infortHosScb": "2024-09-06"
+      },
+      "organisationsform": {
+        "kod": "E",
+        "klartext": "Enskild näringsverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "198101052382",
+        "typ": {
+          "kod": "PERSON",
+          "klartext": "Identitetsbeteckning person"
+        }
+      },
+      "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Sol i maj",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "registreringsdatum": "2025-04-23",
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": null,
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "85181",
+          "coAdress": null,
+          "land": null,
+          "postort": "SUNDSVALL",
+          "utdelningsadress": "Testgatan 1"
+        },
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": null,
+      "verksamOrganisation": {
+        "kod": "JA",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": "Testverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      }
+    }
+  ]
+}

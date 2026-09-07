@@ -1,0 +1,226 @@
+{
+  "organisationer": [
+    {
+      "avregistreradOrganisation": {
+        "avregistreringsdatum": "2016-08-24",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "avregistreringsorsak": {
+        "kod": "OVERK",
+        "klartext": "Ingen verksamhet de senaste tio åren",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "juridiskForm": {
+        "kod": "10",
+        "klartext": "Fysiska personer",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "namnskyddslopnummer": 1,
+      "naringsgrenOrganisation": {
+        "sni": [
+          {
+            "kod": "02101",
+            "klartext": "Skogsförvaltning"
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          }
+        ],
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "1988-09-14",
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "infortHosScb": "2024-09-06"
+      },
+      "organisationsform": {
+        "kod": "E",
+        "klartext": "Enskild näringsverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "193403223328",
+        "typ": {
+          "kod": "ORGNR",
+          "klartext": "Organisationsnummer"
+        }
+      },
+      "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Blekinge Mäklarbyrå Birgitta Andersson Karlshamn",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "registreringsdatum": null,
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": []
+      },
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "37438",
+          "coAdress": null,
+          "land": null,
+          "postort": "KARLSHAMN",
+          "utdelningsadress": "Kaptensgatan 7"
+        },
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": null,
+      "verksamOrganisation": {
+        "kod": "NEJ",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": "Fastighetsmäkleri.",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      }
+    },
+    {
+      "avregistreradOrganisation": {
+        "avregistreringsdatum": "2016-08-24",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "avregistreringsorsak": {
+        "kod": "OVERK",
+        "klartext": "Ingen verksamhet de senaste tio åren",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "juridiskForm": {
+        "kod": "10",
+        "klartext": "Fysiska personer",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "namnskyddslopnummer": 2,
+      "naringsgrenOrganisation": {
+        "sni": [
+          {
+            "kod": "02101",
+            "klartext": "Skogsförvaltning"
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          },
+          {
+            "kod": "     ",
+            "klartext": ""
+          }
+        ],
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "organisationsdatum": {
+        "registreringsdatum": "1988-10-06",
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "infortHosScb": "2024-09-06"
+      },
+      "organisationsform": {
+        "kod": "E",
+        "klartext": "Enskild näringsverksamhet",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "organisationsidentitet": {
+        "identitetsbeteckning": "193403223328",
+        "typ": {
+          "kod": "ORGNR",
+          "klartext": "Organisationsnummer"
+        }
+      },
+      "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Blekinge Mäklarbyrå Birgitta Andersson, Ronneby",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "registreringsdatum": null,
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
+      "pagaendeAvvecklingsEllerOmstruktureringsforfarande": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": []
+      },
+      "postadressOrganisation": {
+        "postadress": {
+          "postnummer": "37230",
+          "coAdress": null,
+          "land": null,
+          "postort": "RONNEBY",
+          "utdelningsadress": "Strandgatan 11"
+        },
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": null,
+      "verksamOrganisation": {
+        "kod": "NEJ",
+        "dataproducent": "SCB",
+        "fel": null
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": "Fastighetsmäkleri.",
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      }
+    }
+  ]
+}
