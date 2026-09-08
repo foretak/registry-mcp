@@ -24,6 +24,18 @@ passing an absolute URL (``httpx`` leaves an absolute URL alone when a
 because two round trips have two moments and two failure modes
 (``DECISIONS.md`` D-041(c)).
 
+D-043 (T38, ``R-5f``) adds :func:`fetch_financials` beside it, reading **the
+same URL, the same cache entry and the same upstream call** as
+:func:`fetch_accounts` — ``filings`` and ``financials`` are one fetch
+producing two blocks, not two fetches (D-043(h)). ``core/registry.py::
+lookup_with`` runs every requested attachment concurrently (D-042(b)), so the
+two must not race into two upstream requests on a cold cache: both are thin
+wrappers over :func:`_fetch_accounts_payload`, which is the single point
+that reads the cache, and — on a miss — the single point that starts the
+upstream fetch, sharing one ``asyncio.Task`` between however many callers
+arrive before it finishes (an in-flight map, not a lock; see that function's
+docstring for why no lock is needed).
+
 Rules (MOD11 validation, deadlines) live in ``registries/no/rules.py``, owned
 by T02 and built in parallel with this file. Every use of it here is a lazy,
 function-local import so importing this module — and running the respx-mocked
@@ -46,12 +58,13 @@ from registry_mcp.core.models import (
     CompanyReport,
     ErrorCode,
     FilingHistory,
+    FinancialSummary,
     RegistryError,
     SearchResult,
 )
 from registry_mcp.registries.no import accounts, mapping
 
-__all__ = ["aclose", "fetch_accounts", "lookup", "search"]
+__all__ = ["aclose", "fetch_accounts", "fetch_financials", "lookup", "search"]
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +305,16 @@ async def search(name: str, limit: int = 10) -> SearchResult:
 
 def _accounts_cache_key(orgnr: str) -> str:
     """``{COUNTRY}:{registry}:{name}:{id}`` (``DECISIONS.md`` D-042(j)), where
-    ``name`` is the ``include`` value this block will be reached by."""
+    ``name`` was the ``include`` value this block was first reached by.
+
+    **One key now serves both `filings` and `financials`** (D-043(h)(1)):
+    they are the same upstream call, so a second key would double-store the
+    same body and let the two blocks age apart — D-042(j)'s "one key per
+    attachment" is corrected by D-043(h)(1) to "one key per upstream call".
+    Kept under its original ``filings`` segment rather than renamed to
+    ``accounts``: a rename is a cache-compatibility decision for whoever
+    next touches ``core/cache.py``'s per-kind TTL table (D-045(e)), not one
+    this task makes unilaterally while that table does not exist yet."""
     return f"NO:brreg:filings:{orgnr}"
 
 
@@ -323,6 +345,98 @@ def _accounts_upstream_error(orgnr: str) -> RegistryError:
     )
 
 
+#: One upstream fetch in flight per cold cache key, so that `fetch_accounts`
+#: and `fetch_financials` called concurrently for the same organisation share
+#: it rather than racing to make two (``DECISIONS.md`` D-043(h)(3)):
+#: ``core/registry.py::lookup_with`` runs every requested attachment with
+#: bounded concurrency, so ``include=["filings", "financials"]`` calls both
+#: methods before either's fetch can complete on a cold cache. Populated and
+#: drained only by :func:`_fetch_accounts_payload`, below — nothing else
+#: touches it.
+#:
+#: **Why no lock is needed.** Between checking the cache and registering the
+#: task here there is no ``await`` at all, so this whole sequence is one
+#: uninterruptible step from the event loop's point of view: whichever of the
+#: two coroutines reaches :func:`_fetch_accounts_payload` first always
+#: finishes registering its task in this map before the other gets a turn,
+#: because Python's cooperative scheduling only switches coroutines at a
+#: genuine suspension. The second coroutine then always finds the task
+#: already there, on a cold cache, however the two happen to be interleaved.
+_inflight_accounts_fetch: dict[str, asyncio.Task[tuple[list[Any], bool, datetime]]] = {}
+
+
+async def _do_fetch_accounts_payload(orgnr: str, cache_key: str) -> tuple[list[Any], bool, datetime]:
+    """The upstream call itself — everything :func:`fetch_accounts` did
+    before D-043, unchanged, including the cache write. Run at most once per
+    cold cache key: :func:`_fetch_accounts_payload` is the only caller, and it
+    never starts a second one while this one is in flight.
+
+    Returns ``(items, cached=False, fetched_at)`` — a fresh fetch is never
+    itself a cache hit, whichever of :func:`fetch_accounts` /
+    :func:`fetch_financials` happened to trigger it.
+    """
+    try:
+        response = await _fetch(accounts.ACCOUNTS_URL.format(orgnr=orgnr))
+    except RegistryError as exc:
+        if exc.code is ErrorCode.UPSTREAM_ERROR:
+            raise _accounts_upstream_error(orgnr) from exc
+        raise
+
+    if response.status_code == 200:
+        body = response.json()
+        data = body if isinstance(body, list) else []
+    elif response.status_code == 404:
+        data = []
+    elif response.status_code == 429:
+        raise _rate_limited_error()
+    else:
+        raise _accounts_upstream_error(orgnr)
+
+    fetched_at = datetime.now(UTC)
+    cache.set(
+        cache_key,
+        {"items": data},
+        status="ok" if data else "not_found",
+        fetched_at=fetched_at,
+    )
+    return data, False, fetched_at
+
+
+async def _fetch_accounts_payload(orgnr: str) -> tuple[list[Any], bool, datetime]:
+    """The parsed payload behind **both** :func:`fetch_accounts` and
+    :func:`fetch_financials` — one cache entry, one in-flight upstream call,
+    shared regardless of which of the two callers arrives first (D-043(h)).
+
+    Returns ``(items, cached, fetched_at)``: ``items`` is the bare JSON array
+    Regnskapsregisteret returns (never re-shaped — D-026(a)), and ``cached``/
+    ``fetched_at`` are what both :class:`~registry_mcp.core.models.
+    FilingHistory.provenance` and :class:`~registry_mcp.core.models.
+    FinancialSummary.provenance` are built from, so a caller requesting both
+    blocks together always gets two `SourceRef`\\ s equal in all five fields
+    (D-043(h)(2)).
+    """
+    cache_key = _accounts_cache_key(orgnr)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        # The payload is a bare JSON array; `CacheEntry.payload` is a dict, so
+        # it is stored under one key rather than reshaped (D-026(a): carried,
+        # never constructed).
+        items: list[Any] = entry.payload.get("items") or []
+        return items, True, entry.fetched_at
+
+    existing = _inflight_accounts_fetch.get(cache_key)
+    if existing is not None:
+        return await existing
+
+    task = asyncio.ensure_future(_do_fetch_accounts_payload(orgnr, cache_key))
+    _inflight_accounts_fetch[cache_key] = task
+    try:
+        return await task
+    finally:
+        _inflight_accounts_fetch.pop(cache_key, None)
+
+
 async def fetch_accounts(id: str) -> FilingHistory:
     """Fetch one entity's filed annual accounts, consulting the cache first.
 
@@ -350,41 +464,31 @@ async def fetch_accounts(id: str) -> FilingHistory:
     no per-kind TTL table (D-042(j) names one; ``core/`` is another agent's
     footprint), so this is the same stand-in ``registries/gb/client.py::
     fetch_charges`` uses, and both should be replaced together.
+
+    **D-043 (T38):** the fetch behind this function is shared with
+    :func:`fetch_financials` — see :func:`_fetch_accounts_payload`. This
+    function's own contract (cache key, TTL, 404/5xx/429 handling) is
+    otherwise exactly what it was before that task.
     """
     orgnr = _validate_orgnr(id)
-    cache_key = _accounts_cache_key(orgnr)
+    data, cached, fetched_at = await _fetch_accounts_payload(orgnr)
+    return accounts.map_regnskap(data, orgnr, cached=cached, fetched_at=fetched_at)
 
-    entry = cache.get(cache_key)
-    if entry is not None:
-        # The payload is a bare JSON array; `CacheEntry.payload` is a dict, so
-        # it is stored under one key rather than reshaped (D-026(a): carried,
-        # never constructed).
-        return accounts.map_regnskap(
-            entry.payload.get("items"), orgnr, cached=True, fetched_at=entry.fetched_at
-        )
 
-    try:
-        response = await _fetch(accounts.ACCOUNTS_URL.format(orgnr=orgnr))
-    except RegistryError as exc:
-        if exc.code is ErrorCode.UPSTREAM_ERROR:
-            raise _accounts_upstream_error(orgnr) from exc
-        raise
+async def fetch_financials(id: str) -> FinancialSummary:
+    """Fetch one entity's key figures from its filed annual accounts,
+    consulting the cache first.
 
-    if response.status_code == 200:
-        body = response.json()
-        data = body if isinstance(body, list) else []
-    elif response.status_code == 404:
-        data = []
-    elif response.status_code == 429:
-        raise _rate_limited_error()
-    else:
-        raise _accounts_upstream_error(orgnr)
-
-    fetched_at = datetime.now(UTC)
-    cache.set(
-        cache_key,
-        {"items": data},
-        status="ok" if data else "not_found",
-        fetched_at=fetched_at,
-    )
-    return accounts.map_regnskap(data, orgnr, cached=False, fetched_at=fetched_at)
+    D-043 (T38, ``R-5f``). **The exact same fetch as :func:`fetch_accounts`,
+    not a second one**: both read
+    ``data.brreg.no/regnskapsregisteret/regnskap/{orgnr}`` through
+    :func:`_fetch_accounts_payload`, which serves both from one cache entry
+    and, on a cold cache, from one in-flight upstream call however the two
+    are interleaved (D-043(h)). Consequently this function's failure modes,
+    TTL and 404 handling are identical to :func:`fetch_accounts`'s — see that
+    function's docstring — and the two blocks' ``provenance`` are equal in
+    all five fields when fetched together (D-043(h)(2)).
+    """
+    orgnr = _validate_orgnr(id)
+    data, cached, fetched_at = await _fetch_accounts_payload(orgnr)
+    return accounts.map_regnskap_financials(data, orgnr, cached=cached, fetched_at=fetched_at)

@@ -14,19 +14,32 @@ exercise the real `validate_orgnr` / `legal_form_info` / `derive_status`.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+import anyio
 import httpx
+import pydantic
 import pytest
 import respx
+from fastapi.testclient import TestClient
+from fastmcp import Client as FastMCPClient
 
+from registry_mcp.api.main import app
 from registry_mcp.core import cache
-from registry_mcp.core.models import ErrorCode, RegistryError
+from registry_mcp.core.models import (
+    CompanyReport,
+    CompanyStatus,
+    ErrorCode,
+    FinancialPeriod,
+    RegistryError,
+)
 from registry_mcp.core.registry import get_registry
+from registry_mcp.mcp.server import mcp
 from registry_mcp.registries.no import accounts, mapping, rules
 from registry_mcp.registries.no import client as client_module
 
@@ -1035,3 +1048,546 @@ def test_r5d_an_ordinary_year_is_never_called_unusual() -> None:
     for payload in ([midmonth], ORACLE_ACCOUNTS, EQUINOR_ACCOUNTS):
         block = accounts.map_regnskap(payload, "923609016", cached=False, fetched_at=_FETCHED_AT)
         assert not any("than an ordinary year" in note for note in block.notes)
+
+
+# ---------------------------------------------------------------------------
+# T38 / R-5f — `registries/no/accounts.py::map_regnskap_financials` and
+# `client.fetch_financials` / `fetch_accounts` — `include=["financials"]`
+# (`DECISIONS.md` D-043).
+#
+# Every test in this section lives here rather than in `tests/test_attachments.py`
+# (per the orchestrator: T42 owns that file this round) and rather than in
+# `tests/test_mcp.py`/`tests/test_wiring.py`, even where a test's natural home
+# would otherwise be one of those — flagged individually below.
+#
+# Part A5: the mapper, against the six fixtures `tasks/T38.md` names plus the
+# three already recorded for R-5d. Part B3: the wiring — one shared fetch,
+# one `SourceRef`, cross-country `bad_request`, REST/MCP parity and a failed
+# fetch's note.
+# ---------------------------------------------------------------------------
+
+#: 222 HOLDING AS — negative `sumGjeld` (-108,837); equity exceeds total
+#: assets; `langsiktigGjeld: {}` and `finansinntekt: {}`; `totalresultat`
+#: present. Recorded live 2026-09-08.
+HOLDING_222_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_931883836.json")
+
+#: 4WD HOLDING AS — `driftsinntekter: {}` beside a present `driftsresultat`
+#: and `sumDriftskostnad`. Recorded live 2026-09-08.
+FWD_HOLDING_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_936134610.json")
+
+#: 4U HOLDING AS — explicit `sumDriftsinntekter: 0.0`, the pair to the
+#: fixture above. Recorded live 2026-09-08.
+FU_HOLDING_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_921378963.json")
+
+#: 22 INVEST AS — `fravalgRevisjon: true`, `smaaForetak: true`, negative
+#: equity. Recorded live 2026-09-08.
+INVEST_22_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_925922900.json")
+
+#: AGATON SAX MT AS — `avviklingsregnskap: true`, final stub period
+#: 2026-01-01/2026-04-30. Recorded live 2026-09-08.
+AGATON_SAX_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_998575133.json")
+
+
+# ---------------------------------------------------------------------------
+# A5 — the mapper
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("payload", "orgnr"),
+    [
+        (EQUINOR_ACCOUNTS, "923609016"),
+        (ORACLE_ACCOUNTS, "939319891"),
+        (STUB_PERIOD_ACCOUNTS, "935845114"),
+        (HOLDING_222_ACCOUNTS, "931883836"),
+        (FWD_HOLDING_ACCOUNTS, "936134610"),
+        (FU_HOLDING_ACCOUNTS, "921378963"),
+        (INVEST_22_ACCOUNTS, "925922900"),
+        (AGATON_SAX_ACCOUNTS, "998575133"),
+    ],
+)
+def test_d043_every_fixture_maps_without_raising(payload: list[dict[str, Any]], orgnr: str) -> None:
+    block = accounts.map_regnskap_financials(payload, orgnr, cached=False, fetched_at=_FETCHED_AT)
+    assert len(block.periods) == 1
+    assert block.provenance.source_url == ACCOUNTS_URL.format(orgnr=orgnr)
+
+
+def test_d043_936134610_revenue_none_and_921378963_revenue_zero_in_one_test() -> None:
+    """The load-bearing pair (D-043(f)): two holding companies with no
+    turnover, read the same afternoon, publish that absence two different
+    ways. Asserted together so the distinction cannot be silently lost."""
+    no_revenue = accounts.map_regnskap_financials(
+        FWD_HOLDING_ACCOUNTS, "936134610", cached=False, fetched_at=_FETCHED_AT
+    )
+    zero_revenue = accounts.map_regnskap_financials(
+        FU_HOLDING_ACCOUNTS, "921378963", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert no_revenue.periods[0].income_statement is not None
+    assert no_revenue.periods[0].income_statement.revenue is None
+    assert zero_revenue.periods[0].income_statement is not None
+    assert zero_revenue.periods[0].income_statement.revenue == 0.0
+
+
+def test_d043_931883836_liabilities_carried_negative_unchanged() -> None:
+    """`sumGjeld` is real, negative, filed data (D-043(e)) and is carried
+    exactly, never clamped or dropped.
+
+    **Deviation from `tasks/T38.md` A5, reported per the brief's own
+    instruction to stop and report rather than choose differently when the
+    wire contradicts a number in D-043.** The brief additionally asks for "a
+    reconciliation note ... naming both totals" on this fixture. Live,
+    `sumEgenkapitalGjeld` and `sumEiendeler` are both exactly 27,949 — equal,
+    not differing — so D-043(e)'s reconciliation note correctly does *not*
+    fire here (asserted below). D-043(e) itself only ever attributes this
+    organisation number to the *negative `sumGjeld`* finding, never to a
+    reconciliation gap; the three live reconciliation-gap examples it names
+    (931626469, 880998412, 927866951) are different companies, not in this
+    task's fixture set. What *is* true and striking about this filing —
+    asserted below instead, as a carried value rather than invented as a
+    `notes` sentence, since D-043(e) permits no comparison beyond the one
+    reconciliation note — is that `sumEgenkapital` (136,786) exceeds
+    `sumEiendeler` (27,949), which the negative liability makes
+    arithmetically consistent rather than a filing error.
+    """
+    block = accounts.map_regnskap_financials(
+        HOLDING_222_ACCOUNTS, "931883836", cached=False, fetched_at=_FETCHED_AT
+    )
+    period = block.periods[0]
+    assert period.balance_sheet is not None
+    assert period.balance_sheet.liabilities == -108837.0
+    assert period.balance_sheet.total_assets == 27949.0
+    assert period.balance_sheet.total_equity_and_liabilities == 27949.0
+    assert period.balance_sheet.equity == 136786.0
+    assert period.balance_sheet.equity > period.balance_sheet.total_assets
+    assert not any("differ by" in note for note in block.notes)
+    assert period.income_statement is not None
+    assert period.income_statement.total_comprehensive_income == -4809.0
+
+
+def test_d043_923609016_usd_currency_non_nok_note_and_reconciliation_note() -> None:
+    block = accounts.map_regnskap_financials(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    period = block.periods[0]
+    assert period.currency == "USD"
+    assert any("USD" in note and "not NOK" in note for note in block.notes)
+    assert any("differ by 1,000,000" in note for note in block.notes)
+    assert period.accounting_framework == "forenkletAnvendelseIFRS"
+    assert period.balance_sheet is not None
+    assert period.balance_sheet.total_assets == 103432000000.0
+    assert period.balance_sheet.total_equity_and_liabilities == 103431000000.0
+
+
+def test_d043_998575133_liquidation_basis_note_and_no_winding_up_restatement() -> None:
+    block = accounts.map_regnskap_financials(
+        AGATON_SAX_ACCOUNTS, "998575133", cached=False, fetched_at=_FETCHED_AT
+    )
+    period = block.periods[0]
+    assert period.liquidation_basis is True
+    assert period.period_start == date(2026, 1, 1)
+    assert period.period_end == date(2026, 4, 30)
+    assert any("winding-up account" in note for note in block.notes)
+    # D-043(g): the note must not restate the winding-up itself — that is
+    # `CompanyReport.status`'s job, from the first round trip.
+    assert not any(
+        phrase in note.lower()
+        for note in block.notes
+        for phrase in ("is being wound up", "is in liquidation", "the company is")
+    )
+
+
+def test_d043_925922900_small_entity_audit_exempt_and_negative_equity() -> None:
+    block = accounts.map_regnskap_financials(
+        INVEST_22_ACCOUNTS, "925922900", cached=False, fetched_at=_FETCHED_AT
+    )
+    period = block.periods[0]
+    assert period.small_entity is True
+    assert period.audit_exempt is True
+    assert period.balance_sheet is not None
+    assert period.balance_sheet.equity == -2743.0
+    assert any("small entity" in note or "reduced-disclosure" in note for note in block.notes)
+    assert any("opt out of audit" in note for note in block.notes)
+
+
+def test_d043_unobserved_scope_word_gives_consolidated_none_never_false() -> None:
+    synthetic = dict(EQUINOR_ACCOUNTS[0])
+    synthetic["regnskapstype"] = "KONSERN"  # implied by the vocabulary, never observed live
+    block = accounts.map_regnskap_financials(
+        [synthetic], "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block.periods[0].scope == "KONSERN"
+    assert block.periods[0].consolidated is None
+
+
+def test_d043_missing_currency_skips_period_and_notes_why() -> None:
+    synthetic = dict(EQUINOR_ACCOUNTS[0])
+    del synthetic["valuta"]
+    block = accounts.map_regnskap_financials([synthetic], "923609016", cached=False, fetched_at=_FETCHED_AT)
+    assert block.periods == []
+    assert any("no currency" in note for note in block.notes)
+
+
+def test_d043_empty_and_none_payload_present_block_empty_periods() -> None:
+    empty = accounts.map_regnskap_financials([], "974760673", cached=False, fetched_at=_FETCHED_AT)
+    assert empty.periods == []
+    assert any("holds no filed annual accounts" in note for note in empty.notes)
+
+    none_payload = accounts.map_regnskap_financials(
+        None, "974760673", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert none_payload.periods == []
+
+
+def test_d043_financial_period_requires_currency() -> None:
+    with pytest.raises(pydantic.ValidationError, match="currency"):
+        FinancialPeriod()  # type: ignore[call-arg]
+
+
+def test_d043_paid_in_equity_reads_the_registers_misspelled_key() -> None:
+    """`sumInnskuttEgenkaptial` is spelled that way by the register — pinned
+    so nobody "fixes" the spelling later (`tasks/T38.md` A2)."""
+    assert "sumInnskuttEgenkaptial" in json.dumps(EQUINOR_ACCOUNTS)
+    block = accounts.map_regnskap_financials(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block.periods[0].balance_sheet is not None
+    assert block.periods[0].balance_sheet.paid_in_equity == 995000000.0
+
+
+def test_d043_no_numeric_field_defaults_to_anything_but_none() -> None:
+    """Structural guard behind the `grep -c "float | None"` done-check: every
+    field on the two figure models is optional and defaults to `None`, so a
+    field the register does not publish can never construct as zero."""
+    from registry_mcp.core.models import BalanceSheet, IncomeStatement
+
+    for model in (IncomeStatement, BalanceSheet):
+        for name, field in model.model_fields.items():
+            assert field.default is None, f"{model.__name__}.{name} does not default to None"
+
+
+def test_d043_document_id_and_period_end_match_the_sibling_filed_document() -> None:
+    """D-043(h)(4): the two blocks may never disagree about the period — both
+    are `regnskapsperiode.tilDato`/`journalnr` from the same body."""
+    filings = accounts.map_regnskap(EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT)
+    financials = accounts.map_regnskap_financials(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert filings.documents[0].document_id == financials.periods[0].document_id == "2026635024"
+    assert (
+        filings.financial_year_end
+        == filings.documents[0].period_end
+        == financials.periods[0].period_end
+    )
+
+
+# ---------------------------------------------------------------------------
+# B3 — the nine invariants D-043(h)/(i)/(j) exist to prove, plus the field-
+# routing regression `tests/test_attachments.py` would otherwise carry
+# (skipped there this round: T42 owns that file).
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_d043_fetch_financials_maps_a_live_shaped_200() -> None:
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    block = await client_module.fetch_financials("923 609 016")
+    assert route.call_count == 1
+    assert block.periods[0].currency == "USD"
+    assert block.provenance.cached is False
+
+
+@respx.mock
+async def test_d043_fetch_financials_404_is_an_empty_block_never_not_found() -> None:
+    respx.get(ACCOUNTS_URL.format(orgnr="974760673")).mock(return_value=httpx.Response(404))
+    block = await client_module.fetch_financials("974760673")
+    assert block.periods == []
+    assert any("holds no filed annual accounts" in note for note in block.notes)
+
+
+@respx.mock
+async def test_d043_fetch_financials_500_is_upstream_error_after_exactly_one_retry() -> None:
+    route = respx.get(ACCOUNTS_URL.format(orgnr="916823525")).mock(
+        return_value=httpx.Response(500, json=_load_fixture("brreg_regnskap_500.json"))
+    )
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_financials("916823525")
+    assert route.call_count == 2
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+
+
+@respx.mock
+async def test_d043_fetch_financials_429_is_rate_limited_and_not_retried() -> None:
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(return_value=httpx.Response(429))
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_financials("923609016")
+    assert route.call_count == 1
+    assert excinfo.value.code is ErrorCode.RATE_LIMITED
+
+
+@respx.mock
+async def test_d043_fetch_financials_invalid_orgnr_is_rejected_before_any_request() -> None:
+    route = respx.get(url__startswith="https://data.brreg.no/regnskapsregisteret")
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_financials("12345")
+    assert route.call_count == 0
+    assert excinfo.value.code is ErrorCode.INVALID_ID
+
+
+@respx.mock
+async def test_d043_fetch_financials_cache_hit_preserves_its_own_fetched_at() -> None:
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    first = await client_module.fetch_financials("923609016")
+    second = await client_module.fetch_financials("923609016")
+    assert route.call_count == 1
+    assert first.provenance.cached is False
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+
+
+@respx.mock
+async def test_d043_one_cache_key_serves_both_filings_and_financials() -> None:
+    """D-043(h)(1): `filings` (fetched first here) populates the one cache
+    entry `financials` then reads — no second upstream request, and the
+    entry lives under the key `fetch_accounts` has always used (kept, not
+    renamed, per the orchestrator: renaming is `core/cache.py`'s per-kind
+    TTL table's decision to make, not this task's)."""
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    await client_module.fetch_accounts("923609016")
+    entry = cache.get("NO:brreg:filings:923609016")
+    assert entry is not None
+
+    block = await client_module.fetch_financials("923609016")
+    assert route.call_count == 1
+    assert block.provenance.cached is True
+
+
+@respx.mock
+async def test_d043_invariant1_concurrent_fetch_accounts_and_fetch_financials_share_one_request() -> None:
+    """The implementation hazard D-043(h)(3) names by name: `fetch_accounts`
+    and `fetch_financials` called concurrently on a cold cache must not race
+    into two upstream requests. Exercised directly at the client layer,
+    beneath `lookup_with`'s own concurrency (the next test)."""
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    filings, financials = await asyncio.gather(
+        client_module.fetch_accounts("923609016"),
+        client_module.fetch_financials("923609016"),
+    )
+    assert route.call_count == 1
+    assert filings.provenance == financials.provenance
+
+
+@respx.mock
+async def test_d043_invariant1_lookup_with_both_includes_makes_exactly_one_upstream_request() -> None:
+    """B3 invariant 1, at the surface `lookup_with` actually uses: a caller
+    asking for both attachments in one call costs one upstream request for
+    the accounts payload (plus the one, separate, `/enheter` request the base
+    report always costs)."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    accounts_route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    registry = get_registry("NO")
+    report = await registry.lookup_with("923609016", ["filings", "financials"])
+    assert accounts_route.call_count == 1
+    assert report.filings is not None
+    assert report.financials is not None
+
+
+@respx.mock
+async def test_d043_invariant2_provenance_equal_in_all_five_fields() -> None:
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    registry = get_registry("NO")
+    report = await registry.lookup_with("923609016", ["filings", "financials"])
+    assert report.filings is not None
+    assert report.financials is not None
+    assert report.filings.provenance == report.financials.provenance
+    assert report.filings.provenance.fetched_at == report.financials.provenance.fetched_at
+    assert report.filings.provenance.cached == report.financials.provenance.cached
+
+
+@respx.mock
+async def test_d043_invariant3_filing_history_and_financial_period_agree_on_the_join_keys() -> None:
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    registry = get_registry("NO")
+    report = await registry.lookup_with("923609016", ["filings", "financials"])
+    assert report.filings is not None
+    assert report.financials is not None
+    filed = report.filings.documents[0]
+    period = report.financials.periods[0]
+    assert report.filings.financial_year_end == filed.period_end == period.period_end
+    assert filed.document_id == period.document_id
+
+
+@respx.mock
+async def test_d043_invariant4_default_lookup_costs_one_request_and_both_blocks_none() -> None:
+    entity_route = respx.get(f"{BASE_URL}/enheter/923609016").mock(
+        return_value=httpx.Response(200, json=EQUINOR)
+    )
+    accounts_route = respx.get(ACCOUNTS_URL.format(orgnr="923609016"))
+    registry = get_registry("NO")
+    report = await registry.lookup_with("923609016")
+    assert entity_route.call_count == 1
+    assert accounts_route.call_count == 0
+    assert report.filings is None
+    assert report.financials is None
+
+
+async def test_d043_invariant5_financials_on_gb_is_bad_request_naming_gb_allowed_set() -> None:
+    gb = get_registry("GB")
+    with pytest.raises(RegistryError) as excinfo:
+        await gb.lookup_with(gb.id_example, ["financials"])
+    assert excinfo.value.code is ErrorCode.BAD_REQUEST
+    assert "financials" not in excinfo.value.hint
+    assert excinfo.value.details["allowed"] == sorted(gb.supported_includes)
+
+
+async def test_d043_invariant5_financials_on_se_is_bad_request_naming_se_allowed_set() -> None:
+    se = get_registry("SE")
+    with pytest.raises(RegistryError) as excinfo:
+        await se.lookup_with(se.id_example, ["financials"])
+    assert excinfo.value.code is ErrorCode.BAD_REQUEST
+    assert "financials" not in excinfo.value.hint
+    assert excinfo.value.details["allowed"] == sorted(se.supported_includes)
+
+
+def test_d043_invariant6_country_info_shows_financials_only_for_norway() -> None:
+    assert "financials" in get_registry("NO").country_info().supported_includes
+    assert "financials" not in get_registry("GB").country_info().supported_includes
+    assert "financials" not in get_registry("SE").country_info().supported_includes
+
+
+@respx.mock
+async def test_d043_invariant7_deadlines_unchanged_by_adding_financials_on_top_of_filings() -> None:
+    """D-043(j): `financials` is never an input to `Registry.deadlines`, so a
+    lookup that adds it on top of `filings` must not change one date or one
+    `applies_because` string. `DeadlineReport` carries no volatile field (no
+    timestamp of its own), so a whole-object comparison is exact, not just
+    field-by-field."""
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+    registry = get_registry("NO")
+    today = date(2026, 3, 15)
+
+    with_filings_only = await registry.lookup_with("923609016", ["filings"])
+    with_both = await registry.lookup_with("923609016", ["filings", "financials"])
+
+    report_only = registry.deadline_report(with_filings_only, today)
+    report_both = registry.deadline_report(with_both, today)
+    assert report_only == report_both
+
+
+@respx.mock
+def test_d043_invariant8_rest_and_mcp_lookup_company_include_financials_are_identical(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `include=["financials"]` path (D-043), the same D-004 guarantee
+    `tests/test_mcp.py::test_rest_and_mcp_lookup_company_include_charges_are_identical_gb`
+    proves for GB's `charges` — written here instead of there, per the
+    orchestrator, so every T38 test lives in one file: REST `?include=financials`
+    and MCP `include=["financials"]` attach the identical `financials` block,
+    co-requested with `filings` so D-043(h)'s shared-provenance guarantee is
+    exercised too."""
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_DISABLED", "1")
+    respx.get(f"{BASE_URL}/enheter/923609016").mock(return_value=httpx.Response(200, json=EQUINOR))
+    respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+
+    with TestClient(app) as rest_client:
+        rest_body = rest_client.get(
+            "/v1/NO/company/923609016",
+            params={"include": ["filings", "financials"]},
+            headers={"X-Forwarded-For": "203.0.113.201"},
+        ).json()
+
+    async def _mcp_call() -> dict[str, Any]:
+        async with FastMCPClient(mcp) as mcp_client:
+            result = await mcp_client.call_tool(
+                "lookup_company",
+                {"id": "923609016", "country": "NO", "include": ["filings", "financials"]},
+            )
+            assert result.structured_content is not None
+            data: dict[str, Any] = result.structured_content
+            return data
+
+    mcp_body = anyio.run(_mcp_call)
+
+    assert rest_body["financials"] is not None
+    assert rest_body["financials"]["periods"][0]["currency"] == "USD"
+
+    # Each block's `provenance.fetched_at` is a live timestamp captured
+    # independently by REST's call and MCP's call — allowed to differ by
+    # microseconds, exactly like the report's own `fetched_at` — so strip
+    # both before the byte-equal comparison D-004 otherwise requires.
+    rest_body["filings"]["provenance"].pop("fetched_at")
+    mcp_body["filings"]["provenance"].pop("fetched_at")
+    rest_body["financials"]["provenance"].pop("fetched_at")
+    mcp_body["financials"]["provenance"].pop("fetched_at")
+
+    volatile = {"fetched_at"}
+    assert {k: v for k, v in rest_body.items() if k not in volatile} == {
+        k: v for k, v in mcp_body.items() if k not in volatile
+    }
+
+
+@respx.mock
+async def test_d043_invariant9_failing_financials_fetch_leaves_block_absent_with_named_note() -> None:
+    respx.get(f"{BASE_URL}/enheter/916823525").mock(
+        return_value=httpx.Response(200, json={**EQUINOR, "organisasjonsnummer": "916823525"})
+    )
+    respx.get(ACCOUNTS_URL.format(orgnr="916823525")).mock(
+        side_effect=[httpx.Response(500), httpx.Response(500)]
+    )
+    registry = get_registry("NO")
+    report = await registry.lookup_with("916823525", ["financials"])
+    assert report.financials is None
+    assert any("'financials' attachment" in note for note in report.notes)
+
+
+async def test_d043_lookup_with_routes_financials_to_the_financials_field_not_filings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The regression `tests/test_attachments.py::
+    test_lookup_with_routes_each_block_to_the_field_of_the_same_name` exists
+    to catch, extended here for Norway's new `financials` rather than there
+    (that test is hand-parametrized, and T42 owns that file this round): a
+    method named `financials` that filled `filings` would pass every other
+    test in this module."""
+    registry = get_registry("NO")
+    sentinel = object()
+
+    async def _fake_base_lookup(_id: str) -> CompanyReport:
+        return CompanyReport(
+            country="NO",
+            registry=registry.registry,
+            id="923609016",
+            name="X",
+            status=CompanyStatus.ACTIVE,
+            is_active=True,
+        )
+
+    async def _fake_financials(_id: str) -> Any:
+        return sentinel
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_fake_base_lookup))
+    monkeypatch.setattr(type(registry), "financials", staticmethod(_fake_financials))
+
+    report = await registry.lookup_with("923609016", ["financials"])
+    assert report.financials is sentinel
+    assert report.filings is None

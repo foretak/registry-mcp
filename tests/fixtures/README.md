@@ -201,19 +201,26 @@ committed fixture is sufficient for every test that needs a sole trader's
 shape, and re-fetching one adds a live request about a natural person for no
 benefit.
 
-### Regnskapsregisteret — `brreg_regnskap_*.json` (R-5d, recorded live 2026-09-08)
+### Regnskapsregisteret — `brreg_regnskap_*.json` (R-5d + T38/D-043, recorded live 2026-09-08)
 
-Four fixtures for the `filings` block (`src/registry_mcp/registries/no/accounts.py`,
-`DECISIONS.md` D-042(i), closing D-023(d)). **All four are live recordings** —
+Four fixtures were recorded for the `filings` block (`src/registry_mcp/registries/no/accounts.py`,
+`DECISIONS.md` D-042(i), closing D-023(d)); five more were added by T38
+(D-043, `include=["financials"]`) — reusing the same four, since `filings`
+and `financials` read the same payload. **All nine are live recordings** —
 this endpoint is open, keyless and needs no credential and no test
 environment, so nothing here is assembled and nothing needs to be.
 
 | Fixture | Number | Scenario |
 |---|---|---|
-| `brreg_regnskap_923609016.json` | `923609016` | EQUINOR ASA — a **calendar** accounting year, 2025-01-01/2025-12-31. Pairs with `brreg_923609016.json`, the same entity's Enhetsregisteret record, so a test can hold both halves of one company. |
+| `brreg_regnskap_923609016.json` | `923609016` | EQUINOR ASA — a **calendar** accounting year, 2025-01-01/2025-12-31. Pairs with `brreg_923609016.json`, the same entity's Enhetsregisteret record, so a test can hold both halves of one company. T38: `valuta: "USD"`, `forenkletAnvendelseIFRS`, and assets/equity-and-liabilities differ by 10⁶ (103,432,000,000 vs 103,431,000,000). |
 | `brreg_regnskap_939319891.json` | `939319891` | ORACLE NORGE AS — a **deviating** accounting year, 2024-06-01/2025-05-31. The period end falls between 1 January and 30 June, i.e. regnskapsloven § 8-3(1) second sentence's **1 February** branch. This is the fixture that closes D-023(d)'s "the field's *variance* is unverified". |
 | `brreg_regnskap_935845114.json` | `935845114` | .BEIN BERGEN AS — a **stub first period**, 2025-06-19/2025-12-31, running from incorporation. The live proof that `fraDato` is published data and not `tilDato` minus twelve months. |
 | `brreg_regnskap_500.json` | `916823525` | APRILA BANK ASA — the **deterministic 500**. Banks, insurers and many foundations return this on every attempt while their Enhetsregisteret record says they filed. The body is a Spring error envelope with a `trace` id; it is recorded for its *shape*, and the `trace` and `timestamp` in it are from the recording moment and mean nothing to a test. |
+| `brreg_regnskap_931883836.json` | `931883836` | 222 HOLDING AS — T38: negative `sumGjeld` (−108,837), carried unchanged; `langsiktigGjeld: {}` and `finansinntekt: {}`; `totalresultat` present. `sumEgenkapitalGjeld` and `sumEiendeler` are both exactly 27,949 (no reconciliation gap) even though `sumEgenkapital` (136,786) exceeds them both — the negative liability is what keeps the totals internally consistent. |
+| `brreg_regnskap_936134610.json` | `936134610` | 4WD HOLDING AS — T38: `driftsinntekter: {}` (no turnover line at all) beside a present `driftsresultat` and `sumDriftskostnad` — maps to `revenue is None`. Pairs with the fixture below to pin D-043(f)'s "an absent line is not a zero". |
+| `brreg_regnskap_921378963.json` | `921378963` | 4U HOLDING AS — T38: explicit `sumDriftsinntekter: 0.0` — maps to `revenue == 0.0`, the other half of the pair above. |
+| `brreg_regnskap_925922900.json` | `925922900` | 22 INVEST AS — T38: `fravalgRevisjon: true`, `smaaForetak: true`, negative equity (`sumEgenkapital: -2,743`). |
+| `brreg_regnskap_998575133.json` | `998575133` | AGATON SAX MT AS — T38: `avviklingsregnskap: true`, a final stub period 2026-01-01/2026-04-30. |
 
 **No fixture for the empty case, and that is deliberate.** The empty answer is
 an HTTP 404 with `content-length: 0` and **no body at all** — there is nothing
