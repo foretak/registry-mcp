@@ -1,0 +1,260 @@
+{
+  "_MINIMISED": {
+    "recorded": "GET https://api.company-information.service.gov.uk/company/13507518/filing-history?items_per_page=25 - live, 2026-09-08",
+    "minimised": "MINIMISED AT RECORD TIME, deliberately and before this file existed. DECISIONS.md D-042(e)(1) reads items[].description_values through an allow-list of exactly one key, `made_up_date`: 97 Companies House description templates interpolate {officer_name} and 26 interpolate {psc_name}, so a verbatim recording of this endpoint is an officers feed that D-028 bars. Every non-allow-listed key was dropped from every description_values object (top-level and nested) before this file was written, so no natural person's name has ever been in this repository. The key NAMES and their counts are kept below: they are not personal data, and they are the evidence the allow-list was applied against what the register actually sends rather than against a figure from research. Restoring a value here is a DECISIONS.md entry, never an implementer's edit.",
+    "why_this_company": "14 of 14 - a complete, untruncated modern history.",
+    "allow_list": [
+      "made_up_date"
+    ],
+    "stripped_description_values_keys": {
+      "psc_name": 1,
+      "notification_date": 1,
+      "withdrawal_date": 1,
+      "new_date": 1,
+      "officer_name": 1,
+      "appointment_date": 1
+    },
+    "stripped_nested_description_values_keys": {},
+    "annotations_annotation_blanked": 0,
+    "annotation_note": "annotations[].annotation is registrar free prose with no allow-list justification, so its text was replaced by a fixed placeholder too. Placeholder: '<registrar free prose removed at record time - see _MINIMISED>'. Nothing in this project reads it."
+  },
+  "filing_history_status": "filing-history-available",
+  "items": [
+    {
+      "transaction_id": "MzUzODMzMDMzMWFkaXF6a2N4",
+      "barcode": "XF8AWR4Q",
+      "type": "CS01",
+      "date": "2026-08-12",
+      "category": "confirmation-statement",
+      "description": "confirmation-statement-with-no-updates",
+      "description_values": {
+        "made_up_date": "2026-07-12"
+      },
+      "pages": 3,
+      "action_date": "2026-07-12",
+      "links": {
+        "self": "/company/13507518/filing-history/MzUzODMzMDMzMWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/n07onzmh51s0lPE1kU6caOn_kVlpK9Jvu_g7Wc7p7Eg"
+      }
+    },
+    {
+      "transaction_id": "MzUxOTAwMTMwM2FkaXF6a2N4",
+      "barcode": "AF106U6H",
+      "type": "AA",
+      "date": "2026-05-10",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-unaudited-abridged",
+      "description_values": {
+        "made_up_date": "2025-07-31"
+      },
+      "pages": 12,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/13507518/filing-history/MzUxOTAwMTMwM2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/WS5MFLnlIR3dz1KLtyd0Qvs3vWfBW26pJ-vuV6CuRe8"
+      }
+    },
+    {
+      "transaction_id": "MzQ3NzA4MTYxMWFkaXF6a2N4",
+      "barcode": "XE8V4OF5",
+      "type": "CS01",
+      "date": "2025-08-13",
+      "category": "confirmation-statement",
+      "description": "confirmation-statement-with-no-updates",
+      "description_values": {
+        "made_up_date": "2025-07-12"
+      },
+      "pages": 3,
+      "action_date": "2025-07-12",
+      "links": {
+        "self": "/company/13507518/filing-history/MzQ3NzA4MTYxMWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/0mmfFVE5pU51PsUSunaNsnKydXet8Nf15P2q12TmpS0"
+      }
+    },
+    {
+      "transaction_id": "MzQ2NDYwMTY2NWFkaXF6a2N4",
+      "barcode": "AE1HOA96",
+      "type": "AA",
+      "date": "2025-04-30",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-total-exemption-full",
+      "description_values": {
+        "made_up_date": "2024-07-31"
+      },
+      "pages": 11,
+      "action_date": "2024-07-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/13507518/filing-history/MzQ2NDYwMTY2NWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/yUntlmRPeqeVQGq5tHvJNbnkg5RGXjFYQeNvV3MyQpw"
+      }
+    },
+    {
+      "transaction_id": "MzQ2MTgzMzc3NmFkaXF6a2N4",
+      "barcode": "XE02QZBT",
+      "type": "PSC01",
+      "date": "2025-04-08",
+      "category": "persons-with-significant-control",
+      "subcategory": "notifications",
+      "description": "notification-of-a-person-with-significant-control",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2021-07-13",
+      "links": {
+        "self": "/company/13507518/filing-history/MzQ2MTgzMzc3NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/_AtGBsvSqfAgMPSSD4d3TIdJXyfDSdt6R-VaFV6uvy8"
+      }
+    },
+    {
+      "transaction_id": "MzQ2MTgzMzc0NWFkaXF6a2N4",
+      "barcode": "XE02QZ7K",
+      "type": "PSC09",
+      "date": "2025-04-08",
+      "category": "persons-with-significant-control",
+      "subcategory": "statements",
+      "description": "withdrawal-of-a-person-with-significant-control-statement",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2025-04-08",
+      "links": {
+        "self": "/company/13507518/filing-history/MzQ2MTgzMzc0NWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/d9w2xwy5HbAHFqH10VZxNJMPJ2PXzmjrpfOtClN330k"
+      }
+    },
+    {
+      "transaction_id": "MzQzMDMyMTUyM2FkaXF6a2N4",
+      "barcode": "XD87EL2P",
+      "type": "CS01",
+      "date": "2024-07-27",
+      "category": "confirmation-statement",
+      "description": "confirmation-statement-with-no-updates",
+      "description_values": {
+        "made_up_date": "2024-07-12"
+      },
+      "pages": 3,
+      "action_date": "2024-07-12",
+      "links": {
+        "self": "/company/13507518/filing-history/MzQzMDMyMTUyM2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/P8Tfh8bSN-JHHjDIktw0bFkvgRWm3f0RGmlKa-WVJGU"
+      }
+    },
+    {
+      "transaction_id": "MzQyMjI4MzE5OWFkaXF6a2N4",
+      "barcode": "AD38S1A5",
+      "type": "AA",
+      "date": "2024-05-20",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-total-exemption-full",
+      "description_values": {
+        "made_up_date": "2023-07-31"
+      },
+      "pages": 11,
+      "action_date": "2023-07-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/13507518/filing-history/MzQyMjI4MzE5OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/51izxfiH8nVht959hWfJdSMslRYQ8-6VmHoIzVD74Pc"
+      }
+    },
+    {
+      "transaction_id": "MzQyMDIzOTg3M2FkaXF6a2N4",
+      "barcode": "XD256FQB",
+      "type": "AA01",
+      "date": "2024-04-30",
+      "category": "accounts",
+      "description": "change-account-reference-date-company-previous-shortened",
+      "description_values": {
+        "made_up_date": "2023-07-31"
+      },
+      "pages": 1,
+      "action_date": "2023-07-30",
+      "links": {
+        "self": "/company/13507518/filing-history/MzQyMDIzOTg3M2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/gu2w2pXYZAdX2SdMUJUYdS5d8hl31_zCczXGGxv8HkA"
+      }
+    },
+    {
+      "transaction_id": "MzM4ODEzOTQ4MWFkaXF6a2N4",
+      "barcode": "XC8WRCSJ",
+      "type": "CS01",
+      "date": "2023-07-31",
+      "category": "confirmation-statement",
+      "description": "confirmation-statement-with-no-updates",
+      "description_values": {
+        "made_up_date": "2023-07-12"
+      },
+      "pages": 3,
+      "action_date": "2023-07-12",
+      "links": {
+        "self": "/company/13507518/filing-history/MzM4ODEzOTQ4MWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/8AevNB8T3lcA12oLvBTKfGIav_x1WxFsrl-Fs-x7Sww"
+      }
+    },
+    {
+      "transaction_id": "MzM3NjE4MjQzN2FkaXF6a2N4",
+      "barcode": "XC1DJFHF",
+      "type": "AA",
+      "date": "2023-04-13",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-total-exemption-full",
+      "description_values": {
+        "made_up_date": "2022-07-31"
+      },
+      "pages": 13,
+      "action_date": "2022-07-31",
+      "links": {
+        "self": "/company/13507518/filing-history/MzM3NjE4MjQzN2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/tZuOn93lZMoX_GZQzkeOwA9lWsM-4VlL9mSx_pPtxZI"
+      }
+    },
+    {
+      "transaction_id": "MzM1MjU5MDEzN2FkaXF6a2N4",
+      "barcode": "XBD441OR",
+      "type": "CS01",
+      "date": "2022-09-22",
+      "category": "confirmation-statement",
+      "description": "confirmation-statement-with-updates",
+      "description_values": {
+        "made_up_date": "2022-07-12"
+      },
+      "pages": 3,
+      "action_date": "2022-07-12",
+      "links": {
+        "self": "/company/13507518/filing-history/MzM1MjU5MDEzN2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/WudHKzRUeMYwU2pMpClfnRHOWM_czL-Ye0XbjU3cs5w"
+      }
+    },
+    {
+      "transaction_id": "MzMxNzA3OTkyNWFkaXF6a2N4",
+      "barcode": "XAF5XNFM",
+      "type": "AP01",
+      "date": "2021-10-15",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-director-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2021-10-15",
+      "links": {
+        "self": "/company/13507518/filing-history/MzMxNzA3OTkyNWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/T8nr_AUPNl0ao2JCYWU5h-Os1v33Cjv9fR3sU3ponM4"
+      }
+    },
+    {
+      "transaction_id": "MzMwNjgzNzAzNGFkaXF6a2N4",
+      "barcode": "XA86T81T",
+      "type": "CICINC",
+      "date": "2021-07-13",
+      "category": "incorporation",
+      "description": "incorporation-community-interest-company",
+      "pages": 32,
+      "links": {
+        "self": "/company/13507518/filing-history/MzMwNjgzNzAzNGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/gXGqdyIGb_cyA9yV0YfGr-6h6WUyhoDmL4nn31fpMR8"
+      }
+    }
+  ],
+  "items_per_page": 25,
+  "start_index": 0,
+  "total_count": 14
+}

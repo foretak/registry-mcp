@@ -1,0 +1,435 @@
+{
+  "_MINIMISED": {
+    "recorded": "GET https://api.company-information.service.gov.uk/company/00000006/filing-history?items_per_page=25 - live, 2026-09-08",
+    "minimised": "MINIMISED AT RECORD TIME, deliberately and before this file existed. DECISIONS.md D-042(e)(1) reads items[].description_values through an allow-list of exactly one key, `made_up_date`: 97 Companies House description templates interpolate {officer_name} and 26 interpolate {psc_name}, so a verbatim recording of this endpoint is an officers feed that D-028 bars. Every non-allow-listed key was dropped from every description_values object (top-level and nested) before this file was written, so no natural person's name has ever been in this repository. The key NAMES and their counts are kept below: they are not personal data, and they are the evidence the allow-list was applied against what the register actually sends rather than against a figure from research. Restoring a value here is a DECISIONS.md entry, never an implementer's edit.",
+    "why_this_company": "25 of 206 - officers-heavy (14 officer_name on the wire), gazette, dissolution, addresses.",
+    "allow_list": [
+      "made_up_date"
+    ],
+    "stripped_description_values_keys": {
+      "officer_name": 14,
+      "termination_date": 8,
+      "appointment_date": 6,
+      "change_date": 3,
+      "old_address": 3,
+      "new_address": 3,
+      "description": 1
+    },
+    "stripped_nested_description_values_keys": {
+      "res_type": 1,
+      "description": 1
+    },
+    "annotations_annotation_blanked": 0,
+    "annotation_note": "annotations[].annotation is registrar free prose with no allow-list justification, so its text was replaced by a fixed placeholder too. Placeholder: '<registrar free prose removed at record time - see _MINIMISED>'. Nothing in this project reads it."
+  },
+  "filing_history_status": "filing-history-available",
+  "items": [
+    {
+      "transaction_id": "MzIwODg2ODM4OGFkaXF6a2N4",
+      "type": "GAZ2(A)",
+      "date": "2018-07-10",
+      "category": "gazette",
+      "description": "gazette-dissolved-voluntary",
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MzIwODg2ODM4OGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/bg01EDBqES8DV0OAqOokaT4Gw8BnplUI4Nm9c4Mzuww"
+      }
+    },
+    {
+      "transaction_id": "MzIwMjMwNzAzMmFkaXF6a2N4",
+      "type": "GAZ1(A)",
+      "date": "2018-04-24",
+      "category": "gazette",
+      "description": "gazette-notice-voluntary",
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MzIwMjMwNzAzMmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/YFsv7JlBEGYQGnMOSno36V118VH7DnI_1t_PcfqbpYQ"
+      }
+    },
+    {
+      "transaction_id": "MzIwMTk3MTQ1M2FkaXF6a2N4",
+      "barcode": "A72WY463",
+      "type": "DS01",
+      "date": "2018-04-11",
+      "category": "dissolution",
+      "description": "dissolution-application-strike-off-company",
+      "pages": 3,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MzIwMTk3MTQ1M2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/BIBq3MWfF1UkhqXkL2CqN86qGhne3-sbjgh6oP6tnho"
+      }
+    },
+    {
+      "transaction_id": "MzE5ODkwMzY1NmFkaXF6a2N4",
+      "type": "GAZ1",
+      "date": "2018-03-06",
+      "category": "gazette",
+      "description": "gazette-notice-compulsory",
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MzE5ODkwMzY1NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/ZXNOfc4wjZQRHzwur-JiBaVDoHg9l_IId1hSdfxqvkc"
+      }
+    },
+    {
+      "transaction_id": "MzE2OTA2Nzk4OWFkaXF6a2N4",
+      "barcode": "X60CQSIQ",
+      "type": "TM01",
+      "date": "2017-02-17",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-director-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2016-12-31",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE2OTA2Nzk4OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/14E1W51NrqimjoSeYuqWIB8zLnavcKFrKdRcKfQGxuU"
+      }
+    },
+    {
+      "transaction_id": "MzE1NzI5MTg5NmFkaXF6a2N4",
+      "barcode": "X5FFRQKZ",
+      "type": "AP03",
+      "date": "2016-09-14",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-secretary-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2016-09-13",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE1NzI5MTg5NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/eJuoFRleHNuO-4xNNE67csWVPlCBENNn_joMUs4fbOs"
+      }
+    },
+    {
+      "transaction_id": "MzE1NzI5MTgyNWFkaXF6a2N4",
+      "barcode": "X5FFRQC0",
+      "type": "TM02",
+      "date": "2016-09-14",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-secretary-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2016-09-13",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE1NzI5MTgyNWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/8FCG6KLyIcB1QwW5uVm5yRbuwJt5rgpLnOKnWozecT8"
+      }
+    },
+    {
+      "transaction_id": "MzE1MTgyMTQ2MmFkaXF6a2N4",
+      "barcode": "X5A4PYKY",
+      "type": "AR01",
+      "date": "2016-06-28",
+      "category": "annual-return",
+      "description": "annual-return-company-with-made-up-date-no-member-list",
+      "description_values": {
+        "made_up_date": "2016-04-03"
+      },
+      "pages": 3,
+      "action_date": "2016-04-03",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE1MTgyMTQ2MmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/HAk5fYneXhM4lUCswTyEXHOy04u3fDeknYV8xXhbkoM"
+      }
+    },
+    {
+      "transaction_id": "MzE1MTgwODYzOGFkaXF6a2N4",
+      "barcode": "X5A4PYBN",
+      "type": "AP03",
+      "date": "2016-06-28",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-secretary-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2016-05-04",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE1MTgwODYzOGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/dJoBh0ubOQ9CIV0rG7fyxtdY8TiOSI-etq2qKVjBBJA"
+      }
+    },
+    {
+      "transaction_id": "MzE1MTgwODYzNGFkaXF6a2N4",
+      "barcode": "X5A4PYKQ",
+      "type": "TM02",
+      "date": "2016-06-28",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-secretary-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2016-05-04",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE1MTgwODYzNGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/ooaLUKA2PVgda-iIk0B4AgsdszwrdyMdtrK0mfyaJJY"
+      }
+    },
+    {
+      "transaction_id": "MzE1MTgwODYzMGFkaXF6a2N4",
+      "barcode": "X5A4PYIY",
+      "type": "AD01",
+      "date": "2016-06-28",
+      "category": "address",
+      "description": "change-registered-office-address-company-with-date-old-address-new-address",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2016-06-28",
+      "links": {
+        "self": "/company/00000006/filing-history/MzE1MTgwODYzMGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/tic-QCMOGQF-7b2hwsBn_PvuFyozHOtQWlyKqL48Cjs"
+      }
+    },
+    {
+      "transaction_id": "MzEyNjIzODI3NmFkaXF6a2N4",
+      "barcode": "X4AQO2IH",
+      "type": "AD01",
+      "date": "2015-07-01",
+      "category": "address",
+      "description": "change-registered-office-address-company-with-date-old-address-new-address",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-07-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNjIzODI3NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/vkc8fJ8pBoGLfC_BSVJuDSmwEMIfxdxlRvC45VSc7rc"
+      }
+    },
+    {
+      "transaction_id": "QTQ3UjRENFphZGlxemtjeA",
+      "type": "RESOLUTIONS",
+      "date": "2015-06-03",
+      "category": "resolution",
+      "resolutions": [
+        {
+          "category": "incorporation",
+          "description": "resolution-adopt-articles",
+          "type": "RES01",
+          "subcategory": "resolution",
+          "description_values": {}
+        },
+        {
+          "category": "capital",
+          "description": "resolution",
+          "type": "RES13",
+          "subcategory": "resolution",
+          "description_values": {}
+        }
+      ],
+      "description": "resolution",
+      "description_values": {},
+      "pages": 19,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/QTQ3UjRENFphZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/Avnp8FFeMcWLD2WGiGLEuiPwaZZjnEbOV6J7Ar_dsiw"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3OTAxMGFkaXF6a2N4",
+      "barcode": "X48N1061",
+      "type": "AP03",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-secretary-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3OTAxMGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/lO0twDX7DhTBkW0EvH3qKYFpeagGB_YWxV36ZBOk9HU"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3Nzc2MGFkaXF6a2N4",
+      "barcode": "X48N0VJD",
+      "type": "AD01",
+      "date": "2015-06-02",
+      "category": "address",
+      "description": "change-registered-office-address-company-with-date-old-address-new-address",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-06-02",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3Nzc2MGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/TwbfWUg3ntS5eHfkJpKhMQXIMEYzAV8aEfOfLt_j86o"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3ODUzMmFkaXF6a2N4",
+      "barcode": "X48N0Y54",
+      "type": "AP01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-director-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3ODUzMmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/Aj1qsPBPFvaEMMlkULlhdJM70UfhPpM3MgKOps_mNDg"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3MjIwMWFkaXF6a2N4",
+      "barcode": "X48N0AZL",
+      "type": "TM01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-director-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3MjIwMWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/WOWJG5nxb59CyzAonOKGq6ad77WnPwEO92bKhj8Xpqg"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3NzU4NmFkaXF6a2N4",
+      "barcode": "X48N0UIA",
+      "type": "AP01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-director-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3NzU4NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/9Qrr8q6MeVQW93XnaBJSs5oa9u7qdK2FL6pVnoQ3-oE"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3MjI1OWFkaXF6a2N4",
+      "barcode": "X48N0B68",
+      "type": "TM01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-director-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3MjI1OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/RV0BTk7sFVemUnAGdvpG-L7Oai0gL9or1R3kHbM088A"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3NzI3MWFkaXF6a2N4",
+      "barcode": "X48N0TFN",
+      "type": "AP01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-director-company-with-name-date",
+      "description_values": {},
+      "pages": 2,
+      "action_date": "2015-03-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3NzI3MWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/LYljSPnoOd8gq1WVKy3dHSpBex4QPCk9yZF1HA9Yj64"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3MjM4OGFkaXF6a2N4",
+      "barcode": "X48N0BNE",
+      "type": "TM01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-director-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3MjM4OGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/k-vDQkKNg-qEX1Gy0EXTMmzUV19J_TWV4NQklQiRWMw"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3MjE3NmFkaXF6a2N4",
+      "barcode": "X48N0AW9",
+      "type": "TM02",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-secretary-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3MjE3NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/LIUj1HhwBKxvtcS1C4b9xkYw0D3lXn5tcY9IvWM-EBM"
+      }
+    },
+    {
+      "transaction_id": "MzEyNDI3MjI5NGFkaXF6a2N4",
+      "barcode": "X48N0B0H",
+      "type": "TM01",
+      "date": "2015-06-02",
+      "category": "officers",
+      "subcategory": "termination",
+      "description": "termination-director-company-with-name-termination-date",
+      "description_values": {},
+      "pages": 1,
+      "action_date": "2015-06-01",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyNDI3MjI5NGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/F-aLFCYik5qO5MYvHDTuztfoEy0BRfLSnnaForVoMYc"
+      }
+    },
+    {
+      "transaction_id": "MzEyMzUyOTEwM2FkaXF6a2N4",
+      "barcode": "X47RU2AZ",
+      "type": "AR01",
+      "date": "2015-05-20",
+      "category": "annual-return",
+      "description": "annual-return-company-with-made-up-date-no-member-list",
+      "description_values": {
+        "made_up_date": "2015-04-03"
+      },
+      "pages": 4,
+      "action_date": "2015-04-03",
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyMzUyOTEwM2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/IBFojO1_mjVEumYStPsqrUYQrTPZw9kYk4R7ebz73Po"
+      }
+    },
+    {
+      "transaction_id": "MzEyMTQ1ODA5M2FkaXF6a2N4",
+      "barcode": "A452EMVT",
+      "type": "AA",
+      "date": "2015-04-21",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-full",
+      "description_values": {
+        "made_up_date": "2014-12-31"
+      },
+      "pages": 100,
+      "action_date": "2014-12-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MzEyMTQ1ODA5M2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/Fbg2Sbo0l9U9qhRwConK8scpc0sQI0d15lrNQRqd_g0"
+      }
+    }
+  ],
+  "items_per_page": 25,
+  "start_index": 0,
+  "total_count": 206
+}

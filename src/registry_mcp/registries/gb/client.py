@@ -45,9 +45,9 @@ import httpx
 from registry_mcp import __version__
 from registry_mcp.core import cache
 from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
-from registry_mcp.registries.gb import charges, mapping
+from registry_mcp.registries.gb import charges, filing_history, mapping
 
-__all__ = ["aclose", "fetch_charges", "lookup", "search"]
+__all__ = ["aclose", "fetch_charges", "fetch_filings", "lookup", "search"]
 
 logger = logging.getLogger(__name__)
 
@@ -444,3 +444,80 @@ async def fetch_charges(id: str) -> charges.ChargeList:
     status = "ok" if data.get("items") else "not_found"
     cache.set(cache_key, data, status=status, fetched_at=fetched_at)
     return charges.map_charges(data, company_number, cached=False, fetched_at=fetched_at)
+
+
+# ---------------------------------------------------------------------------
+# Filing history — R-5c / T37, built *behind the seam* (`DECISIONS.md` D-042;
+# `registries/gb/filing_history.py`'s module docstring has the full recon
+# trail and the minimisation argument). Deliberately **not** wired to
+# `include=[...]` by this task — that is a follow-up's job. `fetch_filings`
+# is the whole seam, and it mirrors `fetch_charges` above line for line:
+# validate the id, fetch or serve from cache, return a fully-mapped
+# `filing_history.FilingHistory`, ready for a follow-up to call from a real
+# `filings()` method on `CompaniesHouseRegistry`.
+# ---------------------------------------------------------------------------
+
+
+def _filings_cache_key(company_number: str) -> str:
+    return f"GB:companies-house:filings:{company_number}"
+
+
+async def fetch_filings(id: str) -> filing_history.FilingHistory:
+    """Fetch one entity's filing history, consulting the cache first.
+
+    One page, ``filing_history.FILINGS_ITEMS_PER_PAGE`` (25 — D-042(j)'s
+    ruled page size for filings, a quarter of the register's own maximum of
+    100). Never paginates further; truncation is disclosed in the block's
+    ``notes``, never silent.
+
+    A 404 is treated exactly like a 200 with an empty ``items`` list — never
+    raised as ``not_found`` — because D-041(h)'s principle binds this
+    endpoint: ``/company/{n}`` alone decides whether an entity exists, and a
+    caller only reaches this function after that lookup already succeeded.
+    Confirmed live that Companies House does not actually 404 this endpoint,
+    not even for a company number that was never issued (it answers 200 with
+    ``total_count: 0``); this branch exists defensively, not because it was
+    observed.
+
+    TTL asymmetry (D-042(j): 24 h for a non-empty result, 1 h for an empty
+    one) is implemented by reusing ``core/cache.py``'s existing
+    ``status="not_found"`` label purely for its 1 h TTL when this company has
+    no filings — **never** raised as a ``not_found`` error on the read path
+    below, unlike its use in :func:`lookup`. That is the same stand-in
+    :func:`fetch_charges` uses, for the same reason: ``core/cache.py`` has no
+    per-kind TTL table yet (D-042(j) names one) and ``core/`` is outside this
+    task's footprint.
+    """
+    from registry_mcp.registries.gb import rules
+
+    company_number = rules.validate_crn(id)
+    cache_key = _filings_cache_key(company_number)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        return filing_history.map_filing_history(
+            entry.payload, company_number, cached=True, fetched_at=entry.fetched_at
+        )
+
+    response = await _fetch(
+        f"/company/{company_number}/filing-history",
+        params={"items_per_page": filing_history.FILINGS_ITEMS_PER_PAGE},
+    )
+
+    if response.status_code == 200:
+        data = response.json()
+    elif response.status_code == 404:
+        data = {}
+    elif response.status_code in (401, 403):
+        raise _unauthorized_error()
+    elif response.status_code == 429:
+        raise _rate_limited_error(response)
+    else:
+        raise _upstream_error(response)
+
+    fetched_at = datetime.now(UTC)
+    status = "ok" if data.get("items") else "not_found"
+    cache.set(cache_key, data, status=status, fetched_at=fetched_at)
+    return filing_history.map_filing_history(
+        data, company_number, cached=False, fetched_at=fetched_at
+    )

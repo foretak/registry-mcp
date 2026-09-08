@@ -34,6 +34,9 @@ from registry_mcp.core.registry import get_registry
 from registry_mcp.registries.gb import CompaniesHouseRegistry, mapping
 from registry_mcp.registries.gb import charges as charges_module
 from registry_mcp.registries.gb import client as client_module
+from registry_mcp.registries.gb import filing_history as filing_history_module
+from registry_mcp.registries.gb import rules as gb_rules
+from registry_mcp.registries.se import filings as se_filings_module
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = client_module.BASE_URL
@@ -1280,3 +1283,746 @@ async def test_live_charges_fixtures_still_match_stored_files() -> None:
         assert stored_dump == live_dump, (
             f"{number} charges fixture is stale relative to the register"
         )
+
+
+# ---------------------------------------------------------------------------
+# H. Filing history — R-5c / T37, built *behind the seam* (`DECISIONS.md`
+# D-042; `registries/gb/filing_history.py`'s module docstring carries the full
+# recon trail: 1876 items across nine companies, every `description_values`
+# key with its count, and the argument for each shape choice). Not wired to
+# `include=[...]` by this task. `filing_history.map_filing_history` is
+# pure/no-I/O (mirrors `mapping.py`); `client_module.fetch_filings` is the
+# async seam (mirrors `lookup`/`search`/`fetch_charges`).
+#
+# **Every fixture in this section was minimised at record time** — see each
+# file's `_MINIMISED` header and `tests/fixtures/README.md`. D-042(e)(1)
+# reads `items[].description_values` through an allow-list of exactly one
+# key, `made_up_date`; the other 23 keys observed live were dropped before
+# the files were written, because 97 Companies House description templates
+# interpolate `{officer_name}`, 26 interpolate `{psc_name}`, and one
+# (`representative_details`) interpolates a name *and* an address. No natural
+# person's name has ever been in this repository. That is also why the two
+# minimisation tests below inject their own synthetic sentinels rather than
+# relying on what a fixture happens to contain: a stripped fixture cannot
+# prove a filter works, and a fixture that could prove it must not exist.
+# ---------------------------------------------------------------------------
+
+DISSOLVED_FILINGS = _load("ch_00000006_filing_history.json")  # 25 of 206, officers-heavy
+DISSOLVED_FILINGS_LEGACY = _load("ch_00000006_filing_history_legacy.json")  # deep page, 19 legacy
+TESCO_FILINGS = _load("ch_00445790_filing_history.json")  # 25 of 8371 — the truncation case
+LIQUIDATION_FILINGS = _load("ch_04374209_filing_history.json")  # 25 of 101, in liquidation
+CIC_FILINGS = _load("ch_13507518_filing_history.json")  # 14 of 14 — complete, untruncated
+OVERSEAS_FILINGS = _load("ch_FC032315_filing_history.json")  # 6 of 6 — representative_details
+BR_FILINGS = _load("ch_BR026263_filing_history.json")  # 0, `filing-history-available`
+CIO_FILINGS = _load("ch_CE020555_filing_history.json")  # 0, `...-not-available-unknown-prefix`
+
+_ALL_FILING_FIXTURES: list[tuple[str, dict[str, Any]]] = [
+    ("00000006", DISSOLVED_FILINGS),
+    ("00000006", DISSOLVED_FILINGS_LEGACY),
+    ("00445790", TESCO_FILINGS),
+    ("04374209", LIQUIDATION_FILINGS),
+    ("13507518", CIC_FILINGS),
+    ("FC032315", OVERSEAS_FILINGS),
+    ("BR026263", BR_FILINGS),
+    ("CE020555", CIO_FILINGS),
+]
+
+#: Every distinct `description_values` key observed live, with the number of
+#: items carrying it out of 1876 across nine companies (2026-09-08). This is
+#: the recon result the allow-list is checked against — reality, not the
+#: 97/26 template figure from the research. `made_up_date` is the one key
+#: `DESCRIPTION_VALUES_ALLOW_LIST` contains; every other row here is a key
+#: whose value must never reach a mapped field.
+_OBSERVED_DESCRIPTION_VALUES_KEYS: dict[str, int] = {
+    "description": 585,  # the `legacy` free-prose slot — the worst field in the payload
+    "officer_name": 445,
+    "date": 276,
+    "capital": 272,
+    "appointment_date": 193,
+    "made_up_date": 182,  # the allow-listed key
+    "termination_date": 140,
+    "change_date": 110,
+    "charge_number": 101,
+    "charge_creation_date": 71,
+    "new_address": 14,
+    "psc_name": 13,
+    "old_address": 12,
+    "notification_date": 6,
+    "cessation_date": 5,
+    "withdrawal_date": 3,
+    "branch_number": 3,
+    "new_date": 2,
+    "representative_details": 2,  # a natural person's name AND address in one string
+    "form_type": 1,
+    "original_description": 1,
+    "change_type": 1,
+    "change_details": 1,
+    "change_name": 1,
+}
+
+#: The real officer-appointment item this section pins, recorded live in
+#: `ch_00000006_filing_history.json`. On the wire it carried
+#: `description_values` with exactly two keys, `officer_name` (a real
+#: person's four-word name) and `appointment_date`; both were stripped at
+#: record time, and the tests below re-inject synthetic stand-ins.
+_APPOINTMENT_TRANSACTION_ID = "MzEyNDI3ODUzMmFkaXF6a2N4"
+_APPOINTMENT_TEMPLATE = "appoint-person-director-company-with-name-date"
+_APPOINTMENT_LIVE_KEYS = ("officer_name", "appointment_date")
+
+
+# --- filing_history.map_filing_history — pure, no I/O ---------------------
+
+
+def test_filings_map_dissolved_page_shape_counts_and_truncation() -> None:
+    """The ordinary case: one page of 25 out of a 206-filing history, newest
+    first, with truncation disclosed rather than silent (D-042(j))."""
+    block = filing_history_module.map_filing_history(
+        DISSOLVED_FILINGS, "00000006", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert len(block.documents) == 25
+    assert block.total_count == 206
+
+    first = block.documents[0]
+    assert first.filed_at == date(2018, 7, 10)
+    assert first.category == "gazette"
+    assert first.type_code == "GAZ2(A)"
+    assert first.description_code == "gazette-dissolved-voluntary"
+    assert first.kind is None  # a gazette notice discharges no deadline
+    assert first.document_id == "MzIwODg2ODM4OGFkaXF6a2N4"
+    assert first.period_end is None
+    assert first.period_start is None  # always None for GB
+    assert first.file_format is None  # always None for GB
+
+    truncation = [n for n in block.notes if "206 filings" in n]
+    assert len(truncation) == 1
+    assert "only the 25 most recent are included here" in truncation[0]
+    assert (
+        "https://find-and-update.company-information.service.gov.uk/company/00000006/"
+        "filing-history" in truncation[0]
+    )
+
+
+def test_filings_untruncated_page_says_nothing_about_truncation() -> None:
+    """`total_count == len(documents)` must not produce a truncation note —
+    the same asymmetry `charges.py` observes."""
+    block = filing_history_module.map_filing_history(
+        CIC_FILINGS, "13507518", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert len(block.documents) == 14
+    assert block.total_count == 14
+    assert not [n for n in block.notes if "most recent are included here" in n]
+
+
+def test_filings_kind_is_derived_only_from_the_two_categories_that_have_one() -> None:
+    """D-042(h): `accounts` -> `annual_accounts`, `confirmation-statement` ->
+    `confirmation_statement`, and the other twenty-odd Companies House
+    categories -> `None` rather than an invented slug (D-009). The two slugs
+    are imported from `registries/gb/rules.py`, not retyped, so a filing's
+    `kind` cannot drift from the deadline it discharges."""
+    seen: dict[str, set[str | None]] = {}
+    for number, fixture in _ALL_FILING_FIXTURES:
+        block = filing_history_module.map_filing_history(
+            fixture, number, cached=False, fetched_at=_FETCHED_AT
+        )
+        for doc in block.documents:
+            seen.setdefault(doc.category or "", set()).add(doc.kind)
+
+    assert seen["accounts"] == {gb_rules.ACCOUNTS_KIND}
+    assert seen["confirmation-statement"] == {gb_rules.CONFIRMATION_KIND}
+    # Everything else observed across the eight fixtures maps to None.
+    for category, kinds in seen.items():
+        if category not in ("accounts", "confirmation-statement"):
+            assert kinds == {None}, f"{category} invented a kind: {kinds}"
+    # ...and the fixtures really do cover more than the two mapped ones.
+    assert len(seen) > 8
+
+
+def test_filings_financial_year_end_ignores_the_confirmation_statement() -> None:
+    """The sharpest divergence from Sweden, and the reason it is not just
+    "the newest `period_end`": a Companies House confirmation statement
+    carries a `made_up_date` too, and it is not a financial year end.
+
+    `13507518`'s newest reporting period of any kind is 2026-07-12 — a
+    confirmation statement. Its newest *annual accounts* period is
+    2025-07-31. `financial_year_end` must be the second.
+    """
+    block = filing_history_module.map_filing_history(
+        CIC_FILINGS, "13507518", cached=False, fetched_at=_FETCHED_AT
+    )
+    newest_period_of_any_kind = max(d.period_end for d in block.documents if d.period_end)
+    assert newest_period_of_any_kind == date(2026, 7, 12)
+    newest_doc = block.documents[0]
+    assert newest_doc.kind == gb_rules.CONFIRMATION_KIND
+    assert newest_doc.period_end == date(2026, 7, 12)
+
+    assert block.financial_year_end == date(2025, 7, 31)
+    accounts = [d for d in block.documents if d.kind == gb_rules.ACCOUNTS_KIND and d.period_end]
+    assert max(d.period_end for d in accounts if d.period_end) == date(2025, 7, 31)
+
+
+def test_filings_financial_year_end_is_none_when_the_page_holds_no_accounts() -> None:
+    """`FC032315` is an overseas company: six filings, none of them accounts,
+    so there is no evidence of a financial year end and the field says so
+    rather than borrowing a date from another kind of filing."""
+    block = filing_history_module.map_filing_history(
+        OVERSEAS_FILINGS, "FC032315", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert len(block.documents) == 6
+    assert {d.kind for d in block.documents} == {None}
+    assert block.financial_year_end is None
+
+
+def test_filings_financial_year_end_is_the_latest_period_not_the_latest_filing() -> None:
+    """Companies House accepts a second filing that amends an earlier year, so
+    "the newest annual-accounts filing" and "the newest annual-accounts
+    period" are not the same date. `financial_year_end` is the second: an
+    amended 2023 return filed in 2026 must not roll a 2025 year end backwards.
+
+    Built from two real recorded items rather than invented ones — the
+    `filed_at`/`made_up_date` pair is the only thing changed.
+    """
+    accounts = [i for i in CIC_FILINGS["items"] if i["category"] == "accounts"]
+    assert len(accounts) >= 2
+    recent, amended = json.loads(json.dumps(accounts[0])), json.loads(json.dumps(accounts[1]))
+    recent["date"], recent["description_values"] = "2025-11-01", {"made_up_date": "2025-07-31"}
+    amended["date"], amended["description_values"] = "2026-08-01", {"made_up_date": "2023-07-31"}
+    amended["transaction_id"] = recent["transaction_id"] + "-amended"
+
+    block = filing_history_module.map_filing_history(
+        {
+            "items": [amended, recent],
+            "total_count": 2,
+            "filing_history_status": "filing-history-available",
+        },
+        "13507518",
+        cached=False,
+        fetched_at=_FETCHED_AT,
+    )
+    # The amendment is the newest *filing* and sorts first...
+    assert block.documents[0].filed_at == date(2026, 8, 1)
+    assert block.documents[0].period_end == date(2023, 7, 31)
+    # ...and the year end is still the latest *period*.
+    assert block.financial_year_end == date(2025, 7, 31)
+
+
+def test_filings_period_end_comes_from_made_up_date_and_nowhere_else() -> None:
+    """`period_end` is the one thing read out of `description_values`, and it
+    is read from the one allow-listed key. Every mapped `period_end` must be
+    exactly the `made_up_date` of its own item, and an item without that key
+    must have `period_end is None` — even when the item carries
+    `action_date`, which is *nearly* the same date on accounts filings (it
+    differed on 3 of 118 live) and is deliberately not used."""
+    for number, fixture in _ALL_FILING_FIXTURES:
+        block = filing_history_module.map_filing_history(
+            fixture, number, cached=False, fetched_at=_FETCHED_AT
+        )
+        for item, doc in zip(
+            fixture["items"],
+            sorted(block.documents, key=lambda d: fixture_order(fixture, d)),
+            strict=True,
+        ):
+            made_up = (item.get("description_values") or {}).get("made_up_date")
+            expected = date.fromisoformat(made_up) if made_up else None
+            assert doc.period_end == expected, f"{number}/{doc.document_id}"
+
+    # ...and `action_date` never becomes `period_end`: at least one item in
+    # the recorded set has an `action_date` and no `made_up_date`.
+    with_action_only = [
+        i
+        for _, f in _ALL_FILING_FIXTURES
+        for i in f["items"]
+        if i.get("action_date") and "made_up_date" not in (i.get("description_values") or {})
+    ]
+    assert with_action_only
+    ids = {i["transaction_id"] for i in with_action_only}
+    for number, fixture in _ALL_FILING_FIXTURES:
+        block = filing_history_module.map_filing_history(
+            fixture, number, cached=False, fetched_at=_FETCHED_AT
+        )
+        for doc in block.documents:
+            if doc.document_id in ids:
+                assert doc.period_end is None
+
+
+def fixture_order(fixture: dict[str, Any], doc: Any) -> int:
+    """Position of `doc` in the fixture's own `items` order — used to zip a
+    sorted block back onto the unsorted payload."""
+    for index, item in enumerate(fixture["items"]):
+        if item["transaction_id"] == doc.document_id:
+            return index
+    raise AssertionError(f"{doc.document_id} is not in this fixture")
+
+
+def test_filings_days_from_fee_point_is_none_for_gb_and_the_reason_is_stated() -> None:
+    """D-042(h) rules the field `None` for GB, and this task's brief adds
+    that **the reason must be stated rather than inferred**. Both halves are
+    asserted: every value is `None`, and the block says in words that the
+    datum — not the calculation — is what Companies House does not publish."""
+    for number, fixture in _ALL_FILING_FIXTURES:
+        block = filing_history_module.map_filing_history(
+            fixture, number, cached=False, fetched_at=_FETCHED_AT
+        )
+        assert all(d.days_from_fee_point is None for d in block.documents)
+        if block.documents:
+            reasons = [n for n in block.notes if "days_from_fee_point" in n]
+            assert len(reasons) == 1, number
+            assert "missing datum rather than a missing calculation" in reasons[0]
+            assert "publishes no due date for a period already filed" in reasons[0]
+
+    # The field's own description carries the reason too, so a caller reading
+    # only the schema is not left to infer it.
+    described = filing_history_module.FiledDocument.model_fields["days_from_fee_point"].description
+    assert described is not None
+    assert "Always `None` for Britain" in described
+    assert "missing datum rather than a missing calculation" in described
+
+
+def test_filings_empty_available_and_empty_unavailable_are_two_answers() -> None:
+    """The D-011 case, and the one place this module declines to relay a
+    number the register published.
+
+    Companies House answers `total_count: 0` for two different reasons and
+    only `filing_history_status` separates them. `BR026263` is
+    `filing-history-available` — the register holds no filings for this UK
+    establishment. `CE020555` is `filing-history-not-available-unknown-prefix`
+    — the register cannot serve filing history for a number of that kind at
+    all. Relaying the second as a zero would assert something about the
+    company the register never said.
+    """
+    held_none = filing_history_module.map_filing_history(
+        BR_FILINGS, "BR026263", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert BR_FILINGS["filing_history_status"] == "filing-history-available"
+    assert BR_FILINGS["total_count"] == 0
+    assert held_none.documents == []
+    assert held_none.total_count == 0
+    assert len(held_none.notes) == 1
+    assert "lists no filings for this company" in held_none.notes[0]
+    assert "the register's own answer, not a failed lookup" in held_none.notes[0]
+
+    cannot_answer = filing_history_module.map_filing_history(
+        CIO_FILINGS, "CE020555", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert CIO_FILINGS["filing_history_status"] == "filing-history-not-available-unknown-prefix"
+    assert CIO_FILINGS["total_count"] == 0  # the register did publish a zero...
+    assert cannot_answer.documents == []
+    assert cannot_answer.total_count is None  # ...and we do not relay it as one
+    assert len(cannot_answer.notes) == 1
+    assert "filing-history-not-available-unknown-prefix" in cannot_answer.notes[0]
+    assert "rather than that the company has filed nothing" in cannot_answer.notes[0]
+
+    # The two blocks must not be confusable by a caller reading fields only.
+    assert held_none.total_count != cannot_answer.total_count
+
+
+def test_filings_legacy_rows_relay_the_sentinel_key_never_the_prose() -> None:
+    """512 of the 1876 items observed live carry the literal
+    `description: "legacy"` with the real text in
+    `description_values.description` — the single most common key in the
+    payload, and free prose that reads `"Director appointed mr <full name>"`
+    on four of the 512. D-042(e)(1) bars reading it, so `description_code`
+    carries the inert sentinel and nothing carries the prose."""
+    legacy_items = [i for i in DISSOLVED_FILINGS_LEGACY["items"] if i["description"] == "legacy"]
+    assert len(legacy_items) == 19
+    # Stripped at record time: the prose was never written to this repository.
+    assert all("description" not in (i.get("description_values") or {}) for i in legacy_items)
+
+    block = filing_history_module.map_filing_history(
+        DISSOLVED_FILINGS_LEGACY, "00000006", cached=False, fetched_at=_FETCHED_AT
+    )
+    legacy_docs = [d for d in block.documents if d.description_code == "legacy"]
+    assert len(legacy_docs) == 19
+    # A legacy row is still a usable filing record: it keeps its date, its
+    # form code, its category and its handle. Only the prose is refused.
+    for doc in legacy_docs:
+        assert doc.filed_at is not None
+        assert doc.category
+        assert doc.type_code
+        assert doc.document_id
+
+
+def test_filings_sorted_newest_first_and_stable_within_a_date() -> None:
+    """D-042(j): newest first. GB sorts on `filed_at` alone — Sweden's
+    `period_end`-first key would sort 90% of a British history (1694 of 1876
+    items have no reporting period) into an arbitrary block at the end.
+    Python's sort is stable under `reverse=True`, so filings sharing a date
+    keep the register's own order."""
+    for number, fixture in _ALL_FILING_FIXTURES:
+        block = filing_history_module.map_filing_history(
+            fixture, number, cached=False, fetched_at=_FETCHED_AT
+        )
+        dates = [d.filed_at for d in block.documents]
+        assert dates == sorted(dates, key=lambda d: d or date.min, reverse=True), number
+
+    # Stability, on a fixture that actually has a repeated date.
+    tesco = filing_history_module.map_filing_history(
+        TESCO_FILINGS, "00445790", cached=False, fetched_at=_FETCHED_AT
+    )
+    by_date: dict[date | None, list[str | None]] = {}
+    for doc in tesco.documents:
+        by_date.setdefault(doc.filed_at, []).append(doc.document_id)
+    repeated = {d: ids for d, ids in by_date.items() if len(ids) > 1}
+    assert repeated, "expected at least one date with several filings on it"
+    for filed_on, ids in repeated.items():
+        register_order = [
+            i["transaction_id"]
+            for i in TESCO_FILINGS["items"]
+            if date.fromisoformat(i["date"]) == filed_on
+        ]
+        assert ids == register_order
+
+
+def test_filings_provenance_and_extra_forbid() -> None:
+    block = filing_history_module.map_filing_history(
+        BR_FILINGS, "BR026263", cached=True, fetched_at=_FETCHED_AT
+    )
+    assert block.provenance.source == "Companies House (UK)"
+    assert block.provenance.source_url == (
+        "https://find-and-update.company-information.service.gov.uk/company/BR026263/filing-history"
+    )
+    assert (
+        block.provenance.license
+        == "Crown copyright — Companies House public register, free to re-use"
+    )
+    assert block.provenance.fetched_at == _FETCHED_AT
+    assert block.provenance.cached is True
+
+    with pytest.raises(pydantic.ValidationError):  # extra="forbid" (D-004)
+        filing_history_module.FiledDocument(category="accounts", not_a_real_field=True)  # type: ignore[call-arg]
+
+
+def test_filings_model_mirrors_the_swedish_one_field_for_field() -> None:
+    """D-042(g)/(h): Britain's payload is the superset that defines the shared
+    model, and Sweden fills a subset — so wiring both into `core/models.py` is
+    a rename, not a redesign. `FiledDocument` must be identical in name and
+    order; `FilingHistory` differs by exactly one field, `total_count`, which
+    D-042(j) rules by name ("the block carries the register's own
+    `total_count`") and which `ChargeBlock` already carries with the same
+    meaning. Flagged for the architect in this module's docstring."""
+    assert list(filing_history_module.FiledDocument.model_fields) == list(
+        se_filings_module.FiledDocument.model_fields
+    )
+    assert list(filing_history_module.FilingProvenance.model_fields) == list(
+        se_filings_module.FilingProvenance.model_fields
+    )
+    gb_block = list(filing_history_module.FilingHistory.model_fields)
+    se_block = list(se_filings_module.FilingHistory.model_fields)
+    assert set(gb_block) - set(se_block) == {"total_count"}
+    assert set(se_block) - set(gb_block) == set()
+
+
+# --- The two minimisation proofs (D-042(e)(1), D-028) ---------------------
+
+
+def test_filings_minimisation_no_value_outside_the_allow_list_can_reach_output() -> None:
+    """**The proof, not the assertion.** Walks every item of every committed
+    fixture and fails if any mapped output field carries a value from any
+    `description_values` key other than `made_up_date`.
+
+    A stripped fixture cannot prove a filter works — there is nothing left to
+    leak — and a fixture that could prove it would have to contain a real
+    person's name, which this repository must never hold. So the test
+    reconstructs the hazard instead: for every item, it re-injects a unique
+    sentinel under **every one of the 23 non-allow-listed keys observed live**
+    (`_OBSERVED_DESCRIPTION_VALUES_KEYS`, counted over 1876 items on nine
+    companies — `officer_name` on 445 of them, `psc_name` on 13,
+    `representative_details`, which is a name *and* an address, on 2, and the
+    `legacy` free-prose `description` on 585), plus the same sentinels in the
+    three nested containers Companies House hangs off an item
+    (`annotations[]`, `resolutions[]`, `associated_filings[]`, each with a
+    `description_values` of its own) and in `annotations[].annotation`, which
+    is registrar free prose. It then maps the item and asserts that not one
+    sentinel appears anywhere in the serialised block.
+
+    The positive control matters as much as the negative one: `made_up_date`
+    must still come through, or this test would pass on a mapper that returns
+    nothing at all.
+    """
+    hazard_keys = [
+        k
+        for k in _OBSERVED_DESCRIPTION_VALUES_KEYS
+        if k not in filing_history_module.DESCRIPTION_VALUES_ALLOW_LIST
+    ]
+    assert len(hazard_keys) == 23
+    assert "officer_name" in hazard_keys and "psc_name" in hazard_keys
+    assert "representative_details" in hazard_keys and "description" in hazard_keys
+
+    # The nested containers have a key set of their own that the 24
+    # top-level ones do not cover; injected too, so nothing in them is
+    # tested only by omission.
+    nested_only_keys = ["res_type", "resolution_date"]
+
+    def poison(values: dict[str, Any], tag: str, keys: list[str]) -> dict[str, Any]:
+        poisoned = dict(values)
+        for key in keys:
+            poisoned[key] = f"SENTINEL-{tag}-{key}-MUST-NOT-LEAK"
+        return poisoned
+
+    sentinels_expected = 0
+    made_up_dates_seen = 0
+
+    for number, fixture in _ALL_FILING_FIXTURES:
+        spiked = json.loads(json.dumps(fixture))
+        for index, item in enumerate(spiked.get("items") or []):
+            tag = f"{number}-{index}"
+            item["description_values"] = poison(
+                item.get("description_values") or {}, tag, hazard_keys
+            )
+            sentinels_expected += len(hazard_keys)
+            for container in ("annotations", "resolutions", "associated_filings"):
+                for sub_index, sub in enumerate(item.get(container) or []):
+                    sub_tag = f"{tag}-{container}-{sub_index}"
+                    sub["description_values"] = poison(
+                        sub.get("description_values") or {},
+                        sub_tag,
+                        hazard_keys + nested_only_keys,
+                    )
+                    sentinels_expected += len(hazard_keys) + len(nested_only_keys)
+                    if container == "annotations":
+                        sub["annotation"] = f"SENTINEL-{sub_tag}-annotation-MUST-NOT-LEAK"
+                        sentinels_expected += 1
+
+        block = filing_history_module.map_filing_history(
+            spiked, number, cached=False, fetched_at=_FETCHED_AT
+        )
+        serialised = json.dumps(block.model_dump(mode="json"), default=str)
+        assert "SENTINEL-" not in serialised, (
+            f"{number}: a description_values value outside the allow-list reached the "
+            f"mapped block — D-042(e)(1) is broken"
+        )
+
+        for doc, item in zip(
+            sorted(block.documents, key=lambda d: fixture_order(fixture, d)),
+            fixture["items"],
+            strict=True,
+        ):
+            made_up = (item.get("description_values") or {}).get("made_up_date")
+            if made_up:
+                made_up_dates_seen += 1
+                assert doc.period_end == date.fromisoformat(made_up)
+
+    # Positive controls: the hazard really was injected, and the one allowed
+    # key really does survive it.
+    assert sentinels_expected > 3000
+    assert made_up_dates_seen == 29
+
+
+def test_filings_a_real_officer_appointment_never_names_the_person() -> None:
+    """The second proof, on a real item rather than a synthetic one.
+
+    `ch_00000006_filing_history.json` item `MzEyNDI3ODUzMmFkaXF6a2N4` is a
+    genuine Companies House AP01 recorded live on 2026-09-08: a director
+    appointment whose `description_values` carried exactly
+    `{"officer_name": <a real person's four-word name>,
+      "appointment_date": ...}` on the wire. Both keys were stripped before
+    the fixture was written, so the name is nowhere in this repository; the
+    test re-injects a synthetic one under the same keys and proves it reaches
+    no mapped field.
+
+    The second half does the same for the `legacy` form of the same event —
+    `description: "legacy"` with the prose `"Director appointed mr <name>"`,
+    which is the exact shape observed live on four of 512 legacy rows. Both
+    routes to a person's name are closed, and what survives is the template
+    key, which says a director was appointed without saying who.
+    """
+    item = next(
+        i for i in DISSOLVED_FILINGS["items"] if i["transaction_id"] == _APPOINTMENT_TRANSACTION_ID
+    )
+    assert item["description"] == _APPOINTMENT_TEMPLATE
+    assert item["category"] == "officers"
+    assert item["subcategory"] == "appointments"
+    assert item["type"] == "AP01"
+    # The strip really happened: the two live keys are gone from the fixture.
+    assert item["description_values"] == {}
+    assert not any(k in item["description_values"] for k in _APPOINTMENT_LIVE_KEYS)
+
+    person = "Ada Testperson Nightingale"
+    restored = json.loads(json.dumps(item))
+    restored["description_values"] = {
+        "officer_name": person,
+        "appointment_date": "2015-06-01",
+    }
+    block = filing_history_module.map_filing_history(
+        {
+            "items": [restored],
+            "total_count": 1,
+            "filing_history_status": "filing-history-available",
+        },
+        "00000006",
+        cached=False,
+        fetched_at=_FETCHED_AT,
+    )
+    serialised = json.dumps(block.model_dump(mode="json"), default=str)
+    assert person not in serialised
+    for fragment in ("Ada", "Testperson", "Nightingale"):
+        assert fragment not in serialised
+    assert "2015-06-01" not in serialised  # the appointment date is not allow-listed either
+
+    # What does survive is the register's own template key — which says a
+    # director was appointed, and does not say who.
+    doc = block.documents[0]
+    assert doc.description_code == _APPOINTMENT_TEMPLATE
+    assert "person-director" in doc.description_code
+    assert doc.category == "officers"
+    assert doc.type_code == "AP01"
+    assert doc.kind is None
+    assert doc.period_end is None
+    assert doc.filed_at == date(2015, 6, 2)
+    assert doc.document_id == _APPOINTMENT_TRANSACTION_ID
+
+    # The same appointment as a pre-2010 `legacy` row: the name moves into
+    # free prose under `description_values.description`, and is refused there
+    # too. This is the exact string shape observed live.
+    legacy = json.loads(json.dumps(item))
+    legacy["description"] = "legacy"
+    legacy["description_values"] = {"description": f"Director appointed mr {person}"}
+    legacy_block = filing_history_module.map_filing_history(
+        {"items": [legacy], "total_count": 1, "filing_history_status": "filing-history-available"},
+        "00000006",
+        cached=False,
+        fetched_at=_FETCHED_AT,
+    )
+    legacy_serialised = json.dumps(legacy_block.model_dump(mode="json"), default=str)
+    assert person not in legacy_serialised
+    assert "Director appointed" not in legacy_serialised
+    assert legacy_block.documents[0].description_code == "legacy"
+
+
+def test_filings_allow_list_has_exactly_one_key_and_only_one_reader() -> None:
+    """D-042(e)(1) is greppable by design: `description_values` appears in
+    exactly one place under `registries/gb/`, next to an allow-list of
+    exactly one key. Widening it is a `DECISIONS.md` entry, never an
+    implementer's edit — so this test is the tripwire on that."""
+    assert set(filing_history_module.DESCRIPTION_VALUES_ALLOW_LIST) == {"made_up_date"}
+
+    gb_dir = Path(filing_history_module.__file__).parent
+    readers = {
+        path.name: path.read_text(encoding="utf-8").count('get("description_values")')
+        for path in sorted(gb_dir.glob("*.py"))
+    }
+    assert sum(readers.values()) == 1, readers
+    assert readers["filing_history.py"] == 1
+
+
+# --- client_module.fetch_filings — respx-mocked, no network ---------------
+
+
+@respx.mock
+async def test_fetch_filings_requests_one_page_of_twenty_five() -> None:
+    """D-042(j) rules the page size for filings at 25 — a quarter of the
+    register's own maximum of 100, confirmed live (101, 200 and 1000 all
+    return 100). Never paginated further."""
+    route = respx.get(f"{BASE_URL}/company/00445790/filing-history").mock(
+        return_value=httpx.Response(200, json=TESCO_FILINGS)
+    )
+    result = await client_module.fetch_filings("00445790")
+    assert route.call_count == 1
+    assert route.calls.last.request.url.params["items_per_page"] == "25"
+    assert "start_index" not in route.calls.last.request.url.params
+    assert len(result.documents) == 25
+    assert result.total_count == 8371
+
+
+@respx.mock
+async def test_fetch_filings_404_is_a_present_empty_block_not_an_error() -> None:
+    """`/company/{n}` alone decides whether an entity exists (D-041(h)).
+    Confirmed live that this endpoint never 404s — not even for a company
+    number that was never issued, which answers 200 with `total_count: 0` —
+    but the client treats one as a present empty block, defensively."""
+    respx.get(f"{BASE_URL}/company/00445790/filing-history").mock(return_value=httpx.Response(404))
+    result = await client_module.fetch_filings("00445790")
+    assert result.documents == []
+    assert result.total_count is None  # nothing was published, not "zero filings"
+    assert result.provenance.cached is False
+
+
+@respx.mock
+async def test_fetch_filings_empty_result_is_never_not_found_on_a_cache_hit() -> None:
+    """Empty results are cached under the existing `status="not_found"` label
+    purely to borrow its 1 h TTL (D-042(j)) — never surfaced as an error on
+    read, unlike its use in `lookup`."""
+    route = respx.get(f"{BASE_URL}/company/BR026263/filing-history").mock(
+        return_value=httpx.Response(200, json=BR_FILINGS)
+    )
+    first = await client_module.fetch_filings("BR026263")
+    assert first.documents == []
+    assert first.provenance.cached is False
+
+    second = await client_module.fetch_filings("BR026263")
+    assert route.call_count == 1  # served from the cache, not refetched
+    assert second.documents == []
+    assert second.total_count == 0
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+
+
+@respx.mock
+async def test_fetch_filings_validates_the_crn_before_opening_a_socket() -> None:
+    route = respx.get(f"{BASE_URL}/company/nonsense/filing-history").mock(
+        return_value=httpx.Response(200, json=BR_FILINGS)
+    )
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_filings("not a company number")
+    assert excinfo.value.code is ErrorCode.INVALID_ID
+    assert route.call_count == 0
+
+
+@respx.mock
+async def test_fetch_filings_maps_upstream_statuses_like_every_other_gb_fetch() -> None:
+    for status, expected in ((401, ErrorCode.UPSTREAM_ERROR), (429, ErrorCode.RATE_LIMITED)):
+        # An error path never writes to the cache, so no reset is needed
+        # between the two: `_isolated_cache` already gives this test its own.
+        respx.get(f"{BASE_URL}/company/00445790/filing-history").mock(
+            return_value=httpx.Response(status)
+        )
+        with pytest.raises(RegistryError) as excinfo:
+            await client_module.fetch_filings("00445790")
+        assert excinfo.value.code is expected
+
+
+# --- Live done-check (excluded from CI) ------------------------------------
+
+
+@pytest.mark.live
+async def test_live_filings_minimised_fixtures_map_identically_to_the_wire() -> None:
+    """The strongest live check available, and it is a minimisation proof of
+    its own: re-fetch each *stable* recorded page and assert the block built
+    from the **minimised** fixture equals the block built from the **live,
+    un-minimised** payload. If stripping 23 keys at record time changed any
+    output, this fails — and it passing is the demonstration that everything
+    dropped was, by construction, unreachable.
+
+    Only companies whose filing history cannot move are used: a dissolved
+    company, an overseas company last active in 2021, and a UK establishment
+    with no filings. Tesco is deliberately excluded — it files most weeks, so
+    page one is stale within days and would make this a flake, not a check.
+    """
+    volatile = {"fetched_at", "cached"}
+    for number, name in (
+        ("00000006", "ch_00000006_filing_history.json"),
+        ("FC032315", "ch_FC032315_filing_history.json"),
+        ("BR026263", "ch_BR026263_filing_history.json"),
+    ):
+        stored = filing_history_module.map_filing_history(
+            _load(name), number, cached=False, fetched_at=_FETCHED_AT
+        )
+        live = await client_module.fetch_filings(number)
+        stored_dump = stored.model_dump(mode="json")
+        live_dump = live.model_dump(mode="json")
+        for dump in (stored_dump, live_dump):
+            dump["provenance"] = {k: v for k, v in dump["provenance"].items() if k not in volatile}
+        assert stored_dump == live_dump, f"{name} is stale relative to the register"
+
+
+@pytest.mark.live
+async def test_live_filings_empty_is_two_distinguishable_answers() -> None:
+    """The D-011 pair, live: `BR026263` holds no filings; `CE020555` is a
+    number Companies House does not serve filing history for at all."""
+    held_none = await client_module.fetch_filings("BR026263")
+    assert held_none.documents == []
+    assert held_none.total_count == 0
+
+    cannot_answer = await client_module.fetch_filings("CE020555")
+    assert cannot_answer.documents == []
+    assert cannot_answer.total_count is None
+    assert any("does not serve filing history" in n for n in cannot_answer.notes)

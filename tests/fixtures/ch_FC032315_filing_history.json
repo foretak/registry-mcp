@@ -1,0 +1,117 @@
+{
+  "_MINIMISED": {
+    "recorded": "GET https://api.company-information.service.gov.uk/company/FC032315/filing-history?items_per_page=25 - live, 2026-09-08",
+    "minimised": "MINIMISED AT RECORD TIME, deliberately and before this file existed. DECISIONS.md D-042(e)(1) reads items[].description_values through an allow-list of exactly one key, `made_up_date`: 97 Companies House description templates interpolate {officer_name} and 26 interpolate {psc_name}, so a verbatim recording of this endpoint is an officers feed that D-028 bars. Every non-allow-listed key was dropped from every description_values object (top-level and nested) before this file was written, so no natural person's name has ever been in this repository. The key NAMES and their counts are kept below: they are not personal data, and they are the evidence the allow-list was applied against what the register actually sends rather than against a figure from research. Restoring a value here is a DECISIONS.md entry, never an implementer's edit.",
+    "why_this_company": "6 of 6 - an overseas company; the only observed carrier of `representative_details`, which is a natural person's name AND address in one string.",
+    "allow_list": [
+      "made_up_date"
+    ],
+    "stripped_description_values_keys": {
+      "branch_number": 3,
+      "change_date": 2,
+      "representative_details": 2,
+      "officer_name": 1,
+      "appointment_date": 1,
+      "change_type": 1,
+      "change_details": 1,
+      "change_name": 1
+    },
+    "stripped_nested_description_values_keys": {},
+    "annotations_annotation_blanked": 0,
+    "annotation_note": "annotations[].annotation is registrar free prose with no allow-list justification, so its text was replaced by a fixed placeholder too. Placeholder: '<registrar free prose removed at record time - see _MINIMISED>'. Nothing in this project reads it."
+  },
+  "filing_history_status": "filing-history-available",
+  "items": [
+    {
+      "transaction_id": "MzMxNTk0MzQxMWFkaXF6a2N4",
+      "barcode": "AAE6VGQI",
+      "type": "OSAP01",
+      "date": "2021-10-08",
+      "category": "officers",
+      "subcategory": "appointments",
+      "description": "appoint-person-director-overseas-company-with-name-appointment-date",
+      "description_values": {},
+      "pages": 3,
+      "action_date": "2015-01-01",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/FC032315/filing-history/MzMxNTk0MzQxMWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/O0XRkggMj-cFDCW6kcHvgJpoDOAMlyRDFxAIRi0q9y0"
+      }
+    },
+    {
+      "transaction_id": "MzMxMDg5NjUzMWFkaXF6a2N4",
+      "barcode": "AAA8H0AQ",
+      "type": "OSCH01",
+      "date": "2021-08-18",
+      "category": "other",
+      "description": "change-company-details-by-uk-establishment-overseas-company-with-change-details",
+      "description_values": {},
+      "pages": 3,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/FC032315/filing-history/MzMxMDg5NjUzMWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/YakOvqg-RlSUUZwk9PYUsl_wQss01gyqC2gMoO_XvKo"
+      }
+    },
+    {
+      "transaction_id": "MzMxMDg5NjUzMGFkaXF6a2N4",
+      "barcode": "AAA8H0DD",
+      "type": "OSNM01",
+      "date": "2021-08-18",
+      "category": "change-of-name",
+      "description": "change-of-name-overseas-by-resolution-with-date",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2021-08-05",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/FC032315/filing-history/MzMxMDg5NjUzMGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/BkeNCXAoAihGBlVh5LL0b4X3E_X3nYWQrkPRnYe6ZbM"
+      }
+    },
+    {
+      "transaction_id": "MzExNjA1MDk3OWFkaXF6a2N4",
+      "type": "OS-PAR",
+      "date": "2015-01-26",
+      "category": "annual-return",
+      "subcategory": "officers",
+      "description": "appointment-at-registration-of-person-authorised-to-represent",
+      "description_values": {},
+      "paper_filed": true,
+      "links": {
+        "self": "/company/FC032315/filing-history/MzExNjA1MDk3OWFkaXF6a2N4"
+      }
+    },
+    {
+      "transaction_id": "MzExNjA1MDk4MGFkaXF6a2N4",
+      "type": "OS-PAR",
+      "date": "2015-01-26",
+      "category": "annual-return",
+      "subcategory": "officers",
+      "description": "appointment-at-registration-of-person-authorised-to-represent",
+      "description_values": {},
+      "paper_filed": true,
+      "links": {
+        "self": "/company/FC032315/filing-history/MzExNjA1MDk4MGFkaXF6a2N4"
+      }
+    },
+    {
+      "transaction_id": "MzExNjA1MDM1MWFkaXF6a2N4",
+      "barcode": "A3ZIKZO5",
+      "type": "OSIN01",
+      "date": "2015-01-26",
+      "category": "incorporation",
+      "description": "register-overseas-company",
+      "pages": 67,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/FC032315/filing-history/MzExNjA1MDM1MWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/4oIq_XA9UevM1mfYVosuc_x7z1Js61b2BFn74qAWZSk"
+      }
+    }
+  ],
+  "items_per_page": 25,
+  "start_index": 0,
+  "total_count": 6
+}

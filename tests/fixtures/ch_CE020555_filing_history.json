@@ -1,0 +1,19 @@
+{
+  "_MINIMISED": {
+    "recorded": "GET https://api.company-information.service.gov.uk/company/CE020555/filing-history?items_per_page=25 - live, 2026-09-08",
+    "minimised": "MINIMISED AT RECORD TIME, deliberately and before this file existed. DECISIONS.md D-042(e)(1) reads items[].description_values through an allow-list of exactly one key, `made_up_date`: 97 Companies House description templates interpolate {officer_name} and 26 interpolate {psc_name}, so a verbatim recording of this endpoint is an officers feed that D-028 bars. Every non-allow-listed key was dropped from every description_values object (top-level and nested) before this file was written, so no natural person's name has ever been in this repository. The key NAMES and their counts are kept below: they are not personal data, and they are the evidence the allow-list was applied against what the register actually sends rather than against a figure from research. Restoring a value here is a DECISIONS.md entry, never an implementer's edit.",
+    "why_this_company": "0 of 0 with filing_history_status `filing-history-not-available-unknown-prefix`: the register cannot serve filing history for this number at all. The D-011 pair to BR026263.",
+    "allow_list": [
+      "made_up_date"
+    ],
+    "stripped_description_values_keys": {},
+    "stripped_nested_description_values_keys": {},
+    "annotations_annotation_blanked": 0,
+    "annotation_note": "annotations[].annotation is registrar free prose with no allow-list justification, so its text was replaced by a fixed placeholder too. Placeholder: '<registrar free prose removed at record time - see _MINIMISED>'. Nothing in this project reads it."
+  },
+  "filing_history_status": "filing-history-not-available-unknown-prefix",
+  "items": [],
+  "items_per_page": 25,
+  "start_index": 0,
+  "total_count": 0
+}

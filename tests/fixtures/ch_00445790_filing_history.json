@@ -1,0 +1,543 @@
+{
+  "_MINIMISED": {
+    "recorded": "GET https://api.company-information.service.gov.uk/company/00445790/filing-history?items_per_page=25 - live, 2026-09-08",
+    "minimised": "MINIMISED AT RECORD TIME, deliberately and before this file existed. DECISIONS.md D-042(e)(1) reads items[].description_values through an allow-list of exactly one key, `made_up_date`: 97 Companies House description templates interpolate {officer_name} and 26 interpolate {psc_name}, so a verbatim recording of this endpoint is an officers feed that D-028 bars. Every non-allow-listed key was dropped from every description_values object (top-level and nested) before this file was written, so no natural person's name has ever been in this repository. The key NAMES and their counts are kept below: they are not personal data, and they are the evidence the allow-list was applied against what the register actually sends rather than against a figure from research. Restoring a value here is a DECISIONS.md entry, never an implementer's edit.",
+    "why_this_company": "TESCO PLC - 25 of 8371, the truncation case; capital/annotations/resolutions-heavy.",
+    "allow_list": [
+      "made_up_date"
+    ],
+    "stripped_description_values_keys": {
+      "date": 11,
+      "capital": 11,
+      "description": 1
+    },
+    "stripped_nested_description_values_keys": {
+      "description": 12
+    },
+    "annotations_annotation_blanked": 11,
+    "annotation_note": "annotations[].annotation is registrar free prose with no allow-list justification, so its text was replaced by a fixed placeholder too. Placeholder: '<registrar free prose removed at record time - see _MINIMISED>'. Nothing in this project reads it."
+  },
+  "filing_history_status": "filing-history-available",
+  "items": [
+    {
+      "transaction_id": "MzUzOTMzNzQ1OWFkaXF6a2N4",
+      "barcode": "YF8R3DGI",
+      "type": "SH06",
+      "date": "2026-08-26",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-07-07",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzOTMzNzQ1OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/hSRySSiDDwOxswzyFngzgNfv1XcOZl3J25cacnI0UtY"
+      }
+    },
+    {
+      "transaction_id": "MzUzOTMzNzMyN2FkaXF6a2N4",
+      "barcode": "YF8R3CZC",
+      "type": "SH06",
+      "date": "2026-08-26",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-06-30",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzOTMzNzMyN2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/IU91WlsG-EVEL9cd1KQ1Az7VsbbKG8MzsKIk25kjQc8"
+      }
+    },
+    {
+      "transaction_id": "MzUzOTMzNzQ1OGFkaXF6a2N4",
+      "barcode": "YF8R3DGA",
+      "type": "SH06",
+      "date": "2026-08-26",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-08-04",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzOTMzNzQ1OGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/85ma1QuWioHmRx8fZrb0wrifYs5J7VF9QSS7Dn3w4mQ"
+      }
+    },
+    {
+      "transaction_id": "MzUzOTMzNzIwOGFkaXF6a2N4",
+      "barcode": "YF8R3CHN",
+      "type": "SH06",
+      "date": "2026-08-26",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-06-22",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzOTMzNzIwOGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/1wVxfM2eriPE3MCvXe305mzfgSD_Bk5WjlVUvFdFRTk"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk1OGFkaXF6a2N4",
+      "barcode": "AF79NI03",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk1OGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/cj0wLsCvTl9PdTdCQyG0IjbxKnF95DHlenlferU9iX0"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk0OWFkaXF6a2N4",
+      "barcode": "AF79NHZN",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk0OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/RE8OnjE2Yz86X2Uij-_Go7WScU58mIG4MIRdiSPjSHs"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk1OWFkaXF6a2N4",
+      "barcode": "AF79NI0B",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk1OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/HT2WIAlvQS5RoKwqOTMBtMuz1k0p4ZxCxrU6-d79Z6k"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk2OWFkaXF6a2N4",
+      "barcode": "AF79NI14",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk2OWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/MnrFQBNWLrVY6wlJ7tvAiE21ieOhmFfXxrz-Yw6Wcdg"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk3MGFkaXF6a2N4",
+      "barcode": "AF79NI1K",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk3MGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/Gt_66cmoxmowq6IpTeKZ6a8obQ4XaKkorGhcyyKK0Nw"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk1MGFkaXF6a2N4",
+      "barcode": "AF79NHZV",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk1MGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/iWLsWSFjya-ixnscQzKm2bCkhf2Nel5istzzJXZwCiA"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk2MWFkaXF6a2N4",
+      "barcode": "AF79NI0R",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk2MWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/f-2xhwxh4SQtDkzvH1EfNQPKJkNh2PeL7vO0z_8_mSc"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk2MGFkaXF6a2N4",
+      "barcode": "AF79NI0J",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk2MGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/XDxIlNRAERfbyC4xqzUOS3m9EVui-f_4BALdgHqRd7U"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk2OGFkaXF6a2N4",
+      "barcode": "AF79NI1C",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk2OGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/iteon0uyOj_jUA5oPbGKYF7-VjFGnYhJqDIcdDv2mZg"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk2N2FkaXF6a2N4",
+      "barcode": "AF79NI0W",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk2N2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/LyGOHRNg-l1BwYjxcI6fVyPe1WkLsQ_4M5utDD_MqMo"
+      }
+    },
+    {
+      "transaction_id": "MzUzNjI5NTk3MWFkaXF6a2N4",
+      "barcode": "AF79NI1S",
+      "type": "SH03",
+      "date": "2026-08-06",
+      "category": "capital",
+      "annotations": [
+        {
+          "annotation": "<registrar free prose removed at record time - see _MINIMISED>",
+          "date": "2026-08-06",
+          "description": "annotation",
+          "category": "annotation",
+          "type": "ANNOTATION",
+          "description_values": {}
+        }
+      ],
+      "description": "capital-return-purchase-own-shares",
+      "pages": 4,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNjI5NTk3MWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/CbmLhR5Blw8_f5PLpzDIoPTQsy34Ys6fLeeWeYpaSA4"
+      }
+    },
+    {
+      "transaction_id": "QUY3MDNHQUJhZGlxemtjeA",
+      "barcode": "AF703GAB",
+      "type": "RESOLUTIONS",
+      "date": "2026-08-05",
+      "category": "resolution",
+      "resolutions": [
+        {
+          "category": "capital",
+          "description": "resolution-purchase-number-shares",
+          "type": "RES09",
+          "subcategory": "resolution"
+        },
+        {
+          "category": "capital",
+          "description": "resolution-removal-pre-emption",
+          "type": "RES11",
+          "subcategory": "resolution"
+        },
+        {
+          "category": "capital",
+          "description": "resolution-securities",
+          "type": "RES10",
+          "subcategory": "resolution"
+        },
+        {
+          "category": "capital",
+          "description": "resolution",
+          "type": "RES13",
+          "subcategory": "resolution",
+          "description_values": {}
+        }
+      ],
+      "description": "resolution",
+      "description_values": {},
+      "pages": 3,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/QUY3MDNHQUJhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/alQsc2qEsiPS0Khue1KY9PzMdFc5de02pdMRmpcJ07g"
+      }
+    },
+    {
+      "transaction_id": "MzUzNDMwNDQ5M2FkaXF6a2N4",
+      "barcode": "AF6FAFN7",
+      "type": "AA",
+      "date": "2026-07-25",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-group",
+      "description_values": {
+        "made_up_date": "2026-02-28"
+      },
+      "pages": 236,
+      "action_date": "2026-02-28",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUzNDMwNDQ5M2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/-uIFIZvVQM2_WxuNYmjA10Fv96C0Yuxb-wNWhAqNezY"
+      }
+    },
+    {
+      "transaction_id": "MzUyNzc4NzUwOWFkaXF6a2N4",
+      "barcode": "YF4S7Y4R",
+      "type": "SH06",
+      "date": "2026-07-03",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-06-16",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNzc4NzUwOWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/qkGHxaJXU_gekRfRlYm3NXf2lwUUQPorw-2aCg-XseQ"
+      }
+    },
+    {
+      "transaction_id": "MzUyNzc4NzUwN2FkaXF6a2N4",
+      "barcode": "YF4S7Y3F",
+      "type": "SH06",
+      "date": "2026-07-03",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-06-09",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNzc4NzUwN2FkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/3SN_5i_0N--uRRA0jvCZQKT-HF2NAONphh-7XCYZEiM"
+      }
+    },
+    {
+      "transaction_id": "MzUyNzc1NTk0MGFkaXF6a2N4",
+      "barcode": "YF4S3Q8B",
+      "type": "SH06",
+      "date": "2026-07-03",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-06-02",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNzc1NTk0MGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/yRN72YqWTHbjewCYgrh4Iw-rh0-SRbnyVSo5iF-TJ5o"
+      }
+    },
+    {
+      "transaction_id": "MzUyOTc5MTk2NGFkaXF6a2N4",
+      "barcode": "XF5EZFHE",
+      "type": "CS01",
+      "date": "2026-07-01",
+      "category": "confirmation-statement",
+      "description": "confirmation-statement-with-no-updates",
+      "description_values": {
+        "made_up_date": "2026-06-18"
+      },
+      "pages": 3,
+      "action_date": "2026-06-18",
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyOTc5MTk2NGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/IHFGB_pcm7rSIRefsfuXK1MDkLFxrSoHbKKAgY7OTxk"
+      }
+    },
+    {
+      "transaction_id": "MzUyNDY1MTExNmFkaXF6a2N4",
+      "barcode": "YF3BU58P",
+      "type": "SH06",
+      "date": "2026-06-10",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-05-06",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNDY1MTExNmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/BnBmm1cuAajP_uJ2RfQBO9-KQWh0ggxXe-f0UDQt6U4"
+      }
+    },
+    {
+      "transaction_id": "MzUyNDY1MDkyNWFkaXF6a2N4",
+      "barcode": "YF3BU494",
+      "type": "SH06",
+      "date": "2026-06-10",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-04-28",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNDY1MDkyNWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/NOxEU_DpbNP9ZhizXzCmqrxUcuP_R1N9Adv471OSrkU"
+      }
+    },
+    {
+      "transaction_id": "MzUyNDY1MTQ1MGFkaXF6a2N4",
+      "barcode": "YF3BU6ZD",
+      "type": "SH06",
+      "date": "2026-06-10",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-05-27",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNDY1MTQ1MGFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/yTzfTOIeegAulEeH6f0PCaFwoSSkuatVUyJB0xfN3nU"
+      }
+    },
+    {
+      "transaction_id": "MzUyNDY1MTI4NWFkaXF6a2N4",
+      "barcode": "YF3BU63T",
+      "type": "SH06",
+      "date": "2026-06-10",
+      "category": "capital",
+      "description": "capital-cancellation-shares",
+      "description_values": {},
+      "pages": 4,
+      "action_date": "2026-05-19",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00445790/filing-history/MzUyNDY1MTI4NWFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/u4KTBqnFSLswUPQOzjDDZPGnwA58goElyuLyOOE-E-4"
+      }
+    }
+  ],
+  "items_per_page": 25,
+  "start_index": 0,
+  "total_count": 8371
+}

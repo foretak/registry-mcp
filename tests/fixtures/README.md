@@ -253,3 +253,86 @@ than `_load_fixture`. The endpoint takes **no arguments**: `?år=`, `?aar=`,
 all ignored (byte-identical bodies), `/regnskap/{orgnr}/{year}` 404s, and
 `OPTIONS` answers `allow: GET,HEAD,OPTIONS`. It returns the most recently
 filed period and nothing earlier, so there is no multi-year fixture to record.
+
+## GB — Companies House filing history (`ch_*_filing_history*.json`)
+
+Eight fixtures, all recorded live against
+`https://api.company-information.service.gov.uk` on 2026-09-08 with the free
+operator key (never written to a file, a fixture or a commit), for R-5c / T37
+and `src/registry_mcp/registries/gb/filing_history.py`.
+
+**These eight are the only fixtures in this directory that were deliberately
+altered at record time, and the reason is a privacy ruling rather than a
+convenience.** `DECISIONS.md` **D-042(e)(1)** reads
+`items[].description_values` through an allow-list of **exactly one key,
+`made_up_date`**: Companies House resolves its description templates from
+that object, 97 of the templates interpolate `{officer_name}` and 26
+interpolate `{psc_name}`, so a byte-verbatim recording of this endpoint is an
+officers feed that D-028 bars. Every non-allow-listed key was therefore
+dropped from every `description_values` object — top-level and inside
+`annotations[]`, `resolutions[]` and `associated_filings[]` — **before the
+file was written**, and the registrar free prose in `annotations[].annotation`
+was replaced by a fixed placeholder for the same reason. **No natural
+person's name has ever been in this repository.**
+
+Each file carries a top-level `_MINIMISED` header recording the request URL,
+the fetch date, why that company was chosen, the allow-list, and the **names
+and counts** of the keys that were stripped — key names are not personal data
+and they are the evidence the allow-list was applied against what the register
+actually sends. `map_filing_history` ignores any top-level key it does not
+read, so the header costs nothing, exactly as SE's `_SYNTHETIC_COMBINATION`
+does.
+
+Recon behind the choice of companies — 1876 items across nine companies, with
+every observed `description_values` key and its count — is in
+`registries/gb/filing_history.py`'s module docstring. The three worst keys
+found live are `description` (585 items: the `legacy` free-prose slot, which
+reads `"Director appointed mr <full name>"` on four of 512 legacy rows),
+`officer_name` (445) and `representative_details` (2 — a natural person's name
+*and* their address in one string, which the research's 97/26 count does not
+mention at all).
+
+| Fixture | Request | Why |
+|---|---|---|
+| `ch_00445790_filing_history.json` | `00445790`, page 1 of 25 | TESCO PLC — 25 of **8371**: the truncation case, plus `annotations`/`resolutions` sub-objects and a 52/53-week year end |
+| `ch_00000006_filing_history.json` | `00000006`, page 1 of 25 | 25 of 206 — officers-heavy (14 `officer_name` on the wire); holds the AP01 the officer-appointment minimisation test pins |
+| `ch_00000006_filing_history_legacy.json` | `00000006`, `start_index=100` | **A deep page**, recorded only because `legacy` rows appear nowhere near the top of a history. Not the page the client fetches |
+| `ch_04374209_filing_history.json` | `04374209`, page 1 of 25 | 25 of 101 — in liquidation: an `insolvency` category row, `psc_name`, nine `made_up_date` |
+| `ch_13507518_filing_history.json` | `13507518`, page 1 of 25 | 14 of 14 — complete and untruncated; the newest reporting period is a *confirmation statement*, which is why `financial_year_end` reads annual accounts only |
+| `ch_FC032315_filing_history.json` | `FC032315`, page 1 of 25 | 6 of 6 — an overseas company, the only observed carrier of `representative_details` |
+| `ch_BR026263_filing_history.json` | `BR026263`, page 1 of 25 | `total_count: 0` with `filing_history_status: "filing-history-available"` — the register holds none |
+| `ch_CE020555_filing_history.json` | `CE020555`, page 1 of 25 | `total_count: 0` with `filing_history_status: "filing-history-not-available-unknown-prefix"` — the register **cannot answer**. The D-011 pair to the row above, and the reason `FilingHistory.total_count` is `None` rather than `0` there |
+
+Recording recipe — set `COMPANIES_HOUSE_API_KEY` as a shell variable first,
+and never write the value into this file, a fixture or a commit. **The
+minimisation below is not optional**: recording the raw body, even briefly,
+puts personal data in the working tree.
+
+```bash
+python3 - "$COMPANIES_HOUSE_API_KEY" <<'PY'
+import base64, json, sys, urllib.request
+ALLOW = {"made_up_date"}                      # DECISIONS.md D-042(e)(1)
+NUMBER, PAGE = "00000006", 25
+url = (f"https://api.company-information.service.gov.uk/company/{NUMBER}"
+       f"/filing-history?items_per_page={PAGE}")
+auth = base64.b64encode(f"{sys.argv[1]}:".encode()).decode()
+req = urllib.request.Request(url, headers={"Authorization": f"Basic {auth}",
+                                           "Accept": "application/json"})
+body = json.load(urllib.request.urlopen(req))
+def strip(obj):                                # top-level and every sub-object
+    dv = obj.get("description_values")
+    if isinstance(dv, dict):
+        obj["description_values"] = {k: v for k, v in dv.items() if k in ALLOW}
+for item in body.get("items") or []:
+    strip(item)
+    for field in ("annotations", "resolutions", "associated_filings"):
+        for sub in item.get(field) or []:
+            strip(sub)
+            if "annotation" in sub:
+                sub["annotation"] = "<registrar free prose removed at record time>"
+print(json.dumps(body, indent=2, ensure_ascii=False))
+PY
+```
+
+Add the `_MINIMISED` header by hand (copy one from an existing file and
+update the counts), or the next reader will not know the file was altered.

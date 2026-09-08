@@ -1,0 +1,424 @@
+{
+  "_MINIMISED": {
+    "recorded": "GET https://api.company-information.service.gov.uk/company/00000006/filing-history?items_per_page=25&start_index=100 - live, 2026-09-08",
+    "minimised": "MINIMISED AT RECORD TIME, deliberately and before this file existed. DECISIONS.md D-042(e)(1) reads items[].description_values through an allow-list of exactly one key, `made_up_date`: 97 Companies House description templates interpolate {officer_name} and 26 interpolate {psc_name}, so a verbatim recording of this endpoint is an officers feed that D-028 bars. Every non-allow-listed key was dropped from every description_values object (top-level and nested) before this file was written, so no natural person's name has ever been in this repository. The key NAMES and their counts are kept below: they are not personal data, and they are the evidence the allow-list was applied against what the register actually sends rather than against a figure from research. Restoring a value here is a DECISIONS.md entry, never an implementer's edit.",
+    "why_this_company": "A DEEP page (start_index=100), recorded only because `legacy` rows appear nowhere near the top of a history. Not the page the client fetches.",
+    "allow_list": [
+      "made_up_date"
+    ],
+    "stripped_description_values_keys": {
+      "description": 20
+    },
+    "stripped_nested_description_values_keys": {
+      "description": 3
+    },
+    "annotations_annotation_blanked": 0,
+    "annotation_note": "annotations[].annotation is registrar free prose with no allow-list justification, so its text was replaced by a fixed placeholder too. Placeholder: '<registrar free prose removed at record time - see _MINIMISED>'. Nothing in this project reads it."
+  },
+  "filing_history_status": "filing-history-available",
+  "items": [
+    {
+      "transaction_id": "MTIxMDUxOTU1YWRpcXprY3g",
+      "type": "RESOLUTIONS",
+      "date": "2005-06-20",
+      "category": "resolution",
+      "resolutions": [
+        {
+          "category": "incorporation",
+          "description": "resolution-memorandum-and-articles",
+          "type": "RES01",
+          "subcategory": "resolution"
+        }
+      ],
+      "description": "resolution",
+      "description_values": {},
+      "pages": 29,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTIxMDUxOTU1YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/pQXAXH3oD5PivZLo5D6iNfjGAPU538VV1EYw7ECpcIM"
+      }
+    },
+    {
+      "transaction_id": "MjQ4MjY1MzFhZGlxemtjeA",
+      "type": "363s",
+      "date": "2005-06-17",
+      "category": "annual-return",
+      "associated_filings": [
+        {
+          "category": "annual-return",
+          "date": "2005-06-17",
+          "description": "legacy",
+          "type": "363(288)",
+          "description_values": {}
+        }
+      ],
+      "description": "legacy",
+      "description_values": {},
+      "pages": 7,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MjQ4MjY1MzFhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/PapeVIA7LyuI1y-9wHNxqWxUjtwl8bc67lHffCIVpsE"
+      }
+    },
+    {
+      "transaction_id": "MTUxNjk5NDAyYWRpcXprY3g",
+      "type": "AA",
+      "date": "2005-06-10",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-group",
+      "description_values": {
+        "made_up_date": "2004-12-31"
+      },
+      "pages": 47,
+      "action_date": "2004-12-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTUxNjk5NDAyYWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/x5VadE9xfZtiAMaSmYVPxx7bQoBoWco-rd_AHy9fViI"
+      }
+    },
+    {
+      "transaction_id": "MTA1NjYwNzU0YWRpcXprY3g",
+      "type": "288a",
+      "date": "2005-05-04",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTA1NjYwNzU0YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/K03eBK9S6KAJbScByySL2auuCXjaMK9h34MRNDKm9rA"
+      }
+    },
+    {
+      "transaction_id": "OTgxNDY5NDVhZGlxemtjeA",
+      "type": "288b",
+      "date": "2004-10-14",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/OTgxNDY5NDVhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/iP7v-0X_p-WTKqKftE-weRfh_n6hOG9GVkaWmI2bhXc"
+      }
+    },
+    {
+      "transaction_id": "ODg5NzY4NzVhZGlxemtjeA",
+      "type": "288b",
+      "date": "2004-08-06",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/ODg5NzY4NzVhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/lg3pbfeutdz_ZhLqVriTskvDShE2cZqS-EBf00EIyFo"
+      }
+    },
+    {
+      "transaction_id": "MTQxODg4MDQyYWRpcXprY3g",
+      "type": "288a",
+      "date": "2004-06-24",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTQxODg4MDQyYWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/0Y73-nYd5J5WlMTjSgN50CN8-JX70zrDnQWCzhwYFeE"
+      }
+    },
+    {
+      "transaction_id": "MTIxMzA0NjAwYWRpcXprY3g",
+      "type": "288b",
+      "date": "2004-06-21",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTIxMzA0NjAwYWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/L6OZAtT1Gzd0jiBlv43svIqi1q6kYoQJImxOisXX_jo"
+      }
+    },
+    {
+      "transaction_id": "MTIwNzg4NTkwYWRpcXprY3g",
+      "type": "AA",
+      "date": "2004-06-17",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-group",
+      "description_values": {
+        "made_up_date": "2003-12-31"
+      },
+      "pages": 46,
+      "action_date": "2003-12-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTIwNzg4NTkwYWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/utux-aBqxlT1KSZyrWBg9eAALoan7p2w8LMIrejuwvs"
+      }
+    },
+    {
+      "transaction_id": "MTAwNjM5NjkxYWRpcXprY3g",
+      "type": "363s",
+      "date": "2004-05-17",
+      "category": "annual-return",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 8,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTAwNjM5NjkxYWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/5PhO0ryliVbO1bG3GICEJ606sdByraMa5nksHd8O0JI"
+      }
+    },
+    {
+      "transaction_id": "NDQyNTgyOTZhZGlxemtjeA",
+      "type": "288a",
+      "date": "2003-08-12",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/NDQyNTgyOTZhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/ipAexxy08EY53x_0bigDOccmipGxImgEeoCQ957mNnI"
+      }
+    },
+    {
+      "transaction_id": "MTAxMTQ2NzY1YWRpcXprY3g",
+      "type": "288a",
+      "date": "2003-07-23",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTAxMTQ2NzY1YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/X7d_imniAhuIndnT5QtGf5GMl6oTF4oItleb9nGKvbc"
+      }
+    },
+    {
+      "transaction_id": "MTIyOTc5MTY4YWRpcXprY3g",
+      "type": "AA",
+      "date": "2003-06-15",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-group",
+      "description_values": {
+        "made_up_date": "2002-12-31"
+      },
+      "pages": 50,
+      "action_date": "2002-12-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTIyOTc5MTY4YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/xKa-tgAH-HG77K3KD053t-04CThmO_bYv39wCia9pQA"
+      }
+    },
+    {
+      "transaction_id": "MjkwMDM2MDVhZGlxemtjeA",
+      "type": "288b",
+      "date": "2003-06-10",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MjkwMDM2MDVhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/VXYvnW8du4QUBPBiJdietX7XXhR94_7ZI6hmlSUZVE0"
+      }
+    },
+    {
+      "transaction_id": "NjE4ODMyNzhhZGlxemtjeA",
+      "type": "363s",
+      "date": "2003-05-16",
+      "category": "annual-return",
+      "associated_filings": [
+        {
+          "category": "annual-return",
+          "date": "2003-05-16",
+          "description": "legacy",
+          "type": "363(288)",
+          "description_values": {}
+        }
+      ],
+      "description": "legacy",
+      "description_values": {},
+      "pages": 8,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/NjE4ODMyNzhhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/iPLsXVRTj1Q0J753iwpA5NVKwa8F2IokOOwKcsx2Jm4"
+      }
+    },
+    {
+      "transaction_id": "MTE1NDgyMjg0YWRpcXprY3g",
+      "type": "288a",
+      "date": "2002-10-09",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTE1NDgyMjg0YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/zNT7I_ClRmxZHdEdP8kKa3j1qKQDewAEoy90VOufMnM"
+      }
+    },
+    {
+      "transaction_id": "MTQxMjQ1NjIwYWRpcXprY3g",
+      "type": "288b",
+      "date": "2002-07-26",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTQxMjQ1NjIwYWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/7V0_4IkIc5DHrTV4W3rcNWb8gLkjmluUjl14MzUVw9s"
+      }
+    },
+    {
+      "transaction_id": "MzQ0MDQxMTNhZGlxemtjeA",
+      "type": "AA",
+      "date": "2002-07-11",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-group",
+      "description_values": {
+        "made_up_date": "2001-12-31"
+      },
+      "pages": 41,
+      "action_date": "2001-12-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MzQ0MDQxMTNhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/ZjNe47CFj_xUBufUOlfX-jpK2z0xBtDw-JgxL8T9pLQ"
+      }
+    },
+    {
+      "transaction_id": "MTA3OTI0MDk4YWRpcXprY3g",
+      "type": "288a",
+      "date": "2002-06-01",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTA3OTI0MDk4YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/4qCIvPrQx0fA8Kz9efcTmQv_SVTPyha6cMXFBnh-3Ok"
+      }
+    },
+    {
+      "transaction_id": "NjE4OTEzOTZhZGlxemtjeA",
+      "type": "363s",
+      "date": "2002-05-28",
+      "category": "annual-return",
+      "associated_filings": [
+        {
+          "category": "annual-return",
+          "date": "2002-05-28",
+          "description": "legacy",
+          "type": "363(288)",
+          "description_values": {}
+        }
+      ],
+      "description": "legacy",
+      "description_values": {},
+      "pages": 8,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/NjE4OTEzOTZhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/_4bpCERUlAVm74_eLmVgoE5wGtkpNXzWqfy2zO-nap8"
+      }
+    },
+    {
+      "transaction_id": "NjQyODY0MzhhZGlxemtjeA",
+      "type": "288b",
+      "date": "2002-05-08",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/NjQyODY0MzhhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/imz1pNK3VyNgL0-lsqa3OYnET9aiIRmDqBZZ_omHwoM"
+      }
+    },
+    {
+      "transaction_id": "ODMxNzIzMzFhZGlxemtjeA",
+      "type": "288a",
+      "date": "2002-01-09",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 2,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/ODMxNzIzMzFhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/YroWHZ84OiDUqmx3CmMTwodwMBp0G8qr_cvtTkzOqS8"
+      }
+    },
+    {
+      "transaction_id": "NDA2ODE4NTdhZGlxemtjeA",
+      "type": "288b",
+      "date": "2002-01-09",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/NDA2ODE4NTdhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/M63oVcpmgmmrilN4cp2vV19_IPgWinOhssDEOOUKVg4"
+      }
+    },
+    {
+      "transaction_id": "Mzk3MzQ3MjRhZGlxemtjeA",
+      "type": "288b",
+      "date": "2001-07-12",
+      "category": "officers",
+      "description": "legacy",
+      "description_values": {},
+      "pages": 1,
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/Mzk3MzQ3MjRhZGlxemtjeA",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/nwbwgzKR7DAFN9P2k9Lv5X0FA2DoRqOwyX-wuxnhVkg"
+      }
+    },
+    {
+      "transaction_id": "MTIzMDIwNjQ3YWRpcXprY3g",
+      "type": "AA",
+      "date": "2001-05-23",
+      "category": "accounts",
+      "description": "accounts-with-accounts-type-full-group",
+      "description_values": {
+        "made_up_date": "2000-12-31"
+      },
+      "pages": 82,
+      "action_date": "2000-12-31",
+      "paper_filed": true,
+      "links": {
+        "self": "/company/00000006/filing-history/MTIzMDIwNjQ3YWRpcXprY3g",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/vaU7KLXrJIqTqOTLcHfJMnOfk7VzsxXlLeBdIjgqhRk"
+      }
+    }
+  ],
+  "items_per_page": 25,
+  "start_index": 100,
+  "total_count": 206
+}
