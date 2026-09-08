@@ -23,6 +23,7 @@ from registry_mcp.core.models import (
     CompanyReport,
     Deadline,
     FilingHistory,
+    FinancialSummary,
     SearchResult,
 )
 from registry_mcp.core.registry import Registry, register
@@ -34,7 +35,7 @@ class BrregRegistry(Registry):
     """The Norwegian Central Coordinating Register for Legal Entities."""
 
     country: ClassVar[str] = "NO"
-    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings"})
+    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings", "financials"})
     registry: ClassVar[str] = "brreg"
     name: ClassVar[str] = "Enhetsregisteret (Brønnøysundregistrene)"
     id_scheme: ClassVar[str] = "organisasjonsnummer"
@@ -97,6 +98,41 @@ class BrregRegistry(Registry):
         from registry_mcp.registries.no import client
 
         return await client.fetch_accounts(id)
+
+    async def financials(self, id: str) -> FinancialSummary:
+        """Key figures from this entity's filed annual accounts (``registries/no/accounts.py``).
+
+        The ``include=["financials"]`` attachment (``DECISIONS.md`` D-043):
+        :meth:`Registry.lookup_with` calls this by name, so it must stay
+        named exactly ``financials``, matching both :attr:`supported_includes`
+        and :class:`~registry_mcp.core.models.CompanyReport`'s ``financials``
+        field (D-042(b),(g)).
+
+        **The same fetch as :meth:`filings`, not a second one.** Both read
+        Regnskapsregisteret's one filed-accounts payload through
+        ``registries/no/client.py``'s shared, single-flight
+        ``_fetch_accounts_payload`` — requesting both attachments together
+        costs exactly one upstream request, and their two blocks' ``provenance``
+        agree in all five fields (D-043(h)). Turnover, operating result,
+        profit, balance sheet and equity are carried; no ratio, indicator or
+        verdict is derived from them (D-043(e)) — the register itself relays
+        filings whose own totals do not always reconcile, and this block
+        surfaces that as a `notes` sentence rather than hiding it behind a
+        computed figure.
+
+        Every numeric field is individually nullable, and `None` never means
+        zero: this register frequently omits a line entirely (D-043(f)) and
+        the caller must not confuse "not reported" with "reported as
+        nothing". A failed fetch raises; :meth:`Registry.lookup_with` turns
+        that into an absent block plus one ``notes`` sentence on the report,
+        the same as any other attachment. An entity with no filed accounts —
+        or a filed period the register published with no currency, which
+        this API cannot carry at all (D-043(d)) — returns a **present**
+        block with ``periods: []``, never ``not_found`` (D-011).
+        """
+        from registry_mcp.registries.no import client
+
+        return await client.fetch_financials(id)
 
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """Norwegian filing deadlines for this entity (``registries/no/rules.py``, T02)."""

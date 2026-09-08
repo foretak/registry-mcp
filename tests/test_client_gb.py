@@ -1262,13 +1262,27 @@ async def test_lookup_with_failing_charges_fetch_leaves_lookup_intact_with_a_not
 
 def test_se_and_no_declare_filings_and_nothing_else() -> None:
     """Sweden and Norway each publish filed annual reports/accounts and no
-    general filing history, so `filings` is the one name either declares. The
-    include *name* is country-neutral; the scope difference lives in the
-    block's own `notes`, never in a different field name (D-042(g), D-044(b))."""
-    for country in ("SE", "NO"):
-        registry = get_registry(country)
-        assert registry.supported_includes == frozenset({"filings"}), country
-        assert callable(getattr(registry, "filings", None)), country
+    general filing history, so `filings` is one of the names each declares.
+    The include *name* is country-neutral; the scope difference lives in the
+    block's own `notes`, never in a different field name (D-042(g), D-044(b)).
+
+    **Norway additionally declares `financials`** (D-043, T38): Regnskapsregisteret's
+    key figures, riding the same fetch as `filings` rather than a second one
+    (D-043(h)). Sweden does not, and the reason is a scope decision this
+    project made — Bolagsverket's figures live only inside a zip this
+    project declines to parse (D-041(g), D-043(i)) — not the register's
+    silence, so this test's name stays literally true for Sweden only; it is
+    kept, not renamed, because "filings and nothing else" is still exactly
+    Sweden's story and half of Norway's.
+    """
+    se_registry = get_registry("SE")
+    assert se_registry.supported_includes == frozenset({"filings"})
+    assert callable(getattr(se_registry, "filings", None))
+
+    no_registry = get_registry("NO")
+    assert no_registry.supported_includes == frozenset({"filings", "financials"})
+    assert callable(getattr(no_registry, "filings", None))
+    assert callable(getattr(no_registry, "financials", None))
 
 
 # --- Live done-check --------------------------------------------------------

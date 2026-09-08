@@ -159,28 +159,28 @@ them:
   called (`tests/fixtures/brreg_833285602.json` is a pre-existing
   ``/enheter`` fixture and is untouched by this work).
 
-Two shape choices flagged for the architect rather than made quietly:
+Two shape choices flagged for the architect rather than made quietly, one of
+which the architect has since answered:
 
-* **The key figures are not carried, and that is a decision.** Every
-  successful payload holds ~20 usable numeric fields — turnover
-  (``sumDriftsinntekter``), operating result, net financial items,
-  ``aarsresultat``, total assets, current/fixed assets, equity, short- and
-  long-term debt — plus ``valuta``, ``avviklingsregnskap`` (a liquidation
-  account), ``regnkapsprinsipper.smaaForetak`` and the two ``revisjon``
-  booleans. All are company facts, all pass minimisation, and none has a
-  home in the shape D-041(d)/D-042(h) ruled. D-042(g)'s anti-bend rule
-  reserves adding a field to a shared attachment model for an entry in
-  ``DECISIONS.md``, not an implementer's judgement — and here the reason is
-  not only procedural: ``FiledDocument`` is now the one canonical model all
-  three countries import, so a unilateral widening would change Britain's
-  and Sweden's shape too, not just Norway's. There is also a substantive
-  argument, and it is D-041(g)'s own: *"an XBRL package to parse, and a
-  financial-statements feature wearing a filing-history costume"* — the
-  reason Bolagsverket's zip was ruled out. Key figures are that feature.
-  They are a strong candidate for a **separate** ``include=["accounts"]``
-  block with its own entry; this module deliberately leaves them on the wire
-  and unclaimed, exactly as D-023(d) left ``regnskapsperiode`` until D-042
-  gave it somewhere to go.
+* **The key figures were flagged here, unclaimed — D-043 answered it, and
+  they are now carried.** Every successful payload holds ~20 usable numeric
+  fields — turnover (``sumDriftsinntekter``), operating result, net
+  financial items, ``aarsresultat``, total assets, current/fixed assets,
+  equity, short- and long-term debt — plus ``valuta``, ``avviklingsregnskap``
+  (a liquidation account), ``regnkapsprinsipper.smaaForetak`` and the two
+  ``revisjon`` booleans. All are company facts, all pass minimisation, and
+  none had a home in the shape D-041(d)/D-042(h) ruled for ``FiledDocument``
+  — widening a shared attachment model is a ``DECISIONS.md`` question, not an
+  implementer's judgement (D-042(g)'s anti-bend rule), and ``FiledDocument``
+  is the one canonical model all three countries import, so a unilateral
+  widening would have changed Britain's and Sweden's shape too. D-043
+  answered it with a **second** block rather than a wider `FiledDocument`
+  (D-043(b)): :class:`~registry_mcp.core.models.FinancialSummary`, reached by
+  ``include=["financials"]`` — not ``include=["accounts"]``, which D-043(b)
+  declines by name because Companies House already uses "accounts" for the
+  filed document itself. See :func:`map_regnskap_financials` below, which
+  reads this same payload a second way and shares this module's one fetch
+  (D-043(h)).
 * **``category`` carries ``regnskapstype``; ``type_code`` and
   ``description_code`` stay ``None``.** ``regnskapstype`` is the register's
   own classification *of the filing* — company accounts versus consolidated
@@ -204,13 +204,26 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from typing import Any
 
-from registry_mcp.core.models import FiledDocument, FilingHistory, SourceRef
+from registry_mcp.core.models import (
+    BalanceSheet,
+    FiledDocument,
+    FilingHistory,
+    FinancialPeriod,
+    FinancialSummary,
+    IncomeStatement,
+    SourceRef,
+)
 
 __all__ = [
     "ACCOUNTS_URL",
+    "BalanceSheet",
     "FiledDocument",
     "FilingHistory",
+    "FinancialPeriod",
+    "FinancialSummary",
+    "IncomeStatement",
     "map_regnskap",
+    "map_regnskap_financials",
 ]
 
 
@@ -405,6 +418,304 @@ def map_regnskap(
     return FilingHistory(
         documents=documents,
         financial_year_end=financial_year_end,
+        provenance=SourceRef(
+            source=_SOURCE,
+            source_url=ACCOUNTS_URL.format(orgnr=orgnr),
+            license=_LICENSE,
+            fetched_at=fetched_at,
+            cached=cached,
+        ),
+        notes=notes,
+    )
+
+
+# ---------------------------------------------------------------------------
+# `financials` — DECISIONS.md D-043: the same payload's ~20 numeric fields
+# R-5d left on the wire, unclaimed (see the module docstring above). Maps
+# onto the canonical ``core.models.FinancialSummary`` directly — the same
+# "no local stand-in" pattern :func:`map_regnskap` uses for ``FilingHistory``
+# after T40 — and reads the same parsed body, never a second fetch
+# (D-043(h)).
+# ---------------------------------------------------------------------------
+
+_CURRENCY_MISSING_NOTE = (
+    "One filed period could not be carried in this block because the register published "
+    "no currency for it. A figure without its currency is not carried by this API "
+    "(DECISIONS.md D-043(d))."
+)
+
+_COMPARABILITY_NOTE = (
+    "These figures are denominated in this period's own currency and prepared under its "
+    "own accounting framework — see `currency` and `accounting_framework` on the period — "
+    "and are not comparable across companies or across borders without regard to both. "
+    "Nothing here converts, restates or annualises a figure."
+)
+
+_RECONCILIATION_NOTE = (
+    "This filing's total assets ({total_assets}) and total equity and liabilities "
+    "({total_equity_and_liabilities}) differ by {gap} — the register's own figures, "
+    "relayed exactly as filed; neither is edited, reconciled or dropped (DECISIONS.md "
+    "D-043(e))."
+)
+
+_NON_NOK_NOTE = (
+    "This filing is denominated in {currency}, not NOK — a caller comparing two Norwegian "
+    "companies should not assume kroner."
+)
+
+_SMALL_ENTITY_NOTE = (
+    "This filing was prepared under the reduced-disclosure regime for a small entity "
+    "(regnskapsloven § 1-6): fewer figures exist, and those that do permit "
+    "simplifications. This is not a distress signal."
+)
+
+_AUDIT_EXEMPT_NOTE = (
+    "This company has resolved to opt out of audit (aksjeloven § 7-6): no independent "
+    "auditor checked these figures."
+)
+
+_LIQUIDATION_BASIS_NOTE = (
+    "This filing is a winding-up account (avviklingsregnskap, aksjeloven § 16-10): "
+    "prepared on a realisation basis rather than a going concern, over a final period."
+)
+
+_UNAUDITED_FLAG_NOTE = (
+    "The register set this filing's own 'not audited' flag to true. This project has not "
+    "been able to verify what that flag means in practice — it was never observed set, "
+    "even on filings by companies that had opted out of audit — so this is not read as an "
+    "assertion about whether these accounts were audited."
+)
+
+#: D-043(c): `consolidated` is derived from `regnskapstype` by a committed
+#: table of words this module has actually observed on the wire. `"KONSERN"`
+#: (consolidated) is implied by the vocabulary but was never seen in 573 live
+#: responses, including on every `morselskap: true` parent tried (EQUINOR
+#: ASA, ORKLA ASA, Norsk Hydro ASA, YARA INTERNATIONAL ASA, AKER ASA, AKER BP
+#: ASA — see the module docstring). Add it here, with a citation to the live
+#: response that showed it, the day it is actually observed — never guessed
+#: in advance (D-025(d)).
+_CONSOLIDATED_BY_SCOPE: dict[str, bool] = {
+    "SELSKAP": False,
+}
+
+
+def _as_bool(raw: Any) -> bool | None:
+    """`True`/`False` only when the wire sent a JSON boolean; never a
+    truthy/falsy coercion of a string or a number."""
+    return raw if isinstance(raw, bool) else None
+
+
+def _as_str(raw: Any) -> str | None:
+    """A non-empty JSON string only; never coerced from another type."""
+    return raw if isinstance(raw, str) and raw else None
+
+
+def _num(obj: Any, *path: str) -> float | None:
+    """Read a numeric leaf ``path`` deep inside ``obj``, tolerant of every way
+    Regnskapsregisteret represents "no line here": a missing key, an explicit
+    JSON ``null``, or — most commonly — a present-but-empty nested object such
+    as ``"langsiktigGjeld": {}`` (D-043(f)). Never reads a zero from an
+    absence: a JSON boolean is rejected even though ``bool`` is a subtype of
+    ``int`` in Python, because this register never sends one where the wire
+    promises a figure. Used for every one of the block's 19 numeric fields —
+    never ``dict.get(k, 0)``.
+    """
+    current: Any = obj
+    for key in path:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(key)
+    if isinstance(current, bool) or not isinstance(current, (int, float)):
+        return None
+    return float(current)
+
+
+def _map_income_statement(item: Mapping[str, Any]) -> IncomeStatement | None:
+    """`None` when the register published no line in this statement at all
+    for this filing; otherwise present with whichever lines it published."""
+    result = item.get("resultatregnskapResultat")
+    result = result if isinstance(result, Mapping) else {}
+
+    statement = IncomeStatement(
+        revenue=_num(result, "driftsresultat", "driftsinntekter", "sumDriftsinntekter"),
+        operating_costs=_num(result, "driftsresultat", "driftskostnad", "sumDriftskostnad"),
+        operating_result=_num(result, "driftsresultat", "driftsresultat"),
+        financial_income=_num(result, "finansresultat", "finansinntekt", "sumFinansinntekter"),
+        financial_costs=_num(result, "finansresultat", "finanskostnad", "sumFinanskostnad"),
+        net_financial_items=_num(result, "finansresultat", "nettoFinans"),
+        profit_before_tax=_num(result, "ordinaertResultatFoerSkattekostnad"),
+        profit_for_period=_num(result, "aarsresultat"),
+        total_comprehensive_income=_num(result, "totalresultat"),
+    )
+    if all(value is None for value in statement.model_dump().values()):
+        return None
+    return statement
+
+
+def _map_balance_sheet(item: Mapping[str, Any]) -> BalanceSheet | None:
+    """`None` when the register published no line in this statement at all
+    for this filing; otherwise present with whichever lines it published."""
+    sheet = BalanceSheet(
+        fixed_assets=_num(item, "eiendeler", "anleggsmidler", "sumAnleggsmidler"),
+        current_assets=_num(item, "eiendeler", "omloepsmidler", "sumOmloepsmidler"),
+        total_assets=_num(item, "eiendeler", "sumEiendeler"),
+        # `sumInnskuttEgenkaptial` is spelled that way by the register — not a
+        # typo in this module.
+        paid_in_equity=_num(
+            item, "egenkapitalGjeld", "egenkapital", "innskuttEgenkapital", "sumInnskuttEgenkaptial"
+        ),
+        retained_equity=_num(
+            item, "egenkapitalGjeld", "egenkapital", "opptjentEgenkapital", "sumOpptjentEgenkapital"
+        ),
+        equity=_num(item, "egenkapitalGjeld", "egenkapital", "sumEgenkapital"),
+        non_current_liabilities=_num(
+            item, "egenkapitalGjeld", "gjeldOversikt", "langsiktigGjeld", "sumLangsiktigGjeld"
+        ),
+        current_liabilities=_num(
+            item, "egenkapitalGjeld", "gjeldOversikt", "kortsiktigGjeld", "sumKortsiktigGjeld"
+        ),
+        liabilities=_num(item, "egenkapitalGjeld", "gjeldOversikt", "sumGjeld"),
+        total_equity_and_liabilities=_num(item, "egenkapitalGjeld", "sumEgenkapitalGjeld"),
+    )
+    if all(value is None for value in sheet.model_dump().values()):
+        return None
+    return sheet
+
+
+def _map_one_period(item: Mapping[str, Any], currency: str) -> FinancialPeriod:
+    period_data = item.get("regnskapsperiode")
+    period_data = period_data if isinstance(period_data, Mapping) else {}
+    journalnr = item.get("journalnr")
+    scope = _as_str(item.get("regnskapstype"))
+    principles = item.get("regnkapsprinsipper")
+    principles = principles if isinstance(principles, Mapping) else {}
+    audit = item.get("revisjon")
+    audit = audit if isinstance(audit, Mapping) else {}
+
+    return FinancialPeriod(
+        period_start=_parse_date(period_data.get("fraDato")),
+        period_end=_parse_date(period_data.get("tilDato")),
+        currency=currency,
+        accounting_framework=_as_str(principles.get("regnskapsregler")),
+        scope=scope,
+        # D-043(c): a committed table of observed words. Never `False` for a
+        # word the table does not contain — that would be a guess (D-025(d)).
+        consolidated=_CONSOLIDATED_BY_SCOPE.get(scope) if scope is not None else None,
+        small_entity=_as_bool(principles.get("smaaForetak")),
+        audit_exempt=_as_bool(audit.get("fravalgRevisjon")),
+        unaudited=_as_bool(audit.get("ikkeRevidertAarsregnskap")),
+        liquidation_basis=_as_bool(item.get("avviklingsregnskap")),
+        # Same handle as the sibling `FiledDocument.document_id` for this
+        # filing (D-026(a): carried, never constructed).
+        document_id=str(journalnr) if journalnr is not None else None,
+        income_statement=_map_income_statement(item),
+        balance_sheet=_map_balance_sheet(item),
+    )
+
+
+def _period_notes(period: FinancialPeriod) -> list[str]:
+    """The conditional notes A3 rules for the newest period, in the order
+    D-043 lists them: reconciliation, non-NOK currency, small entity, audit
+    exemption, liquidation basis, then the unverified `unaudited` flag.
+
+    The reconciliation sentence is the *only* arithmetic this block performs
+    (D-043(e)): naming a gap between two figures the register itself does not
+    reconcile, never editing, reconciling or dropping either one.
+    """
+    notes: list[str] = []
+    sheet = period.balance_sheet
+    if sheet is not None:
+        total_assets = sheet.total_assets
+        total_equity_and_liabilities = sheet.total_equity_and_liabilities
+        if (
+            total_assets is not None
+            and total_equity_and_liabilities is not None
+            and total_assets != total_equity_and_liabilities
+        ):
+            gap = abs(total_assets - total_equity_and_liabilities)
+            notes.append(
+                _RECONCILIATION_NOTE.format(
+                    total_assets=f"{total_assets:,.0f}",
+                    total_equity_and_liabilities=f"{total_equity_and_liabilities:,.0f}",
+                    gap=f"{gap:,.0f}",
+                )
+            )
+    if period.currency != "NOK":
+        notes.append(_NON_NOK_NOTE.format(currency=period.currency))
+    if period.small_entity is True:
+        notes.append(_SMALL_ENTITY_NOTE)
+    if period.audit_exempt is True:
+        notes.append(_AUDIT_EXEMPT_NOTE)
+    if period.liquidation_basis is True:
+        notes.append(_LIQUIDATION_BASIS_NOTE)
+    if period.unaudited is True:
+        notes.append(_UNAUDITED_FLAG_NOTE)
+    return notes
+
+
+def map_regnskap_financials(
+    payload: Sequence[Mapping[str, Any]] | None,
+    orgnr: str,
+    *,
+    cached: bool,
+    fetched_at: datetime,
+) -> FinancialSummary:
+    """Pure, synchronous, no I/O — the same convention as :func:`map_regnskap`,
+    reading the same payload and building the same five-field provenance
+    (DECISIONS.md D-043(h)(2)): the two must be constructible from one fetch
+    with an identical `SourceRef`, because for Norway they always come from
+    one (D-043(h)) — ``registries/no/client.py::fetch_accounts`` /
+    ``fetch_financials`` share a single in-flight fetch so that this is true
+    under concurrency, not only in principle.
+
+    Args:
+        payload: The same parsed JSON body :func:`map_regnskap` reads — a bare
+            JSON array, no envelope. ``None`` or ``[]`` for the empty case.
+        orgnr: The normalised organisasjonsnummer, used only to build
+            ``provenance.source_url`` and the note URL — never re-validated
+            here.
+        cached: Whether this block is being served from the cache.
+        fetched_at: The original fetch time, preserved across cache hits
+            (D-006).
+
+    Returns:
+        A :class:`~registry_mcp.core.models.FinancialSummary`. ``periods ==
+        []`` means either that the register holds no filed annual accounts
+        for this entity, or (see ``notes``) that the one filing it holds
+        could not be carried because the register published no currency for
+        it — either way a real, present answer, never an absence (D-041(c),
+        D-043(h)).
+    """
+    items = [item for item in (payload or []) if isinstance(item, Mapping)]
+
+    periods: list[FinancialPeriod] = []
+    skipped_no_currency = False
+    for item in items:
+        currency = _as_str(item.get("valuta"))
+        if currency is None:
+            # D-043(d): `FinancialPeriod.currency` has no default, so a period
+            # the register published with no currency is not constructed at
+            # all — never guessed, never an empty string.
+            skipped_no_currency = True
+            continue
+        periods.append(_map_one_period(item, currency))
+
+    periods.sort(key=lambda p: p.period_end or date.min, reverse=True)
+
+    notes: list[str] = []
+    if periods:
+        notes.append(_COMPARABILITY_NOTE)
+        notes.append(_ONE_PERIOD_NOTE.format(url=_VIRKSOMHET_URL.format(orgnr=orgnr)))
+        notes.append(_PREVIEW_NOTE)
+    elif not items:
+        notes.append(_EMPTY_NOTE)
+    if skipped_no_currency:
+        notes.append(_CURRENCY_MISSING_NOTE)
+    if periods:
+        notes.extend(_period_notes(periods[0]))
+
+    return FinancialSummary(
+        periods=periods,
         provenance=SourceRef(
             source=_SOURCE,
             source_url=ACCOUNTS_URL.format(orgnr=orgnr),

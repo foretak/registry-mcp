@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 __all__ = [
     "Address",
+    "BalanceSheet",
     "Charge",
     "ChargeBlock",
     "CompanyReport",
@@ -45,6 +46,9 @@ __all__ = [
     "ErrorEnvelope",
     "FiledDocument",
     "FilingHistory",
+    "FinancialPeriod",
+    "FinancialSummary",
+    "IncomeStatement",
     "IndustryCode",
     "InsolvencyBlock",
     "InsolvencyCase",
@@ -1148,6 +1152,385 @@ class InsolvencyBlock(_Base):
 
 
 # ---------------------------------------------------------------------------
+# Financial summary (Norway's key figures) — DECISIONS.md D-043
+# ---------------------------------------------------------------------------
+
+#: Every numeric field on `IncomeStatement`/`BalanceSheet` carries this sentence
+#: verbatim in its own description, per D-043(f)'s instruction that it be
+#: stated in these terms rather than paraphrased into "unknown": the register's
+#: nested numeric objects are frequently *present and empty* (`{}`) rather than
+#: absent, an empty object and a missing one mean the same thing, and the
+#: register is not even consistent about when it states an explicit zero
+#: instead — two holding companies with no turnover, read the same afternoon,
+#: published that absence two different ways. Only three of the nineteen
+#: figures below were present on every one of 573 observed filings.
+_FIGURE_ABSENCE_NOTE = (
+    "`None` means the register did not publish this line for this filing — never zero. "
+    "The register is inconsistent about when it states an explicit zero for an absent "
+    "figure versus omitting the line entirely, so this field's absence is not evidence "
+    "the true value is zero, and a stated zero is not evidence the register omits the "
+    "line elsewhere (DECISIONS.md D-043(f))."
+)
+
+
+class IncomeStatement(_Base):
+    """Flows over one reporting period — Regnskapsregisteret's
+    ``resultatregnskapResultat``, one of two sub-objects on a
+    :class:`FinancialPeriod` (D-043(c)). Nested apart from :class:`BalanceSheet`
+    on purpose: revenue is a flow over a span, not a stock at an instant, and a
+    caller who mixes the two time semantics makes precisely the error this
+    split exists to prevent.
+
+    Every field is `None` or a whole-unit figure in :attr:`FinancialPeriod.currency`
+    — never both `None` and zero at once, and never inferred from the other
+    (D-043(f)); see `FinancialPeriod.currency` for what the unit is and why it
+    is required.
+    """
+
+    revenue: float | None = Field(
+        default=None,
+        description=(
+            f"Turnover for the period (`sumDriftsinntekter`). {_FIGURE_ABSENCE_NOTE} "
+            "Absent on 51 of 358 observed filings (14%) — not rare."
+        ),
+    )
+    operating_costs: float | None = Field(
+        default=None,
+        description=f"Total operating costs for the period (`sumDriftskostnad`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    operating_result: float | None = Field(
+        default=None,
+        description=f"Operating result for the period (`driftsresultat`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    financial_income: float | None = Field(
+        default=None,
+        description=f"Financial income for the period (`sumFinansinntekter`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    financial_costs: float | None = Field(
+        default=None,
+        description=f"Financial costs for the period (`sumFinanskostnad`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    net_financial_items: float | None = Field(
+        default=None,
+        description=f"Net financial items for the period (`nettoFinans`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    profit_before_tax: float | None = Field(
+        default=None,
+        description=(
+            "Ordinary result before tax (`ordinaertResultatFoerSkattekostnad`). "
+            f"{_FIGURE_ABSENCE_NOTE}"
+        ),
+    )
+    profit_for_period: float | None = Field(
+        default=None,
+        description=(
+            f"Profit or loss for the period (`aarsresultat`). {_FIGURE_ABSENCE_NOTE} One of "
+            "only three fields present on every one of 573 observed filings."
+        ),
+    )
+    total_comprehensive_income: float | None = Field(
+        default=None,
+        description=(
+            f"Total comprehensive income for the period (`totalresultat`). {_FIGURE_ABSENCE_NOTE} "
+            "Absent on 209 of 358 observed filings (58%) — the register's own line, not "
+            "this project's omission."
+        ),
+    )
+
+
+class BalanceSheet(_Base):
+    """Stocks at the period's last instant — Regnskapsregisteret's
+    ``eiendeler`` and ``egenkapitalGjeld``, the other of the two sub-objects on
+    a :class:`FinancialPeriod` (D-043(c)). See :class:`IncomeStatement` for why
+    the two are separate models rather than one flat one.
+
+    Every field is `None` or a whole-unit figure in :attr:`FinancialPeriod.currency`
+    — never both `None` and zero at once, and never inferred from the other
+    (D-043(f)). **No field here is a ratio or a verdict** — an equity ratio, a
+    current ratio and every similar derived figure are declined by D-043(e): the
+    register's own `total_assets` and `total_equity_and_liabilities` disagree
+    on 27 of 358 filings (7.5%), so a ratio built from this block would be a
+    ratio of two numbers the register itself does not vouch for jointly. The
+    one comparison this project makes is a `notes` sentence, never a number —
+    see :class:`FinancialSummary`.
+    """
+
+    fixed_assets: float | None = Field(
+        default=None,
+        description=f"Fixed assets at period end (`sumAnleggsmidler`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    current_assets: float | None = Field(
+        default=None,
+        description=f"Current assets at period end (`sumOmloepsmidler`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    total_assets: float | None = Field(
+        default=None,
+        description=(
+            f"Total assets at period end (`sumEiendeler`). {_FIGURE_ABSENCE_NOTE} One of "
+            "only three fields present on every one of 573 observed filings. Compare with "
+            "`total_equity_and_liabilities` (DECISIONS.md D-043(e)): the two disagree on 27 "
+            "of 358 filings, and this block's own `notes` names the gap when they do; "
+            "neither figure is edited, reconciled or dropped."
+        ),
+    )
+    paid_in_equity: float | None = Field(
+        default=None,
+        description=(
+            "Paid-in equity at period end (`sumInnskuttEgenkaptial` — the register's own "
+            f"spelling, not a typo in this field's description). {_FIGURE_ABSENCE_NOTE}"
+        ),
+    )
+    retained_equity: float | None = Field(
+        default=None,
+        description=f"Retained equity at period end (`sumOpptjentEgenkapital`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    equity: float | None = Field(
+        default=None,
+        description=f"Total equity at period end (`sumEgenkapital`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    non_current_liabilities: float | None = Field(
+        default=None,
+        description=f"Non-current liabilities at period end (`sumLangsiktigGjeld`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    current_liabilities: float | None = Field(
+        default=None,
+        description=f"Current liabilities at period end (`sumKortsiktigGjeld`). {_FIGURE_ABSENCE_NOTE}",
+    )
+    liabilities: float | None = Field(
+        default=None,
+        description=(
+            f"Total liabilities at period end (`sumGjeld`). {_FIGURE_ABSENCE_NOTE} Carried "
+            "exactly as the register states it, including negative: DECISIONS.md D-043(e) "
+            "records real filings with a negative `sumGjeld` (e.g. -108,837), which is a "
+            "filing the register relayed without validating, not a company fact this field "
+            "corrects."
+        ),
+    )
+    total_equity_and_liabilities: float | None = Field(
+        default=None,
+        description=(
+            f"Total equity and liabilities at period end (`sumEgenkapitalGjeld`). "
+            f"{_FIGURE_ABSENCE_NOTE} One of only three fields present on every one of 573 "
+            "observed filings. See `total_assets` for the reconciliation note the two "
+            "together can trigger."
+        ),
+    )
+
+
+class FinancialPeriod(_Base):
+    """One filed accounting period's key figures — Regnskapsregisteret's own
+    filing, mapped a second time alongside :class:`~registry_mcp.core.models.
+    FiledDocument` (D-043(h)): the two travel together because both come from
+    the same fetch, and `document_id` and `period_end` are the join keys a
+    caller uses to line this period up with its sibling `FiledDocument`.
+
+    `currency` is the one field in this whole block with no default
+    (DECISIONS.md D-043(d)): a figure separated from its currency is not
+    partially wrong, it is meaningless, and this model makes constructing one
+    a `pydantic.ValidationError` rather than a silently-`None` currency. A
+    period the register published with no `valuta` is not carried at all —
+    the mapper skips it and says why in `FinancialSummary.notes` — which is
+    safe because `valuta` was present on 573 of 573 payloads this project has
+    read.
+    """
+
+    period_start: date | None = Field(
+        default=None,
+        description=(
+            "The reporting period's first day, as published (`regnskapsperiode.fraDato`). "
+            "Real, published data — never derived by subtracting twelve months from "
+            "`period_end`, because a first or final period may be shorter or longer "
+            "(DECISIONS.md D-009)."
+        ),
+    )
+    period_end: date | None = Field(
+        default=None,
+        description=(
+            "The reporting period's last day, as published (`regnskapsperiode.tilDato`). "
+            "Equal to the sibling `FiledDocument.period_end` for this filing on the same "
+            "report (DECISIONS.md D-043(h))."
+        ),
+    )
+    currency: str = Field(
+        description=(
+            "ISO-4217-shaped currency code, verbatim from `valuta`. **Required — this "
+            "field has no default, and a period the register published with no currency "
+            "is not constructed at all** (DECISIONS.md D-043(d)): a figure without its "
+            "currency is not partially wrong, it is meaningless, and this model makes "
+            "that state unrepresentable rather than merely discouraged. 12 of 358 "
+            "observed Norwegian filings are not in kroner (USD, EUR, SEK, DKK), so two "
+            "*Norwegian* companies can be incomparable without either crossing a border. "
+            "Values are whole units of this currency; scale (thousands, millions) is not "
+            "recorded because the register does not publish one, and the figures are "
+            "exact integers that are not significant to that precision."
+        ),
+    )
+    accounting_framework: str | None = Field(
+        default=None,
+        description=(
+            "The accounting framework this period was prepared under, verbatim from "
+            "`regnkapsprinsipper.regnskapsregler` — observed values include "
+            "'regnskapslovenAlminneligRegler', 'IFRS' and 'forenkletAnvendelseIFRS'. Two "
+            "Norwegian companies' figures are not necessarily on the same basis; no field "
+            "here converts between them (DECISIONS.md D-043(d))."
+        ),
+    )
+    scope: str | None = Field(
+        default=None,
+        description=(
+            "What this filing covers, the register's own word, verbatim from "
+            "`regnskapstype` — 'SELSKAP' (company accounts) is the only value observed in "
+            "573 payloads; 'KONSERN' (consolidated) is implied by the vocabulary but was "
+            "never seen. See `consolidated` for the country-neutral derived flag."
+        ),
+    )
+    consolidated: bool | None = Field(
+        default=None,
+        description=(
+            "Whether this filing is a consolidated (group) statement, derived from "
+            "`scope` by a committed table of words this module has actually observed on "
+            "the wire — today only `{'SELSKAP': False}`. A word outside that table, "
+            "including an implied-but-unobserved 'KONSERN', gets `None`, never `False` "
+            "(DECISIONS.md D-011, D-025(d)): this field never guesses."
+        ),
+    )
+    small_entity: bool | None = Field(
+        default=None,
+        description=(
+            "Whether this filing was prepared under the reduced-disclosure regime for a "
+            "*lite foretak* (regnskapsloven § 1-6), from `regnkapsprinsipper.smaaForetak`. "
+            "**Not a distress signal** — True on 315 of 358 observed filings, the majority "
+            "case — it is a disclosure caveat: fewer figures exist, and those that do were "
+            "prepared under rules that permit simplification."
+        ),
+    )
+    audit_exempt: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the company has resolved to opt out of audit under aksjeloven § 7-6, "
+            "from `revisjon.fravalgRevisjon` — lawful below that section's thresholds and "
+            "True on 65 of 358 observed filings (18%). The consequence a credit decision "
+            "must weigh: no independent auditor checked these figures."
+        ),
+    )
+    unaudited: bool | None = Field(
+        default=None,
+        description=(
+            "Relayed uninverted from `revisjon.ikkeRevidertAarsregnskap`, which its own "
+            "name claims means these accounts were not audited. **`True` was never "
+            "observed** in 573 sampled payloads, including every filing by a company that "
+            "had opted out of audit under `audit_exempt` — so this flag's semantics are "
+            "unverified: do not read a `False` here as an assertion that the accounts were "
+            "audited, and do not read this field as more reliable than `audit_exempt` "
+            "(DECISIONS.md D-043(g))."
+        ),
+    )
+    liquidation_basis: bool | None = Field(
+        default=None,
+        description=(
+            "Whether this filing is an *avviklingsregnskap* under aksjeloven § 16-10 — a "
+            "winding-up account prepared on a realisation rather than a going-concern "
+            "basis, over a final stub period — from `avviklingsregnskap`. Rare (3 of 215 "
+            "entities the register marks `underAvvikling`) and, when true, real: read "
+            "`FinancialSummary.notes` for the caveat this triggers. It does not restate "
+            "the winding-up itself, which `CompanyReport.status` already carries."
+        ),
+    )
+    document_id: str | None = Field(
+        default=None,
+        description=(
+            "The register's own opaque handle for this filing, verbatim from `journalnr` "
+            "— the same handle the sibling `FiledDocument.document_id` on `filings` "
+            "carries for the same filing, and the join key between the two blocks "
+            "(DECISIONS.md D-043(h)). Not fetchable through this API."
+        ),
+    )
+    income_statement: IncomeStatement | None = Field(
+        default=None,
+        description=(
+            "Flows for this period. `None` when the register published no line in this "
+            "statement at all for this filing; otherwise present with whichever lines it "
+            "published, each individually nullable (DECISIONS.md D-043(f))."
+        ),
+    )
+    balance_sheet: BalanceSheet | None = Field(
+        default=None,
+        description=(
+            "Stocks at this period's last instant. `None` when the register published no "
+            "line in this statement at all for this filing; otherwise present with "
+            "whichever lines it published, each individually nullable (DECISIONS.md "
+            "D-043(f))."
+        ),
+    )
+
+
+class FinancialSummary(_Base):
+    """Key figures from an entity's filed annual accounts — an
+    ``include=["financials"]`` attachment (DECISIONS.md D-043), never a plain
+    field on :class:`CompanyReport` (D-041(c)): it is a second round trip with
+    its own moment, its own cache state and its own failure mode, so it
+    carries its own :class:`SourceRef` rather than reusing the report's.
+
+    **A second block, not a wider `FiledDocument`** (D-043(b)): "did they file
+    on time" and "what do the numbers say" are two different questions, and
+    folding nineteen numeric fields onto `FiledDocument` would collapse two
+    meanings into one `None` — "Britain does not publish this" and "this
+    Norwegian company did not report this line" — which D-011 forbids.
+
+    Norway fills this block today; Sweden and Britain do not, and the reason
+    is a scope decision this project made (Bolagsverket's figures live only
+    inside a zip this project declines to parse; Companies House's only
+    inside filed iXBRL this project declines to parse), not the register's
+    silence (DECISIONS.md D-043(i)). `include=["financials"]` on a country
+    that does not declare it is `bad_request`, never a silently empty block.
+
+    Two-level nullability is the point of the shape (D-011, D-026(c),
+    D-041(c), D-042(d)(3)): once *present*, this block carries `periods: []`
+    for an entity Regnskapsregisteret holds no filed accounts for — that
+    state must never collapse into the absent state and must never be
+    ``not_found``. **No field on this block or on `FinancialPeriod` is a
+    derived ratio, indicator or verdict** — DECISIONS.md D-043(e) rules out an
+    equity ratio, a current ratio, a net-debt figure, a working-capital
+    figure and every similar field on three independent grounds, the
+    strongest being that the register relays filings whose own totals do not
+    reconcile on 27 of 358 observed filings. The one comparison this project
+    makes is a `notes` sentence, never a number: see `notes` below.
+    """
+
+    periods: list[FinancialPeriod] = Field(
+        default_factory=list,
+        description=(
+            "Filed accounting periods, sorted newest first by `period_end`. "
+            "Regnskapsregisteret publishes exactly one — the endpoint takes no year "
+            "argument and holds no history — so this is a latest-figures block, not a "
+            "trend; `notes` says so on every non-empty block. The list exists for a "
+            "register that publishes more than one."
+        ),
+    )
+    provenance: SourceRef = Field(
+        description=(
+            "Where, when and under what licence this block was fetched. **Identical in "
+            "all five fields to the sibling `filings` block's `provenance` when both are "
+            "requested together**: they are the same upstream fetch, not two (DECISIONS.md "
+            "D-043(h))."
+        )
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plain-English caveats about this block. Unconditional on any non-empty "
+            "block: that figures are denominated in the stated currency and framework and "
+            "are not comparable across companies or borders without regard to both, and "
+            "that this is the latest filed period rather than a history. Conditional: a "
+            "reconciliation note when `total_assets` and `total_equity_and_liabilities` "
+            "disagree, a non-NOK currency note, and one note each for `small_entity`, "
+            "`audit_exempt`, `liquidation_basis` and an observed `unaudited` (DECISIONS.md "
+            "D-043(e),(g))."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Company report
 # ---------------------------------------------------------------------------
 
@@ -1396,6 +1779,19 @@ class CompanyReport(_Base):
             "evidence the entity exists, since that register answers the same way for a "
             "number never issued. Read `InsolvencyCase.is_liquidation` with its own "
             "caveat: a members' voluntary liquidation is a solvent wind-up."
+        ),
+    )
+    financials: FinancialSummary | None = Field(
+        default=None,
+        description=(
+            "Key figures from this entity's filed annual accounts. `None` unless "
+            "`financials` was passed in `include=[...]` — and, even then, `None` if that "
+            "fetch failed (see `notes` for which attachment and why). A country that "
+            "declares this attachment returns a *present* block with `periods: []` for an "
+            "entity the register holds no filed accounts for — the two states never "
+            "collapse into each other (D-011, D-042(d)). Norway only, today: Sweden's and "
+            "Britain's figures live inside documents this API declines to parse, which is "
+            "this project's scope decision, not the register's silence (D-043(i))."
         ),
     )
 
