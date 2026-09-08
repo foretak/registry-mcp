@@ -1,9 +1,12 @@
 """Tests for R-5's attachment machinery: `SourceRef`, `Registry.supported_includes`
 and `Registry.lookup_with` (`DECISIONS.md` D-026(c), D-041(b),(c), D-042(b),(d)).
 
-No country ships an attachment yet (D-042(g) — this task ships the machinery, not
-a payload; the LEI, GB filing history/charges (T37) and everything after it are
-separate tasks). Every test below either exercises the real `XX` example
+Three attachments now ship: `charges` (GB), `filings` (GB, SE, NO) and
+`insolvency` (GB). The machinery tests in the first part of this file still run
+against fakes on purpose — they exercise edge cases no live country produces,
+such as a registry that declares an include with no method — and the real
+countries are exercised in the last section, "The three real attachments, wired
+through the seam". Every test in this first part either exercises the real `XX` example
 registry — which correctly declares no attachments, since `Registry.
 supported_includes` defaults to an empty set — or a small test-local fake
 registry that declares one or two, standing in for a country module that does
@@ -27,18 +30,30 @@ ship today.
 from __future__ import annotations
 
 import asyncio
+import importlib
+import json
+import pathlib
+from datetime import UTC, datetime
+from typing import Any
 
+import pydantic
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
 from registry_mcp.core.models import (
     CompanyReport,
+    CompanyStatus,
     CountryInfo,
     ErrorCode,
+    FiledDocument,
+    FilingHistory,
+    InsolvencyBlock,
+    InsolvencyCase,
+    InsolvencyEvent,
     RegistryError,
     SourceRef,
 )
-from registry_mcp.core.registry import Registry
+from registry_mcp.core.registry import Registry, get_registry
 
 # ---------------------------------------------------------------------------
 # Test doubles — core/models.py gains no field for these (D-042(g))
@@ -544,3 +559,197 @@ async def test_an_include_with_no_matching_report_field_fails_loudly(
 
     with pytest.raises(RuntimeError, match="ghost"):
         await _GhostRegistry().lookup_with("1", ["ghost"])
+
+
+# ---------------------------------------------------------------------------
+# The three real attachments, wired through the seam (D-041(d), D-042).
+#
+# Everything above this line exercises the machinery against fake registries.
+# These exercise the real ones. Two distinct risks are covered, because the
+# wiring commit had to cross one seam twice:
+#
+#   1. **Conversion drift.** Each country module was written blind to
+#      `core/models.py` on purpose, so its `FilingHistory`/`FiledDocument`/
+#      `FilingProvenance` are its own classes. The registry method converts by
+#      `model_validate(model_dump())`, which is a straight copy only for as
+#      long as the two shapes stay identical — and pydantic's `extra="forbid"`
+#      makes a *removed* field loud but a *added* one on the core side silent
+#      (it defaults). So these tests compare field by field, from a real
+#      recorded payload, rather than trusting the copy.
+#   2. **Field routing.** `lookup_with` attaches a block to the report field of
+#      the same name as the include. A method named `filings` that filled
+#      `charges` would pass every unit test in the country module.
+# ---------------------------------------------------------------------------
+
+_FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+
+
+def _fixture(name: str) -> Any:
+    return json.loads((_FIXTURES / name).read_text(encoding="utf-8"))
+
+
+_FETCHED_AT = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+
+
+async def _attachment(registry: Registry, name: str, id: str) -> Any:
+    """Reach an attachment method the way production does.
+
+    `Registry` deliberately declares no attachment methods — a country adds
+    one per name it puts in `supported_includes`, and `lookup_with` reaches it
+    with `getattr(self, name)`. Tests go through the same door, so a country
+    that renamed a method would fail here for the same reason it would fail in
+    production, rather than passing a statically-typed call that no longer
+    matches the declared set.
+    """
+    result: Any = await getattr(registry, name)(id)
+    return result
+
+
+@pytest.mark.parametrize(
+    ("country", "module_name", "mapper", "args", "fetch_name"),
+    [
+        pytest.param(
+            "GB",
+            "registry_mcp.registries.gb.filing_history",
+            "map_filing_history",
+            ("ch_00445790_filing_history.json", "00445790"),
+            "fetch_filings",
+            id="GB-filings",
+        ),
+        pytest.param(
+            "SE",
+            "registry_mcp.registries.se.filings",
+            "map_dokumentlista",
+            ("bv_dokumentlista.json", None),
+            "fetch_filings",
+            id="SE-filings",
+        ),
+        pytest.param(
+            "NO",
+            "registry_mcp.registries.no.accounts",
+            "map_regnskap",
+            ("brreg_regnskap_923609016.json", "923609016"),
+            "fetch_accounts",
+            id="NO-filings",
+        ),
+    ],
+)
+async def test_filings_conversion_preserves_every_field_in_every_country(
+    monkeypatch: pytest.MonkeyPatch,
+    country: str,
+    module_name: str,
+    mapper: str,
+    args: tuple[str, str | None],
+    fetch_name: str,
+) -> None:
+    """The module-side block and the `core.models` block it becomes must agree
+    on every field of every document, for a real recorded payload."""
+    module = importlib.import_module(module_name)
+    fixture_name, id_arg = args
+    payload = _fixture(fixture_name)
+    map_fn = getattr(module, mapper)
+    block = (
+        map_fn(payload, cached=False, fetched_at=_FETCHED_AT)
+        if id_arg is None
+        else map_fn(payload, id_arg, cached=False, fetched_at=_FETCHED_AT)
+    )
+    assert block.documents, f"{country}: fixture produced no documents to compare"
+
+    registry = get_registry(country)
+    client_module = importlib.import_module(f"registry_mcp.registries.{country.lower()}.client")
+
+    async def _fake_fetch(_id: str) -> Any:
+        return block
+
+    monkeypatch.setattr(client_module, fetch_name, _fake_fetch)
+    converted = await _attachment(registry, "filings", "irrelevant")
+
+    assert isinstance(converted, FilingHistory)
+    assert len(converted.documents) == len(block.documents)
+    for got, want in zip(converted.documents, block.documents, strict=True):
+        assert isinstance(got, FiledDocument)
+        assert got.model_dump() == want.model_dump()
+    assert converted.financial_year_end == block.financial_year_end
+    assert converted.provenance.model_dump() == block.provenance.model_dump()
+    assert converted.notes == list(block.notes)
+    # `total_count` exists on the canonical block for every country; only a
+    # register that publishes a count of its own fills it (D-011).
+    assert converted.total_count == getattr(block, "total_count", None)
+
+
+async def test_gb_insolvency_conversion_preserves_every_case_and_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from registry_mcp.registries.gb import insolvency as insolvency_module
+
+    block = insolvency_module.map_insolvency(
+        _fixture("ch_04374209_insolvency.json"),
+        "04374209",
+        cached=False,
+        fetched_at=_FETCHED_AT,
+    )
+    assert block.cases, "fixture produced no cases to compare"
+
+    registry = get_registry("GB")
+    from registry_mcp.registries.gb import client as gb_client
+
+    async def _fake_fetch(_id: str) -> Any:
+        return block
+
+    monkeypatch.setattr(gb_client, "fetch_insolvency", _fake_fetch)
+    converted = await _attachment(registry, "insolvency", "04374209")
+
+    assert isinstance(converted, InsolvencyBlock)
+    for got, want in zip(converted.cases, block.cases, strict=True):
+        assert isinstance(got, InsolvencyCase)
+        assert got.model_dump() == want.model_dump()
+    assert converted.statuses == list(block.statuses)
+    assert converted.provenance.model_dump() == block.provenance.model_dump()
+    assert converted.notes == list(block.notes)
+
+
+async def test_no_practitioner_field_survives_the_conversion_to_core_models() -> None:
+    """D-042(e)(2)'s bar has to hold on *both* sides of the seam. The mapper
+    strips practitioner particulars; this pins that the canonical models have
+    nowhere to put them even if a future mapper stopped stripping — the failure
+    would be a loud `extra="forbid"` error, not a silent relay."""
+    barred = {"practitioners", "practitioner", "name", "address", "appointed_on"}
+    for model in (InsolvencyCase, InsolvencyEvent):
+        assert not (set(model.model_fields) & barred), model.__name__
+    with pytest.raises(pydantic.ValidationError):
+        InsolvencyCase.model_validate({"case_number": "1", "practitioners": [{"name": "X"}]})
+
+
+@pytest.mark.parametrize(
+    ("country", "name"),
+    [("GB", "filings"), ("GB", "insolvency"), ("SE", "filings"), ("NO", "filings")],
+)
+async def test_lookup_with_routes_each_block_to_the_field_of_the_same_name(
+    monkeypatch: pytest.MonkeyPatch, country: str, name: str
+) -> None:
+    """A method named `filings` that filled `charges` would pass every test in
+    its own country module. This is the one that would catch it."""
+    registry = get_registry(country)
+    sentinel = object()
+
+    async def _fake_base_lookup(_id: str) -> CompanyReport:
+        return CompanyReport(
+            country=country,
+            registry=registry.registry,
+            id="1",
+            name="X",
+            status=CompanyStatus.ACTIVE,
+            is_active=True,
+        )
+
+    async def _fake_attachment(_id: str) -> Any:
+        return sentinel
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_fake_base_lookup))
+    monkeypatch.setattr(type(registry), name, staticmethod(_fake_attachment))
+
+    report = await registry.lookup_with("1", [name])
+    assert getattr(report, name) is sentinel, f"{country}.{name} landed on the wrong field"
+    for other in ("charges", "filings", "insolvency"):
+        if other != name:
+            assert getattr(report, other) is None, f"{country}.{name} also filled {other}"

@@ -26,6 +26,11 @@ from registry_mcp.core.models import (
     ChargeBlock,
     CompanyReport,
     Deadline,
+    FiledDocument,
+    FilingHistory,
+    InsolvencyBlock,
+    InsolvencyCase,
+    InsolvencyEvent,
     SearchResult,
     SourceRef,
 )
@@ -52,7 +57,7 @@ class CompaniesHouseRegistry(Registry):
     is_stub: ClassVar[bool] = False
     requires_api_key: ClassVar[bool] = True
     api_key_env: ClassVar[str] = "COMPANIES_HOUSE_API_KEY"
-    supported_includes: ClassVar[frozenset[str]] = frozenset({"charges"})
+    supported_includes: ClassVar[frozenset[str]] = frozenset({"charges", "filings", "insolvency"})
 
     def validate_id(self, id: str) -> str:
         """Normalise and shape-check a UK company number (``registries/gb/rules.py``)."""
@@ -112,6 +117,98 @@ class CompaniesHouseRegistry(Registry):
             total_count=block.total_count,
             outstanding_count=block.outstanding_count,
             satisfied_count=block.satisfied_count,
+            provenance=SourceRef.model_validate(block.provenance.model_dump()),
+            notes=list(block.notes),
+        )
+
+    async def filings(self, id: str) -> FilingHistory:
+        """Everything this entity has filed with Companies House (``registries/gb/filing_history.py``).
+
+        The ``include=["filings"]`` attachment (``DECISIONS.md`` D-041(d),
+        D-042): :meth:`Registry.lookup_with` calls this by name, so it must
+        stay named exactly ``filings``, matching both
+        :attr:`supported_includes` and :class:`~registry_mcp.core.models.
+        CompanyReport`'s ``filings`` field (D-042(b),(g)).
+
+        Companies House publishes the **whole** filing history here, not just
+        accounts: one page of the newest filings, at most
+        ``filing_history.FILINGS_ITEMS_PER_PAGE`` (25) entries, with
+        ``total_count`` and a ``notes`` sentence disclosing any truncation
+        rather than hiding it (D-042(j)).
+
+        The module behind the seam was written blind to ``core/models.py``'s
+        shapes on purpose, and its ``FilingHistory``/``FiledDocument``/
+        ``FilingProvenance`` are field-for-field the canonical
+        :class:`~registry_mcp.core.models.FilingHistory`/``FiledDocument``/
+        :class:`~registry_mcp.core.models.SourceRef` — all three countries
+        converged on the same shape independently — so wiring them together
+        here is a straight copy, not a translation.
+
+        A failed fetch raises; :meth:`Registry.lookup_with` turns that into an
+        absent block plus one ``notes`` sentence on the report, in one place
+        for every country (D-042(b)). An entity the register lists no filings
+        for returns a **present** block with ``documents: []``, never
+        ``not_found`` (D-011).
+        """
+        from registry_mcp.registries.gb import client
+
+        block = await client.fetch_filings(id)
+        return FilingHistory(
+            documents=[FiledDocument.model_validate(d.model_dump()) for d in block.documents],
+            financial_year_end=block.financial_year_end,
+            total_count=block.total_count,
+            provenance=SourceRef.model_validate(block.provenance.model_dump()),
+            notes=list(block.notes),
+        )
+
+    async def insolvency(self, id: str) -> InsolvencyBlock:
+        """Insolvency proceedings Companies House publishes against this entity
+        (``registries/gb/insolvency.py``).
+
+        The ``include=["insolvency"]`` attachment (``DECISIONS.md`` D-042):
+        :meth:`Registry.lookup_with` calls this by name, so it must stay named
+        exactly ``insolvency``, matching both :attr:`supported_includes` and
+        :class:`~registry_mcp.core.models.CompanyReport`'s ``insolvency`` field
+        (D-042(b),(g)).
+
+        The whole history arrives in one request — this endpoint is not
+        paginated and ignores both ``items_per_page`` and ``start_index``
+        (confirmed live) — so nothing is truncated and D-042(j)'s truncation
+        disclosure never fires here.
+
+        **Two things a caller must not misread, both disclosed in the block's
+        own fields rather than in this docstring alone.** A 404 from this
+        endpoint is the *normal* answer for a solvent company and is
+        byte-identical to the answer for a company number that was never
+        issued, so a present block with ``cases: []`` is never evidence the
+        entity exists; ``notes`` says which empty state it is. And
+        ``is_liquidation`` is not a distress signal on its own: a members'
+        voluntary liquidation is a *solvent* wind-up, 56 of the 1,485 live
+        cases behind the lookup table were exactly that.
+
+        **No practitioner particular crosses this seam.** Companies House
+        publishes each appointed practitioner's name and postal address on
+        every case; D-042(e)(2) bars relaying them, the mapper strips them
+        before a model is built (``insolvency.strip_practitioners``), and
+        neither :class:`~registry_mcp.core.models.InsolvencyCase` nor
+        :class:`~registry_mcp.core.models.InsolvencyEvent` has a field one
+        could land in.
+        """
+        from registry_mcp.registries.gb import client
+
+        block = await client.fetch_insolvency(id)
+        return InsolvencyBlock(
+            cases=[
+                InsolvencyCase(
+                    case_number=case.case_number,
+                    case_type=case.case_type,
+                    is_liquidation=case.is_liquidation,
+                    events=[InsolvencyEvent.model_validate(e.model_dump()) for e in case.events],
+                    note_codes=list(case.note_codes),
+                )
+                for case in block.cases
+            ],
+            statuses=list(block.statuses),
             provenance=SourceRef.model_validate(block.provenance.model_dump()),
             notes=list(block.notes),
         )

@@ -282,16 +282,20 @@ _COUNTRY_DESCRIPTION = (
 _COUNTRY_EXAMPLES = ["NO", "GB"]
 
 _INCLUDE_DESCRIPTION = (
-    "Optional attachment names to fetch alongside the base report, e.g. ['charges'] for "
-    "United Kingdom (country='GB') registered charges (mortgages and other security "
-    "interests) — a second, independent fetch attached at that same name, with its own "
-    "provenance. Empty by default, which costs exactly one upstream request, same as "
-    "before this argument existed. Most countries declare none yet — call list_countries "
-    "and check a country's supported_includes before guessing; an include value that "
-    "country does not declare is a bad_request naming what it does support, never a "
-    "silently empty result."
+    "Optional attachment names to fetch alongside the base report. Each is a second, "
+    "independent fetch attached at that same name on the result, with its own provenance, "
+    "and null unless you ask for it. Three exist today: 'filings' (what the entity has "
+    "actually filed, and when — every country), 'charges' (mortgages and other security "
+    "interests, United Kingdom only) and 'insolvency' (winding-up and administration "
+    "proceedings, United Kingdom only). Empty by default, which costs exactly one upstream "
+    "request. Ask for one when the base report is not enough to answer the question in "
+    "front of you: 'filings' answers whether they file on time, 'charges' whether assets "
+    "are already pledged, 'insolvency' whether they are being wound up. Call "
+    "list_countries and read a country's supported_includes before guessing; an include "
+    "value that country does not declare is a bad_request naming what it does support, "
+    "never a silently empty result."
 )
-_INCLUDE_EXAMPLES: list[list[str]] = [["charges"], []]
+_INCLUDE_EXAMPLES: list[list[str]] = [["filings"], ["charges", "insolvency"], []]
 
 
 # ---------------------------------------------------------------------------
@@ -330,13 +334,19 @@ async def lookup_company(
     twelve-digit personnummer; Sweden is looked up by identifier only, since Bolagsverket's
     free API has no name search.
 
-    For United Kingdom companies, pass `include=["charges"]` to also fetch that entity's
-    registered charges (mortgages and other security interests against the company) as
-    `charges` on the result — a second, independent fetch with its own provenance, `null`
-    unless you asked for it. Most countries declare no attachments yet; call
-    `list_countries` and read a country's `supported_includes` before guessing, since an
-    `include` value that country does not declare raises `bad_request` naming what it does
-    support instead of silently returning nothing.
+    `include=[...]` attaches what the base report does not carry, each as a second,
+    independent fetch with its own provenance, `null` unless you asked for it.
+    `include=["filings"]` works in all three countries and answers *does this entity
+    actually file, and on time* — Companies House returns the whole filing history,
+    Bolagsverket the filed annual reports, Regnskapsregisteret the filed annual accounts,
+    and the block's own `notes` says which. For the United Kingdom, `include=["charges"]`
+    adds registered charges (mortgages and other security interests against the company)
+    and `include=["insolvency"]` adds winding-up and administration proceedings. Read
+    `insolvency` carefully: a members' voluntary liquidation is a *solvent* wind-up, so
+    `is_liquidation: true` is not by itself evidence of distress. Call `list_countries` and
+    read a country's `supported_includes` before guessing, since an `include` value that
+    country does not declare raises `bad_request` naming what it does support instead of
+    silently returning nothing.
 
     Use it once you have the identifier — from the user, an invoice, a contract, or a
     `search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and

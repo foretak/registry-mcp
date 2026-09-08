@@ -43,7 +43,12 @@ __all__ = [
     "ErrorBody",
     "ErrorCode",
     "ErrorEnvelope",
+    "FiledDocument",
+    "FilingHistory",
     "IndustryCode",
+    "InsolvencyBlock",
+    "InsolvencyCase",
+    "InsolvencyEvent",
     "PublishedDeadline",
     "RegistryError",
     "SearchHit",
@@ -715,6 +720,340 @@ class ChargeBlock(_Base):
     )
 
 
+class FiledDocument(_Base):
+    """One filing a national register publishes for one entity — one row of a
+    :class:`FilingHistory`.
+
+    The shape ``DECISIONS.md`` D-041(d) ruled and D-042(h) widened, and it is
+    country-neutral by construction rather than by intent: Britain, Sweden and
+    Norway each built this model independently behind their own seam, and all
+    three arrived field-for-field at this one. National vocabulary lives in the
+    *values* (`category`, `type_code`, `description_code`), never in a field
+    name (D-042(g)).
+
+    Every field is nullable and every `None` means the same thing: **the
+    register does not publish it** (D-011). It never means zero, never means
+    "no", and is never filled by derivation — a register that does not publish
+    a period start gets `None`, not a start inferred by subtracting twelve
+    months from the end (D-009).
+    """
+
+    kind: str | None = Field(
+        default=None,
+        description=(
+            "The `Deadline.kind` slug this filing discharges, or `None` when it discharges "
+            "none. This is the one field that is *derived* rather than relayed, and it is "
+            "derived only by a committed per-country table of category words actually "
+            "observed on the wire. A filing whose category is outside that table gets "
+            "`None` rather than an invented slug (D-009): a filing that discharges no "
+            "deadline this product publishes says so honestly."
+        ),
+    )
+    period_end: date | None = Field(
+        default=None,
+        description=(
+            "The reporting period's last day, exactly as the register published it. "
+            "Beware what the period belongs to: on an annual-accounts filing it is the "
+            "date the accounts were made up to, but a register may publish a made-up date "
+            "on other filing kinds too — a British confirmation statement carries one, and "
+            "it is not a financial year end. Read it together with `kind`. `None` on the "
+            "great majority of filings, which have no reporting period at all."
+        ),
+    )
+    period_start: date | None = Field(
+        default=None,
+        description=(
+            "The reporting period's first day, as published. `None` wherever the register "
+            "publishes no counterpart to `period_end` — deriving one would assert a period "
+            "length the register never stated, and a first, shortened or extended "
+            "accounting period is lawful and common (D-009). Norway's Regnskapsregisteret "
+            "publishes `regnskapsperiode: {fraDato, tilDato}` and fills both ends; "
+            "Companies House publishes only the end."
+        ),
+    )
+    filed_at: date | None = Field(
+        default=None,
+        description=(
+            "When the register recorded this filing, verbatim. This is the field that "
+            "makes the block answer *does this company file on time*, and it is the sort "
+            "key for `FilingHistory.documents`: newest first."
+        ),
+    )
+    days_from_fee_point: int | None = Field(
+        default=None,
+        description=(
+            "Signed days from a named late-fee datum to `filed_at`, **only where the "
+            "register itself publishes such a datum for that period**. Negative is early. "
+            "`None` is the common answer and means the datum does not exist in the data, "
+            "not that the arithmetic was skipped: Sweden fills it because "
+            "årsredovisningslagen 8 kap. 6 § names one datum for every company, while "
+            "Companies House publishes only the *next* period's due date and nothing "
+            "per-period historical, so there is nothing to measure a past filing against. "
+            "Deriving one from the statutory rule would require guessing a period length, "
+            "a first-accounts variant and any shortening the register has not disclosed, "
+            "then presenting the result as the register's own — the invented figure D-009 "
+            "forbids."
+        ),
+    )
+    document_id: str | None = Field(
+        default=None,
+        description=(
+            "The register's own opaque handle for this filing, relayed verbatim and never "
+            "interpreted. **Not fetchable through this API**: the filed document itself "
+            "lives behind a separate host, which is a second upstream with its own "
+            "provenance and out of scope for this block (D-041(c)). It is the key a "
+            "support case with the register can name."
+        ),
+    )
+    file_format: str | None = Field(
+        default=None,
+        description=(
+            "What the register holds the document as, where it says. `None` where the "
+            "filing-history endpoint publishes no format — Companies House keeps the media "
+            "type on its separate document host, a second fetch this block does not make."
+        ),
+    )
+    category: str | None = Field(
+        default=None,
+        description=(
+            "The register's own category for this filing, verbatim and never translated — "
+            '"accounts", "mortgage", "confirmation-statement", "gazette" and some twenty '
+            "more in Britain alone, and none of these lists is closed. It is the field "
+            "`kind` is derived from."
+        ),
+    )
+    type_code: str | None = Field(
+        default=None,
+        description=(
+            'The register\'s own form code for this filing, verbatim: "AA", "CS01", '
+            '"AP01", "MR01" and older forms such as "288a" and "363s" in Britain — 100 '
+            "distinct codes across 1876 items observed live."
+        ),
+    )
+    description_code: str | None = Field(
+        default=None,
+        description=(
+            "The register's own description-template key, verbatim and **never resolved "
+            "into prose**. This is the key and not the sentence on purpose, and the reason "
+            "is the whole design of this block: Companies House resolves these templates "
+            "from a `description_values` object, 97 templates interpolate an officer's "
+            "name and 26 a person with significant control's, so the resolved sentence is "
+            "personal data while the key is not. **The key says what happened; only the "
+            "values say who** (D-042(e)(1), D-028)."
+        ),
+    )
+
+
+class FilingHistory(_Base):
+    """What one entity has filed with its national register — an
+    ``include=["filings"]`` attachment (D-041(d), D-042), never a plain field
+    on :class:`CompanyReport` (D-041(c)): it is a second round trip with its
+    own moment, its own cache state and its own failure mode, so it carries its
+    own :class:`SourceRef` rather than reusing the report's.
+
+    All three live countries declare it, and each answers a differently-scoped
+    question its register actually supports — Companies House returns the whole
+    filing history, Bolagsverket the filed annual reports, Regnskapsregisteret
+    the filed annual accounts. `notes` says which, in words, on every block.
+
+    Two-level nullability is the contract (D-011, D-026(c), D-041(c)):
+    **absent** means "you did not ask, or the fetch failed" — `lookup_with`
+    appends one `notes` sentence to the report saying which — while **present
+    with `documents: []`** means "the register lists no filings for this
+    entity", a real and useful answer about a counterparty that must never be
+    rendered as an absence.
+    """
+
+    documents: list[FiledDocument] = Field(
+        default_factory=list,
+        description=(
+            "One page of the register's own filing history, newest first by `filed_at`. "
+            "Never paginated further; when the register holds more, `total_count` says how "
+            "many and `notes` says so in words. Empty means the register lists none — not "
+            "that we could not look."
+        ),
+    )
+    financial_year_end: date | None = Field(
+        default=None,
+        description=(
+            "The latest reporting period among this entity's filed **annual accounts** "
+            '(`kind == "annual_accounts"`), carried verbatim — never a synthesised '
+            "month-day, and never taken from a filing of another kind that happens to "
+            "carry a made-up date of its own. It is the latest *period*, not the period of "
+            "the latest *filing*, because a register may accept a later filing that amends "
+            "an earlier year and that would otherwise roll this date backwards. It is "
+            "**evidence of** the entity's accounting reference date, not a statement of "
+            "it. `None` when this page holds no annual-accounts filing with a reporting "
+            "period, including when older accounts exist further back than the page "
+            "reaches."
+        ),
+    )
+    total_count: int | None = Field(
+        default=None,
+        description=(
+            "The register's own count of filings for this entity, which may greatly exceed "
+            "`len(documents)` — 8371 against a 25-row page, for one company observed live. "
+            "**`None` means the register published no count**, not zero, and for Companies "
+            "House it additionally distinguishes a real zero from a number whose filing "
+            "history the register cannot serve at all: that endpoint returns `0` for both, "
+            "and relaying the second as a zero would assert something the register never "
+            "said (D-011). `notes` names which case it was."
+        ),
+    )
+    provenance: SourceRef = Field(
+        description="Where, when and under what licence this block was fetched."
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plain-English caveats about this block: which subset of filings this "
+            "register publishes, truncation when `total_count` exceeds `len(documents)`, "
+            "and which empty state an empty `documents` is."
+        ),
+    )
+
+
+class InsolvencyEvent(_Base):
+    """One dated step in an insolvency case, as the register itself records it.
+
+    These are the register's own events, not this service's interpretation of
+    them: D-042(e)(2) rules that case type, case number and *these* dated
+    events carry the entire distress signal a pre-contract check needs.
+    """
+
+    event_type: str | None = Field(
+        default=None,
+        description=(
+            "The register's own word for what happened, verbatim — national vocabulary "
+            "lives here, in the value, never in a field name (D-042(g)). Thirteen words "
+            'have been observed live in Britain, from "petitioned-on" and "wound-up-on" to '
+            '"declaration-solvent-on" and "dissolved-on". A word outside the observed set '
+            "is still relayed verbatim: this field is never filtered, only reported."
+        ),
+    )
+    occurred_on: date | None = Field(
+        default=None, description="The date the register gives for this event."
+    )
+
+
+class InsolvencyCase(_Base):
+    """One insolvency case a register publishes against one entity.
+
+    **No practitioner particular can land here.** A register commonly publishes
+    each appointed practitioner's name and postal address alongside the case;
+    D-042(e)(2) bars relaying them in the first tranche, so this model has no
+    field for them and no country mapper reads the key. Adding them later is a
+    decision with its own entry in ``DECISIONS.md``, inheriting D-028's four
+    preconditions in full.
+    """
+
+    case_number: str | None = Field(
+        default=None,
+        description=(
+            "The register's own identifier for this case, verbatim. For Companies House "
+            'this is a per-company sequence number rendered as a string ("1", "2", … up to '
+            '"31" in the live sample) and is **not** a court reference — it identifies the '
+            "case only within this entity. Kept as a string because another register's "
+            "case identifier need not be numeric."
+        ),
+    )
+    case_type: str | None = Field(
+        default=None,
+        description=(
+            "The register's own word for the kind of procedure, verbatim — national "
+            "vocabulary in the value (D-042(g)). Ten words observed live in Britain, among "
+            'them "compulsory-liquidation", "creditors-voluntary-liquidation", '
+            '"members-voluntary-liquidation" and "in-administration". See `is_liquidation` '
+            "for the country-neutral derived flag."
+        ),
+    )
+    is_liquidation: bool | None = Field(
+        default=None,
+        description=(
+            "Whether this procedure is a winding-up — the country-neutral question behind "
+            "the national word in `case_type`. Derived by membership of a committed table "
+            "of words the country module has actually observed on the wire. `None` when "
+            "`case_type` is absent or is a word not yet in that table — never guessed, "
+            "never `False` by default (D-011, D-025(d)). **`True` does not mean "
+            "insolvent**: a members' voluntary liquidation is a *solvent* winding-up, "
+            "begun by a declaration of solvency, and 56 of the 1,485 live British cases "
+            "behind this table were exactly that. Read it as 'the entity is being wound "
+            "up', not as 'the entity cannot pay'."
+        ),
+    )
+    events: list[InsolvencyEvent] = Field(
+        default_factory=list,
+        description=(
+            "The register's own dated steps in this case, newest first. Frequently empty — "
+            "172 of the 1,485 live British cases carried no date at all, most of them old "
+            "receiverships — and an empty list means the register publishes no date for "
+            "this case, never that nothing happened."
+        ),
+    )
+    note_codes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "The register's own note **codes** for this case, verbatim and never resolved "
+            "into prose — the same treatment D-042(e)(1) gives a filing's "
+            "`description_code`. Companies House declares this field an unbounded "
+            "`array[string]`, so it is the one place in that payload a name could hide; "
+            "codes are therefore relayed through an allow-list of observed codes, and an "
+            "unrecognised one is dropped and disclosed in the block's `notes` rather than "
+            "passed through."
+        ),
+    )
+
+
+class InsolvencyBlock(_Base):
+    """Insolvency proceedings a register publishes against one entity — an
+    ``include=["insolvency"]`` attachment (D-042), never a plain field on
+    :class:`CompanyReport` (D-041(c)), and carrying its own :class:`SourceRef`.
+
+    Two-level nullability is the point of the shape (D-011, D-026(c),
+    D-041(c), D-042(d)(3)): once *present*, this block carries ``cases: []``
+    for an entity the register publishes no insolvency case for — that state
+    must never collapse into the absent state and must never be ``not_found``.
+    Companies House's 404 here is the *normal* answer for a solvent company and
+    is byte-identical to its answer for a number that was never issued, so it
+    says nothing about whether the entity exists; ``notes`` therefore
+    distinguishes "the register holds no insolvency resource here" from "the
+    resource exists and is empty" instead of flattening both into silence.
+    """
+
+    cases: list[InsolvencyCase] = Field(
+        default_factory=list,
+        description=(
+            "Every insolvency case the register publishes for this entity — the whole "
+            "history, not a page, where the register's endpoint is unpaginated. Sorted "
+            "newest first by the case's most recent event date, then by `case_number` "
+            "descending; cases the register gives no date for sort last."
+        ),
+    )
+    statuses: list[str] = Field(
+        default_factory=list,
+        description=(
+            "The register's own entity-level insolvency status words, verbatim — national "
+            "vocabulary in values (D-042(g)). Eight observed live in Britain, among them "
+            '"in-administration", "liquidation" and "voluntary-arrangement". An **empty '
+            "list means the register publishes no such word for this entity**, which is "
+            "not the same as 'not currently insolvent': about one in ten companies whose "
+            "Companies House status is itself an insolvency status still has no word here. "
+            "No yes/no flag is derived from this field for exactly that reason (D-011)."
+        ),
+    )
+    provenance: SourceRef = Field(
+        description="Where, when and under what licence this block was fetched."
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plain-English caveats about this block: which of the register's two empty "
+            "states this is, that practitioner particulars exist upstream and are "
+            "deliberately not relayed, and any note code withheld by the allow-list."
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Company report
 # ---------------------------------------------------------------------------
@@ -922,6 +1261,32 @@ class CompanyReport(_Base):
             "that declares this attachment (`CountryInfo.supported_includes`) returns a "
             "*present* block with an empty `charges` list for an entity that genuinely has "
             "none — the two states never collapse into each other (D-011, D-042(d))."
+        ),
+    )
+
+    filings: FilingHistory | None = Field(
+        default=None,
+        description=(
+            "What this entity has filed with its register, and when. `None` unless "
+            "`filings` was passed in `include=[...]` — and, even then, `None` if that "
+            "fetch failed (see `notes` for which attachment and why). Scope differs by "
+            "country because each register publishes a different subset, and the block's "
+            "own `notes` says which: Companies House the whole filing history, "
+            "Bolagsverket the filed annual reports, Regnskapsregisteret the filed annual "
+            "accounts. A *present* block with `documents: []` means the register lists "
+            "none — never the same as absent (D-011, D-042(d))."
+        ),
+    )
+    insolvency: InsolvencyBlock | None = Field(
+        default=None,
+        description=(
+            "Insolvency proceedings the register publishes against this entity. `None` "
+            "unless `insolvency` was passed in `include=[...]`, or that fetch failed. A "
+            "*present* block with `cases: []` means the register publishes no case, which "
+            "for Companies House is the normal answer for a solvent company — and is not "
+            "evidence the entity exists, since that register answers the same way for a "
+            "number never issued. Read `InsolvencyCase.is_liquidation` with its own "
+            "caveat: a members' voluntary liquidation is a solvent wind-up."
         ),
     )
 

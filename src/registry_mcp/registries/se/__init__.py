@@ -27,7 +27,14 @@ from __future__ import annotations
 from datetime import date
 from typing import ClassVar
 
-from registry_mcp.core.models import CompanyReport, Deadline, SearchResult
+from registry_mcp.core.models import (
+    CompanyReport,
+    Deadline,
+    FiledDocument,
+    FilingHistory,
+    SearchResult,
+    SourceRef,
+)
 from registry_mcp.core.registry import Registry, register
 
 __all__ = ["BolagsverketRegistry"]
@@ -39,6 +46,7 @@ class BolagsverketRegistry(Registry):
     because ``registry`` is a routing key, not a provenance record."""
 
     country: ClassVar[str] = "SE"
+    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings"})
     registry: ClassVar[str] = "bolagsverket"
     name: ClassVar[str] = "Bolagsverket (Sweden)"
     id_scheme: ClassVar[str] = "organisationsnummer"
@@ -92,6 +100,47 @@ class BolagsverketRegistry(Registry):
         from registry_mcp.registries.se import client
 
         return await client.search(name, limit)
+
+    async def filings(self, id: str) -> FilingHistory:
+        """The annual reports this entity has filed with Bolagsverket (``registries/se/filings.py``).
+
+        The ``include=["filings"]`` attachment (``DECISIONS.md`` D-041(d),
+        D-042): :meth:`Registry.lookup_with` calls this by name, so it must
+        stay named exactly ``filings``, matching both
+        :attr:`supported_includes` and :class:`~registry_mcp.core.models.
+        CompanyReport`'s ``filings`` field (D-042(b),(g)).
+
+        Bolagsverket's ``/dokumentlista`` publishes **filed annual reports only**
+        (D-041), not a general filing history, and it publishes no count of
+        its own, so ``total_count`` is ``None`` — the register did not say,
+        which is never the same as zero (D-011). It is the one country that
+        fills ``days_from_fee_point``, because årsredovisningslagen 8 kap.
+        6 § names one late-fee datum for every company.
+
+        The module behind the seam was written blind to ``core/models.py``'s
+        shapes on purpose, and its ``FilingHistory``/``FiledDocument``/
+        ``FilingProvenance`` are field-for-field the canonical
+        :class:`~registry_mcp.core.models.FilingHistory`/``FiledDocument``/
+        :class:`~registry_mcp.core.models.SourceRef` — all three countries
+        converged on the same shape independently — so wiring them together
+        here is a straight copy, not a translation.
+
+        A failed fetch raises; :meth:`Registry.lookup_with` turns that into an
+        absent block plus one ``notes`` sentence on the report, in one place
+        for every country (D-042(b)). An entity the register lists no filings
+        for returns a **present** block with ``documents: []``, never
+        ``not_found`` (D-011).
+        """
+        from registry_mcp.registries.se import client
+
+        block = await client.fetch_filings(id)
+        return FilingHistory(
+            documents=[FiledDocument.model_validate(d.model_dump()) for d in block.documents],
+            financial_year_end=block.financial_year_end,
+            total_count=None,
+            provenance=SourceRef.model_validate(block.provenance.model_dump()),
+            notes=list(block.notes),
+        )
 
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """Swedish filing deadlines for this entity (``registries/se/rules.py``, §5.4).

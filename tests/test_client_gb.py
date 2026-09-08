@@ -25,12 +25,13 @@ from registry_mcp.core import cache
 from registry_mcp.core.models import (
     Charge,
     ChargeBlock,
+    CompanyReport,
     CompanyStatus,
     ErrorCode,
     RegistryError,
     SourceRef,
 )
-from registry_mcp.core.registry import get_registry
+from registry_mcp.core.registry import get_registry, list_countries
 from registry_mcp.registries.gb import CompaniesHouseRegistry, mapping
 from registry_mcp.registries.gb import charges as charges_module
 from registry_mcp.registries.gb import client as client_module
@@ -1166,9 +1167,17 @@ async def test_registry_charges_returns_real_core_models_chargeblock() -> None:
     assert block.provenance.cached is False
 
 
-def test_gb_supported_includes_is_charges_only() -> None:
+def test_gb_supported_includes_is_the_three_wired_attachments() -> None:
+    """Every name GB declares is reachable: a method to fetch it and a field on
+    `CompanyReport` to put it in (D-042(b),(g), D-044(d)). This test replaced an
+    earlier one pinning the set to `{"charges"}` alone, and the earlier
+    `test_insolvency_is_not_wired_to_include_yet`, when filings and insolvency
+    were wired through the seam."""
     registry = get_registry("GB")
-    assert registry.supported_includes == frozenset({"charges"})
+    assert registry.supported_includes == frozenset({"charges", "filings", "insolvency"})
+    for name in registry.supported_includes:
+        assert callable(getattr(registry, name, None)), f"GB declares {name} with no method"
+        assert name in CompanyReport.model_fields, f"GB declares {name} with no report field"
 
 
 @respx.mock
@@ -1228,7 +1237,11 @@ async def test_lookup_with_unknown_include_is_bad_request_naming_gb_allowed_set(
         await registry.lookup_with("00445790", ["officers"])
     assert excinfo.value.code is ErrorCode.BAD_REQUEST
     assert "charges" in excinfo.value.hint
-    assert excinfo.value.details == {"allowed": ["charges"], "unknown": ["officers"]}
+    assert excinfo.value.details == {
+        "allowed": ["charges", "filings", "insolvency"],
+        "unknown": ["officers"],
+    }
+    assert excinfo.value.details["allowed"] == sorted(registry.supported_includes)
 
 
 @respx.mock
@@ -1246,9 +1259,15 @@ async def test_lookup_with_failing_charges_fetch_leaves_lookup_intact_with_a_not
     assert any("charges" in note for note in report.notes)
 
 
-def test_se_and_no_still_declare_no_includes() -> None:
-    assert get_registry("SE").supported_includes == frozenset()
-    assert get_registry("NO").supported_includes == frozenset()
+def test_se_and_no_declare_filings_and_nothing_else() -> None:
+    """Sweden and Norway each publish filed annual reports/accounts and no
+    general filing history, so `filings` is the one name either declares. The
+    include *name* is country-neutral; the scope difference lives in the
+    block's own `notes`, never in a different field name (D-042(g), D-044(b))."""
+    for country in ("SE", "NO"):
+        registry = get_registry(country)
+        assert registry.supported_includes == frozenset({"filings"}), country
+        assert callable(getattr(registry, "filings", None)), country
 
 
 # --- Live done-check --------------------------------------------------------
@@ -2607,14 +2626,20 @@ async def test_fetch_insolvency_no_key_raises_without_http_request(
     assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
 
 
-def test_insolvency_is_not_wired_to_include_yet() -> None:
-    """R-5e is built behind the seam; wiring it is a follow-up's job and is
-    outside this task's footprint (`registries/gb/__init__.py` and `core/`).
-    This test pins the seam so the follow-up has one obvious line to delete."""
-    registry = get_registry("GB")
-    assert "insolvency" not in registry.supported_includes
-    assert not hasattr(registry, "insolvency")
-    assert callable(client_module.fetch_insolvency)
+def test_every_declared_include_is_reachable_in_every_country() -> None:
+    """The cross-country invariant behind `Registry.lookup_with`'s runtime
+    `RuntimeError` (D-044(d)): a declared include with no method, or no matching
+    field on `CompanyReport`, is a misconfiguration that would otherwise only
+    surface on a live call. Checked statically here for every registered
+    country, so adding a country or an attachment cannot quietly break the seam.
+    Replaced `test_insolvency_is_not_wired_to_include_yet`, whose own docstring
+    asked the follow-up to delete it."""
+    for country in list_countries():
+        registry = get_registry(country)
+        for name in registry.supported_includes:
+            assert callable(getattr(registry, name, None)), f"{country}: no method {name}"
+            assert name in CompanyReport.model_fields, f"{country}: no report field {name}"
+        assert sorted(registry.supported_includes) == registry.country_info().supported_includes
 
 
 # --- Live done-check (excluded from CI) ------------------------------------
