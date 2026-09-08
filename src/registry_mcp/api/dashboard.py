@@ -327,6 +327,7 @@ def _render_page(data: dict[str, Any]) -> str:
   .rollup-label {{ flex: 1; }}
   .rollup-count {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
   .chart-wrap {{ overflow-x: auto; }}
+  .chart-wrap svg {{ display: block; width: 100%; height: auto; max-width: 900px; }}
   svg text {{ fill: var(--muted); font-size: 9px; }}
   .surface-bar {{ display: flex; height: 1.5rem; border-radius: 6px; overflow: hidden; margin-top: 0.5rem; }}
   .surface-legend {{ display: flex; gap: 1.25rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--muted); }}
@@ -425,7 +426,15 @@ def _render_page(data: dict[str, Any]) -> str:
 
 
 def _render_bar_chart(calls_per_day: list[dict[str, Any]]) -> str:
-    """A minimal inline SVG bar chart, oldest day left, today right."""
+    """A minimal inline SVG bar chart, oldest day left, today right.
+
+    Sized by `viewBox` with `width="100%"` rather than a fixed pixel width. It used
+    to carry `width='{n * 22 + 4}'` — 664px for a 30-day window — inside an
+    `overflow-x: auto` wrapper, so on a phone the chart opened scrolled to the
+    *left*: the empty older days. A service four days old has every bar at the right
+    edge, so the dashboard showed an empty chart to anyone on mobile. Reported from
+    a phone, 2026-09-08.
+    """
     if not calls_per_day:
         return "<p>No data.</p>"
 
@@ -445,7 +454,7 @@ def _render_bar_chart(calls_per_day: list[dict[str, Any]]) -> str:
         count = int(day["count"])
         day_str = str(day["date"])
         x = gap + i * (bar_w + gap)
-        bar_h = round((count / max_count) * (chart_h - 10)) if max_count else 0
+        bar_h = round((count / max_count) * (chart_h - 10))
         y = chart_h - bar_h
         title = escape(f"{day_str}: {count} calls")
         bars.append(
@@ -462,7 +471,7 @@ def _render_bar_chart(calls_per_day: list[dict[str, Any]]) -> str:
         )
 
     return (
-        f"<svg width='{width}' height='{height}' viewBox='0 0 {width} {height}' "
+        f"<svg width='100%' height='auto' viewBox='0 0 {width} {height}' "
         f"role='img' aria-label='Calls per day, last {n} days'>"
         f"{''.join(bars)}"
         f"</svg>"
