@@ -471,7 +471,7 @@ def _render_bar_chart(calls_per_day: list[dict[str, Any]]) -> str:
         )
 
     return (
-        f"<svg width='100%' height='auto' viewBox='0 0 {width} {height}' "
+        f"<svg width='100%' viewBox='0 0 {width} {height}' "
         f"role='img' aria-label='Calls per day, last {n} days'>"
         f"{''.join(bars)}"
         f"</svg>"
