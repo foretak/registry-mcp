@@ -9,6 +9,58 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+### Added
+
+- **`SourceRef` and `include=[...]`** on `lookup_company` (MCP) and `GET
+  /v1/{country}/company/{id}` (REST) — every attachment is a second,
+  independent fetch with its own provenance (`source`, `source_url`,
+  `license`, `fetched_at`, `cached`) rather than reusing the base report's,
+  assembled in one place: `Registry.lookup_with` (D-026(c), D-042, `10f46f2`).
+- **`CountryInfo.supported_includes`**, a sorted list on every `GET
+  /v1/countries` / `list_countries` row, so a caller can see what more a
+  country answers for before guessing an `include` value, in one round trip
+  and no upstream request (D-042(d), `10f46f2`).
+- **`include=["charges"]` for `GB`** — registered charges (mortgages and
+  other security interests against the company), with its own `ChargeBlock`
+  (D-042, `3ecc369`).
+- **`include=["filings"]` for `GB`, `NO` and `SE`, and `include=["insolvency"]`
+  for `GB`** — one canonical `FilingHistory` shared by all three countries
+  (Companies House the whole filing history, Bolagsverket filed annual
+  reports, Regnskapsregisteret filed annual accounts) and one
+  `InsolvencyBlock` for Britain's winding-up and administration proceedings
+  (D-044, `e03a518`).
+- **`CompanyReport.charges`, `.filings` and `.insolvency`** — each `null`
+  unless its name was passed in `include=[...]`, and still `null` if that
+  fetch failed (`notes` names which attachment and why) (`3ecc369`,
+  `e03a518`).
+- Prompts **`counterparty_check`** and **`register_coverage`** — each names
+  the job an agent actually has rather than the architecture behind it, and
+  states this service's honest limits in its own output (`cf5f13f`).
+
+### Changed
+
+- **`GB` company reports no longer carry `registers["charges"]`.** Companies
+  House's own `has_charges` flag is wrong — `false` for TESCO PLC while the
+  charges endpoint lists nine, two still outstanding — so the key is
+  omitted rather than asserting a boolean this service cannot stand behind.
+  This is a **removed key on the wire**; `include=["charges"]` is the real
+  answer, and it returns a present, empty block for a company that
+  genuinely has none (`beb287f`).
+- **`register_coverage`'s worked example** no longer calls
+  `employees_reported: false` an entity-level gap for every country: it is
+  a *structural* silence for `GB` and `SE`, whose registers publish no
+  employee count for anybody, and an *entity-level* gap only for `NO`,
+  whose register does publish one and simply has none for that company
+  (`beb287f`).
+
+### Fixed
+
+- The dashboard's 30-day calls-per-day chart no longer opens scrolled to
+  its empty half on a narrow screen — it carried a fixed pixel width inside
+  an `overflow-x` wrapper, so a phone opened it scrolled to the oldest,
+  empty days while every real bar sat off-screen to the right. Sized by
+  `viewBox` at `width: 100%` (capped 900px) instead (`13d5e4a`).
+
 ## [0.3.0] — 2026-09-07
 
 Third country, and the first two items off the core roadmap.

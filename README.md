@@ -191,6 +191,14 @@ Where Companies House publishes a date, it is quoted; where it does not, the dat
 
 Plus the resource `registry://rules/{country}` (identifier rules, legal forms, deadline rules — read once instead of validating in a loop) and the prompt `explain_company`.
 
+**Attachments** — a second, independent fetch alongside the base report, opt-in per name: `include=["filings"]` on MCP, `?include=filings` on REST.
+
+- `filings` — what the entity has filed, and when (`GB`, `NO`, `SE`)
+- `charges` — registered charges against the entity (`GB` only)
+- `insolvency` — winding-up and administration proceedings (`GB` only)
+
+A country's declared set is `supported_includes` on `list_countries` / `GET /v1/countries`; see [`llms-full.txt`](static/llms-full.txt) for the two-level nullability and the per-country scope of `filings`.
+
 `parent_id` and `in_group` on a Norwegian `CompanyReport` describe Enhetsregisteret's own parent/sub-unit relation for that entity — nothing more. There is no group-walk tool: following a corporate group upward means calling `lookup_company` again on `parent_id`, repeatedly, and that walk answers "what does the register list as this entity's parent?", not "who beneficially owns or controls this company?" — a different question this service does not answer. See [`llms-full.txt`](static/llms-full.txt) §5.
 
 ## Why an agent checks a company

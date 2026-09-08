@@ -159,13 +159,16 @@ async def test_server_card_tools_and_prompts_match_the_live_server() -> None:
     """The general-purpose sibling of the test above: that one pins one tool's
     ``outputSchema`` alone. `static/well-known/mcp/server-card.json` is hand-maintained end
     to end (T17, T26c, T29, this task's two new prompts) and nothing regenerates it from
-    the live server, so every tool's name, description and annotation title, and every
-    prompt's name, description and argument list, must match ``tools/list``/``prompts/list``
-    byte for byte here — or an edit to either side (a docstring changed in `mcp/server.py`
-    or `mcp/connector.py`, a prompt added or renamed) silently desyncs the one document a
-    directory or crawler reads *without* ever calling the server (`~/mcp-growth/DEPTH.md`
-    §2.1's finding that Smithery's own listing did not know about `search`/`fetch` is
-    exactly this failure mode, one level up)."""
+    the live server, so every tool's name, description, annotation title and
+    ``inputSchema``, and every prompt's name, description and argument list, must match
+    ``tools/list``/``prompts/list`` byte for byte here — or an edit to either side (a
+    docstring changed in `mcp/server.py` or `mcp/connector.py`, a prompt added or renamed,
+    a `Field(description=..., examples=...)` edited on a tool argument) silently desyncs
+    the one document a directory or crawler reads *without* ever calling the server
+    (`~/mcp-growth/DEPTH.md` §2.1's finding that Smithery's own listing did not know about
+    `search`/`fetch` is exactly this failure mode, one level up; `REVIEW.md` "D-044 wiring"
+    finding 5 is the `inputSchema` half of it — the card's `lookup_company.include` had
+    drifted from `_INCLUDE_DESCRIPTION`/`_INCLUDE_EXAMPLES` and this test did not catch it)."""
     card_path = Path(__file__).parent.parent / "static" / "well-known" / "mcp" / "server-card.json"
     card = json.loads(card_path.read_text(encoding="utf-8"))
 
@@ -180,6 +183,7 @@ async def test_server_card_tools_and_prompts_match_the_live_server() -> None:
         assert entry["description"] == tool.description, f"{tool.name} description drifted"
         live_title = tool.annotations.title if tool.annotations else None
         assert entry["annotations"]["title"] == live_title, f"{tool.name} title drifted"
+        assert entry["inputSchema"] == tool.input_schema, f"{tool.name} inputSchema drifted"
 
     card_prompts = {p["name"]: p for p in card["prompts"]}
     assert card_prompts.keys() == {p.name for p in live_prompts}

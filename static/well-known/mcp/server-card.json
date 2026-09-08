@@ -36,10 +36,14 @@
           },
           "include": {
             "default": [],
-            "description": "Optional attachment names to fetch alongside the base report, e.g. ['charges'] for United Kingdom (country='GB') registered charges (mortgages and other security interests) — a second, independent fetch attached at that same name, with its own provenance. Empty by default, which costs exactly one upstream request, same as before this argument existed. Most countries declare none yet — call list_countries and check a country's supported_includes before guessing; an include value that country does not declare is a bad_request naming what it does support, never a silently empty result.",
+            "description": "Optional attachment names to fetch alongside the base report. Each is a second, independent fetch attached at that same name on the result, with its own provenance, and null unless you ask for it. Three exist today: 'filings' (what the entity has actually filed, and when — every country), 'charges' (mortgages and other security interests, United Kingdom only) and 'insolvency' (winding-up and administration proceedings, United Kingdom only). Empty by default, which costs exactly one upstream request. Ask for one when the base report is not enough to answer the question in front of you: 'filings' answers whether they file on time, 'charges' whether assets are already pledged, 'insolvency' whether they are being wound up. Call list_countries and read a country's supported_includes before guessing; an include value that country does not declare is a bad_request naming what it does support, never a silently empty result.",
             "examples": [
               [
-                "charges"
+                "filings"
+              ],
+              [
+                "charges",
+                "insolvency"
               ],
               []
             ],
@@ -1800,6 +1804,8 @@
       "name": "search_company",
       "description": "Search a national company register by name, when you have a name rather than an\nidentifier.\n\n`country=\"NO\"` searches Brønnøysundregistrene / Enhetsregisteret (brreg) for Norwegian\ncompanies — the norway company lookup tool for the norwegian business registry when the\norganisasjonsnummer (orgnr, org.nr) is not yet known. `country=\"GB\"` is the uk company\nsearch: Companies House by company name, returning each hit's company number\n(company registration number, CRN).\n\n**Sweden cannot be searched by name.** Bolagsverket's free API has four operations and\nnone of them takes a company name, so `country=\"SE\"` raises `not_implemented` — that is\na fact about the register, not a temporary gap, and it will not start working. Sweden\nsupports lookup by identifier only: call `lookup_company` with the ten-digit\norganisationsnummer (or a sole trader's twelve-digit personnummer), or\n`validate_company_id` first to check the shape for free. Bolagsverket publishes the\nwhole register as bulk downloadable files for callers who must search by name.\n\nUse it when a user gives you a company name, then call `lookup_company` with the `id`\nof the right hit for the full report — a search hit is deliberately thin (name, legal\nform, status, city) and must not be acted on directly. `limit` is 1-100 (default 10).\nHits arrive in the register's own relevance order, so read each hit's `confidence`\nrather than assuming the first row is the best one. Zero hits is not an error: `hits`\nis `[]`, `total` is `0`, and `hint` says what to try next — Norwegian names are\nregistered upper-case and often carry an 'AS', 'ASA' or 'NUF' suffix, and UK names a\n'LIMITED', 'LTD', 'PLC' or 'LLP' one, worth dropping before concluding a company does\nnot exist.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `limit` was out of range or `name` was empty — fix and\nretry. `unsupported_country` means call `list_countries` first. `not_implemented` means\nthat country's register has no name-search operation (Sweden) — use `lookup_company`\nwith an identifier instead; retrying the search will never succeed.\n`upstream_error`/`upstream_timeout` means the national register is unavailable; wait\nroughly a minute and retry at most once more.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "name": {
             "description": "Company name to search for, free text — not an identifier. Use lookup_company once you have the id of the right hit.",
@@ -1830,9 +1836,7 @@
         },
         "required": [
           "name"
-        ],
-        "type": "object",
-        "additionalProperties": false
+        ]
       },
       "outputSchema": {
         "properties": {
@@ -2080,6 +2084,8 @@
       "name": "company_deadlines",
       "description": "Give the next occurrence of each statutory filing deadline a company faces.\n\n`country=\"NO\"` covers the Norwegian calendar (Regnskapsregisteret, Skatteetaten) for a\ncompany looked up by organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene /\nEnhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,\naksjonærregisteroppgaven, mva-melding, a-melding. `country=\"GB\"` covers the two\nCompanies House obligations for a company number (CRN): the annual accounts filing and\nthe confirmation statement (CS01). `country=\"SE\"` covers the two Swedish obligations of\nan aktiebolag (AB) or ekonomisk förening (EK) looked up by organisationsnummer at\nBolagsverket: the ordinary general meeting (ordinarie bolagsstämma / årsstämma) within\nsix months of the financial year end, aktiebolagslagen 7 kap. 10 §, and the annual\nreport (årsredovisning) at seven months, where årsredovisningslagen 8 kap. 6 §'s\nlate-filing fee (förseningsavgift) begins.\n\nPass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's\ncurrent UTC date. Quote `due_date`, not `statutory_date`. Each deadline's\n`applies_because` states where the date came from — quote it rather than presenting a\ndate as unconditional fact: for Norway it names the legal form or flag and any\nassumption behind a computed date, and for the UK it says whether the date is\nCompanies House's own published figure or one this tool computed from the statutory\nperiod. UK and Swedish dates never roll forward off a weekend or a public holiday, so\n`due_date` equals `statutory_date` there; `days_until` goes negative for a filing\nCompanies House still shows as overdue rather than rolling it to the next cycle.\nSwedish dates additionally assume a financial year ending 31 December, because\nBolagsverket's free dataset does not publish a company's financial year, and the filing\ndate is an outer limit — a company whose general meeting was earlier must file earlier;\n`applies_because` and `notes` say both. An empty `deadlines` list is a real answer —\nfor Norway a bankrupt, deleted or compulsorily-liquidated entity or a branch/sub-unit,\nand for the UK and Sweden any company whose status is not active — and `notes`\nexplains why.\n\nOn error, this tool raises with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and\nretry. Any `lookup_company` error code (`invalid_id`, `not_found`,\n`unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,\nsince this tool looks the entity up first — follow that code's hint.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
@@ -2116,9 +2122,7 @@
         },
         "required": [
           "id"
-        ],
-        "type": "object",
-        "additionalProperties": false
+        ]
       },
       "outputSchema": {
         "properties": {
@@ -2358,6 +2362,8 @@
       "name": "validate_company_id",
       "description": "Check whether a national company identifier is well-formed — no network call.\n\n`country=\"NO\"` checksum-checks a Norwegian organisasjonsnummer (orgnr, org.nr) for\nBrønnøysundregistrene / Enhetsregisteret (brreg); this is the cheap norway company\nlookup pre-check for the norwegian business registry. `country=\"GB\"` shape-checks and\nnormalises a UK company number (company registration number, CRN) for Companies House:\nit zero-pads a short number ('445790' → '00445790') and upper-cases a prefix\n('oc303675' → 'OC303675'). A CRN has no check digit, so a GB `valid: true` means the\nshape is right and nothing more. `country=\"SE\"` shape-checks and normalises a Swedish\norganisationsnummer for Bolagsverket — '556016-0680' and 'SE556016068001' both become\n'5560160680' — and accepts the twelve-digit personnummer a sole trader is looked up by.\nSweden's check digit is **not** enforced here: Bolagsverket enforces it server-side and\nno primary source for the algorithm could be found, so an `SE` `valid: true` means the\nshape is right, `reason` may carry a caveat about the check digit, and the register's\nown verdict arrives on the lookup. It is the cheapest way to tell a Swedish\norganisationsnummer from a Norwegian organisasjonsnummer, which is nine digits.\n\nUse it on user input or a spreadsheet column before spending a real `lookup_company`\ncall, since it is instant and free.\n\nReturns a ValidationResult and never raises for a malformed identifier: `valid: false`\ncomes with `reason` (what failed) and `hint` (what to do next) rather than a tool\nerror — this tool answers a question, it does not fail on bad input\n(`DECISIONS.md` D-010). A valid identifier does not mean the entity exists; follow it\nwith `lookup_company` if you need facts.\n\nThe only real error here is `unsupported_country` (no module for that country yet —\ncall `list_countries`), raised with the error text `{\"error\": {\"code\", \"message\",\n\"hint\"}}`.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "The company's national identifier. Norway (country='NO'): a nine-digit organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a 'NO...MVA' VAT suffix are accepted and normalised. United Kingdom (country='GB'): a Companies House company number (CRN), eight characters, e.g. '00445790' or 'OC303675'; a short number is zero-padded for you.",
@@ -2379,9 +2385,7 @@
         },
         "required": [
           "id"
-        ],
-        "type": "object",
-        "additionalProperties": false
+        ]
       },
       "outputSchema": {
         "properties": {
@@ -2494,9 +2498,9 @@
       "name": "list_countries",
       "description": "List every national company registry this service can answer for right now, plus\neach one's identifier scheme (`id_scheme`, `id_example`, `id_description`), source URL,\nlicence, and whether the upstream register needs a credential (`requires_api_key`, and\n`api_key_env` naming the environment variable that must be set for it).\n\nCall this before your first lookup in a country you have not used here before, or\nwhenever a user names a country you are unsure is supported — never hard-code a\ncountry list of your own, since it grows as registry modules are added with no change\nto any other tool's shape. Stub/example modules are hidden; only registries that\nactually answer are listed. This tool has no error mode; a failure here is a bug, not\nsomething to retry differently.",
       "inputSchema": {
-        "properties": {},
         "type": "object",
-        "additionalProperties": false
+        "additionalProperties": false,
+        "properties": {}
       },
       "outputSchema": {
         "properties": {
@@ -2606,6 +2610,8 @@
       "name": "search",
       "description": "ChatGPT connector alias; other clients should prefer `search_company`, which takes an\nexplicit `country` and returns the full SearchResult. Finds companies in this server's\nnational business registers (United Kingdom, Norway, Sweden) from one free-text query — a name, a\nnational identifier, or a name plus a country — and returns {\"results\": [{\"id\", \"title\",\n\"url\"}]}. Pass a result's `id` to `fetch`.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "query": {
             "description": "What to look for: a company name, a national identifier, or a name plus a country, e.g. 'Equinor', '923609016', 'Tesco United Kingdom'.",
@@ -2619,9 +2625,7 @@
         },
         "required": [
           "query"
-        ],
-        "type": "object",
-        "additionalProperties": false
+        ]
       },
       "outputSchema": {
         "properties": {
@@ -2672,6 +2676,8 @@
       "name": "fetch",
       "description": "ChatGPT connector alias; other clients should prefer `lookup_company` plus\n`company_deadlines`, which return the CompanyReport and DeadlineReport shapes directly.\nTakes one `id` from `search` — \"{COUNTRY}:{identifier}\", e.g. \"NO:923609016\" — and returns\nthat company's register record and statutory filing deadlines as readable text, with both\nfull JSON documents in `metadata`.",
       "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
         "properties": {
           "id": {
             "description": "An `id` from a `search` result: '{COUNTRY}:{identifier}', e.g. 'NO:923609016' or 'GB:00445790'.",
@@ -2684,9 +2690,7 @@
         },
         "required": [
           "id"
-        ],
-        "type": "object",
-        "additionalProperties": false
+        ]
       },
       "outputSchema": {
         "properties": {

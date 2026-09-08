@@ -798,13 +798,19 @@ async def get_company(
     include: Sequence[str] = Query(
         default_factory=list,
         description=(
-            "Optional attachment names to fetch alongside the base report, e.g. "
-            "?include=charges for United Kingdom (GB) registered charges (mortgages and "
-            "other security interests), attached at that same key with its own "
-            "provenance. Repeat the parameter for more than one (?include=a&include=b). "
-            "Empty by default. A value the resolved country does not declare is a "
-            "bad_request (400) naming what it does support — see a country's "
-            "supported_includes at GET /v1/countries."
+            "Optional attachment names to fetch alongside the base report. Each is a "
+            "second, independent fetch attached at that same key on the result, with "
+            "its own provenance, and null unless you ask for it. Three exist today: "
+            "`filings` (what the entity has actually filed, and when — every country: "
+            "Companies House returns the whole filing history, Bolagsverket the filed "
+            "annual reports, Regnskapsregisteret the filed annual accounts, and the "
+            "block's own `notes` says which), `charges` (mortgages and other security "
+            "interests, United Kingdom only) and `insolvency` (winding-up and "
+            "administration proceedings, United Kingdom only). Repeat the parameter "
+            "for more than one, e.g. `?include=filings&include=charges`. Empty by "
+            "default, which costs exactly one upstream request. A value the resolved "
+            "country does not declare is a `bad_request` (400) naming what it does "
+            "support — see a country's `supported_includes` at `GET /v1/countries`."
         ),
     ),
 ) -> CompanyReport:

@@ -449,6 +449,54 @@ the financial-year end; a visiting address, `email`, `phone` and `website`.
 **`published_deadlines` is `[]`.** Sweden publishes no per-company filing dates,
 so both Swedish deadlines are computed from statute — see §3.4.
 
+**`include=[...]` adds a second, independent fetch alongside the base report,
+opt-in and at the cost of one extra upstream request per name.** Three exist
+today: `filings` answers *do they file, and on time* (`GB`, `NO` and `SE` all
+declare it); `charges` answers *are assets already pledged* (`GB` only); and
+`insolvency` answers *are they being wound up* (`GB` only). Ask for more than
+one by repeating the parameter — REST `?include=filings&include=charges`, MCP
+`include=["filings", "charges"]`. Empty by default, which costs exactly one
+upstream request, same as before this argument existed. Call `GET
+/v1/countries` (§3.1) / MCP `list_countries` and read a country's
+`supported_includes` before guessing: a name that country does not declare is
+a `400 bad_request` naming what it does support, never a silently empty
+result.
+
+**Two-level nullability, the same shape on every attachment.** The attachment
+key on the response (`charges`, `filings`, `insolvency`) is `null` for one of
+two reasons: you did not ask for it, or the fetch failed — the report's own
+top-level `notes` names which attachment and why, in the second case. Once
+*present*, an empty attachment (e.g. `"filings": {"documents": [], ...}`) is
+a real, different answer: the register was asked and lists none for this
+entity. Never read an absent attachment as "the register has none" — it may
+only mean nobody asked.
+
+**`filings` is one name for three differently-scoped answers**, because each
+register publishes a different slice of an entity's filing life and none
+publishes all of it: Companies House (`GB`) returns the whole filing
+history, every filing kind, not only accounts; Bolagsverket (`SE`) returns
+filed annual reports only; Regnskapsregisteret (`NO`) returns filed annual
+accounts only. Read the scope for the country you asked, not the field name
+— the same `filings` key means a different depth in each register.
+
+**`insolvency` (`GB` only): read `is_liquidation` before concluding
+distress.** `InsolvencyCase.is_liquidation: true` is not by itself evidence a
+company cannot pay — a members' voluntary liquidation is a *solvent*
+wind-up, begun by the directors' own declaration of solvency, and 56 of the
+1,485 live British cases sampled were exactly that. A present block with
+`cases: []` is also Companies House's ordinary answer for a solvent company,
+byte-identical to its answer for a company number that was never issued — so
+it is never evidence the entity exists, only that the register holds no case
+against it.
+
+REST — a UK company's filing history and registered charges in one call:
+
+    curl "https://api.foretak.dev/v1/GB/company/00445790?include=filings&include=charges"
+
+MCP — the same call:
+
+    lookup_company("00445790", country="GB", include=["filings", "charges"])
+
 ### 3.3 GET /v1/{country}/search?q={name}
 
 **For:** turning a company name into candidate identifiers.
