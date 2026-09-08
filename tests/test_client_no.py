@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator, Iterator
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,10 +24,11 @@ import httpx
 import pytest
 import respx
 
+from registry_mcp.core import cache
 from registry_mcp.core.models import ErrorCode, RegistryError
 from registry_mcp.core.registry import get_registry
+from registry_mcp.registries.no import accounts, mapping, rules
 from registry_mcp.registries.no import client as client_module
-from registry_mcp.registries.no import mapping, rules
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = client_module.BASE_URL
@@ -35,6 +36,13 @@ BASE_URL = client_module.BASE_URL
 
 def _load_fixture(name: str) -> dict[str, Any]:
     result: dict[str, Any] = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+    return result
+
+
+def _load_accounts_fixture(name: str) -> list[dict[str, Any]]:
+    """`GET /regnskapsregisteret/regnskap/{orgnr}` answers a **bare JSON
+    array**, not an envelope — so these fixtures are lists, not dicts."""
+    result: list[dict[str, Any]] = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
     return result
 
 
@@ -653,3 +661,377 @@ def test_97_live_fixture_fields_present_or_optional() -> None:
         f"Live 923609016 payload has top-level fields this test does not classify as "
         f"mandatory, optional, or deliberately unmapped: {unaccounted}"
     )
+
+
+# ---------------------------------------------------------------------------
+# R-5d — `registries/no/accounts.py` and `client.fetch_accounts`
+#
+# `DECISIONS.md` D-042(i) (R-5d), D-041(c)/(d)/(h), D-042(e)/(f)/(g)/(h)/(j),
+# and D-023(d), whose "not implemented now" this closes. Built behind the
+# seam: these exercise `registries/no/accounts.py`'s local stand-ins, not
+# `core.models.FilingHistory`, which does not exist yet.
+# ---------------------------------------------------------------------------
+
+ACCOUNTS_URL = accounts.ACCOUNTS_URL
+
+#: EQUINOR ASA — a calendar accounting year, 2025-01-01/2025-12-31. Recorded
+#: live 2026-09-08; pairs with `brreg_923609016.json`, the same entity's
+#: `/enheter` record.
+EQUINOR_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_923609016.json")
+
+#: ORACLE NORGE AS — a **deviating** accounting year, 2024-06-01/2025-05-31.
+#: The period end falls between 1 January and 30 June, so regnskapsloven
+#: § 8-3(1) second sentence gives it a 1 February deadline, not the 31 July
+#: this project computes today. Recorded live 2026-09-08.
+ORACLE_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_939319891.json")
+
+#: .BEIN BERGEN AS — a stub first period, 2025-06-19/2025-12-31, running from
+#: incorporation. The live proof that `fraDato` is published data and not
+#: `tilDato` minus twelve months. Recorded live 2026-09-08.
+STUB_PERIOD_ACCOUNTS = _load_accounts_fixture("brreg_regnskap_935845114.json")
+
+_FETCHED_AT = datetime(2026, 9, 8, 9, 30, tzinfo=UTC)
+
+
+def test_r5d_maps_a_calendar_year_filing() -> None:
+    block = accounts.map_regnskap(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+
+    assert len(block.documents) == 1
+    doc = block.documents[0]
+    assert doc.kind == "annual_accounts"
+    assert doc.period_start == date(2025, 1, 1)
+    assert doc.period_end == date(2025, 12, 31)
+    assert doc.document_id == "2026635024"
+    assert doc.category == "SELSKAP"
+    assert block.financial_year_end == date(2025, 12, 31)
+
+
+def test_r5d_period_start_is_published_not_derived() -> None:
+    """The Norway/Sweden asymmetry, pinned.
+
+    D-041(d) put `period_start` on `FiledDocument` because Norway publishes
+    `regnskapsperiode.fraDato` and Sweden publishes no `...From`; D-041(e)
+    refused to derive a Swedish one by subtracting twelve months, because a
+    first or final period may be short. This fixture is that refusal being
+    right: a derived start would have said 2025-01-01 and the register says
+    2025-06-19.
+    """
+    block = accounts.map_regnskap(
+        STUB_PERIOD_ACCOUNTS, "935845114", cached=False, fetched_at=_FETCHED_AT
+    )
+
+    doc = block.documents[0]
+    assert doc.period_start == date(2025, 6, 19)
+    assert doc.period_end == date(2025, 12, 31)
+    assert doc.period_start != date(doc.period_end.year, 1, 1)
+    assert any("shorter than an ordinary year" in note for note in block.notes)
+
+
+def test_r5d_deviating_accounting_year_note_names_the_other_rule() -> None:
+    """D-023(a): a deviating accounting year selects a *different rule*, not a
+    shifted date, and the note must say so — the variance D-023(d) recorded as
+    unverified, now verified live."""
+    block = accounts.map_regnskap(
+        ORACLE_ACCOUNTS, "939319891", cached=False, fetched_at=_FETCHED_AT
+    )
+
+    assert block.financial_year_end == date(2025, 5, 31)
+    assert block.documents[0].period_start == date(2024, 6, 1)
+    note = next(n for n in block.notes if "deviating accounting year" in n)
+    assert "§ 8-3(1)" in note
+    assert "1 February" in note
+    # No stub-period note: twelve full months, just not calendar ones.
+    assert not any("than an ordinary year" in n for n in block.notes)
+
+
+def test_r5d_calendar_year_gets_no_deviating_year_note() -> None:
+    block = accounts.map_regnskap(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert not any("deviating accounting year" in note for note in block.notes)
+
+
+def test_r5d_no_filing_date_and_no_fee_point_measurement() -> None:
+    """Regnskapsregisteret publishes no filing date under any name, so
+    `filed_at` is `None` and `days_from_fee_point` is `None` with it
+    (D-041(d)). `journalnr` is carried verbatim as the opaque handle and is
+    never read as a date (D-026(a))."""
+    for payload, orgnr in (
+        (EQUINOR_ACCOUNTS, "923609016"),
+        (ORACLE_ACCOUNTS, "939319891"),
+        (STUB_PERIOD_ACCOUNTS, "935845114"),
+    ):
+        block = accounts.map_regnskap(payload, orgnr, cached=False, fetched_at=_FETCHED_AT)
+        doc = block.documents[0]
+        assert doc.filed_at is None
+        assert doc.days_from_fee_point is None
+        assert doc.document_id is not None
+        assert not doc.document_id.startswith("20") or "-" not in doc.document_id
+
+
+def test_r5d_empty_block_is_an_answer_not_an_absence() -> None:
+    """D-041(c)'s two-level nullability. An empty `documents` means the
+    register holds nothing for this entity — the block is still present, with
+    its own provenance."""
+    block = accounts.map_regnskap([], "974760673", cached=False, fetched_at=_FETCHED_AT)
+
+    assert block.documents == []
+    assert block.financial_year_end is None
+    assert block.provenance.fetched_at == _FETCHED_AT
+    assert block.provenance.source_url == ACCOUNTS_URL.format(orgnr="974760673")
+    assert any("holds no filed annual accounts" in note for note in block.notes)
+
+
+def test_r5d_none_payload_maps_like_an_empty_list() -> None:
+    assert accounts.map_regnskap(None, "974760673", cached=False, fetched_at=_FETCHED_AT).documents == []
+
+
+def test_r5d_documents_sorted_newest_first() -> None:
+    """Norway's open dataset returns one period, but the list shape is the
+    register's own and D-041(g)'s ordering is the model's contract."""
+    older = dict(EQUINOR_ACCOUNTS[0])
+    older["regnskapsperiode"] = {"fraDato": "2023-01-01", "tilDato": "2023-12-31"}
+    newer = dict(EQUINOR_ACCOUNTS[0])
+    newer["regnskapsperiode"] = {"fraDato": "2024-01-01", "tilDato": "2024-12-31"}
+
+    block = accounts.map_regnskap([older, newer], "923609016", cached=False, fetched_at=_FETCHED_AT)
+
+    assert [d.period_end for d in block.documents] == [date(2024, 12, 31), date(2023, 12, 31)]
+    assert block.financial_year_end == date(2024, 12, 31)
+
+
+def test_r5d_provenance_is_its_own_moment_and_its_own_cache_state() -> None:
+    """D-041(c): *one fetch, one `SourceRef`* — not one organisation. Both
+    fetches go to `data.brreg.no` under NLOD 2.0, and this block still carries
+    its own five fields."""
+    block = accounts.map_regnskap(
+        EQUINOR_ACCOUNTS, "923609016", cached=True, fetched_at=_FETCHED_AT
+    )
+    assert block.provenance.cached is True
+    assert block.provenance.license == "NLOD 2.0"
+    assert block.provenance.source == "Regnskapsregisteret (Brønnøysundregistrene)"
+    assert block.provenance.source_url == ACCOUNTS_URL.format(orgnr="923609016")
+
+
+def test_r5d_minimisation_no_field_of_this_block_can_name_a_person() -> None:
+    """D-042(e)'s field-level test and D-042(f)'s bar, as a regression guard.
+
+    The live payload carries no person-bearing field at all — `revisjon` is two
+    booleans, not an auditor, and `virksomhet` names no proprietor — so the
+    mapper reads a closed set of keys and relays nothing else. This injects the
+    fields a future upstream change might plausibly add and asserts that not one
+    character of them reaches the block.
+    """
+    poisoned = dict(EQUINOR_ACCOUNTS[0])
+    poisoned["revisjon"] = {
+        "ikkeRevidertAarsregnskap": False,
+        "fravalgRevisjon": False,
+        "revisor": "Kari Nordmann, statsautorisert revisor",
+        "revisorOrganisasjonsnummer": "987654321",
+    }
+    poisoned["virksomhet"] = {
+        **EQUINOR_ACCOUNTS[0]["virksomhet"],
+        "innehaver": "Ola Nordmann",
+        "signatur": "Ola Nordmann, styreleder",
+    }
+    poisoned["daglig_leder"] = "Ola Nordmann"
+
+    block = accounts.map_regnskap([poisoned], "923609016", cached=False, fetched_at=_FETCHED_AT)
+    serialised = json.dumps(block.model_dump(mode="json"), ensure_ascii=False)
+
+    for forbidden in ("Nordmann", "revisor", "innehaver", "signatur", "daglig_leder", "987654321"):
+        assert forbidden not in serialised
+
+
+def test_r5d_key_figures_are_deliberately_not_carried() -> None:
+    """D-042(g)'s anti-bend rule: the ~20 numeric key figures on the wire are
+    company facts that pass minimisation and still have no home in the shape
+    D-041(d)/D-042(h) ruled. Widening a shared attachment model is a
+    `DECISIONS.md` entry, not an implementer's call — and this pins the choice
+    so that adding them later is a deliberate act."""
+    block = accounts.map_regnskap(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    serialised = json.dumps(block.model_dump(mode="json"))
+
+    assert "67956000000" not in serialised  # sumDriftsinntekter
+    assert "aarsresultat" not in serialised
+    assert "sumEiendeler" not in serialised
+    assert set(block.documents[0].model_dump()) == {
+        "kind",
+        "period_end",
+        "period_start",
+        "filed_at",
+        "days_from_fee_point",
+        "document_id",
+        "file_format",
+        "category",
+        "type_code",
+        "description_code",
+    }
+
+
+@respx.mock
+async def test_r5d_fetch_accounts_maps_a_live_shaped_200() -> None:
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+
+    block = await client_module.fetch_accounts("923 609 016")
+
+    assert route.call_count == 1
+    assert block.financial_year_end == date(2025, 12, 31)
+    assert block.provenance.cached is False
+
+
+@respx.mock
+async def test_r5d_404_is_an_empty_block_never_not_found() -> None:
+    """The load-bearing recon finding. Regnskapsregisteret answers a bodyless
+    404 both for an entity that has filed nothing (974760673, a real, live
+    Brønnøysundregistrene entity) and for a number never issued, so it cannot
+    decide existence and is not allowed to — D-041(h), D-042(j). This is the
+    same trap that would have turned every unencumbered British company into a
+    non-existent one, except that here it is the ordinary case."""
+    respx.get(ACCOUNTS_URL.format(orgnr="974760673")).mock(return_value=httpx.Response(404))
+
+    block = await client_module.fetch_accounts("974760673")
+
+    assert block.documents == []
+    assert block.financial_year_end is None
+    assert any("holds no filed annual accounts" in note for note in block.notes)
+
+
+@respx.mock
+async def test_r5d_500_is_upstream_error_after_exactly_one_retry() -> None:
+    """Banks and insurers 500 here permanently while their company record says
+    they filed. `_fetch` still retries once — shared with `lookup`/`search` —
+    and the hint says not to keep retrying (D-042(j): the attachment fails,
+    the lookup does not)."""
+    route = respx.get(ACCOUNTS_URL.format(orgnr="916823525")).mock(
+        return_value=httpx.Response(500, json=_load_fixture("brreg_regnskap_500.json"))
+    )
+
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_accounts("916823525")
+
+    assert route.call_count == 2
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+    assert "banks, insurers" in excinfo.value.hint
+
+
+@respx.mock
+async def test_r5d_429_is_rate_limited_and_not_retried() -> None:
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(429)
+    )
+
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_accounts("923609016")
+
+    assert route.call_count == 1
+    assert excinfo.value.code is ErrorCode.RATE_LIMITED
+
+
+@respx.mock
+async def test_r5d_invalid_orgnr_is_rejected_before_any_request() -> None:
+    route = respx.get(url__startswith="https://data.brreg.no/regnskapsregisteret")
+
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_accounts("12345")
+
+    assert route.call_count == 0
+    assert excinfo.value.code is ErrorCode.INVALID_ID
+
+
+@respx.mock
+async def test_r5d_cache_hit_preserves_its_own_fetched_at() -> None:
+    """D-006, and D-041(c)'s reason for a per-block `SourceRef`: this block's
+    `cached`/`fetched_at` are its own and may disagree with the record's."""
+    route = respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json=EQUINOR_ACCOUNTS)
+    )
+
+    first = await client_module.fetch_accounts("923609016")
+    second = await client_module.fetch_accounts("923609016")
+
+    assert route.call_count == 1
+    assert first.provenance.cached is False
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+    assert second.financial_year_end == first.financial_year_end
+
+
+@respx.mock
+async def test_r5d_empty_result_is_cached_under_the_short_ttl_status() -> None:
+    """D-042(j)'s 24 h / 1 h asymmetry, implemented with `core/cache.py`'s
+    existing `not_found` status purely for its TTL — never raised as an error
+    on the read path. Same stand-in `registries/gb/client.py::fetch_charges`
+    uses; both go when the per-kind TTL table is built."""
+    respx.get(ACCOUNTS_URL.format(orgnr="974760673")).mock(return_value=httpx.Response(404))
+
+    await client_module.fetch_accounts("974760673")
+    entry = cache.get("NO:brreg:filings:974760673")
+
+    assert entry is not None
+    assert entry.status == "not_found"
+    # And reading it back is an empty block, not a raised `not_found`.
+    assert (await client_module.fetch_accounts("974760673")).documents == []
+
+
+@respx.mock
+async def test_r5d_non_list_200_body_is_treated_as_empty() -> None:
+    """Defensive: the live endpoint always returns a bare array, but a bare
+    array is an unusual JSON contract and this must never raise."""
+    respx.get(ACCOUNTS_URL.format(orgnr="923609016")).mock(
+        return_value=httpx.Response(200, json={"unexpected": "envelope"})
+    )
+
+    assert (await client_module.fetch_accounts("923609016")).documents == []
+
+
+@pytest.mark.live
+async def test_r5d_live_empty_case_is_a_404_on_a_real_entity() -> None:
+    """The recon finding, re-run against the register. `974760673` is
+    REGISTERENHETEN I BRØNNØYSUND — it exists (`brreg_974760673.json` is its
+    `/enheter` record) and has no filed annual accounts here."""
+    block = await client_module.fetch_accounts("974760673")
+    assert block.documents == []
+    assert block.provenance.cached is False
+
+
+@pytest.mark.live
+async def test_r5d_live_deviating_accounting_year_is_real() -> None:
+    """D-023(d) called the field's variance unverified. It is not: ORACLE
+    NORGE AS files to a 31 May year end."""
+    block = await client_module.fetch_accounts("939319891")
+    assert block.financial_year_end is not None
+    assert (block.financial_year_end.month, block.financial_year_end.day) != (12, 31)
+    assert block.documents[0].period_start is not None
+
+
+def test_r5d_an_extended_first_period_is_reported_too() -> None:
+    """Regnskapsloven § 1-7 lets a first or final period be extended as well as
+    shortened, so the length note covers both directions. No live example was
+    found in ~600 sampled payloads, so this one is constructed from a recorded
+    payload's own shape — the *dates* are synthetic, the envelope is not."""
+    extended = dict(EQUINOR_ACCOUNTS[0])
+    extended["regnskapsperiode"] = {"fraDato": "2024-01-01", "tilDato": "2025-06-30"}
+
+    block = accounts.map_regnskap([extended], "923609016", cached=False, fetched_at=_FETCHED_AT)
+
+    assert any("longer than an ordinary year" in note for note in block.notes)
+    assert block.documents[0].period_start == date(2024, 1, 1)
+
+
+def test_r5d_an_ordinary_year_is_never_called_unusual() -> None:
+    """Measured in days, so no 12-month period trips the threshold whatever day
+    of the month it starts on — the Oracle fixture (1 June to 31 May) and a
+    mid-month year both stay quiet."""
+    midmonth = dict(EQUINOR_ACCOUNTS[0])
+    midmonth["regnskapsperiode"] = {"fraDato": "2025-06-19", "tilDato": "2026-06-18"}
+
+    for payload in ([midmonth], ORACLE_ACCOUNTS, EQUINOR_ACCOUNTS):
+        block = accounts.map_regnskap(payload, "923609016", cached=False, fetched_at=_FETCHED_AT)
+        assert not any("than an ordinary year" in note for note in block.notes)

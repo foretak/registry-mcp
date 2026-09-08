@@ -15,6 +15,15 @@ Behaviour, exactly:
   to a deleted entity. See ``NORBIZ_SPEC.md`` §1.1 for what was actually
   observed live on 2026-09-03.
 
+R-5d adds one more call to a **different dataset on the same host**:
+:func:`fetch_accounts` reads ``data.brreg.no/regnskapsregisteret/regnskap/
+{orgnr}`` — open, keyless, and mapped by ``registries/no/accounts.py``. It
+reuses :func:`_fetch`'s timeout, retry, User-Agent and connection pool by
+passing an absolute URL (``httpx`` leaves an absolute URL alone when a
+``base_url`` is set), and carries its own cache key and its own provenance,
+because two round trips have two moments and two failure modes
+(``DECISIONS.md`` D-041(c)).
+
 Rules (MOD11 validation, deadlines) live in ``registries/no/rules.py``, owned
 by T02 and built in parallel with this file. Every use of it here is a lazy,
 function-local import so importing this module — and running the respx-mocked
@@ -34,9 +43,9 @@ import httpx
 from registry_mcp import __version__
 from registry_mcp.core import cache
 from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
-from registry_mcp.registries.no import mapping
+from registry_mcp.registries.no import accounts, mapping
 
-__all__ = ["aclose", "lookup", "search"]
+__all__ = ["aclose", "fetch_accounts", "lookup", "search"]
 
 logger = logging.getLogger(__name__)
 
@@ -273,3 +282,103 @@ async def search(name: str, limit: int = 10) -> SearchResult:
     result = mapping.map_search_result(data, query=query, cached=False, fetched_at=fetched_at)
     cache.set(cache_key, result.model_dump(mode="json"), status="ok", fetched_at=fetched_at)
     return result
+
+
+def _accounts_cache_key(orgnr: str) -> str:
+    """``{COUNTRY}:{registry}:{name}:{id}`` (``DECISIONS.md`` D-042(j)), where
+    ``name`` is the ``include`` value this block will be reached by."""
+    return f"NO:brreg:filings:{orgnr}"
+
+
+def _accounts_upstream_error(orgnr: str) -> RegistryError:
+    """The accounts endpoint's own 5xx, with the hint the generic one cannot give.
+
+    Recorded live 2026-09-08 and **not transient**: banks, insurers and many
+    foundations return 500 here on every attempt while their Enhetsregisteret
+    record shows filed accounts (34 of 36 sampled entities under NACE 64.190,
+    65.110 and 65.120). ``registries/no/accounts.py``'s docstring carries the
+    measurement. An agent that reads "retry in a moment" and retries forever
+    is being sent on an errand that cannot succeed, so this hint says what to
+    do instead.
+    """
+    return RegistryError(
+        ErrorCode.UPSTREAM_ERROR,
+        f"Regnskapsregisteret returned a server error for organisasjonsnummer {orgnr}.",
+        hint=(
+            "The company record itself is unaffected — only the annual-accounts block "
+            "failed. This dataset returns a persistent error for banks, insurers and some "
+            "foundations, which file under sector-specific accounting regulations it does "
+            "not present, so retrying may never succeed for those entities. Check "
+            "last_annual_accounts_year on the company record, or Brønnøysundregistrene "
+            "directly."
+        ),
+        country="NO",
+        registry="brreg",
+    )
+
+
+async def fetch_accounts(id: str) -> accounts.FilingHistory:
+    """Fetch one entity's filed annual accounts, consulting the cache first.
+
+    R-5d (``DECISIONS.md`` D-042(i)); closes D-023(d). Open and keyless —
+    unlike Sweden's equivalent, this needs no credential at all.
+
+    **A 404 is a present, empty block, never ``not_found``.** Regnskapsregisteret
+    answers a bodyless 404 both for an entity that has filed nothing and for an
+    organisasjonsnummer that was never issued, so it cannot decide existence
+    and is not allowed to: ``/enheter/{orgnr}`` alone does that (D-041(h)),
+    and a caller only reaches this function after that lookup succeeded.
+    Unlike Britain's charges endpoint — where the same rule was written
+    defensively because no live 404 could be produced — this branch is the
+    ordinary case here, confirmed live on real entities that exist
+    (``974760673``, ``936295592``) as well as on numbers that do not.
+
+    A 5xx becomes ``upstream_error`` after ``_fetch``'s single retry, and
+    ``core/registry.py::lookup_with`` leaves the block absent with a note
+    (D-042(j)); it never fails the lookup.
+
+    TTL asymmetry (D-042(j): 24 h non-empty, 1 h empty) is implemented by
+    reusing ``core/cache.py``'s existing ``status="not_found"`` label purely
+    for its 1 h TTL — **never** raised as a ``not_found`` error on the read
+    path below, unlike its use in :func:`lookup`. ``core/cache.py`` still has
+    no per-kind TTL table (D-042(j) names one; ``core/`` is another agent's
+    footprint), so this is the same stand-in ``registries/gb/client.py::
+    fetch_charges`` uses, and both should be replaced together.
+    """
+    orgnr = _validate_orgnr(id)
+    cache_key = _accounts_cache_key(orgnr)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        # The payload is a bare JSON array; `CacheEntry.payload` is a dict, so
+        # it is stored under one key rather than reshaped (D-026(a): carried,
+        # never constructed).
+        return accounts.map_regnskap(
+            entry.payload.get("items"), orgnr, cached=True, fetched_at=entry.fetched_at
+        )
+
+    try:
+        response = await _fetch(accounts.ACCOUNTS_URL.format(orgnr=orgnr))
+    except RegistryError as exc:
+        if exc.code is ErrorCode.UPSTREAM_ERROR:
+            raise _accounts_upstream_error(orgnr) from exc
+        raise
+
+    if response.status_code == 200:
+        body = response.json()
+        data = body if isinstance(body, list) else []
+    elif response.status_code == 404:
+        data = []
+    elif response.status_code == 429:
+        raise _rate_limited_error()
+    else:
+        raise _accounts_upstream_error(orgnr)
+
+    fetched_at = datetime.now(UTC)
+    cache.set(
+        cache_key,
+        {"items": data},
+        status="ok" if data else "not_found",
+        fetched_at=fetched_at,
+    )
+    return accounts.map_regnskap(data, orgnr, cached=False, fetched_at=fetched_at)

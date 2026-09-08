@@ -7,7 +7,9 @@ disagrees, the implementation is wrong.
 
 from __future__ import annotations
 
-from datetime import date
+import json
+from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +20,7 @@ from registry_mcp.core.models import (
     ErrorCode,
     RegistryError,
 )
+from registry_mcp.registries.no import accounts
 from registry_mcp.registries.no.rules import (
     deadline_exemption_note,
     deadlines_for,
@@ -680,3 +683,112 @@ def test_applies_because_names_the_legal_form_code() -> None:
     for kind in ("annual_accounts", "general_meeting", "tax_return", "shareholder_register_statement"):
         d = _by_kind(deadlines, kind)
         assert "ASA" in d.applies_because
+
+
+# ---------------------------------------------------------------------------
+# R-5d — the ladder invariant, pinned *before* the deadline arithmetic moves
+#
+# `DECISIONS.md` D-041(e) writes the four-rung ladder down once, for every
+# country: rung 1 the register publishes the date, rung 2 it publishes the
+# entity's own period and we apply a cited statute to it, rung 3 it publishes
+# neither and we apply a cited statute to an *assumed* input, rung 4 nothing.
+# Norway's annual deadlines are rung 3 today. `registries/no/accounts.py`
+# (R-5d) makes the period a published fact for any entity that has filed, so
+# wiring it moves `annual_accounts` and `general_meeting` to rung 2.
+#
+# **This task changes no arithmetic.** These tests exist so that the change
+# has a done-check waiting for it: D-041(e)'s safety invariant is *"not one
+# date moves for a 31 December company"*, and the reason is that the observed
+# period reproduces the assumption exactly. That equality is checkable today,
+# against a real recorded payload, and it is what these pin.
+# ---------------------------------------------------------------------------
+
+_FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _observed_period(fixture: str) -> tuple[date | None, date | None]:
+    """The `regnskapsperiode` a real brreg payload publishes, through the real
+    mapper — not a hand-written date."""
+    payload = json.loads((_FIXTURES / fixture).read_text(encoding="utf-8"))
+    block = accounts.map_regnskap(
+        payload, "000000000", cached=False, fetched_at=datetime(2026, 9, 8, tzinfo=UTC)
+    )
+    doc = block.documents[0]
+    return doc.period_start, doc.period_end
+
+
+def test_r5d_observed_calendar_period_equals_the_period_the_rule_assumes() -> None:
+    """The invariant, stated as an equality rather than a hope.
+
+    `_annual_accounts` assumes 1 January–31 December of the year before the
+    deadline. EQUINOR ASA's 2026 filing covers 2025-01-01/2025-12-31 — exactly
+    that. So a rung-2 rule reading the register would compute the same
+    31 July, and D-041(e)'s "not one date moves for a 31 December company"
+    holds for this company by construction, not by coincidence.
+    """
+    deadline = _by_kind(deadlines_for(_report(), date(2026, 1, 15)), "annual_accounts")
+    observed_start, observed_end = _observed_period("brreg_regnskap_923609016.json")
+
+    assert deadline.period_start == observed_start == date(2025, 1, 1)
+    assert deadline.period_end == observed_end == date(2025, 12, 31)
+    assert deadline.due_date == date(2026, 7, 31)
+
+
+def test_r5d_general_meeting_assumption_also_matches_the_observed_period() -> None:
+    deadline = _by_kind(deadlines_for(_report(), date(2026, 1, 15)), "general_meeting")
+    observed_start, observed_end = _observed_period("brreg_regnskap_923609016.json")
+
+    assert deadline.period_start == observed_start
+    assert deadline.period_end == observed_end
+    assert deadline.due_date == date(2026, 6, 30)
+
+
+def test_r5d_the_population_that_would_move_is_not_empty() -> None:
+    """The other half of the invariant, and the reason the work is worth doing.
+
+    ORACLE NORGE AS files to a 31 May year end (recorded live). The shipped
+    module tells it 31 July, because rung 3 assumes a calendar year;
+    regnskapsloven § 8-3(1) second sentence gives a year ending between
+    1 January and 30 June a **1 February** deadline instead — a different
+    rule, not a shifted date (D-023(a)). This test asserts only that the
+    observed period contradicts the assumption; it computes no replacement
+    date, because none is sourced yet (D-009).
+    """
+    deadline = _by_kind(deadlines_for(_report(), date(2026, 1, 15)), "annual_accounts")
+    observed_start, observed_end = _observed_period("brreg_regnskap_939319891.json")
+
+    assert observed_end == date(2025, 5, 31)
+    assert observed_start == date(2024, 6, 1)
+    assert deadline.period_end != observed_end
+    assert 1 <= observed_end.month <= 6  # § 8-3(1)'s second-sentence branch
+
+
+def test_r5d_a_stub_first_period_also_contradicts_the_assumption() -> None:
+    """A calendar year *end* is not a calendar year. .BEIN BERGEN AS's first
+    period ends 31 December, so its 31 July date is right — but its period
+    started on 2025-06-19, so the *period* a rung-2 rule reports must be the
+    register's, not the assumed 1 January."""
+    deadline = _by_kind(deadlines_for(_report(), date(2026, 1, 15)), "annual_accounts")
+    observed_start, observed_end = _observed_period("brreg_regnskap_935845114.json")
+
+    assert observed_end == deadline.period_end == date(2025, 12, 31)
+    assert observed_start == date(2025, 6, 19)
+    assert observed_start != deadline.period_start
+
+
+def test_r5d_deadline_arithmetic_is_unchanged_by_this_task() -> None:
+    """Belt and braces on the footprint: R-5d touched no rule. These are the
+    same dates tests 57 and 63 assert, restated here as the before-picture the
+    wiring task must reproduce."""
+    for today, accounts_due, meeting_due in (
+        (date(2026, 1, 15), date(2026, 7, 31), date(2026, 6, 30)),
+        (date(2027, 1, 15), date(2027, 7, 31), date(2027, 6, 30)),
+        (date(2033, 1, 15), date(2033, 7, 31), date(2033, 6, 30)),
+    ):
+        deadlines = deadlines_for(_report(), today)
+        annual = _by_kind(deadlines, "annual_accounts")
+        meeting = _by_kind(deadlines, "general_meeting")
+        assert annual.due_date == annual.statutory_date == accounts_due
+        assert meeting.due_date == meeting.statutory_date == meeting_due
+        assert annual.rolled_forward is False
+        assert meeting.rolled_forward is False

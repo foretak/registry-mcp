@@ -187,3 +187,69 @@ own TEST-environment data, the same as the already-committed
 `bv_enskild_two.json`'s "CITY SKOR THOMAS CARLSON". Bolagsverket's test data
 is synthetic, so the test-environment recordings are safe; **no production
 sole-trader payload may ever be committed as a fixture.**
+
+## NO — Brønnøysundregistrene
+
+Two datasets on one host, and they are separate fixtures with separate shapes.
+
+### Enhetsregisteret — `brreg_*.json`
+
+`brreg_923609016.json`, `brreg_974760673.json` and `brreg_833285602.json` are
+`GET /enhetsregisteret/api/enheter/{orgnr}` recordings (T01/T03). Unchanged by
+R-5d. **`833285602` and `833286602` are not to be looked up again** — the
+committed fixture is sufficient for every test that needs a sole trader's
+shape, and re-fetching one adds a live request about a natural person for no
+benefit.
+
+### Regnskapsregisteret — `brreg_regnskap_*.json` (R-5d, recorded live 2026-09-08)
+
+Four fixtures for the `filings` block (`src/registry_mcp/registries/no/accounts.py`,
+`DECISIONS.md` D-042(i), closing D-023(d)). **All four are live recordings** —
+this endpoint is open, keyless and needs no credential and no test
+environment, so nothing here is assembled and nothing needs to be.
+
+| Fixture | Number | Scenario |
+|---|---|---|
+| `brreg_regnskap_923609016.json` | `923609016` | EQUINOR ASA — a **calendar** accounting year, 2025-01-01/2025-12-31. Pairs with `brreg_923609016.json`, the same entity's Enhetsregisteret record, so a test can hold both halves of one company. |
+| `brreg_regnskap_939319891.json` | `939319891` | ORACLE NORGE AS — a **deviating** accounting year, 2024-06-01/2025-05-31. The period end falls between 1 January and 30 June, i.e. regnskapsloven § 8-3(1) second sentence's **1 February** branch. This is the fixture that closes D-023(d)'s "the field's *variance* is unverified". |
+| `brreg_regnskap_935845114.json` | `935845114` | .BEIN BERGEN AS — a **stub first period**, 2025-06-19/2025-12-31, running from incorporation. The live proof that `fraDato` is published data and not `tilDato` minus twelve months. |
+| `brreg_regnskap_500.json` | `916823525` | APRILA BANK ASA — the **deterministic 500**. Banks, insurers and many foundations return this on every attempt while their Enhetsregisteret record says they filed. The body is a Spring error envelope with a `trace` id; it is recorded for its *shape*, and the `trace` and `timestamp` in it are from the recording moment and mean nothing to a test. |
+
+**No fixture for the empty case, and that is deliberate.** The empty answer is
+an HTTP 404 with `content-length: 0` and **no body at all** — there is nothing
+to record. It is also *indistinguishable from a nonexistent
+organisasjonsnummer*: `974760673` (REGISTERENHETEN I BRØNNØYSUND, which
+exists — its `/enheter` record is committed here) and `936295592` (ASP DC ASA,
+incorporated 2025-10-02) 404 exactly as `999999999` and `123456785` do, which
+are MOD11-valid and were never issued. Tests mock the bare 404;
+`registries/no/client.py::fetch_accounts` maps it to a present, empty block
+and never to `not_found` (D-041(h)).
+
+**Personal data: none, and it was checked rather than assumed.** Every string
+-valued path in this payload and its complete value domain was enumerated
+across ~600 live responses spanning `AS`, `ASA`, `SA`, `STI`, `BRL`, `ANS`,
+`DA` and `NUF`; eight remain and every one is a number, a code or a date. In
+particular `revisjon` carries two booleans (`ikkeRevidertAarsregnskap`,
+`fravalgRevisjon`) and names no auditor, and `virksomhet` names no proprietor
+or signatory. **All 100 sampled `ENK` entities returned 404**, so no
+sole-trader payload exists on this endpoint to record — the rule that no
+production sole-trader payload may be committed is met by the register itself.
+
+Recipe — no token, no allowlist, no test environment:
+
+```bash
+curl -sS -H 'Accept: application/json' \
+  -H "User-Agent: registry-mcp/0.3.0 (+https://github.com/foretak/registry-mcp; $REGISTRY_MCP_CONTACT_EMAIL)" \
+  https://data.brreg.no/regnskapsregisteret/regnskap/923609016 \
+  | python3 -c 'import json, sys; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))' \
+  > tests/fixtures/brreg_regnskap_923609016.json
+```
+
+The response is a **bare JSON array**, not an envelope — so these fixtures are
+lists where every other fixture in this directory is an object, and
+`tests/test_client_no.py` loads them through `_load_accounts_fixture` rather
+than `_load_fixture`. The endpoint takes **no arguments**: `?år=`, `?aar=`,
+`?year=`, `?regnskapstype=`, `?size=` and `?historikk=` are all accepted and
+all ignored (byte-identical bodies), `/regnskap/{orgnr}/{year}` 404s, and
+`OPTIONS` answers `allow: GET,HEAD,OPTIONS`. It returns the most recently
+filed period and nothing earlier, so there is no multi-year fixture to record.
