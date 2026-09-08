@@ -1,0 +1,3610 @@
+{
+    "etag": "80a449288b86cfdf1fb1c66423ef821308405f02",
+    "items": [
+        {
+            "charge_code": "SC0903120154",
+            "charge_number": 154,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2026-04-22",
+            "delivered_on": "2026-04-23",
+            "etag": "65dc21dad96ff70fb17502acbd32820a6b7a7670",
+            "links": {
+                "self": "/company/SC090312/charges/QQu0lz2a0lUOzj6QrypvlRbLzkA"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "N/A.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2026-04-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzUxNzk1NDg3NGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120153",
+            "charge_number": 153,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2026-04-22",
+            "delivered_on": "2026-04-23",
+            "etag": "6489b7c94a9690f574683c79ff0fc2f709747575",
+            "links": {
+                "self": "/company/SC090312/charges/28uLpV7vVtdumpaq72SYts9xUE0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "N/A.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2026-04-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzUxNzk1MTk5MGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120152",
+            "charge_number": 152,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2025-08-08",
+            "delivered_on": "2025-08-11",
+            "etag": "1455a282c65b0e82ef6d4bca699b255c7ac412c4",
+            "links": {
+                "self": "/company/SC090312/charges/B67UEyvHhU9IJRKgLDeGsQbu5zY"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2025-08-11",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzQ3Njc4NTUyMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120151",
+            "charge_number": 151,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2025-04-23",
+            "delivered_on": "2025-04-25",
+            "etag": "05ed802a2cd2421e4cbd0d0250da101f165dd0b0",
+            "links": {
+                "self": "/company/SC090312/charges/pDZJLjPScqZ7nvOtQeBi26gjTFU"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "N/A.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2025-04-25",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzQ2NDAzMTM1MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120150",
+            "charge_number": 150,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2025-04-23",
+            "delivered_on": "2025-04-25",
+            "etag": "ff9571cce9f8e02145fba3d12e46a9af0c85ef7f",
+            "links": {
+                "self": "/company/SC090312/charges/iUVUSBDvbaM50Bg916rVvCHw7DA"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "N/A.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2025-04-25",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzQ2NDAzMDM3M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120149",
+            "charge_number": 149,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2024-05-22",
+            "delivered_on": "2024-06-04",
+            "etag": "620b3b926a5be61a64640d3c1459fd7ff4e4e7db",
+            "links": {
+                "self": "/company/SC090312/charges/rkL_MSFL-9zomw1sGZT1zLDnp0Q"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citadel Global Fixed Income Master Fund Ii LTD."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2024-06-04",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzQyNDE5NDI3NmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120148",
+            "charge_number": 148,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2024-04-24",
+            "delivered_on": "2024-04-25",
+            "etag": "4537e11f598a8a5b415d0f0596c4be26a61263f3",
+            "links": {
+                "self": "/company/SC090312/charges/BsjBeFPO82YoNsYd9oW8zte7Bk4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2024-04-25",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzQxOTcyOTQ1NGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120147",
+            "charge_number": 147,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2023-09-25",
+            "delivered_on": "2023-09-26",
+            "etag": "4fe6d4c91335c7de1c675bb2dc075414f9f5927d",
+            "links": {
+                "self": "/company/SC090312/charges/IsafeWsbhW_Mr8i_9A73tHrPE8E"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2023-09-26",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzM5NDQ2ODcxNmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120146",
+            "charge_number": 146,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2023-04-26",
+            "delivered_on": "2023-05-02",
+            "etag": "7eeafd5b4f6937d6708097280fa30d9a373fc559",
+            "links": {
+                "self": "/company/SC090312/charges/endZhcKCetXanOgBbBeZvfFfqIY"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2023-05-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzM3ODIwMzk3MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120145",
+            "charge_number": 145,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2023-04-26",
+            "delivered_on": "2023-05-02",
+            "etag": "071bf11d646a1b4866991c395f1b8f676d59f42a",
+            "links": {
+                "self": "/company/SC090312/charges/2BdfaJaJIJvI2GcmLHkfkpTsdxk"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A. in Its Capacity as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2023-05-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzM3ODE4MjMwMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120144",
+            "charge_number": 144,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2023-01-20",
+            "delivered_on": "2023-02-08",
+            "etag": "ea3b20a5cd477070037db8e5c96c8271ab76ff37",
+            "links": {
+                "self": "/company/SC090312/charges/58Gr7gQhDgW5V7_UnwGhiXTLR5E"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Liverpool Victoria Insurance Company LTD"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2023-02-08",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzM2OTY4OTY4NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120143",
+            "charge_number": 143,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2023-01-20",
+            "delivered_on": "2023-02-08",
+            "etag": "935c43f01365871a1b7ffbfd5c9ca26dea4e9323",
+            "links": {
+                "self": "/company/SC090312/charges/nD8q8-Z2UF78rmp-4MVwD1s_T-U"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Allianz Insurance PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2023-02-08",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzM2OTA2MTgzOGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120142",
+            "charge_number": 142,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2023-01-20",
+            "delivered_on": "2023-02-08",
+            "etag": "d23245658ea7a26e118226ed286cbdd7ec1d3b02",
+            "links": {
+                "self": "/company/SC090312/charges/NjL42s1CTztCseyjOC6ASTiXCxk"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Highway Insurance Company LTD"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2023-02-08",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzM2ODcyMTQ4MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120141",
+            "charge_number": 141,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2022-04-27",
+            "delivered_on": "2022-05-11",
+            "etag": "c581ba1f3b897e641e2e3bbd4ba6446d48faeab8",
+            "links": {
+                "self": "/company/SC090312/charges/Ccjh13U6QHrmlVPyMk_zcYFFjIE"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank N.A."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2022-05-11",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMzODk5NzIyNmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120140",
+            "charge_number": 140,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2021-09-01",
+            "delivered_on": "2021-09-02",
+            "etag": "1434f723f855bdb2ab299486a0dcd3202fff6000",
+            "links": {
+                "self": "/company/SC090312/charges/-u2-S7YY9AgoCYbt4RHlaS6vDdc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "None.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Sumitomo Mitsui Trust Bank, Limited"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2021-09-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMxMjY0OTkyM2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120139",
+            "charge_number": 139,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2021-04-28",
+            "delivered_on": "2021-05-06",
+            "etag": "59d4acf22bbaafb0e6b3bb912b942642e3e5e219",
+            "links": {
+                "self": "/company/SC090312/charges/vcCnMLXPGdiIkiu1ffcg2mxPetE"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2021-05-06",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMwMDE0MDI1MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120138",
+            "charge_number": 138,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2021-04-28",
+            "delivered_on": "2021-05-05",
+            "etag": "f43e1b72d503398bd9e2093697c52132b313be7f",
+            "links": {
+                "self": "/company/SC090312/charges/Y1s8brD4wLsWWFufFBO58EojJhE"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bank of America, N.A."
+                }
+            ],
+            "satisfied_on": "2021-05-06",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2021-05-05",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMwMDAxMTQwMWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2021-05-06",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMwMDEzOTI4MGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120137",
+            "charge_number": 137,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2021-04-15",
+            "delivered_on": "2021-04-23",
+            "etag": "96f882b38ab75467960e137ec9fbce8b2d5504e9",
+            "links": {
+                "self": "/company/SC090312/charges/ecYiMarwyDZiwgaBIzpSFNSbtUY"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citadel Global Fixed Income Master Fund LTD"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2021-04-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzI5ODc2MTA3MmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120136",
+            "charge_number": 136,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2021-04-15",
+            "delivered_on": "2021-04-19",
+            "etag": "df2a52186c12a3aeb552145555464d552ad67e3e",
+            "links": {
+                "self": "/company/SC090312/charges/FCLURKJpxIP1p4Lf2Z4Ih00Vx44"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Element Capital Master Fund Limited"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2021-04-19",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzI5ODE1NDc2OGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120135",
+            "charge_number": 135,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2020-07-03",
+            "delivered_on": "2020-07-23",
+            "etag": "ef09f671d5a6d0cfdfa479a90b3f04bef96a43fb",
+            "links": {
+                "self": "/company/SC090312/charges/fnHW_jhI9lHEo4UeGELRn0U5wEU"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Nomura Trust and Banking Co.,LTD."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2020-07-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzI3Mzc5MTk1NGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120134",
+            "charge_number": 134,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2020-02-13",
+            "delivered_on": "2020-02-28",
+            "etag": "c7efee94e8c0ae9789f0506ad5fcde2a2b93067a",
+            "links": {
+                "self": "/company/SC090312/charges/hQ3ZgD6MQcXF3nb4A2YdstlITa0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Natwest Markets N.V."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2020-02-28",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzI1ODY4OTg1MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120133",
+            "charge_number": 133,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2019-04-17",
+            "delivered_on": "2019-04-23",
+            "etag": "1174bb9783edc07d95cc93478544d9e7f69c7d28",
+            "links": {
+                "self": "/company/SC090312/charges/gWntULta8g9V2LYesYwbI7xfszM"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "None.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2019-04-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIzMjU2NjcwOWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120132",
+            "charge_number": 132,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-11-16",
+            "delivered_on": "2018-11-21",
+            "etag": "219682876f3086d0be8939f08733af022ca5b6e4",
+            "links": {
+                "self": "/company/SC090312/charges/Zc5sQnTX-mbPUuT-mKkpa9toLi4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bank of America, N.A."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-11-21",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIxOTkyNzc5MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120128",
+            "charge_number": 128,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-11-01",
+            "delivered_on": "2018-11-05",
+            "etag": "7ac24cc92c4ce863a628399bdbf6da89f423b4b0",
+            "links": {
+                "self": "/company/SC090312/charges/X6HZDavpHKutIzzgXTjnpHT7U-8"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A. Acting Through Its Agency and Trust Division, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2021-05-05",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2018-11-05",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIxODY0NzkyNWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2021-05-05",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMwMDAyNTUyMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120130",
+            "charge_number": 130,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-10-31",
+            "delivered_on": "2018-11-16",
+            "etag": "744f081ce32cc08ed030fc5dfa39e0bb99d28de4",
+            "links": {
+                "self": "/company/SC090312/charges/6-rOp3Pm4S1Cs5L2PRPmGh2XkF4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "National Westminster Bank PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-11-16",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIxOTYwOTIyOWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120129",
+            "charge_number": 129,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-10-31",
+            "delivered_on": "2018-11-16",
+            "etag": "97d1a1fa06ceac9bb29cdb4e972611a0f8c0db79",
+            "links": {
+                "self": "/company/SC090312/charges/1XIYU-N0gxWFzC_f1D8hVQMsvow"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "National Westminster Bank PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-11-16",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIxOTYwNzk4MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120131",
+            "charge_number": 131,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-10-30",
+            "delivered_on": "2018-11-19",
+            "etag": "df439da10b9cad8dd725254773bf54f8f687ff7d",
+            "links": {
+                "self": "/company/SC090312/charges/QsVVxE-S4qCupbrZv-G2b66i0Do"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Peterborough (Progress Health) PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-11-19",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIxOTczODg5M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120127",
+            "charge_number": 127,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-07-05",
+            "delivered_on": "2018-07-23",
+            "etag": "059e1121986e1f1bcd1917482fd6b95dbab33a47",
+            "links": {
+                "self": "/company/SC090312/charges/4NxzHqKWfSmKYW9AReLVvkb0g9E"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Aviva Life & Pensions UK Limited"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-07-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIxMDMzMzkwMmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120126",
+            "charge_number": 126,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-06-29",
+            "delivered_on": "2018-07-07",
+            "etag": "1cd37b617ffb69900a9bdfabcbb3297fc8f33b7f",
+            "links": {
+                "self": "/company/SC090312/charges/Fel5bIlpgFPZJEfdw1y1AnRp0O0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-07-07",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwOTkyMTM2MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120125",
+            "charge_number": 125,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-06-29",
+            "delivered_on": "2018-07-16",
+            "etag": "c27ad8be879620b87e53bcc40cdf5e1bd07e1c76",
+            "links": {
+                "self": "/company/SC090312/charges/hb9aNA7W8o4Rgcqb2sZwzdh4imw"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-07-16",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwOTkxNzA1MmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120124",
+            "charge_number": 124,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-06-29",
+            "delivered_on": "2018-07-07",
+            "etag": "fdf6aaef4691d2b8b9d5d4282327b50511bd9ae8",
+            "links": {
+                "self": "/company/SC090312/charges/CaLVRogi3PdTDxRYBcRCcBoWRD4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-07-07",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwOTQ0NDczMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120123",
+            "charge_number": 123,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-06-29",
+            "delivered_on": "2018-07-04",
+            "etag": "0ff21410d880a5372d10d7e27a399edc3d68d272",
+            "links": {
+                "self": "/company/SC090312/charges/DJqSNLQY_sNH7XWfxyBMol3giqI"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Wells Fargo Bank, N.A. as Security Agent"
+                }
+            ],
+            "satisfied_on": "2019-08-13",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2018-07-04",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwOTAzODE2OWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2019-08-13",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzI0MTcyNTc1NGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120122",
+            "charge_number": 122,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-06-29",
+            "delivered_on": "2018-07-04",
+            "etag": "8262444dbfe5fdaaac0f10b50f84ac35732d5640",
+            "links": {
+                "self": "/company/SC090312/charges/M7kOiQVOwMhzPjNrd9AWJi-3yYE"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Wells Fargo Bank, N.A. as Security Agent"
+                }
+            ],
+            "satisfied_on": "2019-08-13",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2018-07-04",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwOTAzNjgxOGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2019-08-13",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzI0MTcyNjAwMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120121",
+            "charge_number": 121,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-06-12",
+            "delivered_on": "2018-06-26",
+            "etag": "f5ea6a6dc70dd9723ddc44d2860701ec6c3a93f1",
+            "links": {
+                "self": "/company/SC090312/charges/d8ankLQggELWW-QpAgP_D9JbO30"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Eurex Clearing Aktiengesellschaft"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-06-26",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwODI5MzMyOGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120120",
+            "charge_number": 120,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2018-05-22",
+            "delivered_on": "2018-06-08",
+            "etag": "18848b01d86addb9cc954a2b22aed660872c1971",
+            "links": {
+                "self": "/company/SC090312/charges/2r07NMIjWD86NNMXV3Gqn5xHU94"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Ing Bank N.V."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2018-06-08",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzIwNzM4NjI5MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120118",
+            "charge_number": 118,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-11-02",
+            "delivered_on": "2017-11-02",
+            "etag": "c7b2373f1cf1e79305008166146006cf24837e6b",
+            "links": {
+                "self": "/company/SC090312/charges/4wuWUnxiqvQfq5stcPKU6w2_ClA"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., Acting Through Its Agency and Trust Division, as Collateral Agent"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2017-11-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE4OTM0NzgyMmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120117",
+            "charge_number": 117,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-11-02",
+            "delivered_on": "2017-11-02",
+            "etag": "5f1998dbad27eb59b018afc859f2e9918d0e2e5d",
+            "links": {
+                "self": "/company/SC090312/charges/CHzVuSv_EG07nSz4dEOpYiPtujw"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A., Acting Through Its Agency and Trust Division, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2021-05-05",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2017-11-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE4OTM0NzcxOWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2021-05-05",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzMwMDAyMzQzN2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120116",
+            "charge_number": 116,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-10-09",
+            "delivered_on": "2017-10-16",
+            "etag": "0b75be33a37801a13957551239a96f3e76c761fa",
+            "links": {
+                "self": "/company/SC090312/charges/j8P5Xz9HKulI1y4y1EPAgd1-Wlc"
+            },
+            "particulars": {
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Euroclear Bank Sa/Nv"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2017-10-16",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE4Nzg1NjYzNGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120115",
+            "charge_number": 115,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-10-03",
+            "delivered_on": "2017-10-05",
+            "etag": "4f631f5a927d7edf9bef219412396a5448a2add0",
+            "links": {
+                "self": "/company/SC090312/charges/1Ty7aVTDRfsF2wQ0bAZqZHI5Pfk"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Governor and Company of the Bank of England"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2017-10-05",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE4NzQ1NzA5NmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120113",
+            "charge_number": 113,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-02-04",
+            "delivered_on": "2017-02-07",
+            "etag": "90a5f8242fb6571090ce67a8f3f81c3650cb89d4",
+            "links": {
+                "self": "/company/SC090312/charges/IIYFjy_Q3xh_U5Flm7FxAqpt-lM"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Ubs Ag (And Its Successors in Title and Permitted Transferees)"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2017-02-07",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2ODgwMzU1MGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120114",
+            "charge_number": 114,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-01-26",
+            "delivered_on": "2017-02-09",
+            "etag": "dc449a4d1249a061d365deb044a0faf17053c276",
+            "links": {
+                "self": "/company/SC090312/charges/Lm0jX5SMQ351bx2K8ENqBn5mqMY"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "N V Bank Nederlandse Gemeenten"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2017-02-09",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2OTA5OTkyNWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120112",
+            "charge_number": 112,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2017-01-26",
+            "delivered_on": "2017-02-08",
+            "etag": "8487f9fc2ce7f25b873a9fe2d30825759f4eb53c",
+            "links": {
+                "self": "/company/SC090312/charges/2IBVKUpShKmGKRp8xFqjdvkqPLI"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "Not applicable.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Aktiengesellschaft"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2017-02-08",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2ODUzOTExMmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120111",
+            "charge_number": 111,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-11-24",
+            "delivered_on": "2016-11-30",
+            "etag": "38a74a98c001fa619e674bea4458323853d2cfb3",
+            "links": {
+                "self": "/company/SC090312/charges/55lEM-xYbxXFkhfp0JSqrIsv9r8"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Arcos Capital Partners Ab"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-11-30",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2NDAyNDk3NmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120110",
+            "charge_number": 110,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-11-03",
+            "delivered_on": "2016-11-23",
+            "etag": "fb1eae52d41740c76c30bf12b9b4f263b100ce86",
+            "links": {
+                "self": "/company/SC090312/charges/jbGDMM7jfPePwrB6MqiUtglwuUQ"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2017-11-03",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2016-11-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2MjU3NjA4NGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2017-11-03",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE4OTM5ODUwM2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120109",
+            "charge_number": 109,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-11-03",
+            "delivered_on": "2016-11-04",
+            "etag": "9aeb72804161dcd374b53eb88d7b3db53e78c38c",
+            "links": {
+                "self": "/company/SC090312/charges/sf5TL6ksW11QsYUKcRwp7WGVrYQ"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2017-11-03",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2016-11-04",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2MTIzOTkzMmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2017-11-03",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE4OTM5ODQyMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120108",
+            "charge_number": 108,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-08-30",
+            "delivered_on": "2016-09-06",
+            "etag": "2e67f062b67d04e2d8d53fa96144eb5a82a093cb",
+            "links": {
+                "self": "/company/SC090312/charges/WDsjGae8n-ydTcgN3TSi6jpyG9M"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Goldman Sachs & Co."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-09-06",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE1Njc4NjEzMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120107",
+            "charge_number": 107,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-08-30",
+            "delivered_on": "2016-09-06",
+            "etag": "1589134dea7c2f0e0e16ac0538211ecdbea629ad",
+            "links": {
+                "self": "/company/SC090312/charges/gnZ6e3i4vFVFvDiX7-KqrmYhaxg"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Goldman Sachs Financial Markets Pty LTD"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-09-06",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE1Njc4NjA3MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120106",
+            "charge_number": 106,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-08-30",
+            "delivered_on": "2016-09-06",
+            "etag": "fb4d1cd5fdd86bd00241c12d44381d518e8869d9",
+            "links": {
+                "self": "/company/SC090312/charges/U0o4tJe4PJZDlqFTNHM8sYiALgs"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "J. Aron & Company"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-09-06",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE1Njc4NTkzNWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120105",
+            "charge_number": 105,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-08-30",
+            "delivered_on": "2016-09-06",
+            "etag": "4b83916f5384059cedf55cb05325c34ad9ca4493",
+            "links": {
+                "self": "/company/SC090312/charges/xz1WyaIOq9FIBeH_wFWAuSkE2U4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Goldman Sachs International"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-09-06",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE1Njc4NTg4MmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120104",
+            "charge_number": 104,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-08-30",
+            "delivered_on": "2016-09-06",
+            "etag": "5f5a606c7008053775f379e1771e7da883483a70",
+            "links": {
+                "self": "/company/SC090312/charges/315QYNRKhk_mFx7WT9FlhGw7MFo"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Goldman Sachs Bank Usa"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-09-06",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE1Njc4NTc5NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120103",
+            "charge_number": 103,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-02-15",
+            "delivered_on": "2016-02-23",
+            "etag": "b60aa46bc46e1dcbe252f6d4618b69e9373df5b6",
+            "links": {
+                "self": "/company/SC090312/charges/Uoqs3g_1nuci7h0wX6qMjmlzRxU"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "None.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Shell Treasury Centre Limited"
+                }
+            ],
+            "satisfied_on": "2016-03-07",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2016-02-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE0MjUyNjkwMGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2016-03-07",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE0Mzg4MDQ0NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120102",
+            "charge_number": 102,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2016-02-04",
+            "delivered_on": "2016-02-17",
+            "etag": "3610c171591bbb248dc4e4be72f12bb22f1e3616",
+            "links": {
+                "self": "/company/SC090312/charges/E6wlIeXiNVPQqBREq_KHlddBHLA"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Eurex Clearing Aktiengesellschaft"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2016-02-17",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE0MjEwNjYxMmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120101",
+            "charge_number": 101,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-11-05",
+            "delivered_on": "2015-11-10",
+            "etag": "f11d44ce3c0fb960f32effe16f0ce5c748870869",
+            "links": {
+                "self": "/company/SC090312/charges/1RczPli5tr6YA4QYX2uW-hKqC-o"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2016-11-24",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2015-11-10",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNDg5MTcyN2FkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2016-11-24",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2MjY3ODcxMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120099",
+            "charge_number": 99,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-11-05",
+            "delivered_on": "2015-11-09",
+            "etag": "c234736f52b6fcfb3454043a5d71940e9cfd6eea",
+            "links": {
+                "self": "/company/SC090312/charges/xPdJI0mZuNkEjh2in7QoACXmclI"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2016-11-24",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2015-11-09",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNDgwNjM3NGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2016-11-24",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE2MjY3ODkwMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120100",
+            "charge_number": 100,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-10-29",
+            "delivered_on": "2015-11-02",
+            "etag": "3a5cfb96b0b31c876939e173d18b48ebd0e1f1d5",
+            "links": {
+                "self": "/company/SC090312/charges/nMvWoggeCM7AB0IUgTzk4RRyCZE"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "None.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Ubs Ag"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-11-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNDk3Nzc5NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120098",
+            "charge_number": 98,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-09-21",
+            "delivered_on": "2015-09-29",
+            "etag": "375133b51ea6f828d3dfae799c79eaaaa5a941b7",
+            "links": {
+                "self": "/company/SC090312/charges/G4HaM96KmYXcfaKlroiXxFJA0g8"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Govenor and Company of the Bank of England"
+                }
+            ],
+            "satisfied_on": "2017-12-04",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2015-09-29",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzMjI3MzE0MWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2017-12-04",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE5MTg1OTU3M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120097",
+            "charge_number": 97,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-09-21",
+            "delivered_on": "2015-09-29",
+            "etag": "4e1d3822bbf1a1cd56a4564b496c9d5fed95e3d4",
+            "links": {
+                "self": "/company/SC090312/charges/ylPKjTZSDQ-LVWeV-h3xLwzXSkc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Governor and Company of the Bank of England"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-09-29",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzMjI2OTg1OGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120095",
+            "charge_number": 95,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-08-12",
+            "delivered_on": "2015-08-25",
+            "etag": "c55ebb39c297217569bf0a403b61ffab38c19f3b",
+            "links": {
+                "self": "/company/SC090312/charges/vpL_JUn0V1jNg8EQ1yaQO0_2P-0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true,
+                "description": "None.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Mediterranean Bank PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-08-25",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyOTY0MjQxNGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120096",
+            "charge_number": 96,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-08-07",
+            "delivered_on": "2015-08-21",
+            "etag": "1d7ea30f56b15afae01de93d66b6c560c1c335e4",
+            "links": {
+                "self": "/company/SC090312/charges/0cpiFH5qZsEIiw3H1mvxGR2C5q4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Nevis Derivatives No 3 LLP"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-08-21",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyOTg2NjY4MGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120094",
+            "charge_number": 94,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-07-28",
+            "delivered_on": "2015-08-05",
+            "etag": "52700c4b052c4818ba512f6fc486c45ece71e7f1",
+            "links": {
+                "self": "/company/SC090312/charges/iE8hfjWgoVO470DFs_HTY9B0vRE"
+            },
+            "particulars": {
+                "contains_negative_pledge": true,
+                "description": "N/A.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Banca Popolare Dell'emilia Romagna Societa Cooperative"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-08-05",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyODkzNzQxMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120093",
+            "charge_number": 93,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-04-14",
+            "delivered_on": "2015-04-23",
+            "etag": "d51751fb59a85afec1af1b2e25739015766ea929",
+            "links": {
+                "self": "/company/SC090312/charges/b3YlRxG0-IOMugX72X_b0DITPs4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citigroup Global Markets Inc"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-04-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyMjM5NzE1M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120092",
+            "charge_number": 92,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-03-19",
+            "delivered_on": "2015-04-01",
+            "etag": "0616b30a4bde7be239ee58b669267666e0b4adea",
+            "links": {
+                "self": "/company/SC090312/charges/beMyvzB7ur5TH4Bn0JQinQeWTZY"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2015-12-10",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2015-04-01",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyMDQyNDEyOWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-12-10",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNzI2NjY5MmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120091",
+            "charge_number": 91,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2015-02-20",
+            "delivered_on": "2015-03-02",
+            "etag": "a002398a88dbc5c5a2623c818c3eb0e62fb87521",
+            "links": {
+                "self": "/company/SC090312/charges/UXqLwCQu8KlMCMHEy9NWY3Yh2Ao"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Aviva Insurance Limited as Secured Party"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2015-03-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExODYyNDI5MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120090",
+            "charge_number": 90,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-11-19",
+            "delivered_on": "2014-11-28",
+            "etag": "ccbf710d5ff4411cd327f980fc755c7ed9a91562",
+            "links": {
+                "self": "/company/SC090312/charges/UL2HyTFJeWG3OlSDplMXcjJqlgQ"
+            },
+            "particulars": {
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Euroclear Bank Sa/Nv"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-11-28",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMjQ3NzA5M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120089",
+            "charge_number": 89,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-11-06",
+            "delivered_on": "2014-11-13",
+            "etag": "8bfcd201120a1be7703123cf700aa845fd99afab",
+            "links": {
+                "self": "/company/SC090312/charges/Rc54IFWeRW1vD8HL5_-5w0OffSc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2015-12-10",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2014-11-13",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMTMwOTU5OGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-12-10",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNzI2NjI3MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120088",
+            "charge_number": 88,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-11-06",
+            "delivered_on": "2014-11-13",
+            "etag": "9ebfc9985d731c646baca6dd6cca80d11bbb94eb",
+            "links": {
+                "self": "/company/SC090312/charges/uGFO9JOZCREQ94LzKxL-IkfMhG0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2015-12-10",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2014-11-13",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMTMxNjI1NmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-12-10",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNzI2NjM1NGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120087",
+            "charge_number": 87,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-11-06",
+            "delivered_on": "2014-11-13",
+            "etag": "e74ad1e0d16fe26bb6f5efff8fe4dba770a8b5a3",
+            "links": {
+                "self": "/company/SC090312/charges/aq1M269EnePmLSjznS6p1iO3CGM"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas, as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2015-12-10",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2014-11-13",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMTMxMDc0NmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-12-10",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzNzI2NjU5NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120086",
+            "charge_number": 86,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-09-08",
+            "delivered_on": "2014-09-23",
+            "etag": "f1245253e77ed1590fcb010f063e2771a405b460",
+            "links": {
+                "self": "/company/SC090312/charges/Gu09mox1hCGXKpylKoVm87oX7KI"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Bnp Paribas Arbitrage S.N.C."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-09-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwODE0MDkyMmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120085",
+            "charge_number": 85,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-08-01",
+            "delivered_on": "2014-08-18",
+            "etag": "965dd064f3e2584dab0e01b11fd957076c20ff02",
+            "links": {
+                "self": "/company/SC090312/charges/NurhbnTN35jp7wc4sigI78A_Q9c"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Credit Suisse Ag"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-08-18",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwNTkyNTIzOGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120084",
+            "charge_number": 84,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-06-30",
+            "delivered_on": "2014-07-16",
+            "etag": "783a95ae21efdb2ea24578f2ff62d565d3262c02",
+            "links": {
+                "self": "/company/SC090312/charges/ZuGaMBTf7E3qHOYasExfiykAep4"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Natixis"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-07-16",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwNDE1MTc1NmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120083",
+            "charge_number": 83,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-06-17",
+            "delivered_on": "2014-07-04",
+            "etag": "9c007cc6217089218242598d09aa67fd155a3542",
+            "links": {
+                "self": "/company/SC090312/charges/SGxwQCQWOWxktUWwsznlpSSXu_Y"
+            },
+            "particulars": {
+                "contains_negative_pledge": true,
+                "description": "Any amount standing to the credit of the liquidity facility downgrade account and the debt represented by the liquidity fcility downgrade account.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Peterborough (Progress Health) PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-07-04",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwMzQ1MjA5MGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120082",
+            "charge_number": 82,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-06-17",
+            "delivered_on": "2014-07-04",
+            "etag": "971d266ece6999b140f2fb9184899930222603d1",
+            "links": {
+                "self": "/company/SC090312/charges/rURDjusuGki89kowQO-oJpUgq3o"
+            },
+            "particulars": {
+                "contains_negative_pledge": true,
+                "description": "Any amount standing to the credit of the change in law facility downgrade account and the debt represented by the change in law facility downgrade account.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Peterborough (Progess Health) PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-07-04",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwMzQ1MTU1MGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120081",
+            "charge_number": 81,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-05-06",
+            "delivered_on": "2014-05-14",
+            "etag": "46bb5693083d33ca95a14c26589a30155a6316b6",
+            "links": {
+                "self": "/company/SC090312/charges/PeYjYVDr0gcJdTbfr_YEpXuTHOc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Banco Popolare Dell'emilia Romagna Societa Cooperativa"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-05-14",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwMDQxNDg0MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120080",
+            "charge_number": 80,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-04-22",
+            "delivered_on": "2014-04-28",
+            "etag": "df9874afcd41a27c0c28b01ef772f50951ddc28f",
+            "links": {
+                "self": "/company/SC090312/charges/P5-6zO0ze_6h4tjF7HHiFOH9tTo"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_negative_pledge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Citibank, N.A."
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-04-28",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA5OTMzMDQwMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120079",
+            "charge_number": 79,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2014-02-28",
+            "delivered_on": "2014-03-18",
+            "etag": "9b811c359f4f8da171ced83affc318920f921054",
+            "links": {
+                "self": "/company/SC090312/charges/iOrtdqLAqrRNuQ36mmJvoYxQMEw"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Barclays Bank PLC"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2014-03-18",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA5NjY5MjExMWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120078",
+            "charge_number": 78,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-12-09",
+            "delivered_on": "2013-12-18",
+            "etag": "6e3513b325e638a4f29bac0420c53689eefc4cb6",
+            "links": {
+                "self": "/company/SC090312/charges/O-VZahE75UxOVBP4V-F8_uGWAxo"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Kfw"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-12-18",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA5MTQ3MTUwM2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120077",
+            "charge_number": 77,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-11-26",
+            "delivered_on": "2013-12-11",
+            "etag": "1944c378fdf985744c5eb73891c28a5ec8e0a555",
+            "links": {
+                "self": "/company/SC090312/charges/PMUPYWXlE7DnTO3OdV3xZpTR23Q"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Kfw"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-12-11",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA5MDkyOTEwMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120075",
+            "charge_number": 75,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-11-07",
+            "delivered_on": "2013-11-20",
+            "etag": "01d71f019dcf13ef372313228d20a6f91cf002d0",
+            "links": {
+                "self": "/company/SC090312/charges/aFnfqTLM-CSdWF1SogN3duKRh50"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2014-11-13",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-11-20",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4OTA3NDg5M2FkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-11-13",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMTMxNTU0MWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120074",
+            "charge_number": 74,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-11-07",
+            "delivered_on": "2013-11-20",
+            "etag": "698ba0f16f6bf082b5aacffeeb5983aafe01624e",
+            "links": {
+                "self": "/company/SC090312/charges/0T27KTPn4J7YUWhd2OU8XMVTkvY"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2014-11-13",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-11-20",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4OTA3NDc2OWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-11-13",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMTMxNTQwMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120073",
+            "charge_number": 73,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-11-07",
+            "delivered_on": "2013-11-20",
+            "etag": "c57c69ccda515f127153bd839e8ffcb8eb5427fd",
+            "links": {
+                "self": "/company/SC090312/charges/t0l4Jttb3_Vle37yBTsnxJLJEg0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "contains_floating_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Deutsche Bank Trust Company Americas as Collateral Agent"
+                }
+            ],
+            "satisfied_on": "2014-11-13",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-11-20",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4OTA3NDg3NGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-11-13",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMTMxNTE4NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120072",
+            "charge_number": 72,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-11-05",
+            "delivered_on": "2013-11-11",
+            "etag": "32975da6cd278273f67d5aea0c39dbfd9416b386",
+            "links": {
+                "self": "/company/SC090312/charges/_QhNRDfbZRxQZWnFfZHi2FzuDn0"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Kfw"
+                }
+            ],
+            "satisfied_on": "2015-08-06",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-11-11",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4ODc3ODQ4MmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-08-06",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyODUzMzIxNWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120076",
+            "charge_number": 76,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-11-01",
+            "delivered_on": "2013-11-20",
+            "etag": "92a568d7fa705c85f489dcdfb502faeb55101b9f",
+            "links": {
+                "self": "/company/SC090312/charges/GQ3k0wkc7HcxpQtvBqRNNcXBSTc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Credit Suisse Securities (Europe) Limited"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-11-20",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4OTE3OTQ4M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120071",
+            "charge_number": 71,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-09-23",
+            "delivered_on": "2013-09-27",
+            "etag": "ef67d31a64106bf319ae6a0527e80d1916fb6a8d",
+            "links": {
+                "self": "/company/SC090312/charges/rEz39TGDPzJHN4oVv7ikgv_AGTw"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Dekabank Deutsche Girozentrale"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-09-27",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4NjExNTAyOWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120069",
+            "charge_number": 69,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-08-28",
+            "delivered_on": "2013-09-02",
+            "etag": "d1ce7977cf7d4327f92651f830023758f607f35a",
+            "links": {
+                "self": "/company/SC090312/charges/oED1iQwD2RMaCMD6QyDpsoRjyEs"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Dekabank Deutsche Girozentrale"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-09-02",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4NDQyNjI1MmFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "assets_ceased_released": "whole-property-released",
+            "charge_code": "SC0903120068",
+            "charge_number": 68,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-08-26",
+            "delivered_on": "2013-08-28",
+            "etag": "4312693a9bb885a04a63313f93af9493174786c6",
+            "links": {
+                "self": "/company/SC090312/charges/JtAxhl03G1CDDk6XTf-kWWvXUPs"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Oesterreichische Kontrollbank Aktiengesellschaft"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-08-28",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4NDEwOTY1NmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2016-07-19",
+                    "filing_type": "charge-whole-release",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzE1MzQwNTg5NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120070",
+            "charge_number": 70,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-08-20",
+            "delivered_on": "2013-09-10",
+            "etag": "02ce691ff4b7c9b491681ac5d0ba5c8a404e7042",
+            "links": {
+                "self": "/company/SC090312/charges/kGvM348Pg2M6YSHOcEOaiY3YqTU"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Governor and Company of the Bank of England"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-09-10",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4NTY2MDgxOGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120067",
+            "charge_number": 67,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-07-30",
+            "delivered_on": "2013-08-01",
+            "etag": "6c36eba09ef2327850f7b9153917d2335c11e895",
+            "links": {
+                "self": "/company/SC090312/charges/t4wb5DE_lKfX1DrK4J2M442bxYI"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Dekabank Deutsche Girozentrale"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-08-01",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4Mjc5MjI2M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120066",
+            "charge_number": 66,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-07-16",
+            "delivered_on": "2013-07-23",
+            "etag": "904881e4d60085a98d64ed2ddb62bd839c80a06f",
+            "links": {
+                "self": "/company/SC090312/charges/7tG14u130KeIyN6PNk6wNzXWZSc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Lch.Clearnet Limited"
+                }
+            ],
+            "satisfied_on": "2014-07-08",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-07-23",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4MjAwMTYwNmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2013-11-29",
+                    "filing_type": "alter-charge",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA5MDA4MjMzMWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-07-08",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwMzYxMTU2N2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "assets_ceased_released": "whole-property-released",
+            "charge_code": "SC0903120065",
+            "charge_number": 65,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-07-08",
+            "delivered_on": "2013-07-18",
+            "etag": "247e148f3819a6771d9fa0862649c339a0b76db8",
+            "links": {
+                "self": "/company/SC090312/charges/WkVmIZ8MDyk6QXNT_qEavTVftFc"
+            },
+            "particulars": {
+                "contains_fixed_charge": true
+            },
+            "persons_entitled": [
+                {
+                    "name": "Oesterreichische Kontrollbank Aktiengesellschaft"
+                }
+            ],
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-07-18",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA4MTg4Mjk4NGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-09-12",
+                    "filing_type": "charge-whole-release",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEwNzU5MTI0NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120064",
+            "charge_number": 64,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-05-28",
+            "delivered_on": "2013-06-07",
+            "etag": "52746adbf119b7213b28d63308db8d8968c2a264",
+            "links": {
+                "self": "/company/SC090312/charges/rTArKL6rHltVbZVSGmOyyb3vWcA"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Kfw"
+                }
+            ],
+            "satisfied_on": "2015-07-24",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-06-07",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA3OTU3Nzg1NmFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-07-24",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyODM2NDc3NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_code": "SC0903120063",
+            "charge_number": 63,
+            "classification": {
+                "description": "A registered charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-05-28",
+            "delivered_on": "2013-06-07",
+            "etag": "9c5de1f6437b25de14233112df0869baff2a2049",
+            "links": {
+                "self": "/company/SC090312/charges/OfCZombA97sR2fTQlFxyMw6x8BI"
+            },
+            "particulars": {
+                "contains_fixed_charge": true,
+                "description": "Notification of addition to or amendment of charge.",
+                "type": "brief-description"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Kfw"
+                }
+            ],
+            "satisfied_on": "2015-07-24",
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2013-06-07",
+                    "filing_type": "create-charge-with-deed",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA3OTU3NzUzNGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-07-24",
+                    "filing_type": "charge-satisfaction",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEyODM2NDQ0N2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "assets_ceased_released": "whole-property-released",
+            "charge_number": 62,
+            "classification": {
+                "description": "Scottish assignation in security",
+                "type": "charge-description"
+            },
+            "created_on": "2013-01-25",
+            "delivered_on": "2013-01-25",
+            "etag": "1c8e56ab6bf41a66d4f085d7bdc9251699064bae",
+            "links": {
+                "self": "/company/SC090312/charges/4TA_HkaGB_W3nR0JmrcCQ_b7Dmo"
+            },
+            "particulars": {
+                "description": "Right title interest and benefit the contract contract means policy number 384841.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Oesterreichische Kontrollbank Aktiengesellschaft"
+                }
+            ],
+            "secured_details": {
+                "description": "Obligations under the facilities agreement",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-01-25",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA3MTc1NDk5OGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-12-08",
+                    "filing_type": "charge-whole-release",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMzM2NDQyMGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_number": 61,
+            "classification": {
+                "description": "The deed of charge",
+                "type": "charge-description"
+            },
+            "created_on": "2013-01-08",
+            "delivered_on": "2013-01-15",
+            "etag": "cbf65b858fe56bb9c7ad0b84449db3dba2446ad4",
+            "links": {
+                "self": "/company/SC090312/charges/SSSlSlAwZxMLSv_udPzvEpQSjbE"
+            },
+            "particulars": {
+                "description": "First fixed charge over all securities and amounts standing to the credit of its securities account. See form for further details.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Governor and Company of the Bank of England"
+                }
+            ],
+            "secured_details": {
+                "description": "All sums due or to become due",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2013-01-15",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA3MTE5NDAzM2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_number": 60,
+            "classification": {
+                "description": "Deed of charge",
+                "type": "charge-description"
+            },
+            "created_on": "2012-11-13",
+            "delivered_on": "2012-11-20",
+            "etag": "608ae9b0cdcd2698466657c71e67b277bb36363f",
+            "links": {
+                "self": "/company/SC090312/charges/NP6zgC_5-PuYKi6azCAShsLnYHI"
+            },
+            "particulars": {
+                "description": "Full title guarantee and as security for the payment discharge and performance of al liabiliteis charges in favour of the chargee by way of first fixed charge the notes and all related rights.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Marks and Spencer PLC"
+                }
+            ],
+            "satisfied_on": "2013-01-24",
+            "secured_details": {
+                "description": "All sums due or to become due",
+                "type": "amount-secured"
+            },
+            "status": "fully-satisfied",
+            "transactions": [
+                {
+                    "delivered_on": "2012-11-20",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA2NzgxMDIzMGFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2013-01-24",
+                    "filing_type": "charge-satisfaction-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA3MTY4MTI0M2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "assets_ceased_released": "whole-property-released",
+            "charge_number": 59,
+            "classification": {
+                "description": "Scottish assignation in security",
+                "type": "charge-description"
+            },
+            "created_on": "2012-10-12",
+            "delivered_on": "2012-10-12",
+            "etag": "d6870d64775e89f275ff7cb7739370497acf071f",
+            "links": {
+                "self": "/company/SC090312/charges/CMTw1QDF-T-1oJf90vPkjOjTuaU"
+            },
+            "particulars": {
+                "description": "Right title interest and benefit, to the contracts and all right of the assignor relative to such contracts see form for details.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Oesterreichische Kontrollbank Aktiegensellschaft"
+                }
+            ],
+            "secured_details": {
+                "description": "All sums due or to become due",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2012-10-12",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA2NTc1NDM3N2FkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2014-12-08",
+                    "filing_type": "charge-whole-release",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzExMzM2NDY2N2FkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_number": 58,
+            "classification": {
+                "description": "Deed of charge",
+                "type": "charge-description"
+            },
+            "created_on": "2012-06-14",
+            "delivered_on": "2012-07-03",
+            "etag": "6a4cd0307c974a947ac58e94f3e328d301297d0e",
+            "links": {
+                "self": "/company/SC090312/charges/OR9c234l9YV3Z1SDij5xmK9aX9s"
+            },
+            "particulars": {
+                "description": "First fixed charge over all securities and amounts standing to the credit of its security account. See form for further details.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Governor and Company of the Bank of England"
+                }
+            ],
+            "secured_details": {
+                "description": "All present and future obligations",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2012-07-03",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA2MDU5NTU3OGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_number": 57,
+            "classification": {
+                "description": "Deed of charge",
+                "type": "charge-description"
+            },
+            "created_on": "2012-06-14",
+            "delivered_on": "2012-06-27",
+            "etag": "3b854f15f7aa7ca53dbd98eb2cd64db36dbd6750",
+            "links": {
+                "self": "/company/SC090312/charges/OKFQcNTUxIx56gJkLqufCvavkHs"
+            },
+            "particulars": {
+                "description": "First fixed charge over all securities and amounts standing to the credit of its security account. See form for further details.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "The Governor and Company of the Bank of England"
+                }
+            ],
+            "secured_details": {
+                "description": "All present and future obligations",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2012-06-27",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA2MDU5MzkwOGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "assets_ceased_released": "whole-property-released",
+            "charge_number": 56,
+            "classification": {
+                "description": "Scottish assignation in security",
+                "type": "charge-description"
+            },
+            "created_on": "2011-12-29",
+            "delivered_on": "2011-12-29",
+            "etag": "a2ee69061824ddb81e76262a97e354612d7cabea",
+            "links": {
+                "self": "/company/SC090312/charges/jU9OKqN2LEi-LRnKBd9mcMtEH5k"
+            },
+            "particulars": {
+                "description": "The whole right, title and interest in and to the contracts and all rights of the assignor relative to such contracts.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Oesterreichische Kontrollbank Aktiegesellschaft"
+                }
+            ],
+            "secured_details": {
+                "description": "All sums due or to become due",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2011-12-29",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA0OTg1Mzg5OWFkaXF6a2N4"
+                    }
+                },
+                {
+                    "delivered_on": "2015-12-16",
+                    "filing_type": "charge-whole-release",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzEzODE1MTI1NGFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_number": 55,
+            "classification": {
+                "description": "Supplemental security deed",
+                "type": "charge-description"
+            },
+            "created_on": "2011-11-14",
+            "delivered_on": "2011-11-30",
+            "etag": "e4ef9630aaeb8cb57b739ec32fbed17396795706",
+            "links": {
+                "self": "/company/SC090312/charges/na-NsVGgK3hj7IB6dvVoxxs_CB8"
+            },
+            "particulars": {
+                "contains_floating_charge": true,
+                "description": "Fixed and floating charge over the undertaking and all property and assets present and future, including goodwill, book debts, uncalled capital, buildings, fixtures, fixed plant & machinery.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "European Central Counterparty Limited"
+                }
+            ],
+            "scottish_alterations": {
+                "has_restricting_provisions": true
+            },
+            "secured_details": {
+                "description": "All sums due or to become due",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2011-11-30",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA0ODEzMTM2NWFkaXF6a2N4"
+                    }
+                }
+            ]
+        },
+        {
+            "charge_number": 54,
+            "classification": {
+                "description": "Security deed",
+                "type": "charge-description"
+            },
+            "created_on": "2011-11-14",
+            "delivered_on": "2011-11-30",
+            "etag": "3678c6dbc147e907970f8cde7786be68079c8d2f",
+            "links": {
+                "self": "/company/SC090312/charges/mtu9XBmCQQyKfsDd6ceyk-inqro"
+            },
+            "particulars": {
+                "contains_floating_charge": true,
+                "description": "Fixed and floating charge over the undertaking and all property and assets present and future, including goodwill, book debts, uncalled capital, buildings, fixtures, fixed plant & machinery.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "European Central Counterparty Limited"
+                }
+            ],
+            "scottish_alterations": {
+                "has_restricting_provisions": true
+            },
+            "secured_details": {
+                "description": "All sums due or to become due",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2011-11-30",
+                    "filing_type": "create-charge-scotland-pre-april-2013",
+                    "links": {
+                        "filing": "/company/SC090312/filing-history/MzA0ODEzMTAzM2FkaXF6a2N4"
+                    }
+                }
+            ]
+        }
+    ],
+    "part_satisfied_count": 0,
+    "satisfied_count": 27,
+    "total_count": 137,
+    "unfiltered_count": 137
+}

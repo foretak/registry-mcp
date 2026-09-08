@@ -1,0 +1,45 @@
+{
+    "etag": "7044f4d212982d6ad8b9eeab26405bc351457b3d",
+    "items": [
+        {
+            "charge_number": 1,
+            "classification": {
+                "description": "Security agreement",
+                "type": "charge-description"
+            },
+            "created_on": "2010-04-28",
+            "delivered_on": "2010-05-17",
+            "etag": "05d5789bc3d5ec876ae7dfdd1b1cec2fd3390266",
+            "links": {
+                "self": "/company/00000006/charges/ePJoJ_HFbPhyofAAMx3pUhegSjA"
+            },
+            "particulars": {
+                "description": "With full title guarantee as a first fixed charge as a continuing security for the secured liabilities all of its present and future right, title and interest in and to all stocks, shares, bonds and securities of any kind whatsoever see image for full details.",
+                "type": "short-particulars"
+            },
+            "persons_entitled": [
+                {
+                    "name": "Pacific Life Re Limited"
+                }
+            ],
+            "secured_details": {
+                "description": "All monies due or to become due from the company to the chargee on any account whatsoever under the terms of the aforementioned instrument creating or evidencing the charge",
+                "type": "amount-secured"
+            },
+            "status": "outstanding",
+            "transactions": [
+                {
+                    "delivered_on": "2010-05-17",
+                    "filing_type": "create-charge-pre-april-2013",
+                    "links": {
+                        "filing": "/company/00000006/filing-history/MzAxNTg2NzUyOGFkaXF6a2N4"
+                    }
+                }
+            ]
+        }
+    ],
+    "part_satisfied_count": 0,
+    "satisfied_count": 0,
+    "total_count": 1,
+    "unfiltered_count": 1
+}

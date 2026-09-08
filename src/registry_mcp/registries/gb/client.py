@@ -45,9 +45,9 @@ import httpx
 from registry_mcp import __version__
 from registry_mcp.core import cache
 from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
-from registry_mcp.registries.gb import mapping
+from registry_mcp.registries.gb import charges, mapping
 
-__all__ = ["aclose", "lookup", "search"]
+__all__ = ["aclose", "fetch_charges", "lookup", "search"]
 
 logger = logging.getLogger(__name__)
 
@@ -366,3 +366,81 @@ async def search(name: str, limit: int = 10) -> SearchResult:
     result = mapping.map_search_result(data, query=query, cached=False, fetched_at=fetched_at)
     cache.set(cache_key, result.model_dump(mode="json"), status="ok", fetched_at=fetched_at)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Charges — R-5c / T37, Part B, built *behind the seam* (`DECISIONS.md`
+# D-042; `registries/gb/charges.py`'s module docstring has the full recon
+# trail). Deliberately **not** wired to `include=[...]` by this task — that
+# is explicitly a follow-up's job, not this one's, per the brief that
+# scoped this work. (`core/registry.py` gained `lookup_with` and `Registry`
+# gained `supported_includes` — R-5 — partway through this task, landed by
+# the parallel agent who owns `core/`; this module still does not import
+# from `core/models.py`'s new shapes or depend on them, on purpose, so it
+# stays exactly as self-contained as it was designed to be.) `fetch_charges`
+# is the whole seam — a self-contained function that validates the id,
+# fetches or serves from cache, and returns a fully-mapped
+# `charges.ChargeList`, ready for a follow-up to call from a real
+# `charges()` method on `CompaniesHouseRegistry`.
+# ---------------------------------------------------------------------------
+
+
+def _charges_cache_key(company_number: str) -> str:
+    return f"GB:companies-house:charges:{company_number}"
+
+
+async def fetch_charges(id: str) -> charges.ChargeList:
+    """Fetch one entity's charges, consulting the cache first.
+
+    One page, ``charges.CHARGES_ITEMS_PER_PAGE`` (100 — the register's own
+    confirmed maximum, D-042(j)). Never paginates further.
+
+    A 404 is treated exactly like a 200 with an empty ``items`` list — never
+    raised as ``not_found`` — because D-041(h)'s principle binds this
+    endpoint: ``/company/{n}`` alone decides whether an entity exists, and a
+    caller only reaches this function after that lookup already succeeded.
+    Confirmed live that Companies House does not actually 404 this endpoint
+    even for a nonexistent company number (``registries/gb/charges.py``'s
+    docstring); this branch exists defensively, not because it was observed.
+
+    TTL asymmetry (D-042(j): 24 h for a non-empty result, 1 h for an empty
+    one) is implemented by reusing ``core/cache.py``'s existing
+    ``status="not_found"`` label purely for its 1 h TTL when this company
+    has no charges — **never** raised as a `not_found` error on the read
+    path below, unlike its use in :func:`lookup`. ``core/cache.py`` has no
+    per-kind TTL table yet (D-042(j) names one, to be built in
+    ``core/cache.py:84-94`` "by whichever [task] lands first"); that table
+    is out of this task's footprint (``core/`` is owned by a parallel
+    agent), so this is the stand-in until it exists.
+    """
+    from registry_mcp.registries.gb import rules
+
+    company_number = rules.validate_crn(id)
+    cache_key = _charges_cache_key(company_number)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        return charges.map_charges(
+            entry.payload, company_number, cached=True, fetched_at=entry.fetched_at
+        )
+
+    response = await _fetch(
+        f"/company/{company_number}/charges",
+        params={"items_per_page": charges.CHARGES_ITEMS_PER_PAGE},
+    )
+
+    if response.status_code == 200:
+        data = response.json()
+    elif response.status_code == 404:
+        data = {}
+    elif response.status_code in (401, 403):
+        raise _unauthorized_error()
+    elif response.status_code == 429:
+        raise _rate_limited_error(response)
+    else:
+        raise _upstream_error(response)
+
+    fetched_at = datetime.now(UTC)
+    status = "ok" if data.get("items") else "not_found"
+    cache.set(cache_key, data, status=status, fetched_at=fetched_at)
+    return charges.map_charges(data, company_number, cached=False, fetched_at=fetched_at)

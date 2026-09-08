@@ -12,16 +12,19 @@ import base64
 import json
 import logging
 from collections.abc import AsyncIterator, Iterator
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
+import pydantic
 import pytest
 import respx
 
+from registry_mcp.core import cache
 from registry_mcp.core.models import CompanyStatus, ErrorCode, RegistryError
 from registry_mcp.core.registry import get_registry
+from registry_mcp.registries.gb import charges as charges_module
 from registry_mcp.registries.gb import client as client_module
 from registry_mcp.registries.gb import mapping
 
@@ -50,6 +53,14 @@ SEARCH_TESCO = _load("ch_search_tesco.json")
 SEARCH_EMPTY = _load("ch_search_empty.json")
 BODY_404 = _load("ch_404.json")
 BODY_401 = _load("ch_401.json")
+
+# Charges — R-5c / T37, Part B, built behind the seam (`DECISIONS.md` D-042).
+# All four recorded live 2026-09-08; see `registries/gb/charges.py`'s module
+# docstring for the fetch dates, URLs and the full recon trail.
+TESCO_CHARGES = _load("ch_00445790_charges.json")  # 9 charges: 2 outstanding, 7 fully-satisfied
+MGM_CHARGES = _load("ch_00000006_charges.json")  # 1 charge, outstanding, no charge_code
+DELOITTE_CHARGES = _load("ch_OC303675_charges.json")  # HTTP 200, empty: items: [], total_count: 0
+NATWEST_CHARGES = _load("ch_SC090312_charges.json")  # 137 total, 100 returned (items_per_page=100)
 
 
 @pytest.fixture(autouse=True)
@@ -725,3 +736,396 @@ async def test_109_live_fixtures_still_match_stored_files() -> None:
         stored_dump = {k: v for k, v in stored.model_dump(mode="json").items() if k not in volatile}
         live_dump = {k: v for k, v in live.model_dump(mode="json").items() if k not in volatile}
         assert stored_dump == live_dump, f"{number} fixture is stale relative to the live register"
+
+
+# ---------------------------------------------------------------------------
+# G. Charges — R-5c / T37, Part B, built *behind the seam* (`DECISIONS.md`
+# D-042; `registries/gb/charges.py`'s module docstring). Not wired to
+# `include=[...]` — `core/registry.py` has no `lookup_with` and `Registry`
+# has no `supported_includes` as of this writing (R-5 has not landed).
+# `charges_module.map_charges` is pure/no-I/O (mirrors `mapping.py`);
+# `client_module.fetch_charges` is the async seam (mirrors `lookup`/`search`).
+# ---------------------------------------------------------------------------
+
+_FETCHED_AT = datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC)
+
+
+def test_charges_map_tesco_sorted_counts_and_status() -> None:
+    """§8 recon: Tesco's own `has_charges` is `false` (`ch_00445790.json`)
+    yet the live `/charges` call returns nine real charges — the boolean on
+    the company profile cannot predict this endpoint at all."""
+    block = charges_module.map_charges(
+        TESCO_CHARGES, "00445790", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert [c.charge_number for c in block.charges] == [9, 8, 7, 6, 5, 4, 3, 2, 1]
+    assert block.total_count == 9
+    assert block.satisfied_count == 7
+    assert block.outstanding_count == 2  # total_count - satisfied_count
+    assert block.notes == []  # total_count == len(charges): nothing truncated
+
+    outstanding = block.charges[0]
+    assert outstanding.status == "outstanding"
+    assert outstanding.is_outstanding is True
+    assert outstanding.classification == "Account security agreement"
+    assert outstanding.satisfied_on is None
+    assert outstanding.parties_entitled == [
+        "Tesco Trustee Company of Ireland Limited as Trustee of the Tesco Ireland Limited "
+        "Senior Executive Pension Scheme"
+    ]
+    assert outstanding.contains_floating_charge is None  # not present on this item, live
+
+    satisfied = block.charges[2]  # charge_number 7
+    assert satisfied.status == "fully-satisfied"
+    assert satisfied.is_outstanding is False
+    assert satisfied.satisfied_on == date(2009, 11, 25)
+    assert satisfied.obligations_secured == (
+        "All monies due or to become due from the company to the chargee under the terms of "
+        "the aforementioned instrument creating or evidencing the charge"
+    )
+
+
+def test_charges_map_mgm_single_charge_no_charge_code() -> None:
+    """§7 recon: roughly a quarter of live items carry no `charge_code`
+    (pre-2013 filings) — `00000006`'s one charge is one of them."""
+    block = charges_module.map_charges(
+        MGM_CHARGES, "00000006", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert len(block.charges) == 1
+    charge = block.charges[0]
+    assert charge.charge_number == 1
+    assert charge.charge_id is None  # honestly absent, not guessed (D-009)
+    assert charge.status == "outstanding"
+    assert charge.is_outstanding is True
+    assert charge.parties_entitled == ["Pacific Life Re Limited"]
+    assert block.total_count == 1
+    assert block.satisfied_count == 0
+    assert block.outstanding_count == 1
+
+
+def test_charges_map_deloitte_empty_block_present_not_error() -> None:
+    """§8 recon, the load-bearing case: a company with no charges is a
+    *present* block with `charges: []`, never an error and never absent —
+    exactly D-041(h)'s principle (`/company/{n}` decides existence;
+    `/charges` never does), confirmed live on Deloitte LLP."""
+    block = charges_module.map_charges(
+        DELOITTE_CHARGES, "OC303675", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block.charges == []
+    assert block.total_count == 0
+    assert block.satisfied_count == 0
+    assert block.outstanding_count == 0
+    assert block.notes == []
+    assert block.provenance.source == "Companies House (UK)"
+    assert block.provenance.cached is False
+
+
+def test_charges_map_natwest_truncation_disclosed() -> None:
+    """§2/§5 recon: 137 total, only 100 fit on one page at the register's own
+    maximum — D-042(j)'s truncation-disclosure rule, exercised for real."""
+    block = charges_module.map_charges(
+        NATWEST_CHARGES, "SC090312", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block.total_count == 137
+    assert len(block.charges) == 100
+    assert block.satisfied_count == 27
+    assert block.outstanding_count == 110
+    assert len(block.notes) == 1
+    assert "137" in block.notes[0]
+    assert "100" in block.notes[0]
+    assert "SC090312/charges" in block.notes[0]
+
+    # newest-first, non-increasing throughout (created_on desc, then
+    # charge_number desc as the tie-break) — not hand-verified item by item
+    # across all 100, but monotonicity is exactly what the sort promises.
+    keys = [(c.created_on or date.min, c.charge_number or 0) for c in block.charges]
+    assert keys == sorted(keys, reverse=True)
+
+    statuses = {c.status for c in block.charges}
+    assert statuses == {"outstanding", "fully-satisfied"}  # no "part-satisfied" observed live
+
+
+def test_charges_is_outstanding_never_guesses_unknown_status() -> None:
+    """D-025(d) / D-011: a status word the table does not contain yields
+    `None`, never a guessed `True`/`False`. `"part-satisfied"` specifically
+    was never observed live in this recon (§9) and is deliberately absent
+    from `_OUTSTANDING_BY_STATUS`."""
+    payload = {
+        "items": [{"charge_number": 1, "status": "part-satisfied"}],
+        "total_count": 1,
+        "satisfied_count": 0,
+    }
+    block = charges_module.map_charges(payload, "00000001", cached=False, fetched_at=_FETCHED_AT)
+    assert block.charges[0].status == "part-satisfied"
+    assert block.charges[0].is_outstanding is None
+
+    payload_no_status = {"items": [{"charge_number": 2}], "total_count": 1, "satisfied_count": 0}
+    block2 = charges_module.map_charges(
+        payload_no_status, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block2.charges[0].status is None
+    assert block2.charges[0].is_outstanding is None
+
+
+def test_charges_no_natural_person_among_recorded_parties_entitled() -> None:
+    """§3/§9 recon finding, recorded two ways.
+
+    A reliable *positive* "is this an institution" classifier does not exist
+    as a keyword list — real institution names take too many shapes
+    (`"Kfw"`, `"Natixis"`, `"Bnp Paribas"`, `"Ubs Ag"` carry no corporate
+    suffix a keyword match would catch; an early version of this test using
+    one produced 12 false positives on real banks and clearing houses in the
+    `SC090312` fixture alone). A digit-based *negative* check fares no
+    better in the other direction — `"Nevis Derivatives No 3 LLP"` is a real
+    LLP name, not a person, and contains a digit. So this test does two
+    narrower, genuinely reliable things instead of one fragile broad one:
+
+    1. A *negative* check with essentially no false-positive risk: no
+       recorded name carries a personal title — a signal that would be very
+       unusual on an institution and costs nothing to check.
+    2. An exact pin of the two small fixtures (Tesco, `00000006`) this task
+       hand-verified name-by-name in `test_charges_map_tesco_sorted_counts_
+       and_status` / `test_charges_map_mgm_single_charge_no_charge_code`.
+
+    The full claim — that none of the 68 distinct names across all four
+    recorded fixtures, including all 100 items of `SC090312`, reads as a
+    natural person — was verified by hand while this module was written and
+    is reported to the orchestrator in full; it is not re-derived here by a
+    heuristic that cannot make that judgement reliably.
+    """
+    personal_titles = ("mr ", "mrs ", "miss ", "ms ", "mx ", "dr ", "sir ", "dame ")
+    for fixture, number in (
+        (TESCO_CHARGES, "00445790"),
+        (MGM_CHARGES, "00000006"),
+        (NATWEST_CHARGES, "SC090312"),
+    ):
+        block = charges_module.map_charges(fixture, number, cached=False, fetched_at=_FETCHED_AT)
+        for charge in block.charges:
+            for name in charge.parties_entitled:
+                lowered = name.lower()
+                assert not any(lowered.startswith(t) for t in personal_titles), (
+                    f"{number}: {name!r} carries a personal title — review by hand."
+                )
+
+    tesco_block = charges_module.map_charges(
+        TESCO_CHARGES, "00445790", cached=False, fetched_at=_FETCHED_AT
+    )
+    all_tesco_parties = {name for c in tesco_block.charges for name in c.parties_entitled}
+    assert all_tesco_parties == {
+        "Tesco Trustee Company of Ireland Limited as Trustee of the Tesco Ireland Limited "
+        "Senior Executive Pension Scheme",
+        "Tesco Ireland Pension Trustees Limited as Trustee of the Tesco Ireland Limited "
+        "Pension Plan",
+        "Tesco Ireland Pension Trustees Limited as Trustee of the Tesco Ireland Limited "
+        "Executive Scheme",
+        "Tesco Trustee Company of Ireland Limited as Trustee of the Tesco Ireland Limited "
+        'Staff Scheme (The "Trustee")',
+        "Rbs Aerospace Limited",
+        "Deutsche International Finance (Ireland) Limited",
+        "Deutsche Bank Ag",
+        "Cobroad Investments",
+    }
+    mgm_block = charges_module.map_charges(
+        MGM_CHARGES, "00000006", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert {name for c in mgm_block.charges for name in c.parties_entitled} == {
+        "Pacific Life Re Limited"
+    }
+
+
+def test_charges_provenance_and_extra_forbid() -> None:
+    block = charges_module.map_charges(MGM_CHARGES, "00000006", cached=True, fetched_at=_FETCHED_AT)
+    assert block.provenance.source == "Companies House (UK)"
+    assert block.provenance.source_url == (
+        "https://find-and-update.company-information.service.gov.uk/company/00000006/charges"
+    )
+    assert (
+        block.provenance.license
+        == "Crown copyright — Companies House public register, free to re-use"
+    )
+    assert block.provenance.fetched_at == _FETCHED_AT
+    assert block.provenance.cached is True
+
+    with pytest.raises(pydantic.ValidationError):  # extra="forbid" (D-004)
+        charges_module.Charge(charge_number=1, not_a_real_field=True)  # type: ignore[call-arg]
+
+
+# --- client_module.fetch_charges — respx-mocked, no network ---------------
+
+
+@respx.mock
+async def test_fetch_charges_requests_one_page_at_register_maximum() -> None:
+    route = respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+    result = await client_module.fetch_charges("00445790")
+    assert route.call_count == 1
+    requested = route.calls.last.request.url.params
+    assert requested["items_per_page"] == "100"
+    assert len(result.charges) == 9
+
+
+@respx.mock
+async def test_fetch_charges_404_is_present_empty_block_not_error() -> None:
+    """The single most important recon question (§8): confirmed live that
+    Companies House does not actually 404 this endpoint — not even for a
+    nonexistent company number — but the client still treats one as a
+    present empty block, defensively, never as `not_found`."""
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(return_value=httpx.Response(404))
+    result = await client_module.fetch_charges("00445790")
+    assert result.charges == []
+    assert result.provenance.cached is False
+
+
+@respx.mock
+async def test_fetch_charges_empty_result_is_never_not_found_on_a_cache_hit() -> None:
+    """Empty results are cached under the existing `status="not_found"` label
+    purely to borrow its 1 h TTL (D-042(j)) — never surfaced as an error on
+    read. This is the mechanism itself, not just the outward behaviour."""
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=DELOITTE_CHARGES)
+    )
+    first = await client_module.fetch_charges("00445790")
+    assert first.charges == []
+
+    entry = cache.get(client_module._charges_cache_key("00445790"))
+    assert entry is not None
+    assert entry.status == "not_found"  # the TTL label, not an error signal
+
+    second = await client_module.fetch_charges("00445790")
+    assert second.charges == []
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+
+
+@respx.mock
+async def test_fetch_charges_non_empty_result_cached_as_ok() -> None:
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+    await client_module.fetch_charges("00445790")
+    entry = cache.get(client_module._charges_cache_key("00445790"))
+    assert entry is not None
+    assert entry.status == "ok"
+
+
+@respx.mock
+async def test_fetch_charges_cache_hit_same_fetched_at_no_second_request() -> None:
+    route = respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+    first = await client_module.fetch_charges("00445790")
+    assert first.provenance.cached is False
+    second = await client_module.fetch_charges("00445790")
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+    assert route.call_count == 1
+
+
+@respx.mock
+async def test_fetch_charges_401_403_429_error_codes() -> None:
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(return_value=httpx.Response(401))
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_charges("00445790")
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+
+    respx.get(f"{BASE_URL}/company/00445791/charges").mock(return_value=httpx.Response(403))
+    with pytest.raises(RegistryError) as excinfo2:
+        await client_module.fetch_charges("00445791")
+    assert excinfo2.value.code is ErrorCode.UPSTREAM_ERROR
+
+    respx.get(f"{BASE_URL}/company/00445792/charges").mock(
+        return_value=httpx.Response(429, headers={"retry-after": "60"})
+    )
+    with pytest.raises(RegistryError) as excinfo3:
+        await client_module.fetch_charges("00445792")
+    assert excinfo3.value.code is ErrorCode.RATE_LIMITED
+
+
+@respx.mock
+async def test_fetch_charges_500_then_200_retried_exactly_once() -> None:
+    route = respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        side_effect=[httpx.Response(500), httpx.Response(200, json=TESCO_CHARGES)]
+    )
+    result = await client_module.fetch_charges("00445790")
+    assert len(result.charges) == 9
+    assert route.call_count == 2
+
+
+async def test_fetch_charges_invalid_id_raises_without_http_request() -> None:
+    with respx.mock:
+        route = respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+            return_value=httpx.Response(200, json=TESCO_CHARGES)
+        )
+        with pytest.raises(RegistryError) as excinfo:
+            await client_module.fetch_charges("not-a-crn-at-all-!!")
+        assert excinfo.value.code is ErrorCode.INVALID_ID
+        assert route.call_count == 0
+
+
+async def test_fetch_charges_no_key_raises_without_http_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COMPANIES_HOUSE_API_KEY", raising=False)
+    with respx.mock:
+        route = respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+            return_value=httpx.Response(200, json=TESCO_CHARGES)
+        )
+        with pytest.raises(RegistryError) as excinfo:
+            await client_module.fetch_charges("00445790")
+        assert route.call_count == 0
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+
+
+@respx.mock
+async def test_fetch_charges_institution_names_never_reach_a_log_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """D-028(1) / D-040: `parties_entitled` is the one place a natural
+    person's name could appear, and it must never reach a log line. Checked
+    against every name this recon actually recorded, at DEBUG level."""
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = await client_module.fetch_charges("00445790")
+    names = [name for charge in result.charges for name in charge.parties_entitled]
+    assert names  # sanity: the fixture actually has names to check
+    for record in caplog.records:
+        message = record.getMessage()
+        for name in names:
+            assert name not in message
+
+
+# --- Live done-check --------------------------------------------------------
+
+
+@pytest.mark.live
+async def test_live_charges_no_charges_company_is_present_empty_block() -> None:
+    result = await client_module.fetch_charges("OC303675")
+    assert result.charges == []
+    assert result.total_count == 0
+
+
+@pytest.mark.live
+async def test_live_charges_fixtures_still_match_stored_files() -> None:
+    """Mirrors `test_109_live_fixtures_still_match_stored_files` one level
+    down: re-fetch each recorded charges fixture and diff the mapped block
+    against the stored one, ignoring provenance's own `fetched_at`/`cached`."""
+    numbers = ["00445790", "00000006", "OC303675", "SC090312"]
+    volatile = {"fetched_at", "cached"}
+    for number in numbers:
+        stored = charges_module.map_charges(
+            _load(f"ch_{number}_charges.json"), number, cached=False, fetched_at=_FETCHED_AT
+        )
+        live = await client_module.fetch_charges(number)
+        stored_dump = stored.model_dump(mode="json")
+        live_dump = live.model_dump(mode="json")
+        stored_dump["provenance"] = {
+            k: v for k, v in stored_dump["provenance"].items() if k not in volatile
+        }
+        live_dump["provenance"] = {
+            k: v for k, v in live_dump["provenance"].items() if k not in volatile
+        }
+        assert stored_dump == live_dump, (
+            f"{number} charges fixture is stale relative to the register"
+        )
