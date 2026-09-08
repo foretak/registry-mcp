@@ -35,7 +35,7 @@ from registry_mcp.core.models import (
     ValidationResult,
 )
 from registry_mcp.core.registry import list_countries, list_registries
-from registry_mcp.mcp.server import mcp
+from registry_mcp.mcp.server import _PAYMENT_FRAUD_CAVEAT, mcp
 from registry_mcp.registries.gb import client as gb_client_module
 from registry_mcp.registries.no import client as client_module
 
@@ -510,6 +510,16 @@ async def test_counterparty_check_prompt_states_what_it_does_not_establish() -> 
     assert "sanctions, PEP or adverse-media" in text
 
 
+def test_instructions_state_the_payment_fraud_caveat() -> None:
+    """`REVIEW.md` S-series finding 5(a): `instructions` is the string every MCP
+    client puts in front of the model, and a caller who uses `lookup_company`
+    directly never renders `counterparty_check` at all, so the pitch in
+    `instructions` must carry the caveat too — drawn from the same module
+    constant the prompt uses, so a third use cannot paraphrase it away."""
+    assert mcp.instructions is not None
+    assert _PAYMENT_FRAUD_CAVEAT in mcp.instructions
+
+
 async def test_register_coverage_prompt_renders_and_reads_the_rules_resource() -> None:
     async with Client(mcp) as client:
         result = await client.get_prompt(
@@ -924,3 +934,37 @@ async def test_no_lookup_still_logs_the_real_identifier(record_spy: _RecordSpy) 
     last = record_spy.calls[-1]
     assert last["country"] == "NO"
     assert last["query"] == "923609016"
+
+
+# ---------------------------------------------------------------------------
+# An internal error is not a successful call (`REVIEW.md` S-series finding 6,
+# `mcp/server.py` half — the `core/registry.py` half is T42's).
+# ---------------------------------------------------------------------------
+
+
+async def test_tool_body_runtime_error_is_recorded_ok_false_and_still_raises(
+    record_spy: _RecordSpy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_CallOutcome.ok` used to default `True`, and only `except RegistryError`
+    ever set it `False` — so a tool body that raised anything else (an internal
+    bug, not a registry failure) was logged to the usage table as a *successful*
+    call. `_call_context` must now record `ok=False` for any exception, not just
+    `RegistryError`, and the exception must still propagate to the caller
+    unchanged (here, as FastMCP's own bare `ToolError`)."""
+
+    class _BoomRegistry:
+        async def lookup_with(self, id: str, include: object) -> Any:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "registry_mcp.mcp.server.get_registry", lambda country: _BoomRegistry()
+    )
+
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError):
+            await client.call_tool(
+                "lookup_company", {"id": "923609016", "country": "NO"}
+            )
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["ok"] is False

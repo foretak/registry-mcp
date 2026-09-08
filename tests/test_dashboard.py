@@ -9,6 +9,7 @@ file via `core/log.py::set_sink()` + `log_call()`, exactly like
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -429,3 +430,61 @@ def test_dashboard_empty_database_shows_no_calls_yet_for_recency(
     assert "0 of 0 cacheable calls" in html
     # A `None` day-count or timestamp must never leak into the page as text.
     assert ">None<" not in html
+
+
+# ---------------------------------------------------------------------------
+# The chart fix gets the test it was missing (`REVIEW.md` S-series finding 9):
+# a fixed pixel `width='{n * 22 + 4}'` on the chart `<svg>`, inside a
+# `overflow-x: auto` wrapper, scrolled a phone straight to the empty left edge
+# of the 30-day window. Neither regression below shipped a failing test.
+# ---------------------------------------------------------------------------
+
+
+def _chart_svg_tag(html: str) -> str:
+    """The chart's own `<svg ...>` opening tag, isolated from the `<rect>` bars
+    inside it — those legitimately carry their own fixed pixel `width='{bar_w}'`
+    (drawing coordinates inside the `viewBox`), which must not be confused with a
+    fixed pixel width on the outer `<svg>` element itself."""
+    match = re.search(r"<svg\b[^>]*>", html)
+    assert match is not None, "no <svg> in the rendered dashboard"
+    return match.group(0)
+
+
+def test_dashboard_chart_svg_is_responsive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The chart must be sized by `viewBox` with `width='100%'` — the exact
+    attribute form `api/dashboard.py`'s `_render_bar_chart` emits — so it scales
+    to its `overflow-x: auto` wrapper instead of forcing a fixed pixel width."""
+    db = tmp_path / "calls.sqlite3"
+    _seed_calls(db)
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "viewBox=" in html
+    assert "width='100%'" in html
+    svg_tag = _chart_svg_tag(html)
+    assert "viewBox=" in svg_tag
+    assert "width='100%'" in svg_tag
+
+
+def test_dashboard_chart_svg_has_no_fixed_pixel_width(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression pin: the bug that shipped was a fixed pixel `width='<digits>'`
+    on the chart `<svg>` itself (e.g. `width='664'` for a 30-day window) — this
+    must never come back, on the `<svg>` element specifically."""
+    db = tmp_path / "calls.sqlite3"
+    _seed_calls(db)
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    svg_tag = _chart_svg_tag(resp.text)
+    assert re.search(r"width='\d+'", svg_tag) is None

@@ -114,9 +114,12 @@ def _call_context(
         return report.model_dump(mode="json")
 
     A `RegistryError` raised inside the block is recorded as a failure and
-    re-raised as a `ToolError` whose text is the D-007 JSON envelope; success
-    is recorded as-is, with whatever the caller set on `outcome` (`error_code`
-    for `validate_company_id`'s non-raising `invalid_id` case, `cached` for
+    re-raised as a `ToolError` whose text is the D-007 JSON envelope. Any other
+    exception is also recorded as a failure — an internal bug escaping a tool
+    body is not a successful call — and re-raised unchanged, which FastMCP
+    turns into a bare `ToolError` of its own. Success is recorded as-is, with
+    whatever the caller set on `outcome` (`error_code` for
+    `validate_company_id`'s non-raising `invalid_id` case, `cached` for
     `lookup_company`/`search_company`).
 
     Whatever `outcome.country`/`.query` hold when the block exits is what
@@ -132,6 +135,15 @@ def _call_context(
         outcome.ok = False
         outcome.error_code = exc.code.value
         raise _tool_error(exc) from exc
+    except Exception:
+        # Any other exception is an internal bug, not a `RegistryError` — it must
+        # not be counted as a successful call (`REVIEW.md` S-series finding 6).
+        # Re-raised unchanged, so FastMCP's own dispatcher still turns it into a
+        # bare `ToolError` rather than the D-007 envelope — closing that gap is
+        # `core/registry.py`'s half of finding 6, owned by T42 this round, not
+        # this module's.
+        outcome.ok = False
+        raise
     finally:
         try:
             record_call(
@@ -163,6 +175,17 @@ def _resource_error(exc: RegistryError) -> ResourceError:
 # Server
 # ---------------------------------------------------------------------------
 
+# The payment-fraud caveat every client that only reads `instructions` — not the
+# `counterparty_check` prompt — must still see (`REVIEW.md` S-series finding 5(a)):
+# `instructions` is the string every MCP client puts in front of the model, and a
+# caller who uses `lookup_company` directly never renders the prompt at all. Defined
+# once and used by both `instructions` below and `counterparty_check`'s own prompt
+# text, so a third use cannot paraphrase it away.
+_PAYMENT_FRAUD_CAVEAT = (
+    "This is not sanctions, PEP or adverse-media screening; it does not verify "
+    "bank account or payment details; and it is not a defence against payment fraud"
+)
+
 mcp: FastMCP = FastMCP(
     name="registry-mcp",
     version=__version__,
@@ -170,7 +193,9 @@ mcp: FastMCP = FastMCP(
         "Check whether a company you're about to deal with — a new supplier, a "
         "counterparty, an entity you're onboarding — is real, active and keeping up with "
         "its statutory filings, straight from the national business register itself, not "
-        "a resold copy. lookup_company returns identity and status; company_deadlines "
+        f"a resold copy. {_PAYMENT_FRAUD_CAVEAT} — the commonest invoice fraud "
+        "impersonates a real, active, correctly-registered supplier, not a fake one. "
+        "lookup_company returns identity and status; company_deadlines "
         "returns filing health; validate_company_id checks an identifier's shape for free "
         "before you spend a real lookup. The prompts counterparty_check and "
         "register_coverage each carry out one of those jobs end to end from a single "
@@ -726,8 +751,7 @@ def counterparty_check(id: str, country: str = "NO") -> str:
         "live there, and summarising them away is the one mistake this prompt exists to "
         "prevent.\n\n"
         "End with a section titled exactly 'What this does not establish'. State plainly: "
-        "this is not sanctions, PEP or adverse-media screening; it does not verify bank "
-        "account or payment details; and it is not a defence against payment fraud. The "
+        f"{_PAYMENT_FRAUD_CAVEAT}. The "
         "costly fraud pattern — business email compromise, where an attacker redirects a "
         "genuine payment — uses a real, active, correctly-registered company and forges "
         "only the bank details, so a clean result here is consistent with that fraud, not "
