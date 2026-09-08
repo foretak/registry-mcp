@@ -350,6 +350,17 @@ _LICENSE = (
 
 _ANNUAL_ACCOUNTS = "annual_accounts"
 
+#: D-044(b): one include name, `filings`, covers three differently-scoped
+#: answers, and the scope difference must be disclosed in the block's own
+#: `notes` **on every call** — the promise `mcp/server.py` and
+#: `core/models.py`'s `FilingHistory` docstring publish. Unconditional and
+#: first, exactly like Norway's `_ONE_PERIOD_NOTE` (the pattern this copies).
+_SCOPE_NOTE = (
+    "Bolagsverket's document list publishes filed annual reports only, not a general "
+    "filing history; other filings this organisation has made — board changes, "
+    "articles, capital — are not listed here, and their absence here means nothing."
+)
+
 _EMPTY_NOTE = (
     "Bolagsverket's document list holds no filed annual report for this organisation. "
     "That is the register's own answer, not a failed lookup — but it is not proof that "
@@ -469,7 +480,10 @@ def map_dokumentlista(
 
     financial_year_end = documents[0].period_end if documents else None
 
-    notes: list[str] = []
+    # D-044(b): the scope note is first and unconditional — empty or not,
+    # calendar year or not — because it is what tells a caller which subset
+    # of "this company's filings" the block below actually is.
+    notes: list[str] = [_SCOPE_NOTE]
     if not documents:
         notes.append(_EMPTY_NOTE)
     elif financial_year_end is not None and (

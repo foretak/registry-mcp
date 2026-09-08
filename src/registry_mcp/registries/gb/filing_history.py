@@ -517,6 +517,18 @@ _FIND_AND_UPDATE_FILINGS_URL = (
 _SOURCE = "Companies House (UK)"
 _LICENSE = "Crown copyright — Companies House public register, free to re-use"
 
+#: D-044(b): one include name, `filings`, covers three differently-scoped
+#: answers, and the scope difference must be disclosed in the block's own
+#: `notes` **on every call** — the promise `mcp/server.py` and
+#: `core/models.py`'s `FilingHistory` docstring publish. Unconditional and
+#: first, exactly like Norway's `_ONE_PERIOD_NOTE` (the pattern this copies).
+_SCOPE_NOTE = (
+    "Companies House publishes the whole filing history here, every category of "
+    "filing, not only accounts — an accounts filing is one row among confirmation "
+    "statements, officer changes, charges and the rest. Use `category` and `kind` to "
+    "pick the rows you mean."
+)
+
 _FEE_POINT_NOTE = (
     "`days_from_fee_point` is null on every filing here, and that is a missing datum "
     "rather than a missing calculation: Companies House publishes due dates for the "
@@ -665,7 +677,10 @@ def map_filing_history(
     ]
     financial_year_end = max(accounts_periods) if accounts_periods else None
 
-    notes: list[str] = []
+    # D-044(b): the scope note is first and unconditional — empty, unavailable
+    # or full of accounts and confirmation statements alike — because it is
+    # what tells a caller this is the whole filing history, not accounts only.
+    notes: list[str] = [_SCOPE_NOTE]
     if not available:
         notes.append(_UNAVAILABLE_NOTE.format(status=status))
     elif not documents:

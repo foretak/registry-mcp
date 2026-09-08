@@ -1255,8 +1255,9 @@ def test_132_dokumentlista_recording_maps_three_annual_reports() -> None:
     assert block.provenance.cached is False
     assert block.provenance.source == "Bolagsverket (bolagsverket.se)"
     # A 31 December year end is the assumption Sweden already ships, so no
-    # broken-financial-year caveat fires.
-    assert block.notes == []
+    # broken-financial-year caveat fires — only the D-044(b) scope note
+    # (finding 1 of the D-044 wiring review) is present, and it is first.
+    assert block.notes == [filings._SCOPE_NOTE]
 
 
 def test_133_empty_list_and_absent_key_are_a_present_block_never_not_found() -> None:
@@ -1380,6 +1381,22 @@ def test_137_broken_financial_year_is_disclosed_and_datetime_dates_still_parse()
     )
     assert junk.documents[0].period_end is None
     assert junk.documents[0].filed_at is None
+
+
+def test_scope_note_is_present_first_on_every_block_d044b() -> None:
+    """D-044(b): one include name, `filings`, covers three differently-scoped
+    answers *because* "the scope difference is disclosed in the block's own
+    `notes`, on every call". D-044 wiring review, finding 1 (blocking): this
+    Swedish block returned `notes: []` on a non-empty result, breaking that
+    promise for the register whose scope is narrowest. `_SCOPE_NOTE` is now
+    unconditional and first — on both a non-empty and an empty block."""
+    non_empty = filings.map_dokumentlista(DOKUMENTLISTA, cached=False, fetched_at=FETCHED_AT)
+    assert non_empty.notes[0] == filings._SCOPE_NOTE
+    assert "annual reports only" in non_empty.notes[0]
+
+    empty = filings.map_dokumentlista(DOKUMENTLISTA_EMPTY, cached=False, fetched_at=FETCHED_AT)
+    assert empty.notes[0] == filings._SCOPE_NOTE
+    assert any("holds no filed annual report" in n for n in empty.notes)
 
 
 @respx.mock

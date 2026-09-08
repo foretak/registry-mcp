@@ -1616,9 +1616,12 @@ def test_filings_empty_available_and_empty_unavailable_are_two_answers() -> None
     assert BR_FILINGS["total_count"] == 0
     assert held_none.documents == []
     assert held_none.total_count == 0
-    assert len(held_none.notes) == 1
-    assert "lists no filings for this company" in held_none.notes[0]
-    assert "the register's own answer, not a failed lookup" in held_none.notes[0]
+    # notes[0] is the D-044(b) scope note, unconditional on every block; the
+    # empty-state sentence follows it.
+    assert len(held_none.notes) == 2
+    assert held_none.notes[0] == filing_history_module._SCOPE_NOTE
+    assert "lists no filings for this company" in held_none.notes[1]
+    assert "the register's own answer, not a failed lookup" in held_none.notes[1]
 
     cannot_answer = filing_history_module.map_filing_history(
         CIO_FILINGS, "CE020555", cached=False, fetched_at=_FETCHED_AT
@@ -1627,9 +1630,10 @@ def test_filings_empty_available_and_empty_unavailable_are_two_answers() -> None
     assert CIO_FILINGS["total_count"] == 0  # the register did publish a zero...
     assert cannot_answer.documents == []
     assert cannot_answer.total_count is None  # ...and we do not relay it as one
-    assert len(cannot_answer.notes) == 1
-    assert "filing-history-not-available-unknown-prefix" in cannot_answer.notes[0]
-    assert "rather than that the company has filed nothing" in cannot_answer.notes[0]
+    assert len(cannot_answer.notes) == 2
+    assert cannot_answer.notes[0] == filing_history_module._SCOPE_NOTE
+    assert "filing-history-not-available-unknown-prefix" in cannot_answer.notes[1]
+    assert "rather than that the company has filed nothing" in cannot_answer.notes[1]
 
     # The two blocks must not be confusable by a caller reading fields only.
     assert held_none.total_count != cannot_answer.total_count
@@ -1709,6 +1713,25 @@ def test_filings_provenance_and_extra_forbid() -> None:
 
     with pytest.raises(pydantic.ValidationError):  # extra="forbid" (D-004)
         filing_history_module.FiledDocument(category="accounts", not_a_real_field=True)  # type: ignore[call-arg]
+
+
+def test_scope_note_is_present_first_on_every_block_d044b() -> None:
+    """D-044(b): one include name, `filings`, covers three differently-scoped
+    answers *because* "the scope difference is disclosed in the block's own
+    `notes`, on every call". D-044 wiring review, finding 1 (blocking): this
+    British block's notes never named the scope at all. `_SCOPE_NOTE` is now
+    unconditional and first — on both a non-empty and an empty block."""
+    non_empty = filing_history_module.map_filing_history(
+        TESCO_FILINGS, "00445790", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert non_empty.notes[0] == filing_history_module._SCOPE_NOTE
+    assert "not only accounts" in non_empty.notes[0]
+
+    empty = filing_history_module.map_filing_history(
+        BR_FILINGS, "BR026263", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert empty.notes[0] == filing_history_module._SCOPE_NOTE
+    assert any("lists no filings for this company" in n for n in empty.notes)
 
 
 def test_filings_model_mirrors_the_swedish_one_field_for_field() -> None:
