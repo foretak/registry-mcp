@@ -52,6 +52,24 @@ frozen as of `0.2.0`.
   employee count for anybody, and an *entity-level* gap only for `NO`,
   whose register does publish one and simply has none for that company
   (`beb287f`).
+- **`ChargeBlock.outstanding_count` is removed; four fields are added.**
+  D-045(a) struck it — it was `total_count - satisfied_count`, our own
+  arithmetic wearing a register figure's name, and on a shared model it
+  would have meant two different things depending on which country filled
+  it (D-011). Added in its place: `ChargeBlock.part_satisfied_count` (the
+  register's own whole-company figure, `0` in every observed payload, not
+  derived); `Charge.contains_fixed_charge` and
+  `Charge.contains_negative_pledge` beside the existing
+  `contains_floating_charge` (Companies House emits each key only when
+  `True`; absence maps to `None`, never `False`); and
+  `Charge.assets_charged_type` / `Charge.obligations_secured_type`, the
+  register's own category token for each free-text field — on 19 of 19
+  observed items, `obligations_secured`'s own token was `amount-secured`,
+  never `obligations-secured`. `ChargeBlock.notes` also gains one
+  unconditional sentence, beside the existing truncation note, whenever a
+  page carries either free-text field: the text is the register's own
+  prose, relayed verbatim and not parsed, and may name a natural person
+  (D-045(a)).
 
 ### Fixed
 

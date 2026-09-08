@@ -1,19 +1,20 @@
 """GB charges — ``GET /company/{n}/charges`` (Companies House).
 
-**R-5c / T37**, Part B (``DECISIONS.md`` D-042). This module maps the wire
-straight onto the canonical :class:`~registry_mcp.core.models.Charge` /
+**R-5c / T37**, Part B (``DECISIONS.md`` D-042), reconciled with **D-045(a)**'s
+ruling on the field list (T47). This module maps the wire straight onto the
+canonical :class:`~registry_mcp.core.models.Charge` /
 :class:`~registry_mcp.core.models.ChargeBlock` /
-:class:`~registry_mcp.core.models.SourceRef`. **The field list below is not
-a ruled shape** — no charge field name appears anywhere in ``DECISIONS.md``.
-It is shaped by D-042(g)'s anti-bend rule (a shared attachment model's field
-names are country-neutral, and a field only one register can plausibly ever
-fill says so in its own description) and D-042(j)'s truncation and
-derived-flag rules, and it is this module's own proposal, pending the
-architect's ruling (D-045, pending). There is no local stand-in and nothing
-to convert: :func:`map_charges` constructs the canonical classes directly,
-and ``CompaniesHouseRegistry.charges`` (``registries/gb/__init__.py``)
-returns :func:`registry_mcp.registries.gb.client.fetch_charges`'s result
-unchanged.
+:class:`~registry_mcp.core.models.SourceRef`. **The field list is ruled, not
+proposed**: D-045(a) struck `outstanding_count`; added `part_satisfied_count`,
+`contains_fixed_charge`, `contains_negative_pledge`, `assets_charged_type` and
+`obligations_secured_type`; and corrected several descriptions — see
+``core/models.py``'s ``Charge``/``ChargeBlock`` docstrings and field
+descriptions for the ruled shape itself. This module's own job is only to map
+the wire onto it, per D-042(g)'s anti-bend rule and D-042(j)'s truncation and
+derived-flag rules. There is no local stand-in and nothing to convert:
+:func:`map_charges` constructs the canonical classes directly, and
+``CompaniesHouseRegistry.charges`` (``registries/gb/__init__.py``) returns
+:func:`registry_mcp.registries.gb.client.fetch_charges`'s result unchanged.
 
 Recon findings behind every choice below — live calls against
 ``https://api.company-information.service.gov.uk``, 2026-09-08, credential
@@ -85,29 +86,32 @@ have to re-derive them:
   D-042 — the fuller, reasoned, dated ruling this task told its implementer
   to read in full — over the shorter paraphrase in its own brief, and says
   so here for the orchestrator to double-check.
-* **Two fields observed live that are not in this module's field list**:
-  ``particulars.contains_fixed_charge`` (a sibling of
-  ``contains_floating_charge`` and ``contains_negative_pledge``) and a
-  ``charge_code`` absent on roughly a quarter of items (pre-2013 filings,
+* **Two fields observed live that were not in this module's original field
+  list, and are now ruled in by D-045(a)**: ``particulars.contains_fixed_charge``
+  and ``particulars.contains_negative_pledge`` (siblings of
+  ``contains_floating_charge``), each emitted **only when `True`** —
+  ``contains_fixed_charge`` on 86 of 110 committed items, ``contains_negative_pledge``
+  on 59, ``contains_floating_charge`` on 18, zero explicit `False` values
+  anywhere. A ``charge_code`` is absent on 19 of 110 items (pre-2013 filings,
   before Companies House assigned it retrospectively) — mapped to
-  ``charge_id`` when present, honestly ``None`` when not, per D-009. Neither
-  is added to the model here: D-042(g)'s anti-bend rule reserves that for an
-  entry in ``DECISIONS.md``, not an implementer's judgement call.
+  ``charge_id`` when present, honestly ``None`` when not, per D-009.
 
-Two arithmetic choices this module makes that are not spelled out in any
-ruling, flagged for the architect rather than decided quietly:
+This module used to flag two arithmetic choices for the architect rather than
+decide them quietly — both are now answered by **D-045(a)**, so the questions
+are deleted rather than left stale:
 
-* ``ChargeBlock.outstanding_count`` is derived as ``total_count -
-  satisfied_count`` (both register-published whole-dataset integers,
-  identical in kind to how ``registries/gb/mapping.py::map_search_result``
-  derives ``truncated`` from ``total_results`` and ``len(hits)`` — arithmetic
-  on published facts, not a guess). Companies House also publishes
-  ``part_satisfied_count``, which this module's field list has no place
-  for; it was 0 in every payload this recon saw, so the choice is untested
-  in practice, but the honest reading is that a part-satisfied charge is
-  still counted here as "not fully satisfied", i.e. within
-  ``outstanding_count``. A future ruling may want its own
-  ``part_satisfied_count`` field — this module cannot add it (D-042(g)).
+* **Struck, not computed.** ``ChargeBlock.outstanding_count`` used to be
+  derived here as ``total_count - satisfied_count``. D-045(a) struck it: on a
+  shared, country-neutral model the same field name would mean "outstanding"
+  for a register with no partially-satisfied state and "not fully satisfied"
+  for one that has it (D-011) — two meanings decided by which country filled
+  it. This module no longer computes it, and :func:`map_charges` no longer
+  builds it.
+* **``part_satisfied_count`` is now its own field**, relayed verbatim from
+  the register's own whole-company figure — the same one this module used to
+  discard for lack of a place to put it. It was `0` on every one of the 110
+  committed items; this module does not derive it or fold it into anything
+  else.
 """
 
 from __future__ import annotations
@@ -178,8 +182,17 @@ def _map_one_charge(item: Mapping[str, Any]) -> Charge:
         delivered_on=_parse_date(item.get("delivered_on")),
         satisfied_on=_parse_date(item.get("satisfied_on")),
         assets_charged=particulars.get("description"),
+        assets_charged_type=particulars.get("type"),
         obligations_secured=secured_details.get("description"),
+        obligations_secured_type=secured_details.get("type"),
+        # D-045(a): the register emits each of these three keys **only when
+        # `True`** (confirmed live, 0 explicit `False` values across all 110
+        # committed items) — a plain `.get()` already yields `None` on
+        # absence, which is exactly the required behaviour. Never coerce a
+        # missing key to `False` here (D-011).
+        contains_fixed_charge=particulars.get("contains_fixed_charge"),
         contains_floating_charge=particulars.get("contains_floating_charge"),
+        contains_negative_pledge=particulars.get("contains_negative_pledge"),
         parties_entitled=parties,
     )
 
@@ -220,11 +233,7 @@ def map_charges(
 
     total_count = payload.get("total_count")
     satisfied_count = payload.get("satisfied_count")
-    outstanding_count = (
-        total_count - satisfied_count
-        if isinstance(total_count, int) and isinstance(satisfied_count, int)
-        else None
-    )
+    part_satisfied_count = payload.get("part_satisfied_count")
 
     notes: list[str] = []
     if isinstance(total_count, int) and total_count > len(charges):
@@ -233,12 +242,22 @@ def map_charges(
             f"{len(charges)} are included here (one page, the register's own maximum page "
             f"size). See {_FIND_AND_UPDATE_CHARGES_URL.format(id=company_number)} for the rest."
         )
+    # D-045(a) point 4: one unconditional sentence, beside the truncation note
+    # above, whenever any charge on this page carries free text — never
+    # conditioned on truncation, and never per-charge.
+    if any(c.assets_charged is not None or c.obligations_secured is not None for c in charges):
+        notes.append(
+            "Companies House's own free-text description of what is charged "
+            "(`assets_charged`) and what the charge secures (`obligations_secured`) is "
+            "relayed verbatim, not parsed, and may contain particulars of property, "
+            "account details or a natural person's name."
+        )
 
     return ChargeBlock(
         charges=charges,
         total_count=total_count,
-        outstanding_count=outstanding_count,
         satisfied_count=satisfied_count,
+        part_satisfied_count=part_satisfied_count,
         provenance=SourceRef(
             source=_SOURCE,
             source_url=_FIND_AND_UPDATE_CHARGES_URL.format(id=company_number),

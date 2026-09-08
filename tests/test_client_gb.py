@@ -780,8 +780,9 @@ def test_charges_map_tesco_sorted_counts_and_status() -> None:
     assert [c.charge_number for c in block.charges] == [9, 8, 7, 6, 5, 4, 3, 2, 1]
     assert block.total_count == 9
     assert block.satisfied_count == 7
-    assert block.outstanding_count == 2  # total_count - satisfied_count
-    assert block.notes == []  # total_count == len(charges): nothing truncated
+    assert block.part_satisfied_count == 0  # the register's own figure, read not computed
+    assert len(block.notes) == 1  # nothing truncated, but every item carries free text
+    assert "verbatim" in block.notes[0]
 
     outstanding = block.charges[0]
     assert outstanding.status == "outstanding"
@@ -792,7 +793,15 @@ def test_charges_map_tesco_sorted_counts_and_status() -> None:
         "Tesco Trustee Company of Ireland Limited as Trustee of the Tesco Ireland Limited "
         "Senior Executive Pension Scheme"
     ]
-    assert outstanding.contains_floating_charge is None  # not present on this item, live
+    # None of Tesco's nine items carry any of the three `contains_*` keys at
+    # all, live — a real-fixture proof that absence maps to `None`, never
+    # `False` (D-011). The full 86/59/18 True counts are all within
+    # NatWest/SC090312 — see test_charges_map_natwest_contains_flags_from_real_fixture.
+    assert outstanding.contains_fixed_charge is None
+    assert outstanding.contains_floating_charge is None
+    assert outstanding.contains_negative_pledge is None
+    assert outstanding.assets_charged_type == "short-particulars"
+    assert outstanding.obligations_secured_type == "amount-secured"
 
     satisfied = block.charges[2]  # charge_number 7
     assert satisfied.status == "fully-satisfied"
@@ -802,6 +811,7 @@ def test_charges_map_tesco_sorted_counts_and_status() -> None:
         "All monies due or to become due from the company to the chargee under the terms of "
         "the aforementioned instrument creating or evidencing the charge"
     )
+    assert satisfied.obligations_secured_type == "amount-secured"
 
 
 def test_charges_map_mgm_single_charge_no_charge_code() -> None:
@@ -817,9 +827,18 @@ def test_charges_map_mgm_single_charge_no_charge_code() -> None:
     assert charge.status == "outstanding"
     assert charge.is_outstanding is True
     assert charge.parties_entitled == ["Pacific Life Re Limited"]
+    # This item carries none of the three `contains_*` keys, live — absence
+    # maps to `None`, never `False` (D-011).
+    assert charge.contains_fixed_charge is None
+    assert charge.contains_floating_charge is None
+    assert charge.contains_negative_pledge is None
+    assert charge.assets_charged_type == "short-particulars"
+    assert charge.obligations_secured_type == "amount-secured"
     assert block.total_count == 1
     assert block.satisfied_count == 0
-    assert block.outstanding_count == 1
+    assert block.part_satisfied_count == 0  # the register's own figure, read not computed
+    assert len(block.notes) == 1  # the one item carries free text
+    assert "verbatim" in block.notes[0]
 
 
 def test_charges_map_deloitte_empty_block_present_not_error() -> None:
@@ -833,8 +852,8 @@ def test_charges_map_deloitte_empty_block_present_not_error() -> None:
     assert block.charges == []
     assert block.total_count == 0
     assert block.satisfied_count == 0
-    assert block.outstanding_count == 0
-    assert block.notes == []
+    assert block.part_satisfied_count == 0  # the register's own figure, read not computed
+    assert block.notes == []  # no charges: no truncation and no free text to disclose
     assert block.provenance.source == "Companies House (UK)"
     assert block.provenance.cached is False
 
@@ -848,11 +867,12 @@ def test_charges_map_natwest_truncation_disclosed() -> None:
     assert block.total_count == 137
     assert len(block.charges) == 100
     assert block.satisfied_count == 27
-    assert block.outstanding_count == 110
-    assert len(block.notes) == 1
+    assert block.part_satisfied_count == 0  # the register's own figure, read not computed
+    assert len(block.notes) == 2  # truncation, then the free-text disclosure
     assert "137" in block.notes[0]
     assert "100" in block.notes[0]
     assert "SC090312/charges" in block.notes[0]
+    assert "verbatim" in block.notes[1]
 
     # newest-first, non-increasing throughout (created_on desc, then
     # charge_number desc as the tie-break) — not hand-verified item by item
@@ -884,6 +904,153 @@ def test_charges_is_outstanding_never_guesses_unknown_status() -> None:
     )
     assert block2.charges[0].status is None
     assert block2.charges[0].is_outstanding is None
+
+
+def test_charges_contains_flags_absence_maps_to_none_never_false() -> None:
+    """D-045(a): Companies House emits `contains_fixed_charge`,
+    `contains_negative_pledge` and `contains_floating_charge` **only when
+    `True`** — confirmed live, zero explicit `False` values across all 110
+    committed items. An absent key must map to `None`, never `False`
+    (D-011): `None` means "the register did not mark this instrument", not
+    "this instrument does not contain one"."""
+    payload_absent = {
+        "items": [{"charge_number": 1, "particulars": {"description": "some assets"}}],
+        "total_count": 1,
+        "satisfied_count": 0,
+    }
+    block = charges_module.map_charges(
+        payload_absent, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    charge = block.charges[0]
+    assert charge.contains_fixed_charge is None
+    assert charge.contains_negative_pledge is None
+    assert charge.contains_floating_charge is None
+
+    payload_true = {
+        "items": [
+            {
+                "charge_number": 2,
+                "particulars": {
+                    "contains_fixed_charge": True,
+                    "contains_negative_pledge": True,
+                    "contains_floating_charge": True,
+                },
+            }
+        ],
+        "total_count": 1,
+        "satisfied_count": 0,
+    }
+    block2 = charges_module.map_charges(
+        payload_true, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    charge2 = block2.charges[0]
+    assert charge2.contains_fixed_charge is True
+    assert charge2.contains_negative_pledge is True
+    assert charge2.contains_floating_charge is True
+
+
+def test_charges_map_natwest_contains_flags_from_real_fixture() -> None:
+    """D-045(a)'s counted facts, confirmed directly against the committed
+    fixture rather than assumed: every occurrence of the three `contains_*`
+    keys across all four committed fixtures is within this one 137-charge
+    NatWest Markets page — **not** Tesco/`00445790`, none of whose nine
+    items carries any of the three keys at all (see
+    `test_charges_map_tesco_sorted_counts_and_status`). 86 items mark
+    `contains_fixed_charge`, 59 mark `contains_negative_pledge`, 18 mark
+    `contains_floating_charge`, and none of the three is ever `False`."""
+    block = charges_module.map_charges(
+        NATWEST_CHARGES, "SC090312", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert sum(1 for c in block.charges if c.contains_fixed_charge is True) == 86
+    assert sum(1 for c in block.charges if c.contains_negative_pledge is True) == 59
+    assert sum(1 for c in block.charges if c.contains_floating_charge is True) == 18
+    assert not any(c.contains_fixed_charge is False for c in block.charges)
+    assert not any(c.contains_negative_pledge is False for c in block.charges)
+    assert not any(c.contains_floating_charge is False for c in block.charges)
+
+
+def test_charges_part_satisfied_count_is_read_from_wire_not_computed() -> None:
+    """D-045(a): `part_satisfied_count` is the register's own whole-company
+    figure, relayed as published. All four committed fixtures observed it
+    as `0`, which alone would not distinguish "read from the wire" from
+    "hardcoded" or "computed as something that happens to be zero"; a
+    non-zero synthetic value, unrelated to `total_count`/`satisfied_count`,
+    proves it is none of those."""
+    payload = {
+        "items": [],
+        "total_count": 5,
+        "satisfied_count": 2,
+        "part_satisfied_count": 3,
+    }
+    block = charges_module.map_charges(payload, "00000001", cached=False, fetched_at=_FETCHED_AT)
+    assert block.part_satisfied_count == 3
+
+    payload_absent = {"items": [], "total_count": 0, "satisfied_count": 0}
+    block2 = charges_module.map_charges(
+        payload_absent, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block2.part_satisfied_count is None
+
+
+def test_charges_free_text_notes_sentence_present_only_when_text_present() -> None:
+    """D-045(a) point 4: one unconditional `notes` sentence on every block
+    that carries either free-text field, and no such sentence when neither
+    does — exercised on synthetic payloads so the "either" condition (only
+    `assets_charged`, only `obligations_secured`) is proven independently of
+    the four real fixtures' own truncation notes."""
+    assets_only = {
+        "items": [
+            {"charge_number": 1, "particulars": {"description": "All present assets."}}
+        ],
+        "total_count": 1,
+        "satisfied_count": 0,
+    }
+    block = charges_module.map_charges(assets_only, "00000001", cached=False, fetched_at=_FETCHED_AT)
+    assert len(block.notes) == 1
+    assert "verbatim" in block.notes[0]
+    assert "natural person" in block.notes[0]
+
+    obligations_only = {
+        "items": [
+            {"charge_number": 1, "secured_details": {"description": "All monies due."}}
+        ],
+        "total_count": 1,
+        "satisfied_count": 0,
+    }
+    block2 = charges_module.map_charges(
+        obligations_only, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert len(block2.notes) == 1
+    assert "verbatim" in block2.notes[0]
+
+    neither = {
+        "items": [{"charge_number": 1, "status": "outstanding"}],
+        "total_count": 1,
+        "satisfied_count": 0,
+    }
+    block3 = charges_module.map_charges(neither, "00000001", cached=False, fetched_at=_FETCHED_AT)
+    assert block3.notes == []
+
+
+def test_charges_obligations_secured_type_verbatim_19_of_19_amount_secured() -> None:
+    """D-045(a): `obligations_secured_type` is the register's own
+    `secured_details.type` token, relayed verbatim. Across all four
+    committed fixtures, every item that carries the token at all (19 of
+    110) carries exactly `"amount-secured"` — never `"obligations-secured"`
+    — confirmed by recount, not assumed."""
+    tokens: list[str] = []
+    for fixture, number in (
+        (MGM_CHARGES, "00000006"),
+        (TESCO_CHARGES, "00445790"),
+        (DELOITTE_CHARGES, "OC303675"),
+        (NATWEST_CHARGES, "SC090312"),
+    ):
+        block = charges_module.map_charges(fixture, number, cached=False, fetched_at=_FETCHED_AT)
+        tokens.extend(
+            c.obligations_secured_type for c in block.charges if c.obligations_secured_type
+        )
+    assert len(tokens) == 19
+    assert set(tokens) == {"amount-secured"}
 
 
 def test_charges_no_natural_person_among_recorded_parties_entitled() -> None:
@@ -967,6 +1134,15 @@ def test_charges_provenance_and_extra_forbid() -> None:
 
     with pytest.raises(pydantic.ValidationError):  # extra="forbid" (D-004)
         charges_module.Charge(charge_number=1, not_a_real_field=True)  # type: ignore[call-arg]
+
+    # D-045(a): `outstanding_count` is struck, not renamed — it must not
+    # exist on the model at all, under any name.
+    assert "outstanding_count" not in ChargeBlock.model_fields
+    with pytest.raises(pydantic.ValidationError):
+        ChargeBlock(  # type: ignore[call-arg]
+            provenance=block.provenance,
+            outstanding_count=1,
+        )
 
 
 # --- client_module.fetch_charges — respx-mocked, no network ---------------
@@ -1143,8 +1319,8 @@ async def test_registry_charges_returns_real_core_models_chargeblock() -> None:
     assert all(isinstance(c, Charge) for c in block.charges)
     assert [c.charge_number for c in block.charges] == [9, 8, 7, 6, 5, 4, 3, 2, 1]
     assert block.total_count == 9
-    assert block.outstanding_count == 2
     assert block.satisfied_count == 7
+    assert block.part_satisfied_count == 0
 
     outstanding = block.charges[0]
     assert outstanding.status == "outstanding"

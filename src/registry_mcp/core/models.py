@@ -590,7 +590,15 @@ class SourceRef(_Base):
         default=None, description="Direct URL of the upstream record, for citation."
     )
     license: str | None = Field(
-        default=None, description="Licence of the upstream data, e.g. 'CC0 1.0'."
+        default=None,
+        description=(
+            "Licence of the upstream data for this attachment's own fetch, e.g. "
+            "'CC0 1.0'. A block's licence is the register's own for that endpoint and "
+            "may equal the base report's without being derived from it: Norway's "
+            "Regnskapsregisteret accounts endpoint states no licence of its own, so the "
+            "blocks it serves carry NLOD 2.0 — the same value the company record on the "
+            "same host already carries."
+        ),
     )
     fetched_at: datetime | None = Field(
         default=None, description="UTC timestamp of the live fetch this attachment came from."
@@ -685,27 +693,32 @@ class Charge(_Base):
     public API) maps onto this same shape rather than getting one of its own.
 
     **The field list is ruled by D-045(a)**, not by D-042(h) — which rules
-    `FiledDocument` and no charge shape at all. D-045(a) accepts these names,
-    corrects `created_on`'s description (it is the date the charge instrument
-    was created, not a record timestamp), and adds `contains_fixed_charge` and
+    `FiledDocument` and no charge shape at all. D-045(a) accepts the names
+    this class started with, corrects the `created_on` / `delivered_on` /
+    `satisfied_on` descriptions, and adds `contains_fixed_charge` and
     `contains_negative_pledge` beside `contains_floating_charge`, all three of
     which Companies House emits **only when true** — so an absent flag means
-    the register did not mark this instrument, never that it lacks one
-    (D-011). **This class has not yet been reconciled with that ruling**; the
-    task that does so is named in D-045(a) and is due before the next deploy.
+    the register did not mark this instrument, never that it lacks one, and
+    never `False` (D-011). It also adds `assets_charged_type` and
+    `obligations_secured_type`, the register's own category token for each
+    free-text field (S-series finding 7, D-042(e)(3)'s `persons_entitled`
+    treatment reused twice over).
     """
 
     charge_id: str | None = Field(
         default=None,
         description=(
             "The register's own opaque handle for this charge; not fetchable through this "
-            "API. `None` when the register has no such handle for an older filing — "
-            "honestly absent, not guessed."
+            "API. `None` on an older filing that predates the register assigning one — 19 "
+            "of 110 items observed, all pre-2013 — honestly absent, not guessed."
         ),
     )
     charge_number: int | None = Field(
         default=None,
-        description="The register's sequence number for this charge, within this company.",
+        description=(
+            "The register's own sequence number for this charge, scoped to this company "
+            "only: not unique across companies, and not a lookup key."
+        ),
     )
     status: str | None = Field(
         default=None,
@@ -725,25 +738,122 @@ class Charge(_Base):
         ),
     )
     classification: str | None = Field(
-        default=None, description="What kind of instrument this is, as the register describes it."
+        default=None,
+        description=(
+            "What kind of instrument this is, in the register's own prose — not a code, "
+            "and not the same field as `FiledDocument.type_code`."
+        ),
     )
-    created_on: date | None = Field(default=None, description="When the charge was created.")
+    created_on: date | None = Field(
+        default=None,
+        description=(
+            "The date the *charge instrument* was created — not a record timestamp. See "
+            "`delivered_on` for the date it reached the register; the gap between the two "
+            "is the Companies Act 2006 s.859A window a charge must be delivered within to "
+            "be registered at all."
+        ),
+    )
     delivered_on: date | None = Field(
-        default=None, description="When the charge was delivered to the register for registration."
+        default=None,
+        description=(
+            "The register's own receipt date: when the charge was delivered to the "
+            "register for registration, which is not the same date as `created_on`. The "
+            "interval between them is the Companies Act 2006 s.859A window a charge must "
+            "be delivered within to be registered at all."
+        ),
     )
     satisfied_on: date | None = Field(
-        default=None, description="When the charge was satisfied, if it has been."
+        default=None,
+        description=(
+            "The date the register recorded this charge as satisfied, exactly as "
+            "published. `None` while outstanding — see `status` for the register's own "
+            "word and `is_outstanding` for the derived flag."
+        ),
     )
     assets_charged: str | None = Field(
-        default=None, description="The register's own free-text description of what is charged."
+        default=None,
+        description=(
+            "The register's own free-text description of what is charged, relayed "
+            "verbatim and uncapped. It may contain particulars of property, account "
+            "details or a natural person's name (e.g. a guarantor): never a lookup key, "
+            "never indexed, never searchable and never reaches a log line (D-028(1), "
+            "D-040) — the same binding `parties_entitled` carries. See "
+            "`assets_charged_type` for the register's own category token this text is "
+            "filed under."
+        ),
+    )
+    assets_charged_type: str | None = Field(
+        default=None,
+        description=(
+            "The register's own category token for `assets_charged`, verbatim: "
+            "`short-particulars` or `brief-description` are the two seen on Companies "
+            "House's `particulars.type` — two different kinds of text under one field "
+            "name, which this token disambiguates. National vocabulary lives here, in "
+            "the value, never in the field name (D-042(g))."
+        ),
     )
     obligations_secured: str | None = Field(
         default=None,
-        description="The register's own free-text description of what the charge secures.",
+        description=(
+            "The register's own free-text description of what the charge secures, "
+            "relayed verbatim and uncapped, under the same binding as `assets_charged` "
+            "(D-028(1), D-040): never a lookup key, never indexed, never searchable, "
+            "never reaches a log line. See `obligations_secured_type` for the register's "
+            "own category token — on every observed item that carried one (19 of 19) it "
+            "was `amount-secured`, never `obligations-secured`, so this field's name is a "
+            "category the token disambiguates, not a description every value matches."
+        ),
+    )
+    obligations_secured_type: str | None = Field(
+        default=None,
+        description=(
+            "The register's own category token for `obligations_secured`, verbatim from "
+            "Companies House's `secured_details.type`. Observed as `amount-secured` on "
+            "19 of 19 items that carried a token at all — `obligations_secured` itself "
+            "has never once carried an `obligations-secured` value, which is exactly why "
+            "this token, not the field's name, is the category. National vocabulary "
+            "lives here, in the value, never in the field name (D-042(g))."
+        ),
+    )
+    contains_fixed_charge: bool | None = Field(
+        default=None,
+        description=(
+            "Whether Companies House marks this instrument as including a fixed charge. "
+            "The register emits this key **only when `True`**: absence means the "
+            "register did not mark this instrument, never that it lacks one, and must "
+            "never be read or stored as `False` (D-011). Norway's Løsøreregisteret and "
+            "Sweden's företagsinteckningar use different taxonomies for security "
+            "interests, so a future filler for either may leave this `None` on every "
+            "item it fills, forever — the same shape as `FiledDocument."
+            "days_from_fee_point`."
+        ),
     )
     contains_floating_charge: bool | None = Field(
         default=None,
-        description="Whether the register marks this instrument as including a floating charge.",
+        description=(
+            "Whether Companies House marks this instrument as including a floating "
+            "charge. The register emits this key **only when `True`**: absence means "
+            "the register did not mark this instrument, never that it lacks one, and "
+            "must never be read or stored as `False` (D-011). Norway's Løsøreregisteret "
+            "and Sweden's företagsinteckningar use different taxonomies for security "
+            "interests, so a future filler for either may leave this `None` on every "
+            "item it fills, forever — the same shape as `FiledDocument."
+            "days_from_fee_point`."
+        ),
+    )
+    contains_negative_pledge: bool | None = Field(
+        default=None,
+        description=(
+            "Whether Companies House marks this instrument as including a negative "
+            "pledge — a covenant restricting further charges over the same assets, and, "
+            "on its own, a fact a lender changes behaviour on. The register emits this "
+            "key **only when `True`**: absence means the register did not mark this "
+            "instrument, never that it lacks one, and must never be read or stored as "
+            "`False` (D-011). Norway's Løsøreregisteret and Sweden's "
+            "företagsinteckningar use different taxonomies for security interests, so a "
+            "future filler for either may leave this `None` on every item it fills, "
+            "forever — the same shape as `FiledDocument.days_from_fee_point`."
+        ),
     )
     parties_entitled: list[str] = Field(
         default_factory=list,
@@ -753,9 +863,11 @@ class Charge(_Base):
             "occasionally a natural person, e.g. a director lending to their own company). "
             "This is a term of the company's own instrument, not a person record: it is "
             "never a lookup key, never indexed, never searchable and never reaches a log "
-            "line (D-028(1), D-040). It is the one place in this product a natural "
-            "person's name can appear, and it is deliberately not named the register's own "
-            "`persons_entitled` — that name asserts a natural person; this one does not."
+            "line (D-028(1), D-040) — the same binding `assets_charged` and "
+            "`obligations_secured` carry, because free prose describing charged property "
+            "can also name a guarantor or a charged dwelling. It is deliberately not "
+            "named the register's own `persons_entitled` — that name asserts a natural "
+            "person; this one does not."
         ),
     )
 
@@ -768,13 +880,13 @@ class ChargeBlock(_Base):
     the report's.
 
     **The count fields are ruled by D-045(a)**, not by D-042(h). It strikes
-    `outstanding_count` — `total_count - satisfied_count` is our arithmetic
-    wearing a register figure's name, and on a shared model it would mean
-    "outstanding" for a register with no partially-satisfied state and "not
-    fully satisfied" for one that has it (D-011) — and adds the register's
-    own `part_satisfied_count` in its place. **This class has not yet been
-    reconciled with that ruling**; the task that does so is named in D-045(a)
-    and is due before the next deploy.
+    `outstanding_count` — `total_count - satisfied_count` was our arithmetic
+    wearing a register figure's name, and on a shared model it would have
+    meant "outstanding" for a register with no partially-satisfied state and
+    "not fully satisfied" for one that has it (D-011) — and adds the
+    register's own `part_satisfied_count` in its place: a whole-company
+    figure Companies House publishes directly, `0` in every fixture observed
+    so far, and not derived from anything else on this block.
 
     Two-level nullability is the point of this shape (D-026(c), D-041(c),
     D-042(d)(3)): `CompanyReport.charges` is `None` when `charges` was not in
@@ -796,24 +908,32 @@ class ChargeBlock(_Base):
             "`len(charges)` — see `notes` for a truncation disclosure when it does."
         ),
     )
-    outstanding_count: int | None = Field(
-        default=None,
-        description=(
-            "Derived as `total_count - satisfied_count` when the register publishes both as "
-            "whole-company figures; a register that also tracks a distinct "
-            "partially-satisfied state folds it in here as not-fully-satisfied. `None` when "
-            "the register does not publish enough to derive it."
-        ),
-    )
     satisfied_count: int | None = Field(
         default=None, description="The register's own whole-company count of satisfied charges, verbatim."
+    )
+    part_satisfied_count: int | None = Field(
+        default=None,
+        description=(
+            "The register's own whole-company count of charges it marks partially "
+            "satisfied, identical in kind to `total_count` and `satisfied_count`. `None` "
+            "when the register does not publish it. Observed as `0` in every fixture this "
+            "project has seen — this project has never observed a non-zero value — and "
+            "the count is the register's own; it is not derived from anything else on "
+            "this block."
+        ),
     )
     provenance: SourceRef = Field(
         description="Where, when and under what licence this block was fetched."
     )
     notes: list[str] = Field(
         default_factory=list,
-        description="Plain-English caveats about this block, e.g. truncation when `total_count` exceeds `len(charges)`.",
+        description=(
+            "Plain-English caveats about this block: truncation when `total_count` "
+            "exceeds `len(charges)`, and — whenever any charge on this page carries free "
+            "text in `assets_charged` or `obligations_secured` — a disclosure that the "
+            "text is the register's own prose, relayed verbatim and not parsed, and may "
+            "name a natural person or carry an account identifier."
+        ),
     )
 
 
@@ -865,7 +985,9 @@ class FiledDocument(_Base):
             "length the register never stated, and a first, shortened or extended "
             "accounting period is lawful and common (D-009). Norway's Regnskapsregisteret "
             "publishes `regnskapsperiode: {fraDato, tilDato}` and fills both ends; "
-            "Companies House publishes only the end."
+            "Companies House publishes only the end; so does Sweden's Bolagsverket, whose "
+            "bokföringslagen 3 kap. 3 § permits an 18-month first or final period — "
+            "exactly the period length a subtracted twelve months would falsely assert."
         ),
     )
     filed_at: date | None = Field(
@@ -882,13 +1004,18 @@ class FiledDocument(_Base):
             "Signed days from a named late-fee datum to `filed_at`, **only where the "
             "register itself publishes such a datum for that period**. Negative is early. "
             "`None` is the common answer and means the datum does not exist in the data, "
-            "not that the arithmetic was skipped: Sweden fills it because "
-            "årsredovisningslagen 8 kap. 6 § names one datum for every company, while "
-            "Companies House publishes only the *next* period's due date and nothing "
-            "per-period historical, so there is nothing to measure a past filing against. "
-            "Deriving one from the statutory rule would require guessing a period length, "
-            "a first-accounts variant and any shortening the register has not disclosed, "
-            "then presenting the result as the register's own — the invented figure D-009 "
+            "not that the arithmetic was skipped. Sweden's Bolagsverket fills it: "
+            "årsredovisningslagen 8 kap. 6 § starts a förseningsavgift of 7 500 kr "
+            "(15 000 kr for a public company) at that datum. It is **not** the company's "
+            "own filing deadline — ÅRL 8 kap. 3 § instead requires filing within one "
+            "month of the general meeting that adopts the accounts — and a nine-month "
+            "variant of 8 kap. 6 § cannot be excluded, because the dataset does not "
+            "identify which companies it applies to. Companies House publishes only the "
+            "*next* period's due date — `accounts.next_accounts.due_on` and "
+            "`confirmation_statement.next_due` on the company profile — and no "
+            "per-period historical due date at all, so there is nothing to measure a "
+            "past filing against without guessing a 9-month or 6-month period and "
+            "presenting the guess as the register's own — the invented figure D-009 "
             "forbids."
         ),
     )
@@ -899,24 +1026,31 @@ class FiledDocument(_Base):
             "interpreted. **Not fetchable through this API**: the filed document itself "
             "lives behind a separate host, which is a second upstream with its own "
             "provenance and out of scope for this block (D-041(c)). It is the key a "
-            "support case with the register can name."
+            "support case with the register can name. Norway's payload also carries an "
+            "integer `id`, an internal row identifier, which is not relayed."
         ),
     )
     file_format: str | None = Field(
         default=None,
         description=(
             "What the register holds the document as, where it says. `None` where the "
-            "filing-history endpoint publishes no format — Companies House keeps the media "
-            "type on its separate document host, a second fetch this block does not make."
+            "filing-history endpoint publishes no format: Companies House's "
+            "filing-history endpoint publishes only a page count and a `paper_filed` "
+            "marker, no media type — the media type itself lives on a separate document "
+            "host, a second fetch this block does not make."
         ),
     )
     category: str | None = Field(
         default=None,
         description=(
-            "The register's own category for this filing, verbatim and never translated — "
-            '"accounts", "mortgage", "confirmation-statement", "gazette" and some twenty '
-            "more in Britain alone, and none of these lists is closed. It is the field "
-            "`kind` is derived from."
+            "The register's own category for this filing, verbatim and never translated. "
+            "It is the field `kind` is derived from. Twenty-two words observed live in "
+            'Britain, and the list is not closed: "accounts", "capital", "officers", '
+            '"mortgage", "confirmation-statement", "annual-return", "resolution", '
+            '"gazette", "incorporation", "address", "insolvency", "dissolution", '
+            '"change-of-name", "persons-with-significant-control", "auditors", '
+            '"miscellaneous", "historical", "restoration", "document-replacement", '
+            '"change-of-constitution", "return" and "other".'
         ),
     )
     type_code: str | None = Field(
@@ -964,7 +1098,9 @@ class FilingHistory(_Base):
     documents: list[FiledDocument] = Field(
         default_factory=list,
         description=(
-            "One page of the register's own filing history, newest first by `filed_at`. "
+            "One page of the register's own filing history, newest first by the "
+            "register's own period or filing date: Britain sorts by `filed_at`; Sweden by "
+            "`period_end` then `filed_at`; Norway by `period_end` then `period_start`. "
             "Never paginated further; when the register holds more, `total_count` says how "
             "many and `notes` says so in words. Empty means the register lists none — not "
             "that we could not look."
@@ -1023,9 +1159,14 @@ class InsolvencyEvent(_Base):
         description=(
             "The register's own word for what happened, verbatim — national vocabulary "
             "lives here, in the value, never in a field name (D-042(g)). Thirteen words "
-            'have been observed live in Britain, from "petitioned-on" and "wound-up-on" to '
-            '"declaration-solvent-on" and "dissolved-on". A word outside the observed set '
-            "is still relayed verbatim: this field is never filtered, only reported."
+            'have been observed live in Britain: "administration-started-on", '
+            '"administration-ended-on", "administration-discharged-on", "instrumented-on", '
+            '"petitioned-on", "wound-up-on", "concluded-winding-up-on", '
+            '"voluntary-arrangement-started-on", "voluntary-arrangement-ended-on", '
+            '"moratorium-started-on", "declaration-solvent-on", "due-to-be-dissolved-on" '
+            'and "dissolved-on" (the last of which Companies House\'s own published '
+            "enumeration omits). A word outside the observed set is still relayed "
+            "verbatim: this field is never filtered, only reported."
         ),
     )
     occurred_on: date | None = Field(
@@ -1092,11 +1233,13 @@ class InsolvencyCase(_Base):
         description=(
             "The register's own note **codes** for this case, verbatim and never resolved "
             "into prose — the same treatment D-042(e)(1) gives a filing's "
-            "`description_code`. Companies House declares this field an unbounded "
-            "`array[string]`, so it is the one place in that payload a name could hide; "
-            "codes are therefore relayed through an allow-list of observed codes, and an "
-            "unrecognised one is dropped and disclosed in the block's `notes` rather than "
-            "passed through."
+            "`description_code`. Only one code has ever been observed live: "
+            '"scottish-insolvency-info", which means the Accountant in Bankruptcy\'s '
+            "Register of Insolvencies holds further detail this API does not. Companies "
+            "House declares this field an unbounded `array[string]`, so it is the one "
+            "place in that payload a name could hide; codes are therefore relayed through "
+            "an allow-list of observed codes, and an unrecognised one is dropped and "
+            "disclosed in the block's `notes` rather than passed through."
         ),
     )
 
@@ -1130,12 +1273,14 @@ class InsolvencyBlock(_Base):
         default_factory=list,
         description=(
             "The register's own entity-level insolvency status words, verbatim — national "
-            "vocabulary in values (D-042(g)). Eight observed live in Britain, among them "
-            '"in-administration", "liquidation" and "voluntary-arrangement". An **empty '
-            "list means the register publishes no such word for this entity**, which is "
-            "not the same as 'not currently insolvent': about one in ten companies whose "
-            "Companies House status is itself an insolvency status still has no word here. "
-            "No yes/no flag is derived from this field for exactly that reason (D-011)."
+            "vocabulary in values (D-042(g)). Eight observed live in Britain: "
+            '"in-administration", "liquidation", "receivership", "receiver-manager", '
+            '"administrative-receiver", "administration-order", "voluntary-arrangement" '
+            'and "live-receiver-manager-on-at-least-one-charge". An **empty list means '
+            "the register publishes no such word for this entity**, which is not the same "
+            "as 'not currently insolvent': about one in ten companies whose Companies "
+            "House status is itself an insolvency status still has no word here. No "
+            "yes/no flag is derived from this field for exactly that reason (D-011)."
         ),
     )
     provenance: SourceRef = Field(
