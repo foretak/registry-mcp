@@ -477,6 +477,26 @@ async def search_company(
     return result.model_dump(mode="json")
 
 
+#: `company_deadlines` accepts a **narrower** `include` vocabulary than
+#: `lookup_company` does (`DECISIONS.md` D-043(j), D-045(g)): only a value
+#: that can change a *computed* date belongs here. Its own description
+#: constant, never `_INCLUDE_DESCRIPTION` — that one advertises `charges`
+#: and `insolvency`, neither of which this tool would ever accept.
+_DEADLINE_INCLUDE_DESCRIPTION = (
+    "Optional attachment names that can change a computed deadline — a narrower set than "
+    "lookup_company's include argument, which also offers attachments no date depends on. "
+    "Today this is just 'filings': a second, independent upstream request for the "
+    "entity's filing history, which supplies a real financial year end where one would "
+    "otherwise be assumed to be 31 December. Costs one extra upstream request beyond the "
+    "base lookup, only when asked; empty by default. Norway and the United Kingdom accept "
+    "it too but it changes nothing for them today — their own dates already come from a "
+    "published figure or a different computation. An include value this operation does "
+    "not accept (including one lookup_company does, such as 'charges' or 'financials') is "
+    "a bad_request naming the allowed set for this tool specifically."
+)
+_DEADLINE_INCLUDE_EXAMPLES: list[list[str]] = [["filings"], []]
+
+
 @mcp.tool(
     output_schema=_DEADLINE_REPORT_SCHEMA,
     annotations={
@@ -501,6 +521,10 @@ async def company_deadlines(
             examples=["2026-10-01"],
         ),
     ] = None,
+    include: Annotated[
+        Sequence[str],
+        Field(description=_DEADLINE_INCLUDE_DESCRIPTION, examples=_DEADLINE_INCLUDE_EXAMPLES),
+    ] = (),
 ) -> dict[str, Any]:
     """Give the next occurrence of each statutory filing deadline a company faces.
 
@@ -525,25 +549,28 @@ async def company_deadlines(
     period. UK and Swedish dates never roll forward off a weekend or a public holiday, so
     `due_date` equals `statutory_date` there; `days_until` goes negative for a filing
     Companies House still shows as overdue rather than rolling it to the next cycle.
-    Swedish dates additionally assume a financial year ending 31 December, because
-    Bolagsverket's free dataset does not publish a company's financial year, and the filing
-    date is an outer limit — a company whose general meeting was earlier must file earlier;
-    `applies_because` and `notes` say both. An empty `deadlines` list is a real answer —
-    for Norway a bankrupt, deleted or compulsorily-liquidated entity or a branch/sub-unit,
-    and for the UK and Sweden any company whose status is not active — and `notes`
-    explains why.
+    Swedish dates additionally assume a financial year ending 31 December by default — pass
+    `include=["filings"]` to read Bolagsverket's own document list instead, which names the
+    financial year end of the entity's last filed annual report and replaces the assumption
+    with the register's own figure where the list holds one; the filing date is also an
+    outer limit regardless — a company whose general meeting was earlier must file earlier.
+    `applies_because` states which of these is true for this call, and never uses the word
+    "assume" once the register's own figure has confirmed it. An empty `deadlines` list is a
+    real answer — for Norway a bankrupt, deleted or compulsorily-liquidated entity or a
+    branch/sub-unit, and for the UK and Sweden any company whose status is not active — and
+    `notes` explains why.
 
     On error, this tool raises with the error text `{"error": {"code", "message",
-    "hint"}}`. `bad_request` means `today` was not `YYYY-MM-DD` — fix the format and
-    retry. Any `lookup_company` error code (`invalid_id`, `not_found`,
-    `unsupported_country`, `upstream_error`, `upstream_timeout`) can also surface here,
-    since this tool looks the entity up first — follow that code's hint.
+    "hint"}}`. `bad_request` means either `today` was not `YYYY-MM-DD`, or `include` named a
+    value this tool does not accept for the resolved country — both hints say what to fix.
+    Any `lookup_company` error code (`invalid_id`, `not_found`, `unsupported_country`,
+    `upstream_error`, `upstream_timeout`) can also surface here, since this tool looks the
+    entity up first — follow that code's hint.
     """
     with _call_context(operation="company_deadlines", country=country, query=id):
         registry = get_registry(country)
         today_date = parse_iso_date(today, field="today")
-        report = await registry.lookup(id)
-        result = registry.deadline_report(report, today_date)
+        result = await registry.deadline_report_with(id, include, today_date)
     return result.model_dump(mode="json")
 
 

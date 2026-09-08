@@ -838,6 +838,179 @@ def test_rest_and_mcp_lookup_company_are_identical_se(monkeypatch: pytest.Monkey
 
 
 # ---------------------------------------------------------------------------
+# `company_deadlines`' `include` argument (T44, D-043(j), D-045(g)) — same
+# credential/cache setup as the SE test just above, for the same reason.
+# ---------------------------------------------------------------------------
+
+
+def _se_deadlines_env(monkeypatch: pytest.MonkeyPatch) -> Any:
+    from registry_mcp.registries.se import client as se_client_module
+
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_DISABLED", "1")
+    monkeypatch.setenv("BOLAGSVERKET_CLIENT_ID", "test-client-id-should-never-leak")
+    monkeypatch.setenv("BOLAGSVERKET_CLIENT_SECRET", "test-client-secret-should-never-leak")
+    monkeypatch.delenv("BOLAGSVERKET_ENVIRONMENT", raising=False)
+    se_client_module._client = None
+    se_client_module._tokens.clear()
+    return se_client_module
+
+
+@respx.mock
+def test_company_deadlines_include_filings_se_december_is_confirmed_and_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`tasks/T44.md`'s test 1, the December half: `include=["filings"]`
+    reads a real recorded document list (`bv_dokumentlista.json`, three
+    reports, newest period ending 2022-12-31) through the live MCP tool and
+    the dates do not move — D-041(e)'s invariant, now proven through the
+    actual surface rather than only `deadlines_for` directly — while
+    `applies_because` switches from an assumption to a confirmation."""
+    se_client_module = _se_deadlines_env(monkeypatch)
+    token_body = json.loads((FIXTURES / "bv_token.json").read_text(encoding="utf-8"))
+    ab_active = json.loads((FIXTURES / "bv_ab_active.json").read_text(encoding="utf-8"))
+    dokumentlista = json.loads((FIXTURES / "bv_dokumentlista.json").read_text(encoding="utf-8"))
+
+    respx.post("https://portal.api.bolagsverket.se/oauth2/token").mock(
+        return_value=httpx.Response(200, json=token_body)
+    )
+    respx.post("https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/organisationer").mock(
+        return_value=httpx.Response(200, json=ab_active)
+    )
+    respx.post("https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/dokumentlista").mock(
+        return_value=httpx.Response(200, json=dokumentlista)
+    )
+
+    try:
+
+        async def _call(include: list[str]) -> dict[str, Any]:
+            async with Client(mcp) as client:
+                result = await client.call_tool(
+                    "company_deadlines",
+                    {
+                        "id": "5299999994",
+                        "country": "SE",
+                        "today": "2026-03-01",
+                        "include": include,
+                    },
+                )
+                assert result.structured_content is not None
+                data: dict[str, Any] = result.structured_content
+                return data
+
+        without = anyio.run(_call, [])
+        with_filings = anyio.run(_call, ["filings"])
+        assert [d["due_date"] for d in with_filings["deadlines"]] == [
+            d["due_date"] for d in without["deadlines"]
+        ]
+        annual_accounts = next(
+            d for d in with_filings["deadlines"] if d["kind"] == "annual_accounts"
+        )
+        assert "Confirmed, not a guess" in annual_accounts["applies_because"]
+        assert "2022-12-31" in annual_accounts["applies_because"]
+        assert "registered 2023-06-27" in annual_accounts["applies_because"]
+        assert "assum" not in annual_accounts["applies_because"].lower()
+    finally:
+        anyio.run(se_client_module.aclose)
+
+
+@respx.mock
+def test_rest_and_mcp_company_deadlines_include_filings_are_identical_se(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The D-004 guarantee for the new argument (`tasks/T44.md`'s test 5):
+    `?include=filings` (REST) and `include=["filings"]` (MCP) must produce
+    byte-identical `DeadlineReport` documents."""
+    se_client_module = _se_deadlines_env(monkeypatch)
+    token_body = json.loads((FIXTURES / "bv_token.json").read_text(encoding="utf-8"))
+    ab_active = json.loads((FIXTURES / "bv_ab_active.json").read_text(encoding="utf-8"))
+    dokumentlista = json.loads((FIXTURES / "bv_dokumentlista.json").read_text(encoding="utf-8"))
+
+    respx.post("https://portal.api.bolagsverket.se/oauth2/token").mock(
+        return_value=httpx.Response(200, json=token_body)
+    )
+    respx.post("https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/organisationer").mock(
+        return_value=httpx.Response(200, json=ab_active)
+    )
+    respx.post("https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/dokumentlista").mock(
+        return_value=httpx.Response(200, json=dokumentlista)
+    )
+
+    try:
+        with TestClient(app) as rest_client:
+            rest_body = rest_client.get(
+                "/v1/SE/company/5299999994/deadlines",
+                params={"today": "2026-03-01", "include": "filings"},
+                headers={"X-Forwarded-For": "203.0.113.94"},
+            ).json()
+
+        async def _mcp_call() -> dict[str, Any]:
+            async with Client(mcp) as client:
+                result = await client.call_tool(
+                    "company_deadlines",
+                    {
+                        "id": "5299999994",
+                        "country": "SE",
+                        "today": "2026-03-01",
+                        "include": ["filings"],
+                    },
+                )
+                assert result.structured_content is not None
+                data: dict[str, Any] = result.structured_content
+                return data
+
+        mcp_body = anyio.run(_mcp_call)
+        assert rest_body == mcp_body
+    finally:
+        anyio.run(se_client_module.aclose)
+
+
+async def test_company_deadlines_unknown_include_is_bad_request_naming_filings_only() -> None:
+    """`tasks/T44.md`'s tests 3-4, through the live tool rather than
+    `Registry.deadline_report_with` directly: `company_deadlines` rejects an
+    `include` value `lookup_company` would accept for the same country
+    (Norway declares `financials`) before any upstream request, naming only
+    the deadline operation's own allowed set."""
+    async with Client(mcp) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool(
+                "company_deadlines",
+                {"id": "923609016", "country": "NO", "include": ["financials"]},
+            )
+    payload = json.loads(str(excinfo.value))
+    assert payload["error"]["code"] == "bad_request"
+    assert payload["error"]["details"]["allowed"] == ["filings"]
+    assert "financials" not in payload["error"]["hint"]
+
+
+@respx.mock
+def test_rest_and_mcp_company_deadlines_unknown_include_agree_no() -> None:
+    """REST≡MCP parity on the rejection path too — no upstream request is
+    registered here at all, and none should be attempted."""
+    with TestClient(app) as rest_client:
+        rest_resp = rest_client.get(
+            "/v1/NO/company/923609016/deadlines",
+            params={"include": "financials"},
+            headers={"X-Forwarded-For": "203.0.113.93"},
+        )
+    assert rest_resp.status_code == 400
+    rest_error = rest_resp.json()["error"]
+
+    async def _mcp_call() -> dict[str, Any]:
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError) as excinfo:
+                await client.call_tool(
+                    "company_deadlines",
+                    {"id": "923609016", "country": "NO", "include": ["financials"]},
+                )
+            payload: dict[str, Any] = json.loads(str(excinfo.value))
+            return payload
+
+    mcp_error = anyio.run(_mcp_call)["error"]
+    assert rest_error["code"] == mcp_error["code"] == "bad_request"
+    assert rest_error["details"] == mcp_error["details"]
+
+
+# ---------------------------------------------------------------------------
 # D-040 — a personal identifier never reaches the usage log
 # ---------------------------------------------------------------------------
 

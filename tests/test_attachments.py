@@ -35,6 +35,7 @@ ship today.
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from typing import Any
 
 import pydantic
@@ -45,13 +46,15 @@ from registry_mcp.core.models import (
     CompanyReport,
     CompanyStatus,
     CountryInfo,
+    DeadlineReport,
     ErrorCode,
+    FilingHistory,
     InsolvencyCase,
     InsolvencyEvent,
     RegistryError,
     SourceRef,
 )
-from registry_mcp.core.registry import Registry, get_registry
+from registry_mcp.core.registry import DEADLINE_INCLUDES, Registry, get_registry
 
 # ---------------------------------------------------------------------------
 # Test doubles — core/models.py gains no field for these (D-042(g))
@@ -703,3 +706,130 @@ async def test_lookup_with_routes_each_block_to_the_field_of_the_same_name(
     for other in ("charges", "filings", "insolvency"):
         if other != name:
             assert getattr(report, other) is None, f"{country}.{name} also filled {other}"
+
+
+# ---------------------------------------------------------------------------
+# `Registry.deadline_report_with` / `DEADLINE_INCLUDES` (T44, D-043(j), D-045(g))
+#
+# `company_deadlines` accepts a narrower `include` vocabulary than
+# `lookup_company`/`lookup_with`: only a value that can change a *computed*
+# date. Validated against `self.supported_includes & DEADLINE_INCLUDES` —
+# never `effective_includes`, so `lei` (universal, D-045(e)) is never a
+# candidate regardless of how many countries carry it for free.
+# ---------------------------------------------------------------------------
+
+
+def test_deadline_includes_is_filings_only_and_never_peppol() -> None:
+    """The module constant itself: today's only deadline-changing attachment
+    is `filings`, and Peppol participant status must never join it — a
+    counterparty's e-invoicing reachability cannot move a filing deadline."""
+    assert frozenset({"filings"}) == DEADLINE_INCLUDES
+    assert "peppol" not in DEADLINE_INCLUDES
+
+
+async def test_deadline_report_with_default_include_costs_exactly_one_lookup_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`company_deadlines`'s default call (`include=()`) costs exactly the
+    one upstream request a plain `lookup` costs — `lookup_with`'s own
+    guarantee, proven again through `deadline_report_with`."""
+    registry = get_registry("NO")
+    calls = 0
+
+    async def _fake_lookup(_id: str) -> CompanyReport:
+        nonlocal calls
+        calls += 1
+        return CompanyReport(
+            country="NO", registry=registry.registry, id="1", name="X",
+            status=CompanyStatus.ACTIVE, is_active=True,
+        )
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_fake_lookup))
+    result = await registry.deadline_report_with("1", (), date(2026, 3, 1))
+    assert isinstance(result, DeadlineReport)
+    assert calls == 1
+
+
+@pytest.mark.parametrize("bad_include", [["financials"], ["financials", "filings"]])
+async def test_unknown_deadline_include_for_no_names_only_filings(
+    monkeypatch: pytest.MonkeyPatch, bad_include: list[str]
+) -> None:
+    """Norway declares both `filings` and `financials` (D-043) on
+    `lookup_company`, but `company_deadlines` accepts only `filings` — the
+    test D-043(j) names as "the only thing that proves" the operation's set
+    and the country's set are different things. No network call happens:
+    validation raises before `lookup` is attempted."""
+    registry = get_registry("NO")
+    calls = 0
+
+    async def _boom(_id: str) -> CompanyReport:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("lookup must not be attempted")
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_boom))
+
+    with pytest.raises(RegistryError) as excinfo:
+        await registry.deadline_report_with("1", bad_include, date(2026, 3, 1))
+    exc = excinfo.value
+    assert exc.code is ErrorCode.BAD_REQUEST
+    assert exc.details is not None
+    assert exc.details["allowed"] == ["filings"]
+    assert "financials" not in exc.hint
+    assert "filings" in exc.hint
+    assert calls == 0
+
+    # The country's own set is unaffected — `financials` still shows there.
+    assert "financials" in registry.country_info().supported_includes
+
+
+async def test_lei_is_rejected_as_a_deadline_include(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An LEI cannot change a filing date, so it is rejected here exactly
+    like `financials` is — even though GB gets it for free via
+    `universal_includes` on `lookup_company` (D-045(e))."""
+    registry = get_registry("GB")
+
+    async def _boom(_id: str) -> CompanyReport:
+        raise AssertionError("lookup must not be attempted")
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_boom))
+
+    with pytest.raises(RegistryError) as excinfo:
+        await registry.deadline_report_with("00445790", ["lei"], date(2026, 3, 1))
+    exc = excinfo.value
+    assert exc.code is ErrorCode.BAD_REQUEST
+    assert exc.details is not None
+    assert exc.details["allowed"] == ["filings"]
+    assert exc.details["unknown"] == ["lei"]
+    assert "lei" in registry.country_info().supported_includes  # unaffected elsewhere
+
+
+@pytest.mark.parametrize("country", ["GB", "NO"])
+async def test_filings_include_is_a_noop_on_deadline_report_with(
+    monkeypatch: pytest.MonkeyPatch, country: str
+) -> None:
+    """`tasks/T44.md`'s test 2: `include=["filings"]` is accepted for GB and
+    NO and changes nothing — `deadlines_for` in neither country's
+    `rules.py` reads `financial_year_end` (that is Norway's own, separate,
+    unblocked task, D-023(d)), so attaching the block is a real fetch with
+    no observable effect on the document `deadline_report_with` returns."""
+    registry = get_registry(country)
+
+    async def _fake_lookup(_id: str) -> CompanyReport:
+        return CompanyReport(
+            country=country, registry=registry.registry, id="1", name="X",
+            status=CompanyStatus.ACTIVE, is_active=True,
+        )
+
+    async def _fake_filings(_id: str) -> FilingHistory:
+        return FilingHistory(
+            documents=[], financial_year_end=None, provenance=SourceRef(cached=False)
+        )
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_fake_lookup))
+    monkeypatch.setattr(type(registry), "filings", staticmethod(_fake_filings))
+
+    today = date(2026, 3, 1)
+    without = await registry.deadline_report_with("1", (), today)
+    with_filings = await registry.deadline_report_with("1", ["filings"], today)
+    assert with_filings.model_dump(mode="json") == without.model_dump(mode="json")

@@ -67,6 +67,7 @@ from registry_mcp.core.models import (
 )
 
 __all__ = [
+    "DEADLINE_INCLUDES",
     "Registry",
     "get_registry",
     "list_countries",
@@ -80,6 +81,22 @@ __all__ = [
 #: to ``list_countries()`` and ``get_registry()`` without passing a flag. Used by
 #: the test suite and by anyone developing a new country module.
 _INCLUDE_STUBS_ENV = "REGISTRY_MCP_INCLUDE_STUBS"
+
+#: The closed set of ``include=[...]`` values the **deadlines operation** can
+#: use, as opposed to what a country publishes (``DECISIONS.md`` D-043(j),
+#: D-045(g)). ``company_deadlines`` intersects this with a registry's own
+#: :attr:`Registry.supported_includes` in :meth:`Registry.deadline_report_with`
+#: — never with :attr:`Registry.effective_includes` — because every member of
+#: this set must be a per-country attachment that can change a *computed*
+#: date; ``lei`` cannot, so it is never a candidate regardless of how many
+#: countries declare it via :attr:`Registry.universal_includes`, and neither
+#: is Peppol participant status once a country declares it, which is why this
+#: set must never contain ``"peppol"``. Today that leaves exactly ``filings``:
+#: a country's own filed-annual-report history, which can supply a real
+#: financial year end where one was previously assumed. A country that
+#: declares ``filings`` in :attr:`Registry.supported_includes` gets it here
+#: for free — no country module edits this set or even imports it.
+DEADLINE_INCLUDES: frozenset[str] = frozenset({"filings"})
 
 
 class Registry(ABC):
@@ -468,6 +485,91 @@ class Registry(ABC):
         if not updates and notes == report.notes:
             return report
         return report.model_copy(update={**updates, "notes": notes})
+
+    async def deadline_report_with(
+        self, id: str, include: Sequence[str], today: date
+    ) -> DeadlineReport:
+        """The ``company_deadlines`` analogue of :meth:`lookup_with` (``DECISIONS.md`` D-045(g)).
+
+        Both surfaces used to do ``report = await registry.lookup(id)`` then
+        ``registry.deadline_report(report, today)``. Swapping in
+        ``lookup_with(id, include)`` is **not** sufficient, because
+        ``company_deadlines`` accepts a **narrower** ``include`` vocabulary
+        than ``lookup_company`` does: an attachment belongs here only if it
+        can change a *computed* date (D-043(j)) — today, just ``filings``,
+        whose ``financial_year_end`` can replace an assumed accounting period
+        with the register's own figure. ``financials``, ``lei``, ``charges``
+        and ``insolvency`` cannot move a deadline no matter how many
+        countries declare them, so this method validates ``include`` against
+        ``self.supported_includes & DEADLINE_INCLUDES`` — that intersection,
+        deliberately **not** :attr:`effective_includes` (which would let
+        ``lei`` through for every country that gets it for free) and not
+        :attr:`supported_includes` alone (which would let ``financials``
+        through for Norway) — before any network I/O happens. A rejected
+        value's ``hint`` names *this operation's* allowed set, which can
+        genuinely differ from :attr:`CountryInfo.supported_includes`: that
+        attribute keeps listing the country's full declared set unchanged,
+        because it describes what the country publishes, not what this one
+        operation can use (D-043(j)'s forward constraint, D-042(d)).
+
+        Once validated, this delegates entirely to the two existing concrete
+        builders and adds no logic of its own: :meth:`lookup_with` fetches
+        the report and every requested attachment, and :meth:`deadline_report`
+        turns the result into the document both surfaces emit. So
+        :meth:`deadlines` stays the pure function of ``(report, today)``
+        D-018 requires, and neither surface duplicates this validation itself
+        — D-042(b)'s finding verbatim, *"written per surface it drifts within
+        a release"* — nor gains an ``allowed=`` parameter on :meth:`lookup_with`,
+        which would give one method two contracts and put this operation's
+        vocabulary into the lookup path's signature.
+
+        Args:
+            id: passed to :meth:`lookup_with` unchanged.
+            include: attachment names relevant to a deadline computation, a
+                subset of ``self.supported_includes & DEADLINE_INCLUDES``.
+                ``()`` costs exactly one upstream request, identical to
+                today's plain ``lookup``.
+            today: the date to compute "next occurrence" from, inclusive —
+                passed straight through to :meth:`deadline_report`.
+
+        Returns:
+            The same :class:`~registry_mcp.core.models.DeadlineReport`
+            :meth:`deadline_report` always returns. ``DeadlineReport`` does
+            **not** gain an attachment block of its own (D-041(b), D-010): a
+            successfully fetched attachment's effect is visible only through
+            each ``Deadline.applies_because`` and through ``notes`` — a
+            caller who wants the attachment itself calls ``lookup_company``.
+
+        Raises:
+            RegistryError: ``bad_request``, raised before any network I/O,
+                when ``include`` names a value outside
+                ``self.supported_includes & DEADLINE_INCLUDES`` — its
+                ``hint`` and ``details["allowed"]`` name that intersection,
+                sorted, never the wider country-level set. Otherwise,
+                whatever :meth:`lookup_with` raises, unchanged: nothing to
+                compute a deadline from without a base report.
+        """
+        allowed = self.supported_includes & DEADLINE_INCLUDES
+        unknown = sorted({name for name in include if name not in allowed})
+        if unknown:
+            allowed_sorted = sorted(allowed)
+            raise RegistryError(
+                ErrorCode.BAD_REQUEST,
+                f"company_deadlines does not accept include value(s) for {self.country}: "
+                f"{', '.join(unknown)}.",
+                hint=(
+                    "company_deadlines only accepts include values that can change a "
+                    f"computed date. Allowed for {self.country} today: "
+                    f"{', '.join(allowed_sorted) if allowed_sorted else '(none)'}. "
+                    "lookup_company accepts a wider set — call it directly, or call "
+                    "list_countries for this country's full supported_includes."
+                ),
+                country=self.country,
+                registry=self.registry,
+                details={"allowed": allowed_sorted, "unknown": unknown},
+            )
+        report = await self.lookup_with(id, include)
+        return self.deadline_report(report, today)
 
     async def lei(self, id: str) -> LeiRecord:
         """The Legal Entity Identifier GLEIF publishes for this entity.

@@ -887,7 +887,8 @@ async def search_companies(
         "behind each date, quote it rather than presenting a date as unconditional fact. An "
         "empty list is a real answer for a bankrupt, deleted or compulsorily-liquidated "
         "entity, or a branch/sub-unit — `notes` explains why. On `bad_request` (400), "
-        "`today` was not `YYYY-MM-DD` — fix the format and retry."
+        "either `today` was not `YYYY-MM-DD` or `include` named a value this route does "
+        "not accept for the resolved country — fix whichever the error names and retry."
     ),
     responses={200: {"content": {"application/json": {"example": _DEADLINES_EXAMPLE}}}},
 )
@@ -899,13 +900,30 @@ async def get_deadlines(
         None,
         description="Date to compute from, YYYY-MM-DD. Defaults to the server's current UTC date.",
     ),
+    include: Sequence[str] = Query(
+        default_factory=list,
+        description=(
+            "Optional attachment names that can change a computed deadline — a narrower "
+            "set than `?include=` on the company endpoint, which also offers attachments "
+            "no date depends on. Today this is just `filings`: a second, independent "
+            "upstream request for the entity's filing history, which supplies a real "
+            "financial year end where one would otherwise be assumed to be 31 December. "
+            "Costs one extra upstream request beyond the base lookup, only when asked; "
+            "empty by default. Repeat the parameter for more than one value, e.g. "
+            "`?include=filings`. Norway and the United Kingdom accept it too but it "
+            "changes nothing for them today. A value this route does not accept "
+            "(including one the company endpoint does, such as `charges` or "
+            "`financials`) is a `bad_request` (400) naming the allowed set for this "
+            "route specifically."
+        ),
+    ),
 ) -> DeadlineReport:
     started = time.monotonic()
     registry = get_registry(country)
     today_date = parse_iso_date(today, field="today")
 
     try:
-        report = await registry.lookup(id)
+        result = await registry.deadline_report_with(id, include, today_date)
     except RegistryError as exc:
         _record(
             operation="company_deadlines", country=country.upper(), query=id, request=request,
@@ -913,7 +931,6 @@ async def get_deadlines(
         )
         raise
 
-    result = registry.deadline_report(report, today_date)
     _record(
         operation="company_deadlines", country=country.upper(), query=id, request=request,
         started=started, ok=True,
