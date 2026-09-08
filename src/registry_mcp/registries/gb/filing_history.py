@@ -1,28 +1,17 @@
 """GB filing history — ``GET /company/{n}/filing-history`` (Companies House).
 
-Built for **R-5c / T37**, **behind the seam** (``DECISIONS.md`` D-042,
-``tasks/T37.md``): this module is deliberately self-contained inside
-``registries/gb/``, built against no assumption that ``core/models.py``
-carries ``SourceRef``, ``FiledDocument`` or ``FilingHistory`` — those are
-R-5's ``include=[...]`` machinery, owned and edited in parallel by other
-agents, per this task's explicit footprint. It mirrors
-``registries/gb/charges.py`` and ``registries/se/filings.py`` exactly: local
-model stand-ins whose field names are the ruled ones, plus a pure mapper,
-wired up by a follow-up task. Wiring is then a rename, not a redesign:
-
-* delete (or thinly re-export) :class:`FiledDocument`,
-  :class:`FilingProvenance` and :class:`FilingHistory` from this module;
-* ``core/models.py`` gains the real ``FiledDocument`` / ``FilingHistory``
-  (D-041(d) as amended by D-042(h)) and
-  ``CompanyReport.filings: FilingHistory | None = None``;
-* ``CompaniesHouseRegistry`` (``registries/gb/__init__.py``) gains
-  ``async def filings(self, id: str) -> FilingHistory`` — validate the CRN
-  via ``rules.validate_crn`` (as every other method there already does),
-  call :func:`registry_mcp.registries.gb.client.fetch_filings`, and copy the
-  returned :class:`FilingHistory`'s fields onto the real model
-  (``provenance`` becomes a real ``SourceRef`` built from
-  :class:`FilingProvenance`'s five identically-named fields);
-* ``CompaniesHouseRegistry.supported_includes`` gains ``"filings"``.
+**R-5c / T37** (``DECISIONS.md`` D-042). This module maps the wire straight
+onto the canonical :class:`~registry_mcp.core.models.FiledDocument` /
+:class:`~registry_mcp.core.models.FilingHistory` /
+:class:`~registry_mcp.core.models.SourceRef` (D-041(d), as widened by
+D-042(h) — Britain's payload is the superset that defines the shape,
+D-042(g)) — the same shapes ``registries/se/filings.py`` and
+``registries/no/accounts.py`` build, because all three registers converged
+on one shape independently (D-044(a)). There is no local stand-in and
+nothing to convert: :func:`map_filing_history` constructs the canonical
+classes directly, and ``CompaniesHouseRegistry.filings``
+(``registries/gb/__init__.py``) returns
+:func:`registry_mcp.registries.gb.client.fetch_filings`'s result unchanged.
 
 **The finding this module exists for, and the reason it relays a slug where
 a caller would expect a sentence.** ``items[].description_values``
@@ -167,14 +156,14 @@ to re-derive them:
 
 Four shape choices flagged for the architect rather than made quietly:
 
-* **``FilingHistory.total_count`` is one field wider than
-  ``registries/se/filings.py``.** D-042(j) rules by name that "the block
-  carries the register's own ``total_count``", ``ChargeList`` already has a
-  field of that name and meaning, and the truncation note is derived from
-  it — so it is here. Sweden fills it ``None`` in a one-line change, or the
-  architect deletes it in a one-line change; either way wiring stays a
-  rename. Every other field is ``registries/se/filings.py``'s, in its order,
-  with its meaning.
+* **``FilingHistory.total_count`` is filled here and left ``None`` by
+  ``registries/se/filings.py`` and ``registries/no/accounts.py``.** D-042(j)
+  rules by name that "the block carries the register's own ``total_count``",
+  ``ChargeBlock`` already has a field of that name and meaning, and the
+  truncation note below is derived from it. Neither Bolagsverket nor
+  Regnskapsregisteret publishes a count of its own (D-011), so their mappers
+  simply do not set it — the field is one, shared, on the canonical model;
+  only its value differs by register.
 * **``total_count`` is ``None``, not ``0``, when
   ``filing_history_status`` is not ``filing-history-available``** — the
   D-011 argument above. This is the one place this module declines to relay
@@ -207,8 +196,7 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
+from registry_mcp.core.models import FiledDocument, FilingHistory, SourceRef
 from registry_mcp.registries.gb.rules import ACCOUNTS_KIND, CONFIRMATION_KIND
 
 __all__ = [
@@ -217,257 +205,8 @@ __all__ = [
     "FILING_HISTORY_AVAILABLE",
     "FiledDocument",
     "FilingHistory",
-    "FilingProvenance",
     "map_filing_history",
 ]
-
-
-class _Base(BaseModel):
-    """Local stand-in for ``core.models._Base`` — the same ``extra="forbid"``
-    discipline (``DECISIONS.md`` D-004), kept out of ``core/`` per this
-    task's footprint restriction rather than imported from there."""
-
-    model_config = ConfigDict(extra="forbid", frozen=False)
-
-
-class FilingProvenance(_Base):
-    """Stand-in for the future ``core.models.SourceRef`` (D-026(c)) — the
-    same five field names, unrenamed, so that building the real
-    ``FilingHistory.provenance`` from this object is a straight field copy.
-
-    Its independence from ``CompanyReport``'s own provenance is the whole
-    point of D-041(c): *one fetch, one ``SourceRef`` — not one organisation.*
-    Two round trips have two moments, two failure modes and two cache
-    states, so this block's ``fetched_at`` and ``cached`` are its own and
-    may disagree with the record's.
-    """
-
-    source: str | None = Field(
-        default=None, description='Who published this block, e.g. "Companies House (UK)".'
-    )
-    source_url: str | None = Field(
-        default=None, description="A human-readable page for this company's filing history."
-    )
-    license: str | None = Field(
-        default=None, description="The licence this block is published under."
-    )
-    fetched_at: datetime | None = Field(
-        default=None,
-        description=(
-            "When this block was fetched from Companies House — its own moment, not the "
-            "company record's. `None` inside a present block means no request was made."
-        ),
-    )
-    cached: bool = Field(
-        default=False,
-        description=(
-            "Whether this block was served from this deployment's cache — its own cache "
-            "state, which may differ from the company record's."
-        ),
-    )
-
-
-class FiledDocument(_Base):
-    """One entry from ``GET /company/{n}/filing-history``. Field-for-field
-    ``registries/se/filings.py``'s :class:`FiledDocument` — the shape
-    ``DECISIONS.md`` D-041(d) rules for the future ``core.models.FiledDocument``,
-    as widened by D-042(h) — so the two converge on one shared model.
-    Britain is the country D-042(h)'s three extra fields exist for, and
-    Britain fills all three."""
-
-    kind: str | None = Field(
-        default=None,
-        description=(
-            "The `Deadline.kind` slug this filing discharges, or `None` when it discharges "
-            'none. Britain fills two: `category == "accounts"` maps to "annual_accounts" '
-            'and `category == "confirmation-statement"` maps to "confirmation_statement". '
-            "The other twenty-odd Companies House categories — `capital`, `officers`, "
-            "`mortgage`, `gazette`, `resolution`, `insolvency`, … — map to `None` rather "
-            "than to an invented slug: a filing that discharges no deadline this product "
-            "publishes says so honestly (`DECISIONS.md` D-009, D-042(h))."
-        ),
-    )
-    period_end: date | None = Field(
-        default=None,
-        description=(
-            "The reporting period's last day, exactly as the register published it. For "
-            "Britain this is `description_values.made_up_date` — **the only key of the "
-            "register's description-template values this product reads at all** "
-            "(D-042(e)(1)). On an `accounts` filing it is the accounting reference date "
-            "the accounts were made up to; on a `confirmation-statement` filing it is the "
-            "date the statement was made up to, which is *not* a financial year end. "
-            "`None` on the great majority of filings, which have no reporting period: it "
-            "was published on 182 of 1876 items observed live, and on 118 of 119 "
-            "`accounts` items."
-        ),
-    )
-    period_start: date | None = Field(
-        default=None,
-        description=(
-            "The reporting period's first day. **Always `None` for Britain**: Companies "
-            "House publishes no counterpart to `made_up_date` on this endpoint, and "
-            "deriving one by subtracting twelve months would assert a period length the "
-            "register never stated — a first or shortened accounting period is lawful and "
-            "common. The field exists because Norway's Regnskapsregisteret publishes "
-            "`regnskapsperiode: {fraDato, tilDato}` and will fill it."
-        ),
-    )
-    filed_at: date | None = Field(
-        default=None,
-        description=(
-            "When the register recorded this filing (`items[].date`), verbatim. Present on "
-            "every one of the 1876 items observed live, always a plain `YYYY-MM-DD`. This "
-            "is the field that makes the block answer *does this company file on time*, "
-            "and it is the sort key: newest first."
-        ),
-    )
-    days_from_fee_point: int | None = Field(
-        default=None,
-        description=(
-            "Signed days from a named late-fee datum to `filed_at`, where a register "
-            "publishes one. **Always `None` for Britain, and the reason is a missing "
-            "datum rather than a missing calculation.** Companies House publishes "
-            "`accounts.next_accounts.due_on` and `confirmation_statement.next_due` on the "
-            "company profile — the due dates for the *next* period — and publishes no "
-            "per-period historical due date anywhere on this endpoint. So for a filing "
-            "already made there is nothing to measure against: the datum does not exist "
-            "in the data. Deriving one from the statutory rule instead would mean picking "
-            "a 9-month or 6-month period, a first-accounts variant and a shortening or "
-            "extension the register has not disclosed for that year, and presenting the "
-            "result as the register's own — which is precisely the invented figure D-009 "
-            "forbids. Sweden fills this field because årsredovisningslagen 8 kap. 6 § "
-            "names one datum for every company; Britain has no such single datum. What "
-            "Britain gives instead is `filed_at` against the register's own published "
-            "next-due dates on `CompanyReport`, which the caller already has."
-        ),
-    )
-    document_id: str | None = Field(
-        default=None,
-        description=(
-            "The register's own opaque handle for this filing (`transaction_id`), relayed "
-            "verbatim and never interpreted — unique across every item observed live. "
-            "**Not fetchable through this API**: the filed document itself lives behind a "
-            "separate Companies House host, which is a second upstream with its own "
-            "provenance (D-041(c)) and out of scope here. This is the key a Companies "
-            "House support case can name."
-        ),
-    )
-    file_format: str | None = Field(
-        default=None,
-        description=(
-            "What the register holds the document as. **Always `None` for Britain**: this "
-            "endpoint publishes no format for a filing — only a page count and a "
-            "`paper_filed` marker — and the media type lives on the separate document "
-            "host, a second fetch this block does not make."
-        ),
-    )
-    category: str | None = Field(
-        default=None,
-        description=(
-            "The register's own category for this filing, verbatim and never translated: "
-            '"accounts", "capital", "officers", "mortgage", "confirmation-statement", '
-            '"annual-return", "resolution", "gazette", "incorporation", "address", '
-            '"insolvency", "dissolution", "change-of-name", "persons-with-significant-'
-            'control", "auditors", "miscellaneous", "historical", "restoration", '
-            '"document-replacement", "change-of-constitution", "return", "other" — the '
-            "22 values observed across 1876 items, which is not a closed list. It is the "
-            "field `kind` is derived from."
-        ),
-    )
-    type_code: str | None = Field(
-        default=None,
-        description=(
-            'The register\'s own form code for this filing, verbatim: "AA", "CS01", '
-            '"AP01", "TM01", "MR01", "SH01", and older forms such as "288a", "88(2)" and '
-            '"363s" — 100 distinct codes across the 1876 items observed live. Present on '
-            "every item."
-        ),
-    )
-    description_code: str | None = Field(
-        default=None,
-        description=(
-            "The register's own description-template key, verbatim and **never resolved** "
-            "— e.g. `appoint-person-director-company-with-name-date`, "
-            "`accounts-with-accounts-type-full`, "
-            "`termination-director-company-with-name-termination-date`, or the literal "
-            "sentinel `legacy` on an older filing. This is the key and not the sentence "
-            "on purpose, and the reason is the whole design of this block: Companies "
-            "House resolves these templates from `description_values`, 97 of the "
-            "templates interpolate an officer's name and 26 interpolate a person with "
-            "significant control's name, so the resolved sentence is personal data while "
-            "the key is not. **The key says what happened; only the values say who** "
-            "(`DECISIONS.md` D-042(e)(1), D-028). Present on every one of the 1876 items "
-            "observed live, and never free prose — where the register has prose it puts "
-            "the sentinel `legacy` here and the prose in a value this product does not "
-            "read."
-        ),
-    )
-
-
-class FilingHistory(_Base):
-    """Stand-in for the future ``core.models.FilingHistory`` (D-041(d)) — the
-    same field names as ``registries/se/filings.py``'s, plus ``total_count``
-    (D-042(j), see this module's docstring), ``provenance`` typed to
-    :class:`FilingProvenance` above rather than to ``core.models.SourceRef``,
-    which this module deliberately does not depend on.
-
-    Two-level nullability is the contract (D-041(c)) and belongs to whoever
-    wires this up: **an absent block** on a report means "you did not ask, or
-    the fetch failed" — never a present block with invented content — while
-    **a present block with ``documents: []``** means "Companies House lists
-    no filings for this company", which is a real and useful answer about a
-    counterparty and must never be rendered as an absence. The third state —
-    "Companies House cannot serve filing history for this number at all" —
-    is a present block with ``documents: []`` **and ``total_count: None``**,
-    and it is spelled out in ``notes``.
-    """
-
-    documents: list[FiledDocument] = Field(
-        default_factory=list,
-        description=(
-            "One page of the register's own filing history, newest first by `filed_at`, "
-            "at most `FILINGS_ITEMS_PER_PAGE` entries. Never paginated further; when the "
-            "register holds more, `total_count` says how many and `notes` says so in "
-            "words. Empty means the register lists none — not that we could not look."
-        ),
-    )
-    financial_year_end: date | None = Field(
-        default=None,
-        description=(
-            "The latest reporting period among this company's filed **annual accounts** "
-            '(`kind == "annual_accounts"`), carried verbatim — never a synthesised '
-            "month-day, and never taken from a confirmation statement, which carries a "
-            "`made_up_date` of its own that is not a financial year end. It is the latest "
-            "*period*, not the period of the latest *filing*, because Companies House "
-            "accepts a second filing that amends an earlier year and that would otherwise "
-            "roll this date backwards. It is **evidence of** the company's accounting "
-            "reference date, not a statement of it: a company may shorten or extend a "
-            "period, and only the period *end* is published here. `None` when this page "
-            "holds no annual-accounts filing with a reporting period — including when "
-            "older accounts exist further back than this page reaches, which `total_count` "
-            "and `notes` disclose."
-        ),
-    )
-    total_count: int | None = Field(
-        default=None,
-        description=(
-            "The register's own count of filings for this company, which may greatly "
-            "exceed `len(documents)` — 8371 against a 25-row page, for one company "
-            "observed live. **`None` means the register declined to answer for this "
-            "company number**, not zero: Companies House returns `total_count: 0` both "
-            "for a company it holds no filings for and for a number whose filing history "
-            "it cannot serve at all, and relaying the second as a zero would assert "
-            "something about the company that the register never said (`DECISIONS.md` "
-            "D-011). `notes` names which of the two it was, in the register's own words."
-        ),
-    )
-    provenance: FilingProvenance = Field(
-        description="Where, when and under what licence this block was fetched."
-    )
-    notes: list[str] = Field(
-        default_factory=list,
-        description="Plain-English caveats about this block.",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -699,7 +438,7 @@ def map_filing_history(
         documents=documents,
         financial_year_end=financial_year_end,
         total_count=total_count,
-        provenance=FilingProvenance(
+        provenance=SourceRef(
             source=_SOURCE,
             source_url=_FIND_AND_UPDATE_FILINGS_URL.format(id=company_number),
             license=_LICENSE,

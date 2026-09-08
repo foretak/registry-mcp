@@ -42,7 +42,13 @@ import httpx
 
 from registry_mcp import __version__
 from registry_mcp.core import cache
-from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
+from registry_mcp.core.models import (
+    CompanyReport,
+    ErrorCode,
+    FilingHistory,
+    RegistryError,
+    SearchResult,
+)
 from registry_mcp.registries.no import accounts, mapping
 
 __all__ = ["aclose", "fetch_accounts", "lookup", "search"]
@@ -317,7 +323,7 @@ def _accounts_upstream_error(orgnr: str) -> RegistryError:
     )
 
 
-async def fetch_accounts(id: str) -> accounts.FilingHistory:
+async def fetch_accounts(id: str) -> FilingHistory:
     """Fetch one entity's filed annual accounts, consulting the cache first.
 
     R-5d (``DECISIONS.md`` D-042(i)); closes D-023(d). Open and keyless —

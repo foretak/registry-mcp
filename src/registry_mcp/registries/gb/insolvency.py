@@ -1,10 +1,19 @@
 """GB insolvency — ``GET /company/{n}/insolvency`` (Companies House).
 
-Built for **R-5e** (``DECISIONS.md`` D-042(i)), **behind the seam**, exactly
-as ``registries/gb/charges.py`` was built this morning: local models plus a
-pure mapper, self-contained inside ``registries/gb/``, importing nothing new
-from ``core/`` and depending on no shape there. Wiring it up is a rename, not
-a redesign — see "What remains to wire it" at the end of this docstring.
+**R-5e** (``DECISIONS.md`` D-042(i)). This module maps the wire straight onto
+the canonical :class:`~registry_mcp.core.models.InsolvencyCase` /
+:class:`~registry_mcp.core.models.InsolvencyEvent` /
+:class:`~registry_mcp.core.models.InsolvencyBlock` /
+:class:`~registry_mcp.core.models.SourceRef`. D-042 rules no insolvency
+shape by name (its part (h) widens ``FiledDocument`` only), so the shapes
+these classes carry are this module's proposal, designed to D-042(g)'s
+rules — country-neutral names, national vocabulary in values only. There is
+no local stand-in and nothing to convert: :func:`map_insolvency` constructs
+the canonical classes directly, and ``CompaniesHouseRegistry.insolvency``
+(``registries/gb/__init__.py``) returns
+:func:`registry_mcp.registries.gb.client.fetch_insolvency`'s result
+unchanged. See "What this module still asks of the architect" at the end of
+this docstring.
 
 **The person data is the whole difficulty, and D-042(e)(2) already ruled it.**
 ``cases[].practitioners[]`` carries a licensed individual's **name and postal
@@ -76,7 +85,7 @@ later reader does not have to re-derive them:
   both **ignored** — ``?items_per_page=1`` on a three-case company returns
   all three. The register publishes no ``total_count``, ``items_per_page`` or
   ``start_index`` on this resource, and the largest history seen was 31
-  cases. One request returns the whole history, so :class:`InsolvencyList`
+  cases. One request returns the whole history, so :class:`InsolvencyBlock`
   has no ``total_count`` field and never emits a truncation note.
 * **``practitioners`` is always present and sometimes genuinely empty.** The
   key appeared on 1,485/1,485 cases; 79 of those carried ``[]``. Nothing here
@@ -144,28 +153,12 @@ quietly:
   register publishes no current insolvency status word here", which the field
   description says in as many words.
 
-**What remains to wire it** (nothing below is done by this task, whose
-footprint excludes ``core/`` and ``registries/gb/__init__.py``):
-
-* ``core/models.py`` gains the real ``InsolvencyCase`` / ``InsolvencyEvent``
-  / ``InsolvencyBlock`` — D-042 publishes no ruled shape for this block (its
-  part (h) widens ``FiledDocument`` only), so the shapes below are this
-  module's proposal, designed to D-042(g)'s rules: country-neutral names,
-  national vocabulary in values only. ``CompanyReport`` gains
-  ``insolvency: InsolvencyBlock | None``.
-* ``CompaniesHouseRegistry`` (``registries/gb/__init__.py``) gains
-  ``async def insolvency(self, id: str) -> InsolvencyBlock`` — named exactly
-  ``insolvency`` so ``Registry.lookup_with`` finds it (D-042(b)) — which
-  calls :func:`registry_mcp.registries.gb.client.fetch_insolvency` and copies
-  the returned :class:`InsolvencyList`'s identically-named fields across,
-  exactly as its ``charges`` method already does for
-  :class:`~registry_mcp.registries.gb.charges.ChargeList`.
-* ``CompaniesHouseRegistry.supported_includes`` gains ``"insolvency"``, and
-  D-042(d)(2) requires the word *insolvency* to reach ``lookup_company``'s
-  and ``company_deadlines``' **description text**, not only the schema enum.
-* ``core/cache.py``'s per-kind TTL table (D-042(j): 24 h non-empty, 1 h
-  empty) replaces the stand-in described on
-  :func:`registry_mcp.registries.gb.client.fetch_insolvency`.
+**What this module still asks of the architect.** The shapes above are this
+module's proposal, not a ruling — D-042 never names an insolvency shape, and
+nothing since has ruled one either. And ``core/cache.py``'s per-kind TTL
+table (D-042(j): 24 h non-empty, 1 h empty) still does not exist, so
+:func:`registry_mcp.registries.gb.client.fetch_insolvency` still uses the
+stand-in described on its own docstring.
 """
 
 from __future__ import annotations
@@ -174,196 +167,15 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from registry_mcp.core.models import InsolvencyBlock, InsolvencyCase, InsolvencyEvent, SourceRef
 
 __all__ = [
+    "InsolvencyBlock",
     "InsolvencyCase",
     "InsolvencyEvent",
-    "InsolvencyList",
-    "InsolvencyProvenance",
     "map_insolvency",
     "strip_practitioners",
 ]
-
-
-class _Base(BaseModel):
-    """Local stand-in for ``core.models._Base`` — the same ``extra="forbid"``
-    discipline (``DECISIONS.md`` D-004), kept out of ``core/`` per this
-    task's footprint restriction rather than imported from there."""
-
-    model_config = ConfigDict(extra="forbid", frozen=False)
-
-
-class InsolvencyProvenance(_Base):
-    """Stand-in for ``core.models.SourceRef`` (D-026(c), D-041(c)) — the same
-    five field names, unrenamed, so that building the real
-    ``InsolvencyBlock.provenance`` from this object is a straight field copy."""
-
-    source: str | None = Field(
-        default=None, description='Who published this block, e.g. "Companies House (UK)".'
-    )
-    source_url: str | None = Field(
-        default=None, description="A human-readable page for this company's insolvency history."
-    )
-    license: str | None = Field(
-        default=None, description="The licence this block is published under."
-    )
-    fetched_at: datetime | None = Field(
-        default=None, description="When this block was fetched from Companies House."
-    )
-    cached: bool = Field(
-        default=False, description="Whether this block was served from this deployment's cache."
-    )
-
-
-class InsolvencyEvent(_Base):
-    """One dated step in an insolvency case, as the register itself records it.
-
-    These are the register's own events, not this service's interpretation of
-    them: D-042(e)(2) rules that case type, case number and *these* dated
-    events carry the entire distress signal a pre-contract check needs.
-    """
-
-    event_type: str | None = Field(
-        default=None,
-        description=(
-            "The register's own word for what happened, verbatim — national vocabulary lives "
-            'here, in the value, never in a field name (D-042(g)). Thirteen words have been '
-            'observed live: "administration-started-on", "administration-ended-on", '
-            '"administration-discharged-on", "instrumented-on", "petitioned-on", "wound-up-on", '
-            '"concluded-winding-up-on", "voluntary-arrangement-started-on", '
-            '"voluntary-arrangement-ended-on", "moratorium-started-on", "declaration-solvent-on", '
-            '"due-to-be-dissolved-on" and "dissolved-on" (the last of which Companies House\'s '
-            "own published enumeration omits). A word outside that list is still relayed "
-            "verbatim — this field is never filtered, only reported."
-        ),
-    )
-    occurred_on: date | None = Field(
-        default=None, description="The date the register gives for this event."
-    )
-
-
-class InsolvencyCase(_Base):
-    """One entry from ``GET /company/{n}/insolvency``'s ``cases[]``.
-
-    **No practitioner particular can land here.** The register publishes each
-    appointed practitioner's name and postal address alongside this case;
-    D-042(e)(2) bars relaying them in the first tranche, so this model has no
-    field for them and :func:`map_insolvency` never reads the key. Adding them
-    later is a decision with its own entry in ``DECISIONS.md``, inheriting
-    D-028's four preconditions in full.
-    """
-
-    case_number: str | None = Field(
-        default=None,
-        description=(
-            "The register's own identifier for this case, verbatim. For Companies House this is "
-            'a per-company sequence number rendered as a string ("1", "2", … up to "31" in the '
-            "live sample) and is **not** a court reference — it identifies the case only within "
-            "this company. Kept as a string rather than an integer because another register's "
-            "case identifier need not be numeric."
-        ),
-    )
-    case_type: str | None = Field(
-        default=None,
-        description=(
-            "The register's own word for the kind of procedure, verbatim — national vocabulary "
-            'lives here, in the value (D-042(g)). Ten words observed live: '
-            '"compulsory-liquidation", "creditors-voluntary-liquidation", '
-            '"members-voluntary-liquidation", "in-administration", "administration-order", '
-            '"administrative-receiver", "receiver-manager", "corporate-voluntary-arrangement", '
-            '"corporate-voluntary-arrangement-moratorium" and "moratorium". See '
-            "`is_liquidation` for the country-neutral derived flag."
-        ),
-    )
-    is_liquidation: bool | None = Field(
-        default=None,
-        description=(
-            "Whether this procedure is a winding-up — the country-neutral question behind the "
-            "national word in `case_type`. Derived from `case_type` by membership of a committed "
-            "table of words this module has actually observed on the wire "
-            "(`_LIQUIDATION_BY_CASE_TYPE`). `None` when `case_type` is absent or is a word not "
-            "yet in that table — never guessed, never `False` by default (D-011, D-025(d), "
-            "D-042(j)). **`True` does not mean insolvent**: a members' voluntary liquidation is "
-            "a *solvent* winding-up, begun by a declaration of solvency, and 56 of the 1,485 "
-            "live cases behind this table were exactly that. Read it as 'the company is being "
-            "wound up', not as 'the company cannot pay'."
-        ),
-    )
-    events: list[InsolvencyEvent] = Field(
-        default_factory=list,
-        description=(
-            "The register's own dated steps in this case, newest first. Frequently empty — 172 "
-            "of the 1,485 live cases carried no date at all, most of them old receiverships — "
-            "and an empty list means the register publishes no date for this case, never that "
-            "nothing happened."
-        ),
-    )
-    note_codes: list[str] = Field(
-        default_factory=list,
-        description=(
-            "The register's own note **codes** for this case, verbatim and never resolved into "
-            "prose — the same treatment D-042(e)(1) gives a filing's `description_code`. Only "
-            'one code has ever been observed live: "scottish-insolvency-info", which means the '
-            "Accountant in Bankruptcy's Register of Insolvencies holds further detail this API "
-            "does not. Companies House declares this field an unbounded `array[string]`, so it "
-            "is the one place in this payload a name could hide; codes are therefore relayed "
-            "through an allow-list of observed codes, and an unrecognised one is dropped and "
-            "disclosed in the block's `notes` rather than passed through."
-        ),
-    )
-
-
-class InsolvencyList(_Base):
-    """Stand-in for the future ``core.models.InsolvencyBlock`` — the field
-    names the real block should carry, with ``provenance`` typed to
-    :class:`InsolvencyProvenance` rather than to ``core.models.SourceRef``,
-    which this module deliberately does not import.
-
-    Two-level nullability is the point of the shape (D-011, D-026(c),
-    D-041(c), D-042(d)(3)): once *present*, this block carries ``cases: []``
-    for a company the register publishes no insolvency case for — that case
-    must never collapse into the absent case and must never be ``not_found``.
-    The endpoint's 404 is the *normal* answer for a solvent company and says
-    nothing about whether the company exists, so ``notes`` distinguishes
-    "the register holds no insolvency resource here" from "the resource
-    exists and is empty" instead of flattening both into silence.
-    """
-
-    cases: list[InsolvencyCase] = Field(
-        default_factory=list,
-        description=(
-            "Every insolvency case the register publishes for this company — the whole history, "
-            "not a page: this endpoint is not paginated and ignores `items_per_page` and "
-            "`start_index`. Sorted newest first by the case's most recent event date, then by "
-            "`case_number` descending; cases the register gives no date for sort last."
-        ),
-    )
-    statuses: list[str] = Field(
-        default_factory=list,
-        description=(
-            "The register's own company-level insolvency status words, verbatim — national "
-            'vocabulary in values (D-042(g)). Eight observed live: "in-administration", '
-            '"liquidation", "receivership", "receiver-manager", "administrative-receiver", '
-            '"administration-order", "voluntary-arrangement" and '
-            '"live-receiver-manager-on-at-least-one-charge". An **empty list means the register '
-            "publishes no such word for this company**, which is not the same as 'not currently "
-            "insolvent': about one in ten companies whose Companies House `company_status` is an "
-            "insolvency status still has no word here. No yes/no flag is derived from this field "
-            "for exactly that reason (D-011)."
-        ),
-    )
-    provenance: InsolvencyProvenance = Field(
-        description="Where, when and under what licence this block was fetched."
-    )
-    notes: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Plain-English caveats about this block: which of the register's two empty states "
-            "this is, that practitioner particulars exist upstream and are deliberately not "
-            "relayed, and any note code withheld by the allow-list."
-        ),
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -552,7 +364,7 @@ def map_insolvency(
     *,
     cached: bool,
     fetched_at: datetime,
-) -> InsolvencyList:
+) -> InsolvencyBlock:
     """Pure, synchronous, no I/O — mirrors ``registries/gb/charges.py``'s
     ``map_charges`` convention exactly.
 
@@ -598,10 +410,10 @@ def map_insolvency(
     if withheld:
         notes.append(_WITHHELD_NOTES_NOTE.format(count=withheld, url=page_url))
 
-    return InsolvencyList(
+    return InsolvencyBlock(
         cases=cases,
         statuses=statuses,
-        provenance=InsolvencyProvenance(
+        provenance=SourceRef(
             source=_SOURCE,
             source_url=page_url,
             license=_LICENSE,

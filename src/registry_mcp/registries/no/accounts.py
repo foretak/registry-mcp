@@ -1,35 +1,17 @@
 """NO annual accounts — ``GET data.brreg.no/regnskapsregisteret/regnskap/{orgnr}``.
 
-Built for **R-5d** (``DECISIONS.md`` D-042(i)), **behind the seam**, exactly
-as ``registries/gb/charges.py`` was an hour earlier and
-``registries/se/filings.py`` is in parallel: this module is deliberately
-self-contained inside ``registries/no/`` and does not import
-``core.models.SourceRef``, ``core.models.FiledDocument`` or
-``core.models.FilingHistory``. ``SourceRef`` landed with R-5;
-``FiledDocument`` / ``FilingHistory`` have **not** landed in ``core/models.py``
-yet (``grep -n "FiledDocument" src/registry_mcp/core/models.py`` is empty as
-this is written), and ``core/`` is another agent's footprint. **Nothing here
-touches ``core/``, ``mcp/`` or ``api/``.**
-
-The model shapes below are copied field-for-field from ``DECISIONS.md``
-D-041(d) as widened by D-042(h) — the ruled shape of the future
-``core.models.FiledDocument`` / ``core.models.FilingHistory`` — and are
-deliberately identical to ``registries/se/filings.py``'s stand-ins, so that
-the two converge on **one** shared model and wiring is a rename, not a
-redesign:
-
-* delete (or thinly re-export) :class:`FiledDocument`,
-  :class:`FilingProvenance` and :class:`FilingHistory` from this module and
-  from ``registries/se/filings.py``;
-* ``core/models.py`` gains the real ``FiledDocument`` / ``FilingHistory``
-  and ``CompanyReport.filings: FilingHistory | None = None``;
-* ``BrregRegistry`` (``registries/no/__init__.py``) gains
-  ``async def filings(self, id: str) -> FilingHistory`` — a thin call to
-  :func:`registry_mcp.registries.no.client.fetch_accounts`, whose returned
-  :class:`FilingHistory` is copied field-for-field onto the real model
-  (``provenance`` becomes a real ``SourceRef`` from :class:`FilingProvenance`'s
-  five identically-named fields);
-* ``BrregRegistry.supported_includes`` gains ``"filings"``.
+**R-5d** (``DECISIONS.md`` D-042(i)). This module maps the wire straight onto
+the canonical :class:`~registry_mcp.core.models.FiledDocument` /
+:class:`~registry_mcp.core.models.FilingHistory` /
+:class:`~registry_mcp.core.models.SourceRef` (D-041(d), as widened by
+D-042(h)) — the same shapes ``registries/se/filings.py`` and
+``registries/gb/filing_history.py`` build, because all three registers
+converged on one shape independently (D-044(a)). There is no local stand-in
+and nothing to convert: :func:`map_regnskap` constructs the canonical
+classes directly, and ``BrregRegistry.filings``
+(``registries/no/__init__.py``) returns
+:func:`registry_mcp.registries.no.client.fetch_accounts`'s result unchanged.
+**Nothing here touches ``mcp/`` or ``api/``.**
 
 Recon behind every choice below — live, keyless calls to
 ``https://data.brreg.no/regnskapsregisteret/regnskap/{orgnr}`` on 2026-09-08,
@@ -189,12 +171,12 @@ Two shape choices flagged for the architect rather than made quietly:
   home in the shape D-041(d)/D-042(h) ruled. D-042(g)'s anti-bend rule
   reserves adding a field to a shared attachment model for an entry in
   ``DECISIONS.md``, not an implementer's judgement — and here the reason is
-  not only procedural: with GB, SE and NO stand-ins converging on one
-  ``FiledDocument``, a unilateral widening would break the "wiring is a
-  rename" property all three modules were built for. There is also a
-  substantive argument, and it is D-041(g)'s own: *"an XBRL package to parse,
-  and a financial-statements feature wearing a filing-history costume"* —
-  the reason Bolagsverket's zip was ruled out. Key figures are that feature.
+  not only procedural: ``FiledDocument`` is now the one canonical model all
+  three countries import, so a unilateral widening would change Britain's
+  and Sweden's shape too, not just Norway's. There is also a substantive
+  argument, and it is D-041(g)'s own: *"an XBRL package to parse, and a
+  financial-statements feature wearing a filing-history costume"* — the
+  reason Bolagsverket's zip was ruled out. Key figures are that feature.
   They are a strong candidate for a **separate** ``include=["accounts"]``
   block with its own entry; this module deliberately leaves them on the wire
   and unclaimed, exactly as D-023(d) left ``regnskapsperiode`` until D-042
@@ -222,224 +204,14 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from registry_mcp.core.models import FiledDocument, FilingHistory, SourceRef
 
 __all__ = [
     "ACCOUNTS_URL",
     "FiledDocument",
     "FilingHistory",
-    "FilingProvenance",
     "map_regnskap",
 ]
-
-
-class _Base(BaseModel):
-    """Local stand-in for ``core.models._Base`` — the same ``extra="forbid"``
-    discipline (``DECISIONS.md`` D-004), kept out of ``core/`` per this
-    task's footprint restriction rather than imported from there."""
-
-    model_config = ConfigDict(extra="forbid", frozen=False)
-
-
-class FilingProvenance(_Base):
-    """Stand-in for ``core.models.SourceRef`` (D-026(c), landed with R-5) —
-    the same five field names, unrenamed, so building the real
-    ``FilingHistory.provenance`` from this object is a straight field copy.
-
-    Its independence from ``CompanyReport``'s own provenance is the whole
-    point of D-041(c): *one fetch, one ``SourceRef`` — not one organisation.*
-    That bites hardest here, where both fetches go to the same host, the same
-    publisher and the same open licence: ``/enhetsregisteret/api/enheter`` and
-    ``/regnskapsregisteret/regnskap`` are still two round trips with two
-    moments, two cache states and — as this module's docstring records — two
-    genuinely different failure modes, since a bank's company record resolves
-    while its accounts fetch returns a permanent 500.
-    """
-
-    source: str | None = Field(
-        default=None,
-        description='Who published this block, e.g. "Regnskapsregisteret (Brønnøysundregistrene)".',
-    )
-    source_url: str | None = Field(
-        default=None, description="Where this block was fetched from."
-    )
-    license: str | None = Field(
-        default=None,
-        description=(
-            "The licence this block is published under. `NLOD 2.0` — Brønnøysundregistrene "
-            "publishes data.brreg.no under NLOD 2.0 (`NORBIZ_SPEC.md` §1), which is the same "
-            "value the company record on the same host already carries; this endpoint states "
-            "no separate licence of its own."
-        ),
-    )
-    fetched_at: datetime | None = Field(
-        default=None,
-        description=(
-            "When this block was fetched from Regnskapsregisteret — its own moment, not the "
-            "company record's. `None` inside a present block means no request was made."
-        ),
-    )
-    cached: bool = Field(
-        default=False,
-        description=(
-            "Whether this block was served from this deployment's cache — its own cache "
-            "state, which may differ from the company record's."
-        ),
-    )
-
-
-class FiledDocument(_Base):
-    """One filed annual account from Regnskapsregisteret's open dataset.
-
-    Field-for-field the shape ``DECISIONS.md`` D-041(d) rules for the future
-    ``core.models.FiledDocument``, plus the three fields D-042(h) adds — and
-    deliberately identical to ``registries/se/filings.py``'s stand-in of the
-    same name, so the two collapse into one model when they are wired.
-    """
-
-    kind: str | None = Field(
-        default=None,
-        description=(
-            "The `Deadline.kind` slug this filing discharges, or `None` when it discharges "
-            'none. Always "annual_accounts" for Norway: this dataset holds filed annual '
-            "accounts (årsregnskap) and nothing else."
-        ),
-    )
-    period_end: date | None = Field(
-        default=None,
-        description=(
-            "The accounting period's last day, exactly as the register published it "
-            "(`regnskapsperiode.tilDato`) — this filing's financial year end. Not always "
-            "31 December: a Norwegian company may hold a deviating accounting year, and "
-            "regnskapsloven § 8-3(1) second sentence gives a *different* filing rule "
-            "(1 February) to a year ending between 1 January and 30 June."
-        ),
-    )
-    period_start: date | None = Field(
-        default=None,
-        description=(
-            "The accounting period's first day (`regnskapsperiode.fraDato`), verbatim. "
-            "**Norway publishes this and Sweden does not** — the field exists on this model "
-            "for exactly this register (D-041(d)). It is real data, not `period_end` minus "
-            "twelve months: a company's first filed period runs from its incorporation date, "
-            "so a stub period of a few months is common and a derived start would be wrong."
-        ),
-    )
-    filed_at: date | None = Field(
-        default=None,
-        description=(
-            "When the register recorded this filing. **Always `None` for Norway**: "
-            "Regnskapsregisteret's open dataset publishes no filing date under any name. "
-            "`journalnr` (relayed as `document_id`) begins with the year the filing was "
-            "journalled, but reading a date out of an opaque identifier would be a "
-            "constructed fact, not a published one — and it is not derivable from the "
-            "period either, since accounts are sometimes journalled years late."
-        ),
-    )
-    days_from_fee_point: int | None = Field(
-        default=None,
-        description=(
-            "Signed days from the late-fee point to `filed_at`. **Always `None` for "
-            "Norway**, for two independent reasons: `filed_at` is not published (so "
-            "D-041(d)'s own `None` rule applies), and the Norwegian fee point is not "
-            '"N months after the period end" but regnskapsloven § 8-3(1)\'s branch — '
-            "1 August, or 1 February where the accounting year ended between 1 January "
-            "and 30 June — whose year for a non-December period end is not settled by any "
-            "source this project has read (D-009: never guess a duty)."
-        ),
-    )
-    document_id: str | None = Field(
-        default=None,
-        description=(
-            "The register's own handle for this filing (`journalnr`), relayed verbatim and "
-            "never interpreted. **Not fetchable through this API**: this dataset returns "
-            "key figures, not a document. It is the key a Brønnøysundregistrene support "
-            "case can name. (The payload also carries an integer `id`, an internal row "
-            "identifier, which is not relayed.)"
-        ),
-    )
-    file_format: str | None = Field(
-        default=None,
-        description=(
-            "What the register holds the document as. **Always `None` for Norway**: this "
-            "endpoint offers no document at all, only parsed figures, so there is no format "
-            "to name."
-        ),
-    )
-    category: str | None = Field(
-        default=None,
-        description=(
-            "The register's own category for this filing, verbatim (`regnskapstype`): "
-            '"SELSKAP" for a company\'s own annual accounts. The vocabulary implies a '
-            '"KONSERN" (consolidated) counterpart, which this dataset was never observed '
-            "to return — including for parent companies. Nothing derived switches on it."
-        ),
-    )
-    type_code: str | None = Field(
-        default=None,
-        description=(
-            "The register's own form code for this filing, verbatim. **`None` for Norway**: "
-            "Regnskapsregisteret publishes none. (`oppstillingsplan`, e.g. \"store\", is a "
-            "presentation-plan label, not a form code, and is deliberately not mapped here.)"
-        ),
-    )
-    description_code: str | None = Field(
-        default=None,
-        description=(
-            "The register's own description-template key, verbatim and never resolved. "
-            "**`None` for Norway**: Regnskapsregisteret publishes no description template, "
-            "and therefore none of the resolved-template person data D-042(e)(1) exists to "
-            "keep out of this model."
-        ),
-    )
-
-
-class FilingHistory(_Base):
-    """Stand-in for the future ``core.models.FilingHistory`` (D-041(d)) — the
-    same field names, ``provenance`` typed to :class:`FilingProvenance` above
-    rather than to ``core.models.SourceRef``, which this module deliberately
-    does not depend on.
-
-    Two-level nullability is the contract (D-041(c)) and belongs to whoever
-    wires this up: **an absent block** on a report means "you did not ask, or
-    the fetch failed" — never a present block with invented content — while
-    **a present block with ``documents: []``** means "Regnskapsregisteret
-    holds no filed annual account for this entity", which is a real answer
-    about a counterparty and must never be rendered as an absence. For Norway
-    that distinction is load-bearing rather than theoretical: the empty answer
-    arrives as a bodyless 404 that looks exactly like a nonexistent
-    identifier, and the failure answer arrives as a permanent 500 for banks
-    and insurers whose company record says they filed.
-    """
-
-    documents: list[FiledDocument] = Field(
-        default_factory=list,
-        description=(
-            "The filed annual accounts the register lists, sorted newest first: "
-            "`period_end` descending, then `filed_at` descending where the register "
-            "publishes one — Norway publishes none, so `period_start` is the tiebreak "
-            "here. Norway's open dataset returns only the most recently filed period, so "
-            "this list holds at most one entry — see `notes`. Empty means the register "
-            "holds none, not that we could not look."
-        ),
-    )
-    financial_year_end: date | None = Field(
-        default=None,
-        description=(
-            "The `period_end` of this company's most recently filed annual accounts, "
-            "carried verbatim — never a synthesised month-day. It is **evidence of** the "
-            "company's financial year, not a statement of it: a company may change its "
-            "accounting year, and the accounts on file may be several years old. `None` "
-            "when the register holds no filed accounts."
-        ),
-    )
-    provenance: FilingProvenance = Field(
-        description="Where, when and under what licence this block was fetched."
-    )
-    notes: list[str] = Field(
-        default_factory=list,
-        description="Plain-English caveats about this block.",
-    )
 
 
 #: The open, keyless endpoint. A different path prefix on the same host as
@@ -633,7 +405,7 @@ def map_regnskap(
     return FilingHistory(
         documents=documents,
         financial_year_end=financial_year_end,
-        provenance=FilingProvenance(
+        provenance=SourceRef(
             source=_SOURCE,
             source_url=ACCOUNTS_URL.format(orgnr=orgnr),
             license=_LICENSE,
