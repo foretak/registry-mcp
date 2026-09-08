@@ -1582,3 +1582,468 @@ a manifest naming package versions that exist nowhere, a null `kod` that would s
 `"None"` as an industry code, and a release note that announces Sweden live and not-yet-live under
 one heading. The rest can follow at leisure — but **finding 8 should be applied to D-041 before
 Part A is dispatched**, or its Sonnet will close seven sites and leave four.
+
+---
+
+## S-series — 2026-09-08 — CHANGES REQUIRED (two blocking, two urgent; the machinery itself is sound)
+
+Reviewer: Opus reviewer. Scope: everything committed today, `cf5f13f..48cb6ab` (`git log --oneline
+v0.3.0..HEAD`), plus the `D-042` compliance check the brief asked for.
+
+**Working-tree caveat, stated up front.** Three implementers are mid-flight in this tree. Everything
+below was executed against a pristine export of committed `HEAD`
+(`git archive HEAD | tar -x -C <scratch>`), never the working tree. On that export:
+
+* `pytest -m "not live"` → **726 passed, 13 deselected** — exactly the count `10f46f2` and `48cb6ab`
+  claim. `mypy .` → clean, 65 files. `ruff check .` → clean. **CI is green at HEAD.**
+* The working tree gives **724 passed, 2 failed** (`test_mcp.py::test_server_card_lookup_company_
+  output_schema_matches_model`, `::test_server_card_tools_and_prompts_match_the_live_server`). That is
+  **fully explained by uncommitted work**: `git diff HEAD -- src/registry_mcp/mcp/server.py` shows the
+  wiring agent has added the `include` parameter and the charges paragraph to `lookup_company`'s
+  docstring, and `static/well-known/mcp/server-card.json` has not been updated to match. **Not a
+  regression.** It is, incidentally, the card-drift test from `cf5f13f` doing its job on its first
+  real drift, which is a good sign for that test.
+* Everything committed today is **already live on `api.foretak.dev`** — verified: the served
+  `/.well-known/mcp/server-card.json` is byte-identical to `HEAD`'s, and `/v1/countries` already
+  returns `supported_includes: []` on all three countries. Finding 1 is therefore live in production
+  now, not pending a deploy.
+
+### Checklist
+
+| # | Claim under test | Method | Result |
+|---|---|---|---|
+| 1 | 726 tests pass at committed HEAD | pristine `git archive` export + venv | **PASS** |
+| 2 | `mypy .` clean, `ruff check .` clean at HEAD | executed on the export | **PASS** |
+| 3 | Working-tree failures are uncommitted work, not a regression | `git diff HEAD -- mcp/server.py` | **PASS** (explained) |
+| 4 | `counterparty_check` always renders the payment-fraud caveat | mutated the sentence to its opposite | **PASS** — `test_counterparty_check_prompt_states_what_it_does_not_establish` goes red |
+| 5 | The caveat is *structurally* guaranteed, not just test-pinned | read the prompt builder | **PARTIAL** — see finding 5 |
+| 6 | New instructions/card: Companies House VAT claim | grep + live `GET /v1/GB/company/00445790` (`vat_registered: null`) | **PASS** — VAT is claimed for NO only |
+| 7 | New instructions: "no key" honesty | read `instructions`; card `authentication` | **PASS** — names `COMPANIES_HOUSE_API_KEY`/`BOLAGSVERKET_*` and "will answer for Norway only" |
+| 8 | New instructions: Sweden has no name search | called `search_company(country="SE")` | **PASS** — raises `not_implemented` with a hint naming `lookup_company` |
+| 9 | Both prompts work end to end | rendered both via `fastmcp.Client`; checked every tool name, argument and model field they cite | **PASS** — all exist (`validate_company_id`/`lookup_company`/`company_deadlines` take `id`,`country`; `days_until`, `status_detail`, `notes`, `source_url`, `employees_reported` all real) |
+| 10 | `register_coverage`'s null taxonomy is true per country | traced `employees_reported` per country module | **FAIL** — finding 2 |
+| 11 | `registry://rules/{country}` resolves for the prompt's interpolation | read all three, incl. lowercase `gb` | **PASS** |
+| 12 | A failing attachment leaves the lookup intact | ran `test_one_failing_attachment_does_not_affect_a_succeeding_one` + read `lookup_with` | **PASS** |
+| 13 | `include` validation happens *before* the upstream call | mutated: moved the check after `await self.lookup(id)` | **PASS** — 2 tests go red |
+| 14 | Concurrency is bounded as claimed | mutated: removed the semaphore | **PASS** — `test_max_concurrency_bounds_in_flight_attachment_fetches` goes red |
+| 15 | Duplicate `include` values cost one fetch | mutated: `dict.fromkeys` → `list` | **PASS** — test goes red |
+| 16 | The `RuntimeError` guard fires on a declared include with no matching **field** | mutated: deleted the guard | **PASS** — test goes red |
+| 17 | …and on a declared include with no matching **method** | constructed one and ran it | **FAIL** — bare `AttributeError`, finding 6 |
+| 18 | `include=[]` is genuinely free | read `lookup_with` (no semaphore, no `gather`, early return) + `test_lookup_with_default_include_costs_exactly_one_lookup_call` | **PASS** |
+| 19 | The rewritten concurrency test proves overlap | mutated: `asyncio.gather` → sequential comprehension | **PASS** — `TimeoutError`, test goes red; sequential execution cannot pass it |
+| 20 | No `persons_entitled` value in any committed fixture is a natural person | extracted all 110 values / 68 distinct from the four fixtures and read every one | **PASS** — all institutions (`Kfw`, `Natixis`, `J. Aron & Company`, `Nevis Derivatives No 3 LLP` checked individually) |
+| 21 | Nothing reads Companies House's `has_charges` | `grep -rn has_charges src/` | **FAIL** — `gb/mapping.py:132` does, finding 1 |
+| 22 | Tesco's `has_charges` really is wrong | `ch_00445790.json` `has_charges: false`; `ch_00445790_charges.json` → 9 items, `total_count 9`, `satisfied_count 7`, 2 `"outstanding"` | **PASS** — the finding is real |
+| 23 | Status table matches the wire | all 110 fixture items: only `outstanding` (80) and `fully-satisfied` (30) | **PASS** — no `part-satisfied`, table is honest |
+| 24 | D-042(c) — no new tools | live card + `tools/list`: 7 (5 registry + 2 aliases); no new REST route | **PASS** |
+| 25 | D-042(d) — discoverability | `CountryInfo.supported_includes` on the wire, sorted; block names in tool description text | **PARTIAL** — (d)(1) done; (d)(2) is in the uncommitted wiring, correct since no block ships at HEAD |
+| 26 | D-042(e)(1) — `description_values` allow-list | `grep -rn description_values src/` | **PASS** — zero (no filing history shipped) |
+| 27 | D-042(f) — officers and PSC barred | grep for `/officers`, `persons-with-significant`, `officer_name`, `psc` | **PASS** — prose references only |
+| 28 | D-042(j) — truncation disclosed, register's max page, derived flag by table | read `map_charges`; NatWest fixture (137 total, 100 returned) produces the note with the register's URL | **PASS** |
+| 29 | D-042 exists in committed history | `git log -S"### D-042" --all` | **FAIL** — finding 3 |
+| 30 | The charges model shape is the one D-042 ruled | counted every field name in D-042 | **FAIL** — finding 4 |
+| 31 | Dashboard chart is responsive and all 30 bars are reachable | read the renderer; `viewBox` + `width:100%`, `max_count = max(counts) or 1` | **PASS** (untested — finding 9) |
+
+### Findings
+
+**1. `registers["charges"]` is a false "no" on the wire, live, for exactly the company today's
+commit proved it wrong on. — BLOCKING.**
+`src/registry_mcp/registries/gb/mapping.py:132` — `"charges": bool(data.get("has_charges"))`.
+Executed against production: `curl https://api.foretak.dev/v1/GB/company/00445790` returns
+`"registers": {"charges": false, "insolvency": false}` for **TESCO PLC**. `48cb6ab` committed
+`tests/fixtures/ch_00445790_charges.json`, recorded live today: **nine charges, two outstanding**.
+`core/models.py:709` documents `registers` as "Other national sub-registers this entity **is or is
+not in**" — a `false` there is an assertion, not an absence.
+The commit message says "Nothing in this code reads it". That is true of `charges.py` and false of
+the product. Worse, the wrong value is *defended* in three places: `tests/test_client_gb.py:145`
+(`test_78_registers_charges_is_false_despite_links`, whose own docstring calls it "the single most
+important mapping test in the file") pins it; `UK_SPEC.md:158-166` §1.6 №1 states the now-falsified
+premise — "`links.charges` is present even when there are no charges … Read the deprecated boolean"
+— when in fact `links.charges` was right and the boolean was wrong; and `static/llms-full.txt:357`
+documents the derivation to callers.
+*Failure scenario:* an agent runs `counterparty_check` on a GB supplier, reads `registers.charges:
+false`, and reports "no registered charges" for a company carrying two outstanding charges. D-042's
+own words: "a charge is a credit decision."
+*Exact change:* delete the `"charges"` key from `map_registers` (`gb/mapping.py:127-134`) — a
+`dict[str, bool]` cannot say *unknown*, and D-011's rule forbids collapsing "not in the register"
+and "the register's own flag is unreliable" into one `false`. Let `include=["charges"]` be the only
+thing that answers the question. Then repoint `test_78` at the new behaviour, rewrite `UK_SPEC.md`
+§1.6 №1 to record the reversal (the boolean is wrong, not merely deprecated), and fix
+`static/llms-full.txt:356-357` and its example at `:306`. Re-test `has_insolvency_history` before
+continuing to trust it — the same evidence base has not been re-checked for it.
+
+**2. `register_coverage` teaches the agent the wrong half of its own taxonomy, for two of three
+countries. — BLOCKING (false statement in user-facing text).**
+`src/registry_mcp/mcp/server.py:721-723`. The prompt's only worked example says: *"(b) An
+entity-level gap: the register could hold a value here but has none for this particular company —
+`employees` null alongside `employees_reported: false` is exactly this."*
+That is true for Norway (`registries/no/mapping.py:247` derives the flag from the payload) and false
+for the United Kingdom and Sweden, where `registries/gb/mapping.py:346` and
+`registries/se/mapping.py:785` hard-code `employees_reported=False` because **neither register
+publishes an employee figure for any company**. Verified live: `/v1/GB/company/00445790` and
+`/v1/SE/company/5560160680` both return `employees: null, employees_reported: false`. That is case
+**(a)**, a structural silence, which the prompt names as case (b).
+The prompt does not branch on `country`, so `register_coverage(id, country="GB")` — the exact call
+`tests/test_mcp.py::test_register_coverage_prompt_renders_and_reads_the_rules_resource` makes —
+instructs the agent to tell a reader that Companies House holds no employee figure *for this
+company*, implying it might for another. This is the two-states-into-one collapse the prompt exists
+to prevent, in the prompt's single illustration of how to avoid it, and
+`test_register_coverage_prompt_distinguishes_structural_from_entity_nulls` pins the sentence so it
+will survive edits.
+*Exact change:* make the example country-true. Either drop the worked example and keep the rule, or
+say: "in Norway, `employees: null` with `employees_reported: false` is an entity-level gap; in the
+United Kingdom and Sweden the same pair is structural, because neither register publishes an
+employee figure for any company." Update the pinning test's assertion to the new wording.
+
+**3. D-042 has never been committed. — URGENT; must land before 17:00.**
+`git show HEAD:DECISIONS.md | grep -c D-042` → **0**. `git log --oneline -S"### D-042" --all` →
+**empty**. The last committed entry in `DECISIONS.md` is D-041 (`28efe77`). D-042 exists only as a
+96-line uncommitted addition in the working tree, and `tasks/T37.md` is untracked.
+Three commits today take D-042 as their governing authority and cite it by part — roughly thirty
+times across shipped docstrings in `core/registry.py`, `core/models.py`, `registries/gb/charges.py`
+and `registries/gb/client.py`. Anyone reading committed history (the human at 17:00 included) is
+sent to a decision that does not exist in the repository; `DECISIONS.md`'s own header calls itself
+append-only and the file every implementer reads before starting.
+*Exact change:* commit `DECISIONS.md` and `tasks/T37.md` before the review. This is the cheapest
+item on the list and the one with the worst failure mode — a lost working tree loses the reasoning
+behind the entire depth track.
+
+**4. `charges.py` attributes an unruled model to the architect, and tells the next agent it is a
+rename. — URGENT; must land before the wiring commit, which is in flight now.**
+`src/registry_mcp/registries/gb/charges.py:20-22` — *"The model shapes below are copied
+field-for-field from `DECISIONS.md` D-042 part (h) — the ruled shape of the future
+`core.models.Charge` / `core.models.ChargeBlock` — precisely so that wiring this up once R-5 lands
+is a rename, not a redesign"* — repeated at `:180` and `:246`.
+D-042(h) is titled *"`FiledDocument` is widened by three fields"* and its entire content is
+`category` / `type_code` / `description_code` for **filing history**. It rules no charge shape at
+all. Counting every field name of the two local models against the whole 27,000-character entry:
+`outstanding_count` 0 hits, `satisfied_count` 0, `charge_id` 0, `charge_number` 0, `assets_charged`
+0, `obligations_secured` 0, `contains_floating_charge` 0, `classification` 0, `created_on` 0,
+`delivered_on` 0, `satisfied_on` 0. Only three names are actually ruled anywhere in D-042:
+`parties_entitled` (the rename, (e)(3)), `Charge.is_outstanding` (as the derived-flag example, (j))
+and `total_count` (the truncation rule, (j)).
+So thirteen of sixteen field names are this implementer's own design, presented as the architect's.
+*Failure scenario:* the wiring agent reads "a rename, not a redesign" and lifts these names straight
+into `core/models.py` as the **shared, country-neutral** `ChargeBlock` that D-042(g) reserves for
+Norway's Løsøreregisteret and Sweden's företagsinteckningar as future fillers — the payload-shaped
+bend D-042(g) and (i) exist to prevent, arriving through a citation nobody checked. The same module
+is scrupulous elsewhere (it declines to add `contains_fixed_charge` and `part_satisfied_count`
+precisely *because* D-042(g) reserves that to the architect), which makes the mis-citation more
+likely to be believed, not less.
+*Exact change:* replace the three "D-042(h)" citations with an honest one — "shaped by D-042(g)'s
+anti-bend rule and (j)'s truncation and derived-flag rules; **the field list itself is this module's
+proposal and is not yet ruled**" — and get a ruling (a D-042 amendment or D-043) on
+`Charge`/`ChargeBlock` before those names enter `core/models.py`. Note for that ruling: the module
+already flags two open questions honestly at `:115-127` (`outstanding_count` as `total_count −
+satisfied_count`, and the missing `part_satisfied_count`), and both need answering, because
+`part_satisfied_count` was 0 in every payload observed so the arithmetic is untested in practice.
+
+**5. The payment-fraud caveat is CI-guaranteed inside the prompt, and absent from the surface every
+client actually reads. — NON-BLOCKING.**
+Answering the brief's question directly: **inside `counterparty_check` the caveat cannot silently
+vanish.** I mutated `mcp/server.py:694` from *"it is not a defence against payment fraud"* to *"it
+is a strong signal the payment is safe"*; `test_counterparty_check_prompt_states_what_it_does_not_
+establish` went red on four of its five pinned substrings. That test is a genuine guard and the best
+thing in `cf5f13f`.
+Two gaps remain. (a) The server `instructions` (`mcp/server.py:169-178`) now carry the same pitch —
+"Check whether a company you're about to deal with — a new supplier, a counterparty … is real,
+active and keeping up with its statutory filings" — with **no caveat at all**. The caveat reached
+the card's `description` and the prompt; `instructions` is the string every MCP client puts in front
+of the model, and the card is a static file most clients never fetch. A caller who uses
+`lookup_company` directly gets the pitch and not the limit. One sentence fixes it, and it belongs in
+the same clause as the pitch. (b) "It then **forces** a section titled…" (commit message) overstates
+what an instruction inside a prompt can do — nothing checks the *model's* output. Worth hoisting the
+caveat to a module constant so a third prompt reuses it rather than paraphrasing it, and worth one
+eval case in `evals/cases.json`, where neither new prompt appears today.
+
+**6. Two of `lookup_with`'s three misconfiguration paths are not what the docstring promises, and
+the surface logs the crash as a success. — NON-BLOCKING (unreachable at HEAD; reachable the moment
+the include is wired).**
+`src/registry_mcp/core/registry.py:342` promises that a country "whose `supported_includes` names a
+method it does not define, **or** whose result does not match a field on the report … fails loudly
+here (see the `RuntimeError` below)". Executed: only the second case does. A declared include with
+no matching method raises `AttributeError: 'Missing' object has no attribute 'nomethod'` at
+`:371` — no mention of `supported_includes`, and no test covers it. A third case is silent: the
+`RuntimeError` guard at `:389-395` only inspects **successful** attachments, so a misconfigured
+include whose method raises `RegistryError` produces a plausible `notes` sentence and no error at
+all.
+Compounding it: `mcp/server.py:93` defaults `_CallOutcome.ok = True` and only the
+`except RegistryError` branch sets it False, so any of these exceptions escaping a tool body is
+**recorded in the usage log as a successful call** and reaches the client as a bare FastMCP
+`ToolError` rather than a D-007 `{"error": {code, message, hint}}` envelope. R-5 is the first code
+that raises non-`RegistryError` exceptions *by design*, which is what makes this worth fixing now.
+*Exact change:* validate the whole `supported_includes ↔ method ↔ field` triple in one place before
+`lookup` is called (or at class definition, in `__init_subclass__`), raising the same `RuntimeError`
+for all three cases; add a test for the missing-method case; and add `except Exception: outcome.ok =
+False; raise` to `_call_context` so an internal bug is not counted as a success.
+
+**7. Charge free text is relayed unbounded, and D-042(e)'s person-bearing test never looked at it. —
+NON-BLOCKING.**
+`registries/gb/charges.py:325-326` maps `particulars.description` → `assets_charged` and
+`secured_details.description` → `obligations_secured`, verbatim. D-042(e)'s field-level test for GB
+charges names only `persons_entitled`. Free-text particulars can name a natural person (a charged
+property, a guarantor). I scanned all 110 committed fixture items for personal titles — clean; 47
+carry a `particulars.description`, longest 260 characters, all institutional boilerplate ending "see
+image for full details". But nothing constrains what a future payload contains, and this is the same
+class of surprise D-042(e) records for filing history's `description_values`. Worth one sentence in
+the decision either way — this is a question for the architect, not a defect in the module.
+
+**8. Two provenance shapes now exist in one tree. — NON-BLOCKING, but it must not survive the wiring
+commit.**
+`core.models.SourceRef` (`10f46f2`) and `registries/gb/charges.py::ChargeProvenance` (`48cb6ab`) are
+the same five fields twice — the "hand-rolled per-block provenance in a country module" that
+D-042(b) declined by name as "the single thing R-5 exists to prevent". Both commits document it as a
+deliberate parallel-work seam with a named removal plan, which is the right call for a
+same-morning split. Flagging it only so the wiring commit is checked for its removal rather than its
+re-export.
+
+**9. The chart fix has no test, and the bug it fixes is exactly the kind that returns. —
+NON-BLOCKING.**
+`tests/test_dashboard.py` has 12 tests and not one mentions the chart, the svg, or a width. The
+regression that shipped — a fixed `width='{n * 22 + 4}'` inside `overflow-x: auto` — would ship again
+unnoticed. One assertion (`"viewBox=" in html and "width='100%'" in html`) closes it. Separately,
+`height='auto'` at `api/dashboard.py:474` is not a valid SVG 1.1 length; it is harmless only because
+the new CSS rule at `:330` overrides the presentation attribute. Drop the attribute and let the CSS
+own it. The diagnosis and the `max_count = max(counts) or 1` dead-branch removal are both correct.
+
+**10. The recon numbers in `charges.py`'s docstring understate the recon, and cite a fixture that is
+not committed. — NON-BLOCKING (accuracy).**
+`registries/gb/charges.py:87` and `:284` say "39 `persons_entitled[].name` values" / "39 charges on
+4 companies". The four committed charge fixtures hold **110** items and **110** `persons_entitled`
+values, 68 distinct — which is what the commit message says, correctly. The docstring number looks
+like a stale count from an earlier pass at `items_per_page=25`. The same lines cite Monzo
+(`09446231`) as one of the four companies, but no `ch_09446231_charges.json` exists, so that quarter
+of the evidence cannot be re-checked from the repository. Fix the count to 110/68 and either commit
+the Monzo charges fixture or drop it from the list — the evidence is stronger than the docstring
+claims, which is a strange way to lose an argument.
+
+### What is factually untrue in what was committed today
+
+1. `48cb6ab`'s message: **"Nothing in this code reads it [`has_charges`]."** `gb/mapping.py:132`
+   reads it and ships the result on every GB lookup. (Finding 1.)
+2. `charges.py:20-22`, `:180`, `:246`: **"copied field-for-field from D-042 part (h) — the ruled
+   shape of the future `core.models.Charge` / `core.models.ChargeBlock`."** D-042(h) rules
+   `FiledDocument`; no charge model is ruled anywhere in D-042. (Finding 4.)
+3. `mcp/server.py:721-723`: **"`employees` null alongside `employees_reported: false` is exactly
+   this [an entity-level gap]."** Structural, not entity-level, for GB and SE. (Finding 2.)
+4. `charges.py:87`, `:284`: **"39 `persons_entitled[].name` values" / "39 charges on 4 companies."**
+   110 and 110 in the committed fixtures. (Finding 10.)
+5. `core/registry.py:342`: **a declared include with no matching method "fails loudly here (see the
+   `RuntimeError` below)."** It raises `AttributeError`. (Finding 6.)
+6. Carried forward and now falsified by today's own evidence, though not written today:
+   `UK_SPEC.md:158` §1.6 №1, **"`links.charges` is present even when there are no charges"** —
+   `00445790` has nine. Its prescription, "Read the deprecated boolean", is backwards. (Finding 1.)
+
+### Must land before 17:00
+
+* **Finding 3** — commit `DECISIONS.md` and `tasks/T37.md`. Minutes of work; without it the review
+  is a discussion of commits that cite an authority nobody can open.
+* **Finding 4** — correct the three citations *before* the wiring commit lands, and decide whether
+  `Charge`/`ChargeBlock` enters `core/models.py` under an architect's ruling or under an
+  implementer's proposal. The wiring is in the tree right now.
+* **Finding 2** — a two-line edit to a prompt string plus its pinning assertion.
+* **Finding 1** — the decision, at least, should be taken at 17:00 with the human: the fix is small
+  (delete one dict key, repoint one test) but it changes a documented field on a live wire and
+  contradicts a spec paragraph, so it wants a person's assent rather than an agent's.
+
+### What is worth keeping
+
+The mutation results are the argument, so they are worth reading as praise: **five** of `lookup_with`'s
+claims are load-bearing under mutation, not decorative. Removing the semaphore, removing the guard,
+moving the validation after the upstream call, removing the de-duplication and making the fetch
+sequential each turn a specific test red, and each of those tests names the decision it enforces.
+That is a rate I do not usually see.
+
+`5bf0134` in particular deserves its commit message. The rendezvous rewrite is not merely less
+flaky — it is *stronger* than what it replaced: under a sequential mutation the old test would have
+passed on a fast machine, and the new one cannot, because the asserted order is unreachable without
+overlap. Replacing a timing assertion with a causal one is the correct fix for a flake, and it was
+done within an hour of the flake, by the agent that noticed it rather than by CI.
+
+And `test_charges_no_natural_person_among_recorded_parties_entitled` (`test_client_gb.py`) is worth
+copying elsewhere: it documents, in the test, why the obvious broad heuristic was rejected (a
+keyword classifier produced twelve false positives on real banks in one fixture; a digit check
+misfires on `Nevis Derivatives No 3 LLP`), then does two narrow things it can actually guarantee and
+says plainly which part of the claim was verified by hand instead. A test that reports the limits of
+its own evidence is rarer and more useful than one that overclaims — and its hand-verified part
+holds: I re-derived all 68 distinct names independently and every one is an institution.
+
+---
+
+## D-044 wiring (`e03a518`) — 2026-09-08 — APPROVED WITH FIXES (one blocking, two urgent; the wiring itself is correct)
+
+Reviewer: orchestrator (Fable 5.1), reviewing the session Opus ran as orchestrator. Scope: `e03a518`
+("Wire the three attachments"), read against D-041, D-042, D-043, D-044, `tasks/T31.md` Part B and
+`tasks/T37.md`; plus which of the S-series findings above the later commits closed. Executed on the
+working tree at `e03a518` (`main` = `origin/main`, nothing ahead; the two uncommitted files are this
+`REVIEW.md` and a one-word `devto.md` edit, neither touching `src/`).
+
+* `uv run pytest -m "not live"` → **834 passed, 22 deselected**, the count the commit claims.
+  `uv run mypy .` → clean, 69 files. `uv run ruff check .` → clean.
+* **Production has not picked up `e03a518`** (19:35Z): the served `/.well-known/mcp/server-card.json`
+  has no `filings` anywhere, HEAD's has; `/health` says 0.3.0 for both. Deploy is manual. Nothing
+  below is live yet, including the defect in finding 1.
+
+### Checklist
+
+| # | Claim under test | Method | Result |
+|---|---|---|---|
+| 1 | D-044(a): the three module `FiledDocument`s are field-for-field identical and `FilingProvenance` ≡ `SourceRef` | listed every field of all four `FiledDocument`s and all provenance classes | **PASS** — ten names, same order, in `gb/filing_history.py`, `se/filings.py`, `no/accounts.py` and `core/models.py`; five names in every provenance class |
+| 2 | Each country's `filings` and GB `insolvency` land on the field of the same name | `test_lookup_with_routes_each_block_to_the_field_of_the_same_name` ×4, and read `lookup_with` | **PASS** |
+| 3 | Conversion at the seam preserves every field of a real payload | the three conversion tests + insolvency, against recorded fixtures | **PASS** |
+| 4 | The practitioner bar holds on the core side | `test_no_practitioner_field_survives_the_conversion_to_core_models` | **PASS** — `extra="forbid"` raises on `practitioners` |
+| 5 | Every declared include has a method and a report field, in every country | `test_every_declared_include_is_reachable_in_every_country` | **PASS** |
+| 6 | D-044(b): *"the scope difference is disclosed in the block's own `notes`, on every call"* | ran all three mappers on their fixtures and printed `notes` | **FAIL** — finding 1 |
+| 7 | D-041(b) / T31 Part B / T37 done-check: `company_deadlines` accepts `include=["filings"]` | read both surfaces' signatures; `grep financial_year_end` over `rules.py` ×3, `core/registry.py`, both surfaces | **FAIL** — finding 2 |
+| 8 | `PROGRESS.md` reflects the day | read the board | **FAIL** — finding 3 |
+| 9 | S-series finding 8: the second provenance shape did not survive the wiring | `grep -rn "^class .*Provenance" src/` | **FAIL** — six shapes now; finding 4 |
+| 10 | "server-card.json regenerated" | diffed the card's `lookup_company.inputSchema.properties.include` against `_INCLUDE_DESCRIPTION`/`_INCLUDE_EXAMPLES` | **PARTIAL** — finding 5 |
+| 11 | Insolvency: the two empty states are told apart, practitioners note fires | read `map_insolvency`; fixture run | **PASS** — `_NO_RESOURCE_NOTE` vs `_EMPTY_RESOURCE_NOTE`; practitioners note on every block with cases |
+| 12 | D-043(h) rule 1 is already satisfied for T38 | `no/client.py::fetch_accounts` keys on `_accounts_cache_key(orgnr)`, one key per call | **PASS** — and rule 3's race is real: no lock or in-flight map exists in `no/client.py`, so T38 must add one |
+| 13 | S-series 1, 2, 3 closed | `beb287f`, `770c53c` | **PASS** |
+| 14 | S-series 4–10 closed | see finding 8 | **FAIL** — none of the seven |
+
+### Findings
+
+**1. D-044's central promise is not in the Swedish block, and three published strings say it is. —
+BLOCKING (false statement in agent-facing text, on the wire once deployed).**
+D-044(b) rules one include name for three scopes *because* "the scope difference is disclosed in the
+block's own `notes`, on every call". `mcp/server.py:342` (and the card's `lookup_company`
+description) tells the agent "*the block's own `notes` says which*"; `core/models.py:857` — published
+in the card's `outputSchema` — says "*`notes` says which, in words, on every block*".
+Measured on the fixtures: **SE → 3 documents, `notes: []`.** GB → three notes (truncation, fee
+point, minimisation), none naming the scope. NO → `_ONE_PERIOD_NOTE` on every non-empty call, which
+does exactly what D-044(b) describes — so the pattern exists and was not copied.
+`se/filings.py` has two note constants and both are conditional: `_EMPTY_NOTE` (`:474`, empty list
+only) and `_BROKEN_YEAR_NOTE` (`:479`, non-December year end only). A calendar-year Swedish company
+with filed reports gets no note at all.
+*Failure scenario:* an agent asked "is this Swedish supplier filing on time" receives three annual
+reports and an empty `notes`, has been told notes will say which subset this is, and concludes it is
+looking at the whole history — the inference D-044(b) exists to prevent, in the country whose scope
+is narrowest.
+*Exact change:* one unconditional constant in `se/filings.py` ("Bolagsverket's document list
+publishes filed annual reports only, not a general filing history; other filings are not listed
+here"), appended in `map_dokumentlista` on every call, and the same for GB ("the whole filing history,
+every filing kind, not only accounts") in `map_filing_history`. One assertion each. No test pins
+`notes == []` for either block, so it is additive; country modules only, `core/` untouched.
+
+**2. The deadline rung D-041 was written for is unwired and untracked. — URGENT (a wrong date D-041
+ruled on is still shipping, and the remaining work has no row anywhere).**
+D-041(b): the argument "goes on **`company_deadlines` as well as `lookup_company`**, because … this
+attachment *changes the answer of another operation*". `tasks/T31.md` Part B is "`include=["filings"]`,
+the block, **the second deadline rung**" (line 15), and line 128 makes extending `include` to
+`company_deadlines` part of the task; `tasks/T37.md:280` requires `company_deadlines` to accept
+`include=["filings"]` for GB as a no-op. Executed: MCP `company_deadlines(id, country, today)` has no
+`include`; REST `get_deadlines` takes `today` only; `financial_year_end` is consumed by **nothing** —
+zero hits in any `rules.py`, `core/registry.py` or either surface. So a Swedish company with an April
+year end is still told 30 June and 31 July, D-041(a)'s own example, with the corrected date now
+sitting unread in a block the same server returns.
+`e03a518` is honest that it changes no upstream behaviour, and its "Applies to" line says only that
+Sweden's `filings` is *wired*. The problem is that the half of T31 Part B and the T37 line it did not
+do are recorded nowhere: `PROGRESS.md` T31b still reads "todo — Blocked on R-5".
+*Exact change:* no code in this review. Give the rung a home: T31b's row becomes "block wired
+(`e03a518`, D-044); **open**: `include` on `company_deadlines` both surfaces, rung 2 in
+`se/rules.py` per T31 §4, GB no-op per T37" — then it is one Sonnet task against a brief that
+already exists.
+
+**3. The board was not kept. — URGENT (the orchestrator's own rule, and Kim's "resume from repo files
+alone").**
+`PROGRESS.md` has no row for R-5 (`10f46f2`, `5bf0134`), T37/R-5c (`48cb6ab`, `3ecc369`, `beb287f`),
+R-5d, R-5e, the wiring (`e03a518`), D-043/T38 (`fc4bb13`), the two prompts (`cf5f13f`), the S-series
+review, or the D-042/D-043/D-044 rulings; T31b says blocked on a mechanism that landed at 10:00;
+D1–D2, T32 and T26h still say `doing`. The whole day exists only as a chat handoff. Rows to add:
+R-5 done (machinery, `10f46f2`); T37 Part A done, Part B **review** (findings 1, 2, 5 here);
+R-5d/R-5e **review**; T31b open per finding 2; T38 todo (owner Sonnet, brief ready); S-series
+review received, 1–3 applied, 4–10 open; D1–D2 done (D-042); T32 and T26h resolved or closed.
+
+**4. Six provenance shapes and four `FiledDocument`s in one tree; the S-series said two must not
+survive the wiring, and instead they multiplied. — NON-BLOCKING, and it is the next task, not a
+someday.**
+`grep -rn "^class .*Provenance" src/`: `SourceRef` plus `ChargeProvenance`, `InsolvencyProvenance`
+and three `FilingProvenance`. `FiledDocument` ×4, `FilingHistory` ×4, `InsolvencyCase`/`Event` ×2,
+`Charge` ×2. D-042(b) declined by name "a hand-rolled per-block provenance … two shapes for one
+concept — the single thing R-5 exists to prevent"; S-series finding 8 asked that the wiring commit
+be checked for the stand-in's *removal*, not its re-export. `e03a518` instead converts at the seam
+on every call (`model_validate(model_dump())` in all four `__init__.py` methods) and adds a drift
+test to police the copies — testing a problem rather than removing it. The canonical descriptions
+were rewritten country-neutral, so the four copies already differ in prose; a field change is now
+four edits and a test.
+*Exact change:* each module imports the four core classes and drops its own; the four registry
+methods become `return await client.fetch_x(id)`; the four conversion tests go with the conversion.
+Country modules and `__init__.py` only. **Do it before T38**, whose Part A would otherwise build a
+fifth stand-in behind the seam.
+
+**5. The card's `include` parameter is stale; "regenerated" was two thirds true. — NON-BLOCKING
+(card only; live `tools/list` is right).**
+`static/well-known/mcp/server-card.json` → `lookup_company.inputSchema.properties.include` still
+carries the pre-HEAD description ("e.g. ['charges'] for United Kingdom (country='GB')…") and examples
+`[["charges"], []]`; `mcp/server.py:284,298` now say otherwise. The tool descriptions and
+`outputSchema` were regenerated, the `inputSchema` was not, and the drift test
+(`tests/test_mcp.py:158`) compares names, descriptions, titles, prompts and `lookup_company`'s
+`outputSchema` — never `inputSchema` — so it passed. `test_mcp.py:161` records that nothing
+regenerates the card. *Exact change:* regenerate `inputSchema` from the live server and extend the
+drift test to it, so the third kind of drift is caught the way the first two are.
+
+**6. The static discovery surfaces do not know two of the three includes exist. — NON-BLOCKING.**
+`api/main.py:798-807` (the REST `include` query description): charges only. `static/llms-full.txt`:
+the sole `include` mention is `include=["charges"]` (`:362`). `README.md`, `docs/clients.md`,
+`static/llms.txt`: no `include`, no `supported_includes`. D-042(d)(2) was paid on the MCP tool text;
+REST's OpenAPI and `llms-full.txt` are the same retrieval key for REST callers and crawlers.
+
+**7. `CHANGELOG.md` `[Unreleased]` is empty across ~15 commits that changed the wire, one of them a
+removal. — NON-BLOCKING.**
+Since `v0.3.0`: `SourceRef`, `include`, `lookup_with`; `CompanyReport` gained `charges`, `filings`,
+`insolvency`; `CountryInfo.supported_includes`; two prompts; and `registers["charges"]` was
+**removed** from every GB report (`beb287f`) — a key 0.3.0 served. The file's own header says
+versioning applies to response shapes; `pyproject.toml` is still 0.3.0 and so is production's
+`/health`, so the next deploy serves a 0.3.0 that PyPI's 0.3.0 does not have.
+
+**8. S-series findings 4–10 were not applied, and finding 4's failure scenario happened. — for Kim.**
+1–3 are closed (`beb287f`, `770c53c`). **S4:** `charges.py:21,27,94,106,115,123,180,246` still cite
+"D-042 part (h) — the ruled shape of the future `core.models.Charge`"; `core/models.py:600,675` now
+hold `Charge`/`ChargeBlock` citing D-042(g),(h); `DECISIONS.md` contains **none** of `charge_id`,
+`charge_number`, `assets_charged`, `obligations_secured`, `contains_floating_charge`,
+`satisfied_count`. The shared, country-neutral charge shape D-042(g) reserves for Norway's and
+Sweden's future fillers is an implementer's proposal under an architect's citation, in `core/`, on
+the wire. **S5:** `instructions` still carries the pitch without the payment-fraud caveat (the
+caveat lives only in the prompt, `:730`). **S6:** no missing-method test; `core/registry.py:341-342`
+still promises a `RuntimeError` for a missing method (it raises `AttributeError`);
+`mcp/server.py:93` still defaults `ok = True`. Mitigated: the new static test makes the
+misconfiguration unreachable for the three real countries. **S8:** finding 4. **S9:** no chart test;
+`height='auto'` still at `dashboard.py:474`. **S10:** `charges.py:80,87,284` still say "39"; no
+`ch_09446231_charges.json`. The S-series section itself is uncommitted; if the tree is lost, 4–10 go
+with it.
+
+### What is factually untrue in what was committed
+
+1. `e03a518` message and D-044(b): "*the scope difference is disclosed in each block's own notes, on
+   every call*." False for Sweden (no note) and Britain (no scope note). (Finding 1.)
+2. `mcp/server.py:342` / card: "*the block's own `notes` says which*." `core/models.py:857`:
+   "*`notes` says which, in words, on every block*." Same. (Finding 1.)
+3. Session handoff: "server-card.json regenerated." `inputSchema` was not. (Finding 5.)
+4. `core/registry.py:341-342`, carried forward: a missing method "fails loudly here (see the
+   `RuntimeError` below)". It raises `AttributeError`. (S6, still open.)
+5. `charges.py` ×8 and `core/models.py:600,675`, carried forward: the charge shape is "ruled" by
+   D-042(h). D-042(h) rules `FiledDocument`. (S4, still open.)
+
+### Must land before the next deploy
+
+* **Finding 1** — two constants, two assertions, country modules only. Without it the deploy ships a
+  promise the wire does not keep, in the JSON schema itself.
+* **Finding 3** — the board, so the next session does not start from a chat message again.
+* **Finding 2** — a row, not code; the code is a Sonnet task against `tasks/T31.md` §4 that is now
+  unblocked.
+* **Finding 5** — regenerate the card's `inputSchema` before Smithery re-scans.
+* Decide **S4** with the architect: either a D-042 amendment ruling `Charge`/`ChargeBlock`'s field
+  list, or the citations are corrected to say the list is the module's proposal.
+
+### What holds, and is worth keeping
+
+The measurement in D-044(a) is true — I re-derived it from the four class bodies, not the commit
+message. The routing test is the right test: a `filings` method that filled `charges` would pass its
+own module's suite and fail exactly this one. Replacing the three seam-pins with a cross-country
+invariant that reads `supported_includes` against `model_fields` and `country_info()` is stronger
+than what it replaced, and it is what makes S6's remaining gap safe in practice. The practitioner bar
+enforced by the *absence* of a field, asserted by a `ValidationError`, is the cheapest kind of
+guarantee there is. And Norway's `_ONE_PERIOD_NOTE` is precisely the disclosure D-044(b) describes,
+which is why finding 1 is a copy, not a design.
