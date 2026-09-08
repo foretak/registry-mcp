@@ -125,13 +125,24 @@ def map_industry_codes(data: Mapping[str, Any]) -> list[IndustryCode]:
 
 
 def map_registers(data: Mapping[str, Any]) -> dict[str, bool]:
-    """``registers["charges"]``/``["insolvency"]`` — read the deprecated booleans,
-    not ``links.*``: ``links.charges`` is present even when ``has_charges`` is
-    ``false`` (`UK_SPEC.md` §1.6 №1, §2). Absent booleans map to ``False``."""
-    return {
-        "charges": bool(data.get("has_charges")),
-        "insolvency": bool(data.get("has_insolvency_history")),
-    }
+    """``registers["insolvency"]`` from the deprecated boolean. **``charges`` is
+    deliberately not reported here.**
+
+    `UK_SPEC.md` §1.6 №1 used to read ``has_charges`` and warn only that
+    ``links.charges`` is present even when the boolean is ``false``. Recording the
+    charges endpoint live on 2026-09-08 falsified the boolean itself: TESCO PLC
+    (``00445790``) publishes ``"has_charges": false`` while ``/company/{n}/charges``
+    returns **nine** charges dated 1991–2009, two of them still ``outstanding``. The
+    link was right and the boolean was wrong.
+
+    A key in ``registers`` asserts that the entity is or is not in that sub-register.
+    We cannot assert either for charges, so the key is **omitted** — absent means the
+    register does not reliably say, which is D-011's rule and the opposite of the
+    ``false`` this shipped until now. The authoritative answer is the attachment:
+    ``include=["charges"]`` calls the endpoint itself and returns a present, empty
+    block for a company that genuinely has none.
+    """
+    return {"insolvency": bool(data.get("has_insolvency_history"))}
 
 
 def _is_subunit(data: Mapping[str, Any]) -> bool:

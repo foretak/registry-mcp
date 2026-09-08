@@ -529,8 +529,19 @@ async def test_register_coverage_prompt_distinguishes_structural_from_entity_nul
     assert "What the register states" in text
     assert "What it does not state" in text
     assert "structural" in text
-    assert "employees_reported" in text
+    assert "entity-level" in text
+    assert "employees" in text
     assert "never render a null as" in text.lower()
+    # Corrected 2026-09-08 after review: the worked example used to call
+    # `employees_reported: false` an entity-level gap full stop. That is true for
+    # Norway, whose register publishes employee counts, and false for the UK and
+    # Sweden, where neither register publishes one for anybody — a structural
+    # silence, the exact collapse this prompt exists to prevent. The example must
+    # therefore name the country dependence and send the agent to the rules
+    # resource rather than let it infer from the field name.
+    lowered = text.lower()
+    assert "united kingdom" in lowered and "sweden" in lowered and "norway" in lowered
+    assert "registry://rules/" in text
 
 
 # ---------------------------------------------------------------------------

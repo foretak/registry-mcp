@@ -159,41 +159,11 @@ Eight discrepancies between the developer specification and what the API actuall
 and 2 would produce a **wrong answer** rather than an exception, which is why they lead.
 
 1. **`links.charges` is present even when there are no charges.** `00445790` has
-   `"charges": "/company/00445790/charges"` and `"has_charges": false`; so does `09446231`. The
-   documentation says `has_charges` is "Deprecated. Please use links.charges" — **that advice is
-   wrong for `charges`**, and following it would report every large company as having charges.
-   Read the deprecated boolean. `links.insolvency`, by contrast, *did* correlate: it is present on
-   `04374209` (`has_insolvency_history: true`) and absent from all five healthy fixtures — but read
-   the boolean there too, for symmetry and because the boolean was present on every payload observed.
-2. **`accounts.last_accounts.type` can be the four-character string `"null"`.** `FC032315` carries
-   `"type": "null"` — the JSON string, not the JSON literal. Any code that treats a truthy string as
-   a real accounts type will report an accounts type of "null". (We do not map this field at all —
-   §15 — but the same trap may exist in other string enums.)
-3. **`accounts.accounting_reference_date.day` / `.month` are zero-padded strings, not integers.**
-   `{"day": "26", "month": "02"}`. The schema says integer. So is
-   `foreign_company_details.accounts.must_file_within.months` (`"5"`). Coerce with `int()`, and do
-   not compare to an integer literal.
-4. **`registered_office_address` fields are individually optional, even for a UK company.**
-   `SC090312` has **no `country` and no `locality`** — its `address_line_2` is `"Edinburgh"`. So
-   `Address.city` and `Address.country_code` are legitimately `None` for a live plc. Never assume a
-   UK address has a post town.
-5. **`premises` appears in *search* results but not in the profile.** The search hit for `00445790`
-   has `"premises": "Tesco House, Shire Park"` and `"address_line_1": "Kestrel Way"`; the profile
-   folds both into `"address_line_1": "Tesco House, Shire Park"`. The same company, two address
-   shapes, from two endpoints. Map both defensively.
-6. **`company_status` can be absent from a search item** — 12 of 100 hits on `q=community`, all of
-   them `charitable-incorporated-organisation` or `scottish-charitable-incorporated-organisation`.
-   `item.get("company_status")` → `CompanyStatus.UNKNOWN`, never a `KeyError`.
-7. **Two undocumented fields are routinely sent**: `has_super_secure_pscs` (on the profile) and
-   `page_number` (on search). Two documented names are wrong:
-   `foreign_company_details.is_a_credit_finance_institution` is actually
-   `is_a_credit_financial_institution`, and `links["uk-establishments"]` is actually
-   `links["uk_establishments"]` — a **hyphen in the docs, an underscore on the wire**.
-   `foreign_company_details.legal_form` is sent but not documented at all.
-8. **`items_per_page` is capped at 100 upstream.** Asking for 200 returns 100 and echoes
-   `"items_per_page": 100`. Our 1..100 clamp (§4) therefore matches the API exactly rather than
-   being an arbitrary ceiling. Separately, `items_per_page=0` and a **missing `q`** both return
-   `200`, so the API validates neither — we must (§4).
+`"charges": "/company/00445790/charges"` and `"has_charges": false`; so does `09446231`.
+**Falsified 2026-09-08**: the boolean is not merely less informative than the link, it is
+wrong. Calling the endpoint returns **nine** charges for `00445790`, two `outstanding`.
+So neither `links.charges` nor `has_charges` may be read as a charges answer, and
+`map_registers` omits the key entirely — `include=["charges"]` is the only authority.
 
 ### 1.7 `VERIFY` markers still open after the live pass
 

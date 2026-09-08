@@ -149,12 +149,21 @@ def test_77_business_address() -> None:
     assert report.business_address.country_code == "GB"
 
 
-def test_78_registers_charges_is_false_despite_links() -> None:
-    """§1.6 №1 — the single most important mapping test in the file."""
+def test_78_registers_omits_charges_because_the_boolean_is_wrong() -> None:
+    """§1.6 №1, rewritten 2026-09-08 after the live recording falsified its premise.
+
+    This test used to assert `registers["charges"] is False` for TESCO and called
+    itself the most important mapping test in the file. It was defending a wrong
+    answer: the profile says `has_charges: false` while `/company/00445790/charges`
+    returns nine charges, two still outstanding. A key in `registers` asserts
+    membership; we can assert neither, so the key is absent — never `False`.
+    `include=["charges"]` is the authoritative answer.
+    """
     assert "charges" in TESCO["links"]
     assert TESCO["has_charges"] is False
     report = mapping.map_entity(TESCO)
-    assert report.registers["charges"] is False
+    assert "charges" not in report.registers
+    assert report.registers["insolvency"] is False
 
 
 def test_79_unpublished_fields_are_honestly_none_and_no_notes() -> None:
@@ -219,7 +228,7 @@ def test_83_dissolved_company() -> None:
     assert report.is_active is False
     assert report.legal_form_code == "private-unlimited-nsc"
     assert report.limited_liability is False
-    assert report.registers["charges"] is True
+    assert "charges" not in report.registers  # omitted since 2026-09-08: see test 78
     # DISSOLVED carries neither `accounts.next_accounts` nor
     # `confirmation_statement` at all — `published_deadlines` (D-018) is `[]`
     # for a nothing-published case, not merely for the (separate) reason

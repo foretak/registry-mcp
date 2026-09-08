@@ -354,9 +354,13 @@ here as "this company has no employees" or "not VAT-registered" — read it as
 
 `industry_codes` for `GB` are SIC 2007 codes with `description: null`;
 Companies House returns the code only. `registers` for `GB` has two boolean
-keys, `charges` and `insolvency`, from the register's own `has_charges` and
-`has_insolvency_history` flags. `source_url` points at the human-readable
-Companies House record, which is the link to hand a user.
+`registers` carries one key for Britain, `insolvency`, from the register's own
+`has_insolvency_history`. **`charges` is deliberately absent.** Companies House
+publishes `has_charges: false` for companies that do have charges — TESCO PLC says
+false while the charges endpoint returns nine, two still outstanding (recorded live
+2026-09-08). A key here asserts membership of a sub-register; we can assert neither,
+so we say nothing rather than say no. Ask `include=["charges"]` for the real answer:
+it calls the endpoint and returns a present, empty block for a company with none.
 
 Errors:
 - `400 invalid_id` — the identifier fails the country's checksum or format.
