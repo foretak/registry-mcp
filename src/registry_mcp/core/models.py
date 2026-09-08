@@ -605,6 +605,16 @@ class Charge(_Base):
     (Companies House `/company/{n}/charges`, `registries/gb/__init__.py`),
     and any future filler (e.g. Norway's Løsøreregisteret, once it opens a
     public API) maps onto this same shape rather than getting one of its own.
+
+    **The field list is ruled by D-045(a)**, not by D-042(h) — which rules
+    `FiledDocument` and no charge shape at all. D-045(a) accepts these names,
+    corrects `created_on`'s description (it is the date the charge instrument
+    was created, not a record timestamp), and adds `contains_fixed_charge` and
+    `contains_negative_pledge` beside `contains_floating_charge`, all three of
+    which Companies House emits **only when true** — so an absent flag means
+    the register did not mark this instrument, never that it lacks one
+    (D-011). **This class has not yet been reconciled with that ruling**; the
+    task that does so is named in D-045(a) and is due before the next deploy.
     """
 
     charge_id: str | None = Field(
@@ -674,10 +684,19 @@ class Charge(_Base):
 
 class ChargeBlock(_Base):
     """Registered charges for one entity — an `include=["charges"]` attachment
-    (D-042(g),(h)), never a plain field on `CompanyReport` (D-041(c)): it is a
-    second round trip with its own moment, its own cache state and its own
-    failure mode, so it carries its own `SourceRef` rather than reusing the
-    report's.
+    (D-042(g), D-045(a)), never a plain field on `CompanyReport` (D-041(c)):
+    it is a second round trip with its own moment, its own cache state and its
+    own failure mode, so it carries its own `SourceRef` rather than reusing
+    the report's.
+
+    **The count fields are ruled by D-045(a)**, not by D-042(h). It strikes
+    `outstanding_count` — `total_count - satisfied_count` is our arithmetic
+    wearing a register figure's name, and on a shared model it would mean
+    "outstanding" for a register with no partially-satisfied state and "not
+    fully satisfied" for one that has it (D-011) — and adds the register's
+    own `part_satisfied_count` in its place. **This class has not yet been
+    reconciled with that ruling**; the task that does so is named in D-045(a)
+    and is due before the next deploy.
 
     Two-level nullability is the point of this shape (D-026(c), D-041(c),
     D-042(d)(3)): `CompanyReport.charges` is `None` when `charges` was not in
