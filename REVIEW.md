@@ -2047,3 +2047,14 @@ than what it replaced, and it is what makes S6's remaining gap safe in practice.
 enforced by the *absence* of a field, asserted by a `ValidationError`, is the cheapest kind of
 guarantee there is. And Norway's `_ONE_PERIOD_NOTE` is precisely the disclosure D-044(b) describes,
 which is why finding 1 is a copy, not a design.
+
+**Post-merge addendum (2026-09-08 22:00Z, after T40).** D-044(a) states that when the docstrings moved to
+`core/models.py` "every fact in them was kept, including the count of live observations behind each claim."
+T40 diffed every field description against its stand-in before deleting it and found **ten facts that survive
+nowhere in the tree** — Sweden's 18-month-period citation and its 7 500 / 15 000 kr fee figures, the 22
+British filing categories, the thirteen insolvency event words, the eight status words, the meaning of the
+one note code, the Norwegian licence gloss, and three more — plus one canonical description ("newest first by
+`filed_at`") that is Britain's sort key stated as everyone's. Listed verbatim in `tasks/T47.md`'s addendum
+and restored there. Correction to this review's own finding 4: the drift test D-044(e) added would not have
+caught any of this, because a *description* is not a field — the copy was faithful in shape and lossy in
+substance. T40's report, not the tests, found it.
