@@ -336,3 +336,101 @@ PY
 
 Add the `_MINIMISED` header by hand (copy one from an existing file and
 update the counts), or the next reader will not know the file was altered.
+
+## GB — Companies House insolvency (`ch_*_insolvency.json`, `ch_insolvency_*.json`)
+
+Nine fixtures for R-5e and `src/registry_mcp/registries/gb/insolvency.py`
+(`DECISIONS.md` D-042(i)). **Seven are live recordings, one is a live 404
+body, and one is fabricated.** Recorded 2026-09-08 against
+`https://api.company-information.service.gov.uk` with the free operator key
+(never written to a file, a fixture or a commit).
+
+**Practitioners are removed from every live recording, and that is the point
+of this whole block.** `cases[].practitioners[]` carries a licensed insolvency
+practitioner's **full name and postal address** — D-042(e) calls this endpoint
+"the most person-bearing of the four" it examined, and **D-042(e)(2) rules
+that practitioners are not relayed at all in the first tranche**. So the key
+was removed from every case **before** each file was written. `map_insolvency`
+never reads it either, and `registries/gb/client.py::fetch_insolvency` strips
+it before `cache.set`, so no practitioner particular reaches the mapped
+output, this deployment's disk, a log line, or this directory. **No natural
+person's name from this endpoint has ever been in this repository.**
+
+Each live file carries one of two top-level headers, and they mean different
+things:
+
+* **`_PRACTITIONERS_STRIPPED`** — the live payload carried practitioner
+  entries and they were removed. The header records the request URL, the
+  fetch date, how many entries were removed and from how many cases. The key
+  is **removed, not emptied**, so a stripped file can never be mistaken for
+  one of the payloads that genuinely carries `"practitioners": []`.
+* **`_PRACTITIONERS_NONE`** — nothing was stripped, because the live payload
+  had none to strip. `ch_SC001381_insolvency.json` is Companies House's own
+  `"practitioners": []` (79 of 1,485 live cases are like it) and
+  `ch_00712615_insolvency.json` has no case at all. These two are
+  **byte-for-byte** what the register returned.
+
+`map_insolvency` ignores any top-level key it does not read, so the headers
+cost nothing — exactly as SE's `_SYNTHETIC_COMBINATION` and GB filing
+history's `_MINIMISED` do.
+
+**The recon behind the choices is in
+`registries/gb/insolvency.py`'s module docstring**: 1,458 company numbers
+sampled from Companies House's own `/advanced-search/companies` across eleven
+`company_status` buckets, giving 1,105 HTTP 200s over 1,485 cases and 2,607
+practitioner entries, plus 353 HTTP 404s. Two findings decide the fixture
+list. First, **a solvent company 404s** — unlike `/charges`, which never does
+— and the 404 body is indistinguishable from the one for a company number
+that was never issued, so `ch_insolvency_404.json` exists to pin that a 404 is
+a present, empty block and never `not_found`. Second, **there are two
+different empty answers** (404, and 200 with `"cases": []`) and D-011 forbids
+collapsing them, so both are recorded.
+
+| Fixture | Request | Why |
+|---|---|---|
+| `ch_04374209_insolvency.json` | `04374209` | One `compulsory-liquidation` case with `petitioned-on` + `wound-up-on`, `status: ["liquidation"]`. Pairs with `ch_04374209.json`, the same company's profile, so a test can hold both halves. 1 practitioner stripped |
+| `ch_NI031727_insolvency.json` | `NI031727` | `in-administration` + `corporate-voluntary-arrangement`, `status: ["in-administration"]` — the two commonest rescue procedures in one small payload. 2 stripped |
+| `ch_SC432231_insolvency.json` | `SC432231` | `corporate-voluntary-arrangement-moratorium` (1 of 1,485 live cases) + `compulsory-liquidation`; `notes: ["scottish-insolvency-info"]` on both; and **no root `status` key at all** — 125 of 1,105 live 200s have none. 3 stripped |
+| `ch_05607779_insolvency.json` | `05607779` | `moratorium` (the other 1-in-1,485 type) + `corporate-voluntary-arrangement`, with `moratorium-started-on`. 4 stripped |
+| `ch_01034351_insolvency.json` | `01034351` | Three cases, three types (`administrative-receiver`, `receiver-manager`, `creditors-voluntary-liquidation`), numbered 1/2/3 but dated 1990/1984/1992 — the proof the register's own order is not chronological. Also the only recording that keeps two `links.charge` values. 6 stripped |
+| `ch_SC001381_insolvency.json` | `SC001381` | `members-voluntary-liquidation` — a **solvent** winding-up, which is why `is_liquidation: true` must not be read as "insolvent". Byte-for-byte: a live `"practitioners": []`, and no `etag` (135 of 1,105 live 200s have none) |
+| `ch_00712615_insolvency.json` | `00712615` | HTTP **200** with `"cases": []` — the register holds a record and publishes nothing in it, while the company's own profile says `company_status: "liquidation"` and `has_insolvency_history: true`. Byte-for-byte |
+| `ch_insolvency_404.json` | `00445790` | The **404 body**, from Tesco PLC — active, trading, no insolvency history. Identical (bar `path`) to the body for `99999999` and `12345678`, which were never issued, and for the dissolved `00000006`. A 404 here says nothing about whether the company exists |
+| `ch_insolvency_practitioners_synthetic.json` | *(none — fabricated)* | `_SYNTHETIC_COMBINATION`. **The only fixture in this directory that carries a `practitioners` array**, and every name and address in it is invented ("Nonexistent Practitioner-One" at "Fabricated House", postcode `ZZ99 9ZZ`). It exists so a test can feed the mapper the exact thing D-042(e)(2) bars and prove nothing survives. It also carries `administration-order` — the one live-observed case type no real recording here happens to hold — and an invented note code, so the allow-list can be tested. **Never replace it with a live payload** |
+
+`test_live_insolvency_fixtures_still_match_stored_files` re-fetches all seven
+recordings and diffs the mapped block against the stored one. Because the live
+payload carries practitioners and the stored one does not, that test passing
+is also a standing proof that everything removed was unreachable.
+
+Recording recipe — set `COMPANIES_HOUSE_API_KEY` as a shell variable first,
+and never write the value into this file, a fixture or a commit. **The
+stripping is not optional**: writing the raw body, even briefly, puts a
+natural person's name and address in the working tree.
+
+```bash
+python3 - "$COMPANIES_HOUSE_API_KEY" <<'PY'
+import base64, json, sys, urllib.request
+NUMBER = "04374209"
+url = f"https://api.company-information.service.gov.uk/company/{NUMBER}/insolvency"
+auth = base64.b64encode(f"{sys.argv[1]}:".encode()).decode()
+req = urllib.request.Request(url, headers={"Authorization": f"Basic {auth}",
+                                           "Accept": "application/json"})
+body = json.load(urllib.request.urlopen(req))       # 404 => a solvent company
+removed = sum(len(c.get("practitioners") or []) for c in body.get("cases", []))
+for case in body.get("cases", []):
+    case.pop("practitioners", None)                 # REMOVE the key, never empty it
+assert '"name"' not in json.dumps(body)
+print(removed, "practitioner entries removed", file=sys.stderr)
+print(json.dumps(body, indent=2, ensure_ascii=False))
+PY
+```
+
+Add the `_PRACTITIONERS_STRIPPED` header by hand (copy one from an existing
+file and update the counts), or the next reader will not know the file was
+altered — and use `_PRACTITIONERS_NONE` instead if `removed` was 0, so a
+byte-for-byte recording is never labelled as a redacted one.
+
+**Do not use this endpoint to look up a specific individual.** It is reachable
+only from a company number and must stay that way (D-028(1)); the sampling
+that produced the recon above went company → cases and never the other way.

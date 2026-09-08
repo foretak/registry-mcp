@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-09-08",
+  "status": 404,
+  "error": "Not Found",
+  "path": "/company/00445790/insolvency",
+  "_RECORDED": "Recorded live 2026-09-08 from GET /company/00445790/insolvency — Tesco PLC, active and trading, no insolvency history. THE LOAD-BEARING RECON FINDING: unlike /charges, this endpoint 404s for a solvent company, and this body is byte-identical (bar `path`) to the one returned for a company number that was never issued (99999999, 12345678) and for a dissolved company (00000006). A 404 here therefore carries NO information about whether the company exists, and must never be mapped to `not_found` — registries/gb/client.py::fetch_insolvency maps it to a present, empty block. `timestamp` is the recording date and means nothing to a test."
+}

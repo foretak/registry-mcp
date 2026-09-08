@@ -1,0 +1,46 @@
+{
+  "_PRACTITIONERS_STRIPPED": "PRACTITIONERS STRIPPED AT RECORD TIME — recorded live from GET https://api.company-information.service.gov.uk/company/01034351/insolvency on 2026-09-08, then the `practitioners` key was REMOVED from every one of this payload's 3 case(s) before this file was written; the live payload carried 6 practitioner entries in total. Each practitioner entry is a licensed insolvency practitioner's full NAME and postal ADDRESS, i.e. a natural person's particulars. DECISIONS.md D-042(e)(2) rules that practitioners are not relayed at all in the first tranche, and D-028's four preconditions for shipping any person data are unmet, so they are never mapped into a block, never written to this deployment's cache (registries/gb/client.py::fetch_insolvency strips them before cache.set) and never committed here. The key is REMOVED rather than emptied, so this file is never mistaken for one of the live payloads that genuinely carries `\"practitioners\": []` (ch_SC001381_insolvency.json is a real one of those). Everything else here is byte-for-byte what Companies House returned, reformatted to this project's 2-space indent. Re-record with tests/fixtures/README.md's recipe.",
+  "etag": "08b6576a03964e6addd9e699eea3384ecfb0a19f",
+  "cases": [
+    {
+      "type": "administrative-receiver",
+      "dates": [
+        {
+          "type": "instrumented-on",
+          "date": "1990-03-05"
+        }
+      ],
+      "links": {
+        "charge": "/company/01034351/charges/uuXzaMb9vrvUfbsWB3KL3kQPgG0"
+      },
+      "number": "1"
+    },
+    {
+      "type": "receiver-manager",
+      "dates": [
+        {
+          "type": "instrumented-on",
+          "date": "1984-07-06"
+        }
+      ],
+      "links": {
+        "charge": "/company/01034351/charges/XFj4eqhgcDyELXDNnXhAmgOK8hw"
+      },
+      "number": "2"
+    },
+    {
+      "type": "creditors-voluntary-liquidation",
+      "dates": [
+        {
+          "type": "wound-up-on",
+          "date": "1992-11-19"
+        }
+      ],
+      "number": "3"
+    }
+  ],
+  "status": [
+    "receiver-manager",
+    "administrative-receiver"
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "_SYNTHETIC_COMBINATION": "SHAPE CONFIRMED, CONTENT FABRICATED — this is the one insolvency fixture in this directory that CARRIES a `practitioners` array, and every name and address in it is INVENTED. It exists so a test can feed the mapper the exact thing DECISIONS.md D-042(e)(2) bars and prove nothing survives: no practitioner name, address, role or date may reach `map_insolvency`'s output, this deployment's cache, or a log line. Every field name, nesting level and value shape below was confirmed against 1105 live Companies House 200s (1485 cases, 2607 practitioner entries) taken 2026-09-08; only the *content* of `practitioners[]` is fabricated, because committing a real one would commit a real person's name and home-or-office address. The names are deliberately impossible ('Nonexistent Practitioner-One' at 'Fabricated House' on 'Invented Street', postcode ZZ99 9ZZ — the ONS pseudo-postcode reserved for 'no fixed abode'), so a grep can never confuse them for register data. `cases[].type` values `administration-order` and `receiver-manager` and `dates[].type` values `instrumented-on` and `declaration-solvent-on` are all real, live-observed register vocabulary (20, 498, 106 and 20 live occurrences respectively); this fixture is also where `administration-order` is exercised, being the one live-observed case type no real recording here happens to carry. Re-record nothing: this file must never be replaced by a live payload.",
+  "etag": "0000000000000000000000000000000000000000",
+  "cases": [
+    {
+      "type": "administration-order",
+      "dates": [
+        {
+          "type": "instrumented-on",
+          "date": "2019-04-01"
+        }
+      ],
+      "practitioners": [
+        {
+          "name": "Nonexistent Practitioner-One",
+          "address": {
+            "address_line_1": "Fabricated House",
+            "address_line_2": "1 Invented Street",
+            "locality": "Nowhere",
+            "region": "Not A Region",
+            "postal_code": "ZZ99 9ZZ",
+            "country": "Nowhereland"
+          },
+          "appointed_on": "2019-04-02",
+          "ceased_to_act_on": "2020-05-06",
+          "role": "practitioner"
+        },
+        {
+          "name": "Nonexistent Practitioner-Two",
+          "address": {
+            "address_line_1": "Fabricated House",
+            "postal_code": "ZZ99 9ZZ"
+          },
+          "role": "administrative-receiver"
+        }
+      ],
+      "links": {
+        "charge": "/company/00000000/charges/AAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "notes": [
+        "scottish-insolvency-info",
+        "not-a-real-note-code"
+      ],
+      "number": "1"
+    },
+    {
+      "type": "receiver-manager",
+      "dates": [
+        {
+          "type": "declaration-solvent-on",
+          "date": "2021-07-15"
+        }
+      ],
+      "practitioners": [
+        {
+          "name": "Nonexistent Practitioner-Three",
+          "address": {
+            "address_line_1": "Fabricated House",
+            "locality": "Nowhere",
+            "postal_code": "ZZ99 9ZZ"
+          },
+          "role": "receiver-manager"
+        }
+      ],
+      "number": "2"
+    }
+  ],
+  "status": [
+    "administration-order",
+    "receiver-manager"
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "_PRACTITIONERS_NONE": "NOTHING TO STRIP — recorded live from GET https://api.company-information.service.gov.uk/company/00712615/insolvency on 2026-09-08 and committed BYTE-FOR-BYTE (only reformatted to this project's 2-space indent). This payload has `\"cases\": []`, so there is no case to carry a practitioner at all. That is a live fact about this payload, not a redaction: no key was removed and no value was changed. Each practitioner entry is a licensed insolvency practitioner's full NAME and postal ADDRESS, i.e. a natural person's particulars. DECISIONS.md D-042(e)(2) rules that practitioners are not relayed at all in the first tranche, and D-028's four preconditions for shipping any person data are unmet, so they are never mapped into a block, never written to this deployment's cache (registries/gb/client.py::fetch_insolvency strips them before cache.set) and never committed here. Re-record with tests/fixtures/README.md's recipe.",
+  "etag": "2b75700ede75c01a11790036fc9db7f73905153c",
+  "cases": []
+}

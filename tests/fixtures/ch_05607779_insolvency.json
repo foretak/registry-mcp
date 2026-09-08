@@ -1,0 +1,29 @@
+{
+  "_PRACTITIONERS_STRIPPED": "PRACTITIONERS STRIPPED AT RECORD TIME — recorded live from GET https://api.company-information.service.gov.uk/company/05607779/insolvency on 2026-09-08, then the `practitioners` key was REMOVED from every one of this payload's 2 case(s) before this file was written; the live payload carried 4 practitioner entries in total. Each practitioner entry is a licensed insolvency practitioner's full NAME and postal ADDRESS, i.e. a natural person's particulars. DECISIONS.md D-042(e)(2) rules that practitioners are not relayed at all in the first tranche, and D-028's four preconditions for shipping any person data are unmet, so they are never mapped into a block, never written to this deployment's cache (registries/gb/client.py::fetch_insolvency strips them before cache.set) and never committed here. The key is REMOVED rather than emptied, so this file is never mistaken for one of the live payloads that genuinely carries `\"practitioners\": []` (ch_SC001381_insolvency.json is a real one of those). Everything else here is byte-for-byte what Companies House returned, reformatted to this project's 2-space indent. Re-record with tests/fixtures/README.md's recipe.",
+  "etag": "48e51fb3ecd67fd6d67f0775bbfd258334e8e65a",
+  "cases": [
+    {
+      "type": "moratorium",
+      "dates": [
+        {
+          "type": "moratorium-started-on",
+          "date": "2024-08-02"
+        }
+      ],
+      "number": "1"
+    },
+    {
+      "type": "corporate-voluntary-arrangement",
+      "dates": [
+        {
+          "type": "voluntary-arrangement-started-on",
+          "date": "2024-09-10"
+        }
+      ],
+      "number": "2"
+    }
+  ],
+  "status": [
+    "voluntary-arrangement"
+  ]
+}

@@ -35,6 +35,7 @@ from registry_mcp.registries.gb import CompaniesHouseRegistry, mapping
 from registry_mcp.registries.gb import charges as charges_module
 from registry_mcp.registries.gb import client as client_module
 from registry_mcp.registries.gb import filing_history as filing_history_module
+from registry_mcp.registries.gb import insolvency as insolvency_module
 from registry_mcp.registries.gb import rules as gb_rules
 from registry_mcp.registries.se import filings as se_filings_module
 
@@ -2026,3 +2027,643 @@ async def test_live_filings_empty_is_two_distinguishable_answers() -> None:
     assert cannot_answer.documents == []
     assert cannot_answer.total_count is None
     assert any("does not serve filing history" in n for n in cannot_answer.notes)
+
+
+# ---------------------------------------------------------------------------
+# I. Insolvency — R-5e (`DECISIONS.md` D-042(i)), built *behind the seam*:
+# `registries/gb/insolvency.py` carries the full recon trail and the
+# D-042(e)(2) minimisation argument. Not wired to `include=[...]` here.
+#
+# Two things these tests exist to pin, above the ordinary mapping checks:
+#
+# 1. **The 404 trap.** Unlike `/charges` and `/filing-history`, this endpoint
+#    404s for a solvent company — 353 of 1,458 live company numbers did, Tesco
+#    and Deloitte LLP among them, with a body indistinguishable from the one
+#    for a number that was never issued. Treating that as `not_found` would
+#    turn every healthy company into a non-existent one.
+# 2. **The practitioner bar.** D-042(e)(2) rules that `cases[].practitioners[]`
+#    — a licensed individual's name and postal address — is not relayed at all
+#    in the first tranche. `test_insolvency_the_bar_holds_*` are the proofs:
+#    nothing reaches the mapped output, the cache, a log line, or a committed
+#    fixture.
+# ---------------------------------------------------------------------------
+
+# All seven `ch_*_insolvency.json` recorded live 2026-09-08; each had
+# `cases[].practitioners` removed at record time and says so in its own header
+# (or says that the live payload carried none). The synthetic one is the only
+# fixture in this directory that carries the array at all, and every name in it
+# is fabricated — it exists solely so the bar can be proved against the exact
+# thing that is barred.
+LIQUIDATION_INSOLVENCY = _load("ch_04374209_insolvency.json")  # compulsory-liquidation, 1 case
+ADMIN_CVA_INSOLVENCY = _load("ch_NI031727_insolvency.json")  # in-administration + CVA
+SCOTTISH_INSOLVENCY = _load("ch_SC432231_insolvency.json")  # CVA-moratorium; note codes; no status
+MORATORIUM_INSOLVENCY = _load("ch_05607779_insolvency.json")  # moratorium + CVA
+RECEIVER_INSOLVENCY = _load("ch_01034351_insolvency.json")  # 3 cases, 3 types, links.charge
+MVL_INSOLVENCY = _load("ch_SC001381_insolvency.json")  # MVL; live `"practitioners": []`
+EMPTY_INSOLVENCY = _load("ch_00712615_insolvency.json")  # HTTP 200, `"cases": []`
+INSOLVENCY_404 = _load("ch_insolvency_404.json")  # the solvent-company 404 body
+PRACTITIONERS_SYNTHETIC = _load("ch_insolvency_practitioners_synthetic.json")
+
+#: Every fabricated particular in the synthetic fixture, so the bar tests can
+#: grep for all of them rather than for one lucky substring.
+_FABRICATED_PARTICULARS = (
+    "Nonexistent Practitioner-One",
+    "Nonexistent Practitioner-Two",
+    "Nonexistent Practitioner-Three",
+    "Fabricated House",
+    "1 Invented Street",
+    "Nowhere",
+    "Not A Region",
+    "ZZ99 9ZZ",
+    "Nowhereland",
+)
+
+
+def _body_only(payload: dict[str, Any]) -> dict[str, Any]:
+    """A fixture's payload without its own provenance header. Every insolvency
+    fixture carries one (`_PRACTITIONERS_STRIPPED`, `_PRACTITIONERS_NONE` or
+    `_SYNTHETIC_COMBINATION`), and that prose legitimately contains the words
+    "practitioners", "name" and "address" while explaining why the data is not
+    there — so a substring check has to look at the register's payload, not at
+    this project's own note about it."""
+    return {k: v for k, v in payload.items() if not k.startswith("_")}
+
+
+# --- insolvency.map_insolvency — pure, no I/O -----------------------------
+
+
+def test_insolvency_maps_a_live_liquidation_case() -> None:
+    block = insolvency_module.map_insolvency(
+        LIQUIDATION_INSOLVENCY, "04374209", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert len(block.cases) == 1
+    case = block.cases[0]
+    assert case.case_number == "1"
+    assert case.case_type == "compulsory-liquidation"
+    assert case.is_liquidation is True
+    # Events newest first — the register lists them petition-then-winding-up.
+    assert [(e.event_type, e.occurred_on) for e in case.events] == [
+        ("wound-up-on", date(2025, 3, 19)),
+        ("petitioned-on", date(2024, 12, 18)),
+    ]
+    assert case.note_codes == []
+    assert block.statuses == ["liquidation"]
+    assert block.provenance.source == "Companies House (UK)"
+    assert block.provenance.source_url == (
+        "https://find-and-update.company-information.service.gov.uk/company/04374209/insolvency"
+    )
+    assert block.provenance.fetched_at == _FETCHED_AT
+    assert block.provenance.cached is False
+
+
+def test_insolvency_solvent_company_404_is_a_present_empty_block() -> None:
+    """THE trap this endpoint sets, at the mapper. `/charges` never 404s;
+    this one 404s for every solvent company, and `fetch_insolvency` hands the
+    mapper an empty payload for it. The block is present with no cases — it is
+    never `not_found`, and it never claims the company does not exist."""
+    block = insolvency_module.map_insolvency(
+        {}, "00445790", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert block.cases == []
+    assert block.statuses == []
+    assert block.provenance.source_url == (
+        "https://find-and-update.company-information.service.gov.uk/company/00445790/insolvency"
+    )
+    note = " ".join(block.notes)
+    assert "publishes no insolvency record" in note
+    # The load-bearing half: the note must refuse to draw an existence
+    # inference, because the same 404 answers for a number never issued.
+    assert "never issued" in note
+    assert "Only lookup_company decides that." in note
+
+
+def test_insolvency_the_registers_two_empty_answers_stay_distinguishable() -> None:
+    """D-011, and the reason the mapper looks at the `cases` *key* rather than
+    at `len(cases)`: HTTP 404 ("no insolvency record here") and HTTP 200 with
+    `"cases": []` ("a record exists and is empty") are two different register
+    facts. `00712615` is a real live example of the second — its own company
+    profile says `company_status == "liquidation"`."""
+    absent = insolvency_module.map_insolvency(
+        {}, "00445790", cached=False, fetched_at=_FETCHED_AT
+    )
+    present_but_empty = insolvency_module.map_insolvency(
+        EMPTY_INSOLVENCY, "00712615", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert absent.cases == present_but_empty.cases == []
+    assert absent.notes != present_but_empty.notes
+    assert "publishes no insolvency record" in absent.notes[0]
+    assert "holds an insolvency record" in present_but_empty.notes[0]
+    assert "publishes no case in it" in present_but_empty.notes[0]
+
+
+def test_insolvency_is_liquidation_table_holds_only_live_observed_words() -> None:
+    """D-011 / D-025(d) / D-042(j): the derived neutral flag is decided by
+    membership of a committed table of words this module has actually seen on
+    the wire — 1,485 cases across 1,105 live payloads, 2026-09-08. Companies
+    House's published enumeration also lists `receivership` and
+    `foreign-insolvency`; neither was ever observed, so neither is in the
+    table and both must yield `None` rather than a guess."""
+    observed_live = {
+        "compulsory-liquidation",
+        "creditors-voluntary-liquidation",
+        "members-voluntary-liquidation",
+        "in-administration",
+        "administration-order",
+        "administrative-receiver",
+        "receiver-manager",
+        "corporate-voluntary-arrangement",
+        "corporate-voluntary-arrangement-moratorium",
+        "moratorium",
+    }
+    documented_but_never_observed = {"receivership", "foreign-insolvency"}
+    assert set(insolvency_module._LIQUIDATION_BY_CASE_TYPE) == observed_live
+    assert not (documented_but_never_observed & set(insolvency_module._LIQUIDATION_BY_CASE_TYPE))
+    # Only the three winding-up procedures are `True`. A members' voluntary
+    # liquidation is among them and is a *solvent* winding-up — the flag says
+    # "being wound up", not "cannot pay", and the field description says so.
+    assert {k for k, v in insolvency_module._LIQUIDATION_BY_CASE_TYPE.items() if v} == {
+        "compulsory-liquidation",
+        "creditors-voluntary-liquidation",
+        "members-voluntary-liquidation",
+    }
+
+
+def test_insolvency_unobserved_case_type_yields_none_never_false() -> None:
+    payload = {
+        "cases": [
+            {"type": "receivership", "number": "1", "dates": []},
+            {"type": "foreign-insolvency", "number": "2", "dates": []},
+            {"number": "3", "dates": []},
+        ]
+    }
+    block = insolvency_module.map_insolvency(
+        payload, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert [c.is_liquidation for c in block.cases] == [None, None, None]
+    # …and the register's own word still travels, verbatim and unfiltered.
+    assert {c.case_type for c in block.cases} == {"receivership", "foreign-insolvency", None}
+
+
+def test_insolvency_maps_the_two_rarest_live_case_types() -> None:
+    """`moratorium` and `corporate-voluntary-arrangement-moratorium` were seen
+    exactly once each in 1,485 live cases. Both are in the table as `False`;
+    both are exercised here so a later edit cannot quietly drop them."""
+    moratorium = insolvency_module.map_insolvency(
+        MORATORIUM_INSOLVENCY, "05607779", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert {c.case_type for c in moratorium.cases} == {
+        "moratorium",
+        "corporate-voluntary-arrangement",
+    }
+    assert all(c.is_liquidation is False for c in moratorium.cases)
+    assert moratorium.statuses == ["voluntary-arrangement"]
+
+    scottish = insolvency_module.map_insolvency(
+        SCOTTISH_INSOLVENCY, "SC432231", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert {c.case_type for c in scottish.cases} == {
+        "corporate-voluntary-arrangement-moratorium",
+        "compulsory-liquidation",
+    }
+    # This payload carries no root `status` at all — 125 of 1,105 live 200s
+    # did not. An empty list is "the register publishes no word", never
+    # "not currently insolvent" (D-011); no flag is derived from it.
+    assert scottish.statuses == []
+
+
+def test_insolvency_cases_sorted_newest_first_with_undated_cases_last() -> None:
+    """`01034351`'s three cases are numbered 1, 2, 3 by the register but ran
+    1990, 1984 and 1992 — so the register's own order is not chronological and
+    the mapper re-sorts by the case's most recent event."""
+    block = insolvency_module.map_insolvency(
+        RECEIVER_INSOLVENCY, "01034351", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert [c.case_number for c in block.cases] == ["3", "1", "2"]
+
+    undated = insolvency_module.map_insolvency(
+        {
+            "cases": [
+                {"type": "receiver-manager", "number": "1", "dates": []},
+                {
+                    "type": "compulsory-liquidation",
+                    "number": "2",
+                    "dates": [{"type": "wound-up-on", "date": "1999-01-01"}],
+                },
+            ]
+        },
+        "00000001",
+        cached=False,
+        fetched_at=_FETCHED_AT,
+    )
+    assert [c.case_number for c in undated.cases] == ["2", "1"]
+    assert undated.cases[1].events == []
+
+
+def test_insolvency_note_codes_pass_the_allow_list_and_an_unknown_one_is_disclosed() -> None:
+    """`cases[].notes` is the payload's only free-text-*typed* field — the
+    register declares it `array[string]` and enumerates nothing — so it is the
+    one place a name could hide outside `practitioners[]`. It is relayed
+    through an allow-list (D-042(e)(1)'s mechanism), and an unrecognised code
+    is dropped *and disclosed*, never silently swallowed."""
+    assert set(insolvency_module._KNOWN_NOTE_CODES) == {"scottish-insolvency-info"}
+
+    known = insolvency_module.map_insolvency(
+        MVL_INSOLVENCY, "SC001381", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert known.cases[0].note_codes == ["scottish-insolvency-info"]
+    assert not any("not relayed here" in n for n in known.notes)
+
+    # The synthetic fixture carries one real code and one invented one.
+    mixed = insolvency_module.map_insolvency(
+        PRACTITIONERS_SYNTHETIC, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    relayed = [code for case in mixed.cases for code in case.note_codes]
+    assert relayed == ["scottish-insolvency-info"]
+    assert "not-a-real-note-code" not in json.dumps(mixed.model_dump(mode="json"))
+    assert any("not relayed here" in n for n in mixed.notes)
+
+
+def test_insolvency_models_forbid_extra_fields() -> None:
+    with pytest.raises(pydantic.ValidationError):  # extra="forbid" (D-004)
+        insolvency_module.InsolvencyCase(case_number="1", practitioners=[])  # type: ignore[call-arg]
+    with pytest.raises(pydantic.ValidationError):
+        insolvency_module.InsolvencyEvent(event_type="wound-up-on", name="x")  # type: ignore[call-arg]
+
+
+def test_insolvency_ignores_unknown_top_level_and_case_keys() -> None:
+    """Every committed fixture carries a `_PRACTITIONERS_STRIPPED` /
+    `_PRACTITIONERS_NONE` / `_SYNTHETIC_COMBINATION` header key, and the
+    payload carries `etag` and `links` this module does not map. None of them
+    may reach the block or break it."""
+    block = insolvency_module.map_insolvency(
+        RECEIVER_INSOLVENCY, "01034351", cached=False, fetched_at=_FETCHED_AT
+    )
+    dumped = json.dumps(block.model_dump(mode="json"))
+    assert "_PRACTITIONERS" not in dumped
+    assert "etag" not in dumped
+    # `links.charge` is deliberately not relayed: its token is the charges
+    # endpoint's `links.self` id, NOT `Charge.charge_id` (which is `null` for
+    # every one of this company's 21 charges), so relaying it under any
+    # charge-ish name would invite a join that silently fails.
+    assert "charges/" not in dumped
+    assert any(c.get("links") for c in RECEIVER_INSOLVENCY["cases"])  # the fixture really has them
+
+
+# --- The practitioner bar (D-042(e)(2), D-028) ----------------------------
+
+
+def test_insolvency_the_bar_holds_no_practitioner_reaches_the_mapped_output() -> None:
+    """Feed the mapper the exact thing D-042(e)(2) bars — a payload that still
+    carries `cases[].practitioners[]` with names and addresses — and prove
+    none of it survives. The mapper reads no practitioner field at all, so
+    stripping is defence in depth rather than the only bar: the output is
+    byte-identical whether or not `strip_practitioners` ran first."""
+    raw = insolvency_module.map_insolvency(
+        PRACTITIONERS_SYNTHETIC, "00000001", cached=False, fetched_at=_FETCHED_AT
+    )
+    stripped = insolvency_module.map_insolvency(
+        insolvency_module.strip_practitioners(PRACTITIONERS_SYNTHETIC),
+        "00000001",
+        cached=False,
+        fetched_at=_FETCHED_AT,
+    )
+    assert raw.model_dump(mode="json") == stripped.model_dump(mode="json")
+
+    dumped = json.dumps(raw.model_dump(mode="json"))
+    for particular in _FABRICATED_PARTICULARS:
+        assert particular not in dumped, particular
+
+    # Structural, not textual: there is no field on the models a practitioner
+    # particular could land in, so no future edit can leak one by accident.
+    # (`notes` may say the word — that disclosure is the next test's subject.)
+    fields = set(insolvency_module.InsolvencyCase.model_fields) | set(
+        insolvency_module.InsolvencyEvent.model_fields
+    ) | set(insolvency_module.InsolvencyList.model_fields)
+    for barred in ("practitioner", "practitioners", "name", "address", "appointed_on",
+                   "ceased_to_act_on", "role"):
+        assert barred not in fields, barred
+    assert all(
+        not any(k in case for k in ("practitioners", "name", "address"))
+        for case in json.loads(dumped)["cases"]
+    )
+    # Sanity: the fixture really does carry what is being barred.
+    assert "Nonexistent Practitioner-One" in json.dumps(_body_only(PRACTITIONERS_SYNTHETIC))
+
+
+def test_insolvency_the_bar_is_disclosed_not_silent() -> None:
+    """An agent told only "here are the cases" could reasonably infer no
+    practitioner was ever appointed — false for 1,406 of the 1,485 live cases.
+    Every block with a case says so and names the register's own page."""
+    block = insolvency_module.map_insolvency(
+        LIQUIDATION_INSOLVENCY, "04374209", cached=False, fetched_at=_FETCHED_AT
+    )
+    disclosure = next(n for n in block.notes if "does not relay them" in n)
+    assert "name and postal address" in disclosure
+    assert "find-and-update.company-information.service.gov.uk" in disclosure
+    # …and a block with no case makes no such claim, because there is nothing
+    # to disclose about.
+    empty = insolvency_module.map_insolvency({}, "00445790", cached=False, fetched_at=_FETCHED_AT)
+    assert not any("does not relay them" in n for n in empty.notes)
+
+
+def test_insolvency_strip_practitioners_removes_the_key_and_nothing_else() -> None:
+    """The key is *removed*, never emptied: a live `"practitioners": []` is a
+    real register fact (79 of 1,485 live cases — `ch_SC001381_insolvency.json`
+    is one), and collapsing it into "this service removed them" would be the
+    same two-states-into-one mistake D-011 exists to prevent."""
+    out = insolvency_module.strip_practitioners(PRACTITIONERS_SYNTHETIC)
+    assert all("practitioners" not in case for case in out["cases"])
+    assert "practitioners" not in json.dumps(_body_only(out))
+    # Everything else is untouched, including keys this module never maps.
+    assert out["etag"] == PRACTITIONERS_SYNTHETIC["etag"]
+    assert out["status"] == PRACTITIONERS_SYNTHETIC["status"]
+    assert [c["type"] for c in out["cases"]] == [
+        c["type"] for c in PRACTITIONERS_SYNTHETIC["cases"]
+    ]
+    assert out["cases"][0]["links"] == PRACTITIONERS_SYNTHETIC["cases"][0]["links"]
+    # Pure: the caller's payload is not mutated.
+    assert "practitioners" in json.dumps(_body_only(PRACTITIONERS_SYNTHETIC))
+    # A payload with no `cases` key (the 404) survives, key still absent, so
+    # the mapper can still tell the register's two empty answers apart.
+    assert "cases" not in insolvency_module.strip_practitioners({"status": []})
+
+
+def test_insolvency_the_bar_holds_in_every_committed_fixture() -> None:
+    """No fixture in this directory may carry a natural person's name or
+    address from this endpoint. Checked structurally rather than by grepping
+    prose: the fixtures' own headers legitimately contain the words
+    "practitioner", "name" and "address" while explaining why the data is not
+    there."""
+    recordings = sorted(FIXTURES.glob("ch_*_insolvency.json"))
+    assert len(recordings) == 7, [p.name for p in recordings]
+    for path in recordings:
+        payload = _load(path.name)
+        header = payload.get("_PRACTITIONERS_STRIPPED") or payload.get("_PRACTITIONERS_NONE")
+        assert header, f"{path.name} has no provenance header about practitioners"
+        for case in payload["cases"]:
+            assert not case.get("practitioners"), path.name
+            assert "name" not in json.dumps(case), path.name
+
+    # The 404 body carries nothing at all beyond the register's error envelope.
+    assert set(INSOLVENCY_404) == {"timestamp", "status", "error", "path", "_RECORDED"}
+
+    # The one fixture that does carry practitioners is fabricated, says so, and
+    # is the only file allowed to.
+    synthetic = FIXTURES / "ch_insolvency_practitioners_synthetic.json"
+    assert "_SYNTHETIC_COMBINATION" in PRACTITIONERS_SYNTHETIC
+    assert "INVENTED" in PRACTITIONERS_SYNTHETIC["_SYNTHETIC_COMBINATION"]
+    assert synthetic not in recordings
+
+
+# --- client_module.fetch_insolvency — respx-mocked, no network ------------
+
+
+@respx.mock
+async def test_fetch_insolvency_404_is_a_present_empty_block_not_not_found() -> None:
+    """The single most important recon question, at the client. Companies
+    House really does 404 this endpoint for a solvent company — 353 of 1,458
+    live numbers did — so this branch is the common path, not a defensive
+    one, and it must never raise `not_found`: `/company/{n}` alone decides
+    whether an entity exists (D-041(h))."""
+    respx.get(f"{BASE_URL}/company/00445790/insolvency").mock(
+        return_value=httpx.Response(404, json=INSOLVENCY_404)
+    )
+    result = await client_module.fetch_insolvency("00445790")
+    assert result.cases == []
+    assert result.provenance.cached is False
+    assert "never issued" in " ".join(result.notes)
+
+
+@respx.mock
+async def test_fetch_insolvency_requests_the_whole_history_with_no_pagination() -> None:
+    """Confirmed live: this endpoint ignores `items_per_page` and
+    `start_index` and returns every case. So no page size is sent, nothing is
+    truncated, and D-042(j)'s truncation disclosure never fires."""
+    route = respx.get(f"{BASE_URL}/company/01034351/insolvency").mock(
+        return_value=httpx.Response(200, json=RECEIVER_INSOLVENCY)
+    )
+    result = await client_module.fetch_insolvency("01034351")
+    assert route.call_count == 1
+    assert dict(route.calls.last.request.url.params) == {}
+    assert len(result.cases) == 3
+    assert not any("only" in n and "included here" in n for n in result.notes)
+
+
+@respx.mock
+async def test_fetch_insolvency_never_writes_a_practitioner_to_the_cache() -> None:
+    """`strip_practitioners` runs before `cache.set`, so a licensed
+    practitioner's name and postal address never reach this deployment's disk
+    — which is why D-028(2)'s shortened person-record TTL has nothing to
+    protect here. Asserted against the raw cached payload, not the block."""
+    respx.get(f"{BASE_URL}/company/00000001/insolvency").mock(
+        return_value=httpx.Response(200, json=PRACTITIONERS_SYNTHETIC)
+    )
+    await client_module.fetch_insolvency("00000001")
+
+    entry = cache.get(client_module._insolvency_cache_key("00000001"))
+    assert entry is not None
+    raw = json.dumps(_body_only(entry.payload))
+    assert "practitioners" not in raw
+    for particular in _FABRICATED_PARTICULARS:
+        assert particular not in raw, particular
+    # The rest of the payload is cached intact, so a later mapping fix still
+    # applies to entries already cached (this module's cache contract).
+    assert entry.payload["etag"] == PRACTITIONERS_SYNTHETIC["etag"]
+    assert len(entry.payload["cases"]) == 2
+
+
+@respx.mock
+async def test_fetch_insolvency_practitioner_names_never_reach_a_log_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """D-040: not one of the barred particulars may appear in any log record,
+    at any level, on the whole fetch-map-cache path."""
+    respx.get(f"{BASE_URL}/company/00000001/insolvency").mock(
+        return_value=httpx.Response(200, json=PRACTITIONERS_SYNTHETIC)
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = await client_module.fetch_insolvency("00000001")
+    assert result.cases  # sanity: something was actually mapped
+    for record in caplog.records:
+        message = record.getMessage()
+        for particular in _FABRICATED_PARTICULARS:
+            assert particular not in message, particular
+
+
+@respx.mock
+async def test_fetch_insolvency_empty_result_is_never_not_found_on_a_cache_hit() -> None:
+    """Empty results are cached under the existing `status="not_found"` label
+    purely to borrow its 1 h TTL (D-042(j)) — never surfaced as an error on
+    read. Both of the register's empty answers take this path."""
+    respx.get(f"{BASE_URL}/company/00445790/insolvency").mock(
+        return_value=httpx.Response(404, json=INSOLVENCY_404)
+    )
+    first = await client_module.fetch_insolvency("00445790")
+    assert first.cases == []
+
+    entry = cache.get(client_module._insolvency_cache_key("00445790"))
+    assert entry is not None
+    assert entry.status == "not_found"  # the TTL label, not an error signal
+    assert entry.payload == {}  # the 404 body is not cached; its absence is the fact
+
+    second = await client_module.fetch_insolvency("00445790")
+    assert second.cases == []
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+    # The cache round trip preserves *which* empty answer this was.
+    assert "never issued" in " ".join(second.notes)
+
+
+@respx.mock
+async def test_fetch_insolvency_present_but_empty_resource_survives_the_cache() -> None:
+    respx.get(f"{BASE_URL}/company/00712615/insolvency").mock(
+        return_value=httpx.Response(200, json=EMPTY_INSOLVENCY)
+    )
+    await client_module.fetch_insolvency("00712615")
+    entry = cache.get(client_module._insolvency_cache_key("00712615"))
+    assert entry is not None
+    assert entry.status == "not_found"  # 1 h TTL: an empty answer goes stale fastest
+    cached_block = await client_module.fetch_insolvency("00712615")
+    assert "holds an insolvency record" in cached_block.notes[0]
+
+
+@respx.mock
+async def test_fetch_insolvency_non_empty_result_cached_as_ok() -> None:
+    respx.get(f"{BASE_URL}/company/04374209/insolvency").mock(
+        return_value=httpx.Response(200, json=LIQUIDATION_INSOLVENCY)
+    )
+    await client_module.fetch_insolvency("04374209")
+    entry = cache.get(client_module._insolvency_cache_key("04374209"))
+    assert entry is not None
+    assert entry.status == "ok"
+
+
+@respx.mock
+async def test_fetch_insolvency_cache_hit_same_fetched_at_no_second_request() -> None:
+    route = respx.get(f"{BASE_URL}/company/NI031727/insolvency").mock(
+        return_value=httpx.Response(200, json=ADMIN_CVA_INSOLVENCY)
+    )
+    first = await client_module.fetch_insolvency("NI031727")
+    assert first.provenance.cached is False
+    second = await client_module.fetch_insolvency("NI031727")
+    assert second.provenance.cached is True
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+    assert route.call_count == 1
+    assert second.statuses == ["in-administration"]
+
+
+@respx.mock
+async def test_fetch_insolvency_401_403_429_error_codes() -> None:
+    respx.get(f"{BASE_URL}/company/00445790/insolvency").mock(return_value=httpx.Response(401))
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_insolvency("00445790")
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+
+    respx.get(f"{BASE_URL}/company/00445791/insolvency").mock(return_value=httpx.Response(403))
+    with pytest.raises(RegistryError) as excinfo2:
+        await client_module.fetch_insolvency("00445791")
+    assert excinfo2.value.code is ErrorCode.UPSTREAM_ERROR
+
+    respx.get(f"{BASE_URL}/company/00445792/insolvency").mock(
+        return_value=httpx.Response(429, headers={"retry-after": "60"})
+    )
+    with pytest.raises(RegistryError) as excinfo3:
+        await client_module.fetch_insolvency("00445792")
+    assert excinfo3.value.code is ErrorCode.RATE_LIMITED
+
+
+@respx.mock
+async def test_fetch_insolvency_500_then_200_retried_exactly_once() -> None:
+    route = respx.get(f"{BASE_URL}/company/04374209/insolvency").mock(
+        side_effect=[httpx.Response(500), httpx.Response(200, json=LIQUIDATION_INSOLVENCY)]
+    )
+    result = await client_module.fetch_insolvency("04374209")
+    assert len(result.cases) == 1
+    assert route.call_count == 2
+
+
+async def test_fetch_insolvency_invalid_id_raises_without_http_request() -> None:
+    with respx.mock:
+        route = respx.get(f"{BASE_URL}/company/04374209/insolvency").mock(
+            return_value=httpx.Response(200, json=LIQUIDATION_INSOLVENCY)
+        )
+        with pytest.raises(RegistryError) as excinfo:
+            await client_module.fetch_insolvency("not-a-crn-at-all-!!")
+        assert excinfo.value.code is ErrorCode.INVALID_ID
+        assert route.call_count == 0
+
+
+async def test_fetch_insolvency_no_key_raises_without_http_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COMPANIES_HOUSE_API_KEY", raising=False)
+    with respx.mock:
+        route = respx.get(f"{BASE_URL}/company/04374209/insolvency").mock(
+            return_value=httpx.Response(200, json=LIQUIDATION_INSOLVENCY)
+        )
+        with pytest.raises(RegistryError) as excinfo:
+            await client_module.fetch_insolvency("04374209")
+        assert route.call_count == 0
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+
+
+def test_insolvency_is_not_wired_to_include_yet() -> None:
+    """R-5e is built behind the seam; wiring it is a follow-up's job and is
+    outside this task's footprint (`registries/gb/__init__.py` and `core/`).
+    This test pins the seam so the follow-up has one obvious line to delete."""
+    registry = get_registry("GB")
+    assert "insolvency" not in registry.supported_includes
+    assert not hasattr(registry, "insolvency")
+    assert callable(client_module.fetch_insolvency)
+
+
+# --- Live done-check (excluded from CI) ------------------------------------
+
+
+@pytest.mark.live
+async def test_live_insolvency_solvent_companies_404_and_are_still_present_empty_blocks() -> None:
+    """The recon finding that matters most, re-checked against the wire: four
+    unquestionably real companies with no insolvency history, each of which
+    404s this endpoint, and none of which may come back as `not_found`."""
+    for number in ("00445790", "09446231", "OC303675", "SC090312"):
+        block = await client_module.fetch_insolvency(number)
+        assert block.cases == [], number
+        assert block.statuses == [], number
+        assert "never issued" in " ".join(block.notes), number
+
+
+@pytest.mark.live
+async def test_live_insolvency_fixtures_still_match_stored_files() -> None:
+    """The one check a fixture directory cannot fake: re-fetch each recording,
+    strip it the same way the recorder did, and diff the mapped block. A
+    closed case cannot change, so any failure is a real register correction.
+
+    This is also a standing minimisation proof: the live payloads carry
+    practitioners and the stored ones do not, and the two map identically —
+    which is the demonstration that everything removed was unreachable.
+    """
+    volatile = {"fetched_at", "cached"}
+    for number in ("04374209", "NI031727", "SC432231", "05607779", "01034351", "SC001381",
+                   "00712615"):
+        stored = insolvency_module.map_insolvency(
+            _load(f"ch_{number}_insolvency.json"), number, cached=False, fetched_at=_FETCHED_AT
+        )
+        live = await client_module.fetch_insolvency(number)
+        stored_dump = stored.model_dump(mode="json")
+        live_dump = live.model_dump(mode="json")
+        for dump in (stored_dump, live_dump):
+            dump["provenance"] = {k: v for k, v in dump["provenance"].items() if k not in volatile}
+        assert stored_dump == live_dump, f"{number} insolvency fixture is stale"
+
+
+@pytest.mark.live
+async def test_live_insolvency_the_two_empty_answers_are_both_real() -> None:
+    """D-011's pair, live: `00445790` (Tesco, solvent) 404s, and `00712615`
+    answers 200 with `"cases": []` while its own profile says
+    `company_status == "liquidation"`. Both are present, empty blocks; the
+    notes are what tell them apart."""
+    no_resource = await client_module.fetch_insolvency("00445790")
+    empty_resource = await client_module.fetch_insolvency("00712615")
+    assert no_resource.cases == empty_resource.cases == []
+    assert "publishes no insolvency record" in no_resource.notes[0]
+    assert "holds an insolvency record" in empty_resource.notes[0]

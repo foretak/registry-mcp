@@ -45,9 +45,16 @@ import httpx
 from registry_mcp import __version__
 from registry_mcp.core import cache
 from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
-from registry_mcp.registries.gb import charges, filing_history, mapping
+from registry_mcp.registries.gb import charges, filing_history, insolvency, mapping
 
-__all__ = ["aclose", "fetch_charges", "fetch_filings", "lookup", "search"]
+__all__ = [
+    "aclose",
+    "fetch_charges",
+    "fetch_filings",
+    "fetch_insolvency",
+    "lookup",
+    "search",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -521,3 +528,100 @@ async def fetch_filings(id: str) -> filing_history.FilingHistory:
     return filing_history.map_filing_history(
         data, company_number, cached=False, fetched_at=fetched_at
     )
+
+
+# ---------------------------------------------------------------------------
+# Insolvency — R-5e (`DECISIONS.md` D-042(i)), built *behind the seam*, the
+# same way `fetch_charges` and `fetch_filings` above were:
+# `registries/gb/insolvency.py`'s module docstring carries the full recon
+# trail and the D-042(e)(2) minimisation argument. Deliberately **not** wired
+# to `include=[...]` here — that is a follow-up's job.
+#
+# Two things differ from its two siblings, and both are load-bearing:
+#
+# 1. **This endpoint really does 404, and a 404 is the normal answer for a
+#    healthy company.** `/charges` and `/filing-history` never 404 in
+#    practice, so their 404 branches are defensive. Here, 353 of 1,458 live
+#    company numbers answered 404 — including Tesco, Monzo and Deloitte LLP —
+#    with a body byte-identical (bar `path`) to the one returned for a
+#    company number that was never issued. Mapping it to `not_found` would
+#    turn every solvent company into a non-existent one. It is mapped to a
+#    present, empty block, and `insolvency.map_insolvency` writes a different
+#    `notes` sentence for it than for a 200 that carries `cases: []` — two
+#    register states, kept apart (D-011).
+# 2. **Practitioners are stripped before anything is written to the cache.**
+#    `insolvency.strip_practitioners` runs on the raw body the moment it is
+#    parsed, so a licensed practitioner's name and postal address never reach
+#    this deployment's disk. D-042(e)(2) bars relaying them; this bars
+#    storing them, which is the stronger and cheaper guarantee, and it is why
+#    D-028(2)'s shortened person-record TTL has nothing to protect here.
+# ---------------------------------------------------------------------------
+
+
+def _insolvency_cache_key(company_number: str) -> str:
+    return f"GB:companies-house:insolvency:{company_number}"
+
+
+async def fetch_insolvency(id: str) -> insolvency.InsolvencyList:
+    """Fetch one entity's insolvency history, consulting the cache first.
+
+    The whole history in one request: this endpoint is not paginated and
+    ignores both ``items_per_page`` and ``start_index`` (confirmed live), so
+    nothing is truncated and D-042(j)'s truncation disclosure never fires.
+
+    A 404 is mapped to a **present, empty block** — never ``not_found`` — and
+    unlike :func:`fetch_charges`' equivalent branch this one is the common
+    path, not a defensive one: Companies House 404s this endpoint for every
+    company with no insolvency history, and its 404 body is
+    indistinguishable from the one for a company number that was never
+    issued. D-041(h)'s principle is what makes that safe: ``/company/{n}``
+    alone decides whether an entity exists, and a caller only reaches this
+    function after that lookup already succeeded.
+
+    The raw body is passed through
+    :func:`registry_mcp.registries.gb.insolvency.strip_practitioners` before
+    it is cached or mapped, so no natural person's name or address is ever
+    written to this deployment's cache.
+
+    TTL asymmetry (D-042(j): 24 h for a non-empty result, 1 h for an empty
+    one) is implemented by reusing ``core/cache.py``'s existing
+    ``status="not_found"`` label purely for its 1 h TTL when this company has
+    no insolvency case — **never** raised as a ``not_found`` error on the read
+    path below, unlike its use in :func:`lookup`. That is the same stand-in
+    :func:`fetch_charges` and :func:`fetch_filings` use, for the same reason:
+    ``core/cache.py`` has no per-kind TTL table yet (D-042(j) names one) and
+    ``core/`` is outside this task's footprint.
+    """
+    from registry_mcp.registries.gb import rules
+
+    company_number = rules.validate_crn(id)
+    cache_key = _insolvency_cache_key(company_number)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        return insolvency.map_insolvency(
+            entry.payload, company_number, cached=True, fetched_at=entry.fetched_at
+        )
+
+    response = await _fetch(f"/company/{company_number}/insolvency")
+
+    if response.status_code == 200:
+        # Strip first, then cache and map: nothing person-bearing is ever
+        # held by this process for longer than this statement.
+        data = insolvency.strip_practitioners(response.json())
+    elif response.status_code == 404:
+        # The register holds no insolvency resource for this number. An empty
+        # mapping, not `{"cases": []}` — `map_insolvency` tells the two apart
+        # by the presence of the `cases` key and says which one this is.
+        data = {}
+    elif response.status_code in (401, 403):
+        raise _unauthorized_error()
+    elif response.status_code == 429:
+        raise _rate_limited_error(response)
+    else:
+        raise _upstream_error(response)
+
+    fetched_at = datetime.now(UTC)
+    status = "ok" if data.get("cases") else "not_found"
+    cache.set(cache_key, data, status=status, fetched_at=fetched_at)
+    return insolvency.map_insolvency(data, company_number, cached=False, fetched_at=fetched_at)
