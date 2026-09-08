@@ -1068,3 +1068,96 @@ def test_131_sni_null_and_non_string_kod_dropped_like_blank_padding() -> None:
     assert [c.rank for c in codes] == [1]
     assert codes[0].description == "Specialiserad butikshandel med cyklar"
     assert not any(c.code == "None" for c in codes)
+
+
+# ---------------------------------------------------------------------------
+# The invariant D-041(e) calls the done-check: **not one date moves for a
+# 31 December company** (146-148).
+#
+# R-5b built the `filings` block (`registries/se/filings.py`,
+# `client.fetch_filings`) but deliberately did **not** touch this module's
+# arithmetic: D-041(e)'s four-rung ladder and (f)'s three-state N9 are a
+# follow-on task. These tests are the guard rail that task has to stay inside.
+# ---------------------------------------------------------------------------
+
+
+def test_146_december_year_end_reproduces_the_shipped_assumption_exactly() -> None:
+    """The observed financial year end and the assumed one are the same date
+    for a 31 December company, so rung 2 and rung 3 must land on the same day.
+
+    Written before rung 2 exists, on purpose: it pins the *numbers* rather
+    than the code path, so the follow-on task that reads
+    `report.filings.financial_year_end` fails this test if any December
+    company's date moves — which is D-041(e)'s stated done-check, not a hope.
+    """
+    from registry_mcp.core.rules.common import add_months
+    from registry_mcp.registries.se.filings import FEE_POINT_MONTHS, fee_point
+
+    for today in (
+        date(2026, 1, 1),
+        date(2026, 3, 1),
+        date(2026, 6, 30),
+        date(2026, 7, 31),
+        date(2026, 8, 1),
+        date(2027, 2, 28),
+        date(2028, 2, 29),
+    ):
+        deadlines = deadlines_for(_report(), today)
+        gm = _by_kind(deadlines, "general_meeting")
+        aa = _by_kind(deadlines, "annual_accounts")
+        assert (gm.due_date.month, gm.due_date.day) == (6, 30), today
+        assert (aa.due_date.month, aa.due_date.day) == (7, 31), today
+
+        # Rung 2's inputs, applied to the year end a 31 December company's own
+        # filed report publishes (`rapporteringsperiodTom`): ABL 7 kap. 10 §'s
+        # six months and ÅRL 8 kap. 6 §'s seven. Same day, either rung.
+        year_end = date(today.year - 1, 12, 31)
+        assert add_months(year_end, 6) == date(today.year, 6, 30)
+        assert fee_point(year_end) == date(today.year, 7, 31)
+
+    assert FEE_POINT_MONTHS == 7
+
+
+def test_147_rules_module_is_untouched_by_the_filings_block() -> None:
+    """D-041(c): a second-round-trip value never lands on a first-round-trip
+    field. Sweden's `last_annual_accounts_year` stays `None` permanently and
+    `published_deadlines` stays empty — the year end lives in the block,
+    where its own provenance travels with it. Asserted as the orchestrator's
+    grep, so the next implementer cannot "fix" it by filling the field."""
+    import re
+    from pathlib import Path
+
+    import registry_mcp.registries.se as se_pkg
+
+    se_dir = Path(se_pkg.__file__).parent
+    assignments: list[tuple[str, str, str]] = []
+    for path in sorted(se_dir.glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        for field in ("last_annual_accounts_year", "published_deadlines"):
+            for match in re.finditer(rf"\b{field}\s*=\s*([^,\n]+)", source):
+                assignments.append((path.name, field, match.group(1).strip()))
+
+    # `mapping.py` sets both explicitly, and both may only ever be empty.
+    assert assignments, "the two fields should still be set explicitly, not dropped"
+    for name, field, value in assignments:
+        assert value in ("None", "[]"), f"{name}: {field} = {value}"
+
+    report = _report()
+    assert report.last_annual_accounts_year is None
+    assert report.published_deadlines == []
+    # `deadlines_for` is pure and reads nothing this task added.
+    assert deadlines_for(report, date(2026, 3, 1))
+
+
+def test_148_deadline_prose_is_unchanged_by_this_task() -> None:
+    """R-5b changed no `applies_because` and no note. The false clause
+    D-041(a) identifies — *"Bolagsverket's free dataset does not publish the
+    financial year"* — is still shipped here, and correcting it is T31 Part A,
+    which is **not** this task and is still unsequenced (D-042(i): "D-041(a)'s
+    prose correction is still not sequenced at all"). This test records that
+    it is knowingly outstanding rather than overlooked; when Part A lands it
+    should be inverted, not deleted."""
+    aa = _by_kind(deadlines_for(_report(), date(2026, 3, 1)), "annual_accounts")
+    assert "does not publish" in aa.applies_because
+    assert aa.statutory_date == aa.due_date
+    assert aa.rolled_forward is False

@@ -21,7 +21,7 @@ import time
 import uuid
 import warnings
 from collections.abc import AsyncIterator, Iterator
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,7 @@ import respx
 from registry_mcp.core.models import CompanyStatus, ErrorCode, RegistryError
 from registry_mcp.core.registry import get_registry
 from registry_mcp.registries.se import client as client_module
-from registry_mcp.registries.se import mapping
+from registry_mcp.registries.se import filings, mapping
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -1178,3 +1178,406 @@ async def test_118_live_id_example_is_active(monkeypatch: pytest.MonkeyPatch) ->
     report = await client_module.lookup("5560160680")
     assert report.status is CompanyStatus.ACTIVE
     assert report.name
+
+
+# ---------------------------------------------------------------------------
+# I. `POST /dokumentlista` — R-5b / T31 Part B, behind the seam (132-142)
+#
+# `DECISIONS.md` D-041, `tasks/T31.md` Part B. The block's models and mapper
+# live in `registries/se/filings.py` (local stand-ins for R-5's `SourceRef` /
+# `FiledDocument` / `FilingHistory`, exactly as `registries/gb/charges.py`
+# does for `Charge`); the fetch is `client.fetch_filings`. Nothing here reads
+# or asserts on `core/models.py`, and no test below changes a deadline.
+#
+# `bv_dokumentlista.json` is a **live recording** of `5561890038` against the
+# Bolagsverket TEST environment, 2026-09-08 (`tests/fixtures/README.md`).
+# `bv_dokumentlista_empty.json` and `bv_dokumentlista_no_key.json` carry a
+# `_SYNTHETIC_COMBINATION` header because that state cannot be reproduced
+# live: `/dokumentlista` has its own test allowlist and `5561890038` is the
+# only number on it, so every other identifier answers 400 rather than 200
+# with an empty list.
+# ---------------------------------------------------------------------------
+
+DOKUMENTLISTA = _load("bv_dokumentlista.json")
+DOKUMENTLISTA_EMPTY = _load("bv_dokumentlista_empty.json")
+DOKUMENTLISTA_NO_KEY = _load("bv_dokumentlista_no_key.json")
+DOKUMENTLISTA_400 = _load("bv_dokumentlista_400.json")
+
+FETCHED_AT = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+
+
+def _mock_dokumentlista(
+    body: dict[str, Any], base_url: str = PRODUCTION_BASE, status: int = 200
+) -> respx.Route:
+    return respx.post(f"{base_url}/dokumentlista").mock(
+        return_value=httpx.Response(status, json=body)
+    )
+
+
+def test_132_dokumentlista_recording_maps_three_annual_reports() -> None:
+    """The live recording of `5561890038`. Every assertion here is a fact
+    about the wire, not about a fixture we wrote: three filed annual reports,
+    newest first, all `application/zip`, all with a `_paket`-suffixed handle.
+
+    `-34` is D-041(g)'s own worked example — "filed 2023-06-27 for the period
+    ending 2022-12-31, 34 days before the late-fee point" — reproduced by the
+    arithmetic rather than restated.
+    """
+    block = filings.map_dokumentlista(DOKUMENTLISTA, cached=False, fetched_at=FETCHED_AT)
+
+    assert [d.period_end for d in block.documents] == [
+        date(2022, 12, 31),
+        date(2021, 12, 31),
+        date(2020, 12, 31),
+    ]
+    assert [d.filed_at for d in block.documents] == [
+        date(2023, 6, 27),
+        date(2022, 7, 6),
+        date(2021, 7, 30),
+    ]
+    assert [d.days_from_fee_point for d in block.documents] == [-34, -25, -1]
+    assert {d.kind for d in block.documents} == {"annual_accounts"}
+    assert {d.file_format for d in block.documents} == {"application/zip"}
+    assert block.documents[0].document_id == "02f54e4f-b17a-4cfd-a1cc-d8ab4eaa7f49_paket"
+
+    # D-041(d)/(e): Bolagsverket publishes no `...From`, so `period_start` is
+    # `None` for Sweden — never derived by subtracting twelve months.
+    assert all(d.period_start is None for d in block.documents)
+    # D-042(h)'s three fields exist and Sweden fills none of them.
+    assert all(
+        (d.category, d.type_code, d.description_code) == (None, None, None)
+        for d in block.documents
+    )
+
+    # Carried verbatim from the newest report, never synthesised.
+    assert block.financial_year_end == date(2022, 12, 31)
+    assert block.provenance.fetched_at == FETCHED_AT
+    assert block.provenance.cached is False
+    assert block.provenance.source == "Bolagsverket (bolagsverket.se)"
+    # A 31 December year end is the assumption Sweden already ships, so no
+    # broken-financial-year caveat fires.
+    assert block.notes == []
+
+
+def test_133_empty_list_and_absent_key_are_a_present_block_never_not_found() -> None:
+    """D-041(c),(h): `dokument` is not in `DokumentlistaSvar`'s `required`
+    list, so an absent key and an empty array are the same answer — and that
+    answer is a **present** block meaning "Bolagsverket holds no filed annual
+    report for this entity", never an absence and never `not_found`."""
+    for payload in (DOKUMENTLISTA_EMPTY, DOKUMENTLISTA_NO_KEY):
+        block = filings.map_dokumentlista(payload, cached=False, fetched_at=FETCHED_AT)
+        assert block.documents == []
+        assert block.financial_year_end is None
+        assert block.provenance.fetched_at == FETCHED_AT
+        # The one state that must never read as "we could not look".
+        assert any("holds no filed annual report" in n for n in block.notes)
+
+
+def test_134_no_dataproducent_fel_wrapper_and_unknown_keys_are_ignored() -> None:
+    """D-041(h), confirmed live 2026-09-08: `DokumentlistaSvar` is a plain
+    `{"dokument": [...]}` with no `dataproducent`/`fel` wrapper, so
+    `SWEDEN_SPEC.md` §1.6's "HTTP 200 ≠ data arrived" rule is scoped to
+    `/organisationer` and this module's `fel`-inspecting helpers are never
+    pointed here. The recording is asserted on directly so a future
+    re-recording that grows a wrapper fails this test rather than silently
+    changing the contract."""
+    assert set(DOKUMENTLISTA) == {"dokument"}
+    assert "dataproducent" not in json.dumps(DOKUMENTLISTA)
+    assert "fel" not in DOKUMENTLISTA
+
+    # A top-level key the mapper does not read costs nothing — which is what
+    # lets the two synthetic fixtures carry their `_SYNTHETIC_COMBINATION`
+    # header (`tests/fixtures/README.md`).
+    assert "_SYNTHETIC_COMBINATION" in DOKUMENTLISTA_EMPTY
+    block = filings.map_dokumentlista(DOKUMENTLISTA_EMPTY, cached=False, fetched_at=FETCHED_AT)
+    assert block.documents == []
+
+
+def test_135_days_from_fee_point_is_a_signed_measurement_never_a_verdict() -> None:
+    """D-041(d): a signed integer measured against seven months after
+    `period_end` (ÅRL 8 kap. 6 §), `None` when either input is missing, and
+    **no `filed_late` boolean anywhere** — D-011/D-028(3): a field whose job
+    is to distinguish two states must not have a third that means both."""
+    payload = {
+        "dokument": [
+            # One day after the fee point (31 July 2023) — positive.
+            {"rapporteringsperiodTom": "2022-12-31", "registreringstidpunkt": "2023-08-01"},
+            # Exactly on it — zero, not None and not False.
+            {"rapporteringsperiodTom": "2021-12-31", "registreringstidpunkt": "2022-07-31"},
+            # No filing date — honestly None (D-009).
+            {"rapporteringsperiodTom": "2020-12-31"},
+            # No reporting period — honestly None.
+            {"registreringstidpunkt": "2020-05-05"},
+        ]
+    }
+    block = filings.map_dokumentlista(payload, cached=False, fetched_at=FETCHED_AT)
+    by_period = {d.period_end: d for d in block.documents}
+    assert by_period[date(2022, 12, 31)].days_from_fee_point == 1
+    assert by_period[date(2021, 12, 31)].days_from_fee_point == 0
+    assert by_period[date(2020, 12, 31)].days_from_fee_point is None
+    assert by_period[None].days_from_fee_point is None
+
+    assert "filed_late" not in filings.FiledDocument.model_fields
+    assert filings.FEE_POINT_MONTHS == 7
+    assert filings.fee_point(date(2022, 12, 31)) == date(2023, 7, 31)
+
+
+def test_136_sorted_newest_first_and_financial_year_end_skips_undated() -> None:
+    """D-041(g): `period_end` descending, then `filed_at` descending. A
+    document with no reporting period sorts last and can never become
+    `financial_year_end` — the field is carried verbatim from a real
+    period end or it is `None`."""
+    payload = {
+        "dokument": [
+            {"rapporteringsperiodTom": "2021-12-31", "registreringstidpunkt": "2022-07-06"},
+            {"registreringstidpunkt": "2026-01-01"},
+            # Two filings for the same period: the later registration wins.
+            {"rapporteringsperiodTom": "2022-12-31", "registreringstidpunkt": "2023-06-27"},
+            {"rapporteringsperiodTom": "2022-12-31", "registreringstidpunkt": "2023-11-02"},
+        ]
+    }
+    block = filings.map_dokumentlista(payload, cached=False, fetched_at=FETCHED_AT)
+    assert [(d.period_end, d.filed_at) for d in block.documents] == [
+        (date(2022, 12, 31), date(2023, 11, 2)),
+        (date(2022, 12, 31), date(2023, 6, 27)),
+        (date(2021, 12, 31), date(2022, 7, 6)),
+        (None, date(2026, 1, 1)),
+    ]
+    assert block.financial_year_end == date(2022, 12, 31)
+
+
+def test_137_broken_financial_year_is_disclosed_and_datetime_dates_still_parse() -> None:
+    """A *brutet räkenskapsår* is lawful (bokföringslagen 3 kap.) and is the
+    whole reason D-041 exists: a company with an April year end is told
+    30 June and 31 July today when its own dates are four months later. The
+    block says so; it does not change any date (that is D-041(e)'s ladder,
+    a follow-on task).
+
+    Both dates are declared `format: date` and were plain dates in every
+    observed payload, but `registreringstidpunkt` is named for a point in
+    time, so the parser tolerates `YYYY-MM-DDT…` the way
+    `registries/se/mapping.py` already does (§2.5).
+    """
+    payload = {
+        "dokument": [
+            {
+                "rapporteringsperiodTom": "2025-04-30",
+                "registreringstidpunkt": "2025-10-15T09:30:00Z",
+            }
+        ]
+    }
+    block = filings.map_dokumentlista(payload, cached=False, fetched_at=FETCHED_AT)
+    assert block.financial_year_end == date(2025, 4, 30)
+    assert block.documents[0].filed_at == date(2025, 10, 15)
+    # 30 April + 7 months = 30 November 2025; filed 15 October is 46 days before.
+    assert block.documents[0].days_from_fee_point == -46
+    assert any("brutet räkenskapsår" in n for n in block.notes)
+    # A garbage date is `None`, never an exception.
+    junk = filings.map_dokumentlista(
+        {"dokument": [{"rapporteringsperiodTom": "not-a-date", "registreringstidpunkt": 17}]},
+        cached=False,
+        fetched_at=FETCHED_AT,
+    )
+    assert junk.documents[0].period_end is None
+    assert junk.documents[0].filed_at is None
+
+
+@respx.mock
+async def test_138_default_lookup_makes_no_document_list_request() -> None:
+    """D-041(b): the second call is never made by default — it costs a token
+    from the tightest published budget in the project (60/min, §1.5). Asserted,
+    not assumed (`tasks/T31.md` done-check)."""
+    _mock_token()
+    _mock_data(AB_ACTIVE)
+    dokumentlista = _mock_dokumentlista(DOKUMENTLISTA)
+
+    await client_module.lookup("5560021361")
+
+    assert dokumentlista.call_count == 0
+
+
+@respx.mock
+async def test_139_fetch_filings_posts_the_id_in_the_body_and_spends_a_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The identifier goes in the JSON body and never in a URL (D-039,
+    D-040), a fresh `X-Request-Id` travels with it, and the call spends a
+    token-bucket token like any other request against the published 60/min —
+    the OpenAPI's `x-throttling-tier: "Unlimited"` is a WSO2 gateway artefact
+    (confirmed live: no `X-RateLimit-*` header comes back either)."""
+    _mock_token()
+    route = _mock_dokumentlista(DOKUMENTLISTA)
+
+    # Counted rather than read off `_bucket._tokens`: that float is a module
+    # singleton shared with every other test in this session and is only
+    # recomputed inside `acquire()`, so comparing it before and after is a
+    # flake, not a measurement.
+    acquired = 0
+    real_acquire = client_module._bucket.acquire
+
+    async def _counting_acquire() -> None:
+        nonlocal acquired
+        acquired += 1
+        await real_acquire()
+
+    monkeypatch.setattr(client_module._bucket, "acquire", _counting_acquire)
+    block = await client_module.fetch_filings("5561890038")
+
+    assert route.called
+    request = route.calls[0].request
+    assert request.url.path.endswith("/dokumentlista")
+    assert "5561890038" not in str(request.url)
+    assert json.loads(request.content) == {"identitetsbeteckning": "5561890038"}
+    assert uuid.UUID(request.headers["X-Request-Id"])
+    # One token for the OAuth token request, one for this call — the second
+    # call is a real request against the published 60/min, not a free one.
+    assert acquired == 2
+    assert block.financial_year_end == date(2022, 12, 31)
+
+
+@respx.mock
+async def test_140_status_mapping_never_produces_not_found() -> None:
+    """D-041(h): `/organisationer` decides whether an entity exists;
+    `/dokumentlista` never does. A 400 is `invalid_id` (the identifier is the
+    only input, and D-032 refuses to enforce a check digit we cannot source,
+    so upstream's verdict decides); a 5xx and even an undeclared 404 are
+    `upstream_error`. **No status maps to `not_found`.**
+
+    The 400 body is the live recording: its `detail` is *not* the OpenAPI's
+    documented "ogiltig kontrollsiffra" example but a second, undocumented
+    string. Two strings, one status — which is exactly why D-041(h) forbids
+    coding to `detail`.
+    """
+    for status, expected in (
+        (400, ErrorCode.INVALID_ID),
+        (404, ErrorCode.UPSTREAM_ERROR),
+        (500, ErrorCode.UPSTREAM_ERROR),
+    ):
+        respx.clear()
+        _mock_token()
+        _mock_dokumentlista(DOKUMENTLISTA_400 if status == 400 else BODY_500, status=status)
+        with pytest.raises(RegistryError) as excinfo:
+            await client_module.fetch_filings("5561890038")
+        assert excinfo.value.code is expected, status
+        assert excinfo.value.code is not ErrorCode.NOT_FOUND
+
+    assert DOKUMENTLISTA_400["detail"] != BODY_400["detail"]
+
+
+@respx.mock
+async def test_141_block_caches_under_its_own_key_with_the_1h_empty_split() -> None:
+    """D-041(c),(h): the block has its **own** cache key and its own TTL —
+    24 h for a non-empty list, 1 h for an empty one (D-006's asymmetry, for
+    D-006's reason: an empty list goes stale the instant the company files).
+    The key is separate from the entity key, which is what lets a cached
+    company record travel beside a freshly fetched document list."""
+    from registry_mcp.core import cache
+
+    _mock_token()
+    route = _mock_dokumentlista(DOKUMENTLISTA)
+
+    first = await client_module.fetch_filings("5561890038")
+    second = await client_module.fetch_filings("5561890038")
+
+    assert route.call_count == 1
+    assert first.provenance.cached is False
+    assert second.provenance.cached is True
+    # Its own moment, preserved across the hit (D-006).
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+
+    key = client_module._filings_cache_key("production", "5561890038")
+    assert key == "SE:bolagsverket:filings:prod:5561890038"
+    assert key != client_module._cache_key("production", "5561890038")
+    entry = cache.get(key)
+    assert entry is not None
+    assert entry.status == "ok"
+
+    # An empty list takes the 1 h TTL, reusing `core/cache.py`'s existing
+    # `not_found` label purely for its shorter TTL — never raised as an error.
+    respx.clear()
+    _mock_token()
+    _mock_dokumentlista(DOKUMENTLISTA_EMPTY)
+    empty = await client_module.fetch_filings("5560021361")
+    assert empty.documents == []
+    empty_entry = cache.get(client_module._filings_cache_key("production", "5560021361"))
+    assert empty_entry is not None
+    assert empty_entry.status == "not_found"
+
+
+@respx.mock
+async def test_142_test_environment_hosts_and_the_n10_note_on_the_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The block's provenance is its own (D-041(c)), so N10 — "this came from
+    the test environment, the organisation may not exist" — has to be applied
+    to it separately from the report's. `5561890038` is the only number the
+    TEST environment answers `/dokumentlista` for, and it 400s on
+    `/organisationer`, so this pairing cannot be recorded live at all."""
+    # T26e fix 14: `monkeypatch`, never a bare `os.environ` assignment.
+    monkeypatch.setenv("BOLAGSVERKET_ENVIRONMENT", "test")
+    _mock_token(TEST_TOKEN)
+    route = _mock_dokumentlista(DOKUMENTLISTA, base_url=TEST_BASE)
+    block = await client_module.fetch_filings("5561890038")
+
+    assert route.called
+    assert block.provenance.source is not None
+    assert block.provenance.source.endswith("— test environment")
+    assert any("test environment" in n for n in block.notes)
+    assert client_module._filings_cache_key("test", "5561890038").startswith(
+        "SE:bolagsverket:filings:test:"
+    )
+
+
+@respx.mock
+async def test_143_401_refreshes_the_token_once_then_raises() -> None:
+    """§6.1's one-time refresh-and-retry, layered on this call too — a block
+    fetch must not be the one code path that leaves a stale token in place."""
+    token = _mock_token()
+    _mock_dokumentlista(BODY_401, status=401)
+
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_filings("5561890038")
+
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+    assert token.call_count == 2
+
+
+@pytest.mark.live
+async def test_144_live_dokumentlista_5561890038(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The recording's own done-check. `5561890038` is confirmed as the
+    `/dokumentlista` scenario company (`SWEDEN_SPEC.md` §17's table had two
+    other numbers backwards until 2026-09-07, so this one was re-verified
+    rather than trusted).
+
+    Note what this test cannot do: `5561890038` answers `/organisationer`
+    with a **400**, so the TEST environment cannot produce a lookup and a
+    filing history for the same entity, and no live test can assert the two
+    blocks' independent provenance against each other.
+    """
+    monkeypatch.setenv("BOLAGSVERKET_ENVIRONMENT", "test")
+    block = await client_module.fetch_filings("5561890038")
+    assert block.financial_year_end == date(2022, 12, 31)
+    assert len(block.documents) >= 3
+    assert block.documents[0].days_from_fee_point == -34
+    assert {d.file_format for d in block.documents} == {"application/zip"}
+
+
+@pytest.mark.live
+async def test_145_live_dokumentlista_allowlist_is_disjoint_from_organisationer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Recorded as a test so the finding is re-checked rather than remembered:
+    in the TEST environment the two operations have **disjoint** allowlists.
+    `5560021361` — the company eight `/organisationer` fixtures are built on —
+    answers `/dokumentlista` with a 400, and every other test-workbook number
+    tried on 2026-09-08 did the same. That is why the empty-list state cannot
+    be recorded live and its fixtures are `_SYNTHETIC_COMBINATION`.
+
+    If this test ever fails, the test environment has gained a second
+    `/dokumentlista` company — record it, and replace
+    `bv_dokumentlista_empty.json` if it has no filings.
+    """
+    monkeypatch.setenv("BOLAGSVERKET_ENVIRONMENT", "test")
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_filings("5560021361")
+    assert excinfo.value.code is ErrorCode.INVALID_ID

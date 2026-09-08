@@ -1,0 +1,22 @@
+{
+  "dokument": [
+    {
+      "dokumentId": "02f54e4f-b17a-4cfd-a1cc-d8ab4eaa7f49_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2022-12-31",
+      "registreringstidpunkt": "2023-06-27"
+    },
+    {
+      "dokumentId": "852f8ee2-eb16-404a-9c4e-77898688bede_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2021-12-31",
+      "registreringstidpunkt": "2022-07-06"
+    },
+    {
+      "dokumentId": "7c9e96b6-bcef-488c-9d68-eae350547fbf_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2020-12-31",
+      "registreringstidpunkt": "2021-07-30"
+    }
+  ]
+}

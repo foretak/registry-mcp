@@ -1,0 +1,9 @@
+{
+  "type": "about:blank",
+  "instance": "client.error",
+  "status": 400,
+  "title": "Bad Request",
+  "detail": "Ogiltig identitetsbeteckning i begäran. Se testdokumentation för giltiga identitetsbeteckningar. ",
+  "requestId": "6943ffa4-a86f-402b-8c44-5b1d5a8e03ba",
+  "timestamp": null
+}

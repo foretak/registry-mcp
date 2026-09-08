@@ -5,10 +5,11 @@ section says which fixtures are real recordings and which are shape-only.
 
 ## SE — Bolagsverket
 
-Of the 21 `bv_*.json` fixtures: **eight were recorded live against the
-Bolagsverket TEST environment on 2026-09-07** (T26g, once credentials
-arrived); **seven more are verbatim copies of Bolagsverket's own OpenAPI
-document** (T26b, unchanged since); **six are still assembled**, now
+Of the 25 `bv_*.json` fixtures: **ten were recorded live against the
+Bolagsverket TEST environment** — eight on 2026-09-07 (T26g, once
+credentials arrived) and two on 2026-09-08 (R-5b, `/dokumentlista`);
+**seven more are verbatim copies of Bolagsverket's own OpenAPI
+document** (T26b, unchanged since); **eight are still assembled**, now
 confirmed shape-correct but not scenario-correct (below). `SWEDEN_SPEC.md`
 §1.8 and §17 carry the full per-fixture story; this file has the recording
 recipe and the number-to-fixture table.
@@ -109,16 +110,70 @@ had `193403223328` and `198101032384` backwards, and called `198101052382`
 | `bv_hb_active.json` | `9124001992` | Handelsbolag |
 | `bv_brf_active.json` | `7164099017` | Bostadsrättsförening |
 | `bv_ek_active.json` | `7020008350` | Ekonomisk förening |
-| *(dokumentlista, `DEFERRED`)* | `5561890038` | — |
+| `bv_dokumentlista.json` | `5561890038` | `POST /dokumentlista` — three filed annual reports. **Recorded live 2026-09-08** (R-5b); the number is confirmed, see below. |
 
 **Do not record `5560000002`, `7140000001`, `9160000001` or `198210300002`**
 as ordinary fixtures — they are the four modulus-10 counter-examples
 (`SWEDEN_SPEC.md` §5.1.1); `5560000002` has a job of its own (§14 test 116)
 and the others should be left alone until that experiment resolves.
 
-The test environment only accepts numbers on its allowlist; another number
-returns a response listing the permitted ones, which is itself worth saving
-the first time it happens.
+The test environment only accepts numbers on its allowlist. **Corrected
+2026-09-08 (R-5b):** an unlisted number does *not* return a response listing
+the permitted ones — it returns a bare RFC 7807 400 whose `detail` merely
+points at the workbook (*"Ogiltig identitetsbeteckning i begäran. Se
+testdokumentation för giltiga identitetsbeteckningar."*), recorded as
+`bv_dokumentlista_400.json`. The permitted numbers are only in the workbook.
+
+### `POST /dokumentlista` — a second, disjoint allowlist (R-5b, 2026-09-08)
+
+Four `bv_dokumentlista*.json` fixtures were added for the `filings` block
+(`src/registry_mcp/registries/se/filings.py`, `DECISIONS.md` D-041). Two are
+live recordings and two cannot be:
+
+| Fixture | Origin |
+|---|---|
+| `bv_dokumentlista.json` | **Live**, `5561890038`, 2026-09-08 — three annual reports, periods ending 2022/2021/2020-12-31. |
+| `bv_dokumentlista_400.json` | **Live**, the RFC 7807 body for a well-formed identifier the test environment does not hold. |
+| `bv_dokumentlista_empty.json` | `_SYNTHETIC_COMBINATION` — `{"dokument": []}`. |
+| `bv_dokumentlista_no_key.json` | `_SYNTHETIC_COMBINATION` — the `dokument` key absent, which the OpenAPI permits (it is not in `DokumentlistaSvar`'s `required` list). |
+
+**Why the last two cannot be recorded.** `/dokumentlista` has its **own**
+test-environment allowlist, and it is disjoint from `/organisationer`'s:
+`5561890038` answers `/dokumentlista` with a 200 and `/organisationer` with a
+**400**, while all eight companies with live `/organisationer` recordings
+above — plus `5562820745`, `5560986878`, `5560004755`, `198101012386` — answer
+`/dokumentlista` with a **400**. So no reachable test company has zero filed
+annual reports, and no test company can produce a company record *and* a
+document list, which is why no live test can compare the two blocks'
+independent provenance. Re-check with
+`test_145_live_dokumentlista_allowlist_is_disjoint_from_organisationer`; if it
+ever fails, the test register has gained a second `/dokumentlista` company.
+
+**Two different `detail` strings, one status.** A bad check digit
+(`5560000000`) returns the OpenAPI's own documented example verbatim —
+*"Identitetsbeteckning har ogiltig kontrollsiffra."*, the body already
+committed as `bv_400.json` — so that example is **not** a fabrication; only
+its attachment to `GET /dokument/{dokumentId}`, which takes no identifier, is
+a documentation bug. A valid-but-unheld identifier returns a second,
+undocumented string (`bv_dokumentlista_400.json`). Live bodies also carry
+`"timestamp": null` where the OpenAPI example has a real timestamp. Never code
+to `detail` (D-041(h)); the HTTP status is the only behaviour.
+
+**The 200 has no `dataproducent`/`fel` wrapper** — it is exactly
+`{"dokument": [...]}`. `SWEDEN_SPEC.md` §1.6's "every field is a wrapper,
+therefore HTTP 200 ≠ data arrived" is an `/organisationer` rule and must not be
+pointed at this response.
+
+Recipe (step 1's token as above):
+
+```bash
+curl -sS -X POST \
+  https://gw-accept2.api.bolagsverket.se/vardefulla-datamangder/v1/dokumentlista \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H "X-Request-Id: $(uuidgen)" \
+  -d '{"identitetsbeteckning":"5561890038"}' | python3 -m json.tool
+```
 
 **Redaction:** the recorded bodies contain no credential, but
 `bv_enskild_two.json`, `bv_enskild_avregistrerad.json`, `bv_enskild_three.json`

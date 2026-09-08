@@ -57,9 +57,9 @@ import httpx
 from registry_mcp import __version__
 from registry_mcp.core import cache
 from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
-from registry_mcp.registries.se import mapping
+from registry_mcp.registries.se import filings, mapping
 
-__all__ = ["aclose", "lookup", "search"]
+__all__ = ["aclose", "fetch_filings", "lookup", "search"]
 
 logger = logging.getLogger(__name__)
 
@@ -610,3 +610,197 @@ async def search(name: str, limit: int = 10) -> SearchResult:
         country="SE",
         registry="bolagsverket",
     )
+
+
+# ---------------------------------------------------------------------------
+# R-5b / T31 Part B — the second call, `POST /dokumentlista`, behind the seam
+#
+# `DECISIONS.md` D-041, D-042(b); `tasks/T31.md` Part B §2. Self-contained:
+# nothing above this line changes, `lookup` still makes exactly one upstream
+# request, and no `core/` model is imported for it (`registries/se/filings.py`
+# carries local stand-ins for R-5's `SourceRef`/`FiledDocument`/
+# `FilingHistory`, exactly as `registries/gb/charges.py` does for `Charge`).
+# `fetch_filings` is the whole seam — validate the id, fetch or serve from
+# cache, return a fully-mapped `filings.FilingHistory`, ready for a follow-up
+# to call from a real `filings()` method on `BolagsverketRegistry`.
+#
+# **Response handling here is deliberately NOT `/organisationer`'s**
+# (D-041(h), confirmed live 2026-09-08): `DokumentlistaSvar` is
+# `{"dokument": [ ... ]}` — a plain array of plain objects with no
+# `dataproducent`/`fel` wrapper — so `mapping.is_not_found` and
+# `mapping.is_partial_failure` are never called on it. On this endpoint a 200
+# means the answer arrived, and `/organisationer` alone decides whether an
+# entity exists: an empty or absent `dokument` is a present block with
+# `documents: []`, never `not_found` (D-041(c)).
+# ---------------------------------------------------------------------------
+
+
+async def _post_dokumentlista(
+    base_url: str, token: str, identitetsbeteckning: str
+) -> httpx.Response:
+    """``POST {base}/dokumentlista``, mirroring :func:`_post_organisationer`
+    exactly: the identifier in the JSON body and never in a URL (D-039,
+    D-040), one retry on a timeout or a 5xx and never on a 4xx, a **fresh**
+    ``X-Request-Id`` UUID4 per attempt logged at DEBUG — the request id only,
+    never the body — and one token-bucket token per attempt, because this is
+    a real request against the published 60/min (§1.5; the OpenAPI's
+    ``x-throttling-tier: "Unlimited"`` is a WSO2 gateway artefact and repeals
+    nothing, and no ``X-RateLimit-*`` header comes back)."""
+    http_client = _get_client()
+    attempt = 0
+    response: httpx.Response | None = None
+    while True:
+        attempt += 1
+        await _bucket.acquire()
+        request_id = str(uuid.uuid4())
+        logger.debug("Bolagsverket request %s for /dokumentlista", request_id)
+        try:
+            response = await http_client.post(
+                f"{base_url}/dokumentlista",
+                json={"identitetsbeteckning": identitetsbeteckning},
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                    "X-Request-Id": request_id,
+                },
+            )
+        except httpx.TimeoutException as exc:
+            if attempt >= _MAX_ATTEMPTS:
+                raise _timeout_error() from exc
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+            continue
+
+        if response.status_code >= 500:
+            if attempt >= _MAX_ATTEMPTS:
+                return response
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+            continue
+
+        return response
+
+
+async def _fetch_dokumentlista(environment: str, identitetsbeteckning: str) -> httpx.Response:
+    """One document-list call, with the same §6.1 one-time
+    token-refresh-and-retry on a 401/403 that :func:`_fetch_organisationer`
+    has, layered on :func:`_post_dokumentlista`'s own 5xx/timeout retry."""
+    base_url = _BASE_URLS[environment]
+    token = await _get_token(environment)
+    response = await _post_dokumentlista(base_url, token, identitetsbeteckning)
+    if response.status_code in (401, 403):
+        token = await _get_token(environment, force_refresh=True)
+        response = await _post_dokumentlista(base_url, token, identitetsbeteckning)
+    return response
+
+
+def _filings_cache_key(environment: str, identitetsbeteckning: str) -> str:
+    """The block's **own** cache key, on :func:`_cache_key`'s convention with
+    ``filings`` in the kind slot (D-041(h)). Its own key and its own TTL are
+    what let a 20-hour-old company record travel beside a fresh document
+    list, which is D-041(c)'s whole point."""
+    short_env = "test" if environment == _TEST else "prod"
+    return f"SE:bolagsverket:filings:{short_env}:{identitetsbeteckning}"
+
+
+def _apply_environment_notes_to_filings(
+    block: filings.FilingHistory, environment: str
+) -> filings.FilingHistory:
+    """N10, for the block's own provenance — the test-environment note
+    applies to this ``source`` too (``tasks/T31.md`` Part B §3), and it is
+    applied here rather than in the mapper so the mapper stays pure and
+    environment-blind, exactly as :func:`_apply_environment_notes` does for
+    the report."""
+    if environment != _TEST:
+        return block
+    source = (
+        f"{block.provenance.source} — test environment"
+        if block.provenance.source
+        else "Bolagsverket — test environment"
+    )
+    return block.model_copy(
+        update={
+            "provenance": block.provenance.model_copy(update={"source": source}),
+            "notes": [*block.notes, _N10_TEST_ENVIRONMENT_NOTE],
+        }
+    )
+
+
+async def fetch_filings(id: str) -> filings.FilingHistory:
+    """Fetch one entity's filed annual reports, consulting the cache first.
+
+    **A failed fetch is not swallowed here.** It raises, and
+    ``core/registry.py::lookup_with`` turns any ``RegistryError`` from an
+    attachment into an absent block plus one ``notes`` sentence — in one
+    place, once, for every country (D-042(b)). Swallowing it here as well
+    would build that mechanism twice and give an empty block two meanings,
+    which is the collapse D-011 and D-041(c) exist to prevent.
+
+    Status mapping for this endpoint (D-041(h), ``tasks/T31.md`` Part B §2):
+    400 → ``invalid_id``, because the identifier is the only input and D-032
+    already refuses to enforce a check digit we cannot source, so upstream's
+    verdict decides; 401/403 → the existing unauthorized path; 429 →
+    ``rate_limited``; 5xx/timeout → ``upstream_error``/``upstream_timeout``.
+    **Never ``not_found``, for any status** — including a 404, which this
+    endpoint does not declare and was never observed: ``/organisationer``
+    decides whether an entity exists and this call must not be able to turn
+    a successful lookup into a 404 (D-041(h)). Do not code to the 400's
+    ``detail`` string; two different ones were observed live for the same
+    status (``registries/se/filings.py``).
+
+    TTL asymmetry (D-041(h): 24 h for a non-empty list, 1 h for an empty
+    one) is implemented by reusing ``core/cache.py``'s existing
+    ``status="not_found"`` label purely for its 1 h TTL when the register
+    holds no filed report — **never** raised as a ``not_found`` error on the
+    read path below, unlike its use in :func:`lookup`. The reason is D-006's
+    own: an empty list is the answer that goes stale the instant the company
+    files, and during filing season a day-old "nothing filed" about a
+    company that filed on Tuesday is wrong in the direction that harms a
+    counterparty check. ``core/cache.py`` has no per-kind TTL table yet
+    (D-041(h) and D-042(j) both name one, to be built "by whichever lands
+    first"); that table is out of this task's footprint, so this is the
+    stand-in until it exists.
+    """
+    from registry_mcp.registries.se import rules
+
+    identitetsbeteckning = rules.validate_id(id)
+    environment = _read_environment()
+    cache_key = _filings_cache_key(environment, identitetsbeteckning)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        block = filings.map_dokumentlista(
+            entry.payload, cached=True, fetched_at=entry.fetched_at
+        )
+        return _apply_environment_notes_to_filings(block, environment)
+
+    client_id, client_secret = _read_credentials()
+    if not client_id or not client_secret:
+        raise _no_credentials_error()
+
+    response = await _fetch_dokumentlista(environment, identitetsbeteckning)
+
+    if response.status_code == 200:
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise _malformed_response_error("the document-list request") from exc
+        if not isinstance(data, dict):
+            # A 200 whose body is valid JSON but not an object — the same
+            # one-type-further-out failure `lookup` guards against (§6.3).
+            raise _malformed_response_error("the document-list request")
+    elif response.status_code == 400:
+        raise _invalid_id_error(identitetsbeteckning)
+    elif response.status_code in (401, 403):
+        raise _unauthorized_error(response.status_code)
+    elif response.status_code == 429:
+        raise _rate_limited_error()
+    else:
+        raise _upstream_error(response.status_code)
+
+    fetched_at = datetime.now(UTC)
+    # `dokument` is not in `DokumentlistaSvar`'s `required` list, so an absent
+    # key and an empty array are the same answer — and both take the 1 h TTL.
+    status = "ok" if data.get("dokument") else "not_found"
+    cache.set(cache_key, data, status=status, fetched_at=fetched_at)
+    block = filings.map_dokumentlista(data, cached=False, fetched_at=fetched_at)
+    return _apply_environment_notes_to_filings(block, environment)
