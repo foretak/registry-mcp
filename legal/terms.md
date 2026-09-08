@@ -111,6 +111,12 @@ Business register data is public, but some of it is about **people** — for
 example a sole proprietorship (*enkeltpersonforetak*) whose registered name is a
 person's name, or contact details registered by the entity.
 
+Where a UK company has a registered charge, `parties_entitled`, `assets_charged`
+and `obligations_secured` are the fields a natural person's name is most likely
+to reach a response through — a director lending to their own company, a
+guarantor, or an occupant named in a property description — because those
+fields relay the register's own free text about the charge, verbatim.
+
 We do not create profiles, enrich, or combine this data with any other source,
 and we log only what is needed to run and monitor the service. **If you process
 this data further, you are the controller for that processing** and the GDPR
