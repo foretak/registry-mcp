@@ -34,7 +34,7 @@ true before R-1 starts" below, and they do not take an `R`-number. Their spec is
 | **R-3** | Sub-national key | D-027 | **yes** — 2 fields + 1 `CountryInfo` field | no | Pure model work, zero upstream, zero privacy. Deciding it under German deadline pressure with a half-built module in the tree is the expensive version. Costs an afternoon now |
 | **R-4** | API keys + metering | D-030 | barely — 1 `ErrorCode` member | no | The gate to every revenue item, and — more usefully today — the only way the next ten prioritisations get evidence instead of argument. **Must follow R-1** so the meter counts identifiers rather than requests from day one |
 | **R-5** | `SourceRef` / `include=[…]` + LEI | D-026(c) | **yes** — the attachment mechanism | no | Builds the machinery R-6 and R-8 both need, on the **lowest-risk possible payload**: CC0, keyless, no personal data, no statutory clock. Get the mechanism wrong here and it costs a re-shoot; get it wrong on officers and it costs more than that |
-| **R-6** | Peppol / ELMA capability | D-029 | **yes** — 1 attachment model | endpoints unverified | Somebody else's calendar sets this one: the duty starts **1 January 2027**. Highest-value thing an accounting agent asked for that nobody offers, and it needs R-5 to exist first |
+| **R-6** | Peppol / ELMA capability | D-029, D-046 | **yes** — 1 attachment model | **no — unblocked 2026-09-08** | Somebody else's calendar sets this one: the duty starts **1 January 2027**. Highest-value thing an accounting agent asked for that nobody offers, and it needs R-5 to exist first |
 | **R-7** | NACE harmonisation | D-025 | **yes (small)** — 2 fields + `core/nace.py` | **yes — licence + revision** | S effort and high value; it would sit at R-2 if the table were shippable. It is not, until two facts about a static file are read. Do the reading early even if the build waits |
 | **R-8** | Officers / PSC | D-028 | **yes** — the largest model change here | **yes — 4 preconditions** | Last on purpose. The biggest real gap, the only personal-data feature, and the only item on this list where shipping it badly is worse than not shipping it. Every other decision here can be revised by a later entry; a residential address served after the register withdrew it cannot be un-served |
 
@@ -66,9 +66,10 @@ Nothing below is blocked on an engineering unknown. All five are facts somebody 
 | **R-8** officers | **AMLD6 / Directive (EU) 2024/1640 transposition** — whether legitimate-interest access to beneficial-ownership registers returns, and on what timetable. The research budget ran out before a primary source was read | EUR-Lex + per-member-state transposition; unresolved | Decides whether a BO block is ever more than an empty list with a reason outside GB. Guessing it *open* would build a feature that cannot lawfully answer; guessing it *closed* only costs us the feature later |
 | **R-8** officers | **Whether Companies House signals officer suppression explicitly or omits silently**; and whether brreg's *open* `/roller` returns `fødselsdato` on the unauthenticated path | Both settled by one live unauthenticated call each | If CH omits silently, `suppressed` cannot be derived at all and must stay `None` — emitting `False` would assert "nothing withheld" about a register that never said so. The brreg answer decides how much of precondition (1) is mandatory rather than elective |
 | **R-8** officers | **A legal review** of the lawful-basis section (D-028 precondition 4) | A lawyer. Not an architect, and not this file | Nothing in the research library is legal advice and neither is D-028 |
-| **R-6** Peppol | The authoritative **SMP/Directory endpoints**, their terms, and whether Digdir publishes a rate limit or expects registration at our volume | Digdir / DFØ documentation and one live resolution | A Directory-only implementation that reports a lagging index as authoritative — the exact disagreement the attachment exists to expose |
+| ~~**R-6** Peppol~~ | ~~The authoritative **SMP/Directory endpoints**, their terms, and whether Digdir publishes a rate limit or expects registration at our volume~~ | **CLOSED 2026-09-08** by `tasks/T48-recon.md`; ruled by **D-046**. All three routes are keyless; the Directory publishes 2 queries/second and nobody publishes a licence (D-046(g)) | The blast radius was real and nearly shipped: composing D-029(b) with D-029(d) licensed a Directory miss to be reported as `registered: false`. D-046(a) forbids it |
 
-**Not blocked, start when the freeze lifts:** R-1, R-3, R-4, R-5.
+**Not blocked, start when the freeze lifts:** R-1, R-3, R-4, R-5 — and **R-6**, unblocked
+2026-09-08 by `tasks/T48-recon.md` and ruled by **D-046** (§8).
 
 ---
 
@@ -220,24 +221,59 @@ without one, a present block with `lei: null`; with GLEIF unreachable, **no bloc
 `notes` sentence, and the lookup itself still succeeds. `include=["nonsense"]` →
 `bad_request` listing the allowed values. Default lookup makes exactly one upstream request.
 
-## 8. R-6 — Peppol / ELMA capability (D-029)
+## 8. R-6 — Peppol / ELMA capability (D-029, **amended by D-046**)
 
-`PeppolParticipant` (shape in D-029(b)) and `CompanyReport.peppol: PeppolParticipant | None`,
-reached by `include=["peppol"]`. `participant_id` is `"0192:" + normalised orgnr`, derived
-offline and **always populated**, even when the registration lookup fails.
-TTL **24 h positive / 1 h negative**, reusing D-006's asymmetry for the same reason: from
-1 January 2027 a stale negative makes a sender skip a statutory duty.
-`registries/no/rules.py :: rules_markdown()` gains the prose — both dates, the exemptions
-(turnover < NOK 50,000; finance, insurance, pensions), and the ELMA-scoping sentence with its
-Prop. 44 L citation. **No `Deadline` is emitted for the 2027 duty** (D-029(f)).
+**Unblocked.** `tasks/T48-recon.md` read all three routes live and keyless on 2026-09-08;
+**D-046** rules the four points it left open. Read D-046 before this section — where the two
+differ, D-046 wins. Brief: `tasks/T43.md`.
 
-**Done-check.** A known ELMA participant returns `registered: true` with `document_types`
-non-empty and `provenance.source` naming which route answered; a non-participant returns
-`registered: false`, not `null`; an unreachable SMP returns `registered: null` with
-`participant_id` still populated and the lookup still succeeding.
+`PeppolParticipant` (D-029(b)'s shape **plus `can_receive_invoice`**, D-046(e)) and
+`CompanyReport.peppol: PeppolParticipant | None`, reached by `include=["peppol"]` — declared by
+**Norway only** (`BrregRegistry.supported_includes`), *not* a `universal_includes` attachment
+(D-046(h)). `participant_id` is `"0192:" + normalised orgnr`, derived offline and **always
+populated**, even when the registration lookup fails.
+
+**The route is two steps and the first is DNS.** Step 1: a **U-NAPTR** read of
+`<base32(sha256(lower("0192:<orgnr>")))>.iso6523-actorid-upis.participant.sml.prod.tech.peppol.org`,
+service name `Meta:SMP`, taking the base URL out of the `!.*!<url>!` regexp. Step 2:
+`GET <base>/iso6523-actorid-upis%3A%3A0192%3A<orgnr>` → the ServiceGroup XML → the
+`ServiceMetadataReference/@href` values, split on `/services/` and percent-decoded, are
+`document_types`. Fallback, **only when the first route produced no answer**:
+`GET https://directory.peppol.eu/search/1.0/json?participant=iso6523-actorid-upis::0192:<orgnr>`.
+
+* **`dnspython`** becomes a sixth runtime dependency; the stdlib cannot read a NAPTR and
+  DNS-over-HTTPS is refused (D-046(c)). It is already hash-pinned in `uv.lock`; the lock must be
+  regenerated when it moves to `[project].dependencies`, because CI runs `uv sync --locked`.
+* **The SML zone is a constant; the SMP host is data**, read fresh from the NAPTR on every
+  uncached lookup and never hardcoded — 42 of 43 Norwegian participants resolve to
+  `smp.elma-smp.no` and 1 to `smp.conta.no`. The EC zone `edelivery.tech.ec.europa.eu` and the
+  `B-<md5>` CNAME form are dead (D-046(b)).
+* **`registered`**: `true` = a ServiceGroup 200, or a non-empty Directory match; `false` = **only**
+  NXDOMAIN at the SML or a 404 from the SMP the SML named; `null` = everything else, **including a
+  Directory miss** — both operators state that a Directory absence means nothing (D-046(a)).
+* **`provenance.source` is derived**, naming the SMP that answered plus the route, never a
+  constant; `smp_url` carries the NAPTR base URL verbatim (D-046(b)). **`provenance.license` is a
+  stated absence** — nobody publishes one; the exact string is in D-046(g).
+* **The Directory's `contact` block is never requested, read, mapped or relayed** (D-046(f)).
+* TTL **24 h positive / 1 h negative**, reusing D-006's asymmetry for the same reason: from
+  1 January 2027 a stale negative makes a sender skip a statutory duty. Kind `peppol`, key
+  `NO:brreg:peppol:{orgnr}`, one row in the per-kind table §7 built. The NAPTR→SMP binding is
+  never cached and **a `null` is never cached at all** (D-046(d)).
+* `registries/no/rules.py :: rules_markdown()` gains the prose — both dates, the exemptions
+  (turnover < NOK 50,000; finance, insurance, pensions), and the ELMA-scoping sentence with its
+  Prop. 44 L citation. **No `Deadline` is emitted for the 2027 duty** (D-029(f)), so `peppol` is
+  **not** in `company_deadlines`' accepted include set (D-043(j)).
+
+**Done-check.** A known ELMA participant returns `registered: true`, `document_types` non-empty,
+`can_receive_invoice: true`, and `provenance.source` naming **which route and which SMP** answered;
+an identifier that NXDOMAINs at the SML returns `registered: false`, not `null`; a Directory miss
+returns `registered: null`, **not `false`**; an unreachable SMP or resolver returns
+`registered: null` with `participant_id` still populated and the lookup still succeeding.
+`include=["peppol"]` for GB or SE is `bad_request` naming that country's allowed set.
 `company_deadlines` for any Norwegian entity emits **no** e-invoicing deadline.
 `grep -ri elma src/registry_mcp/core/` returns nothing (D-004: national vocabulary lives in
-values, not names).
+values, not names), and `grep -rn "elma-smp\|edelivery.tech.ec.europa.eu" src/registry_mcp/`
+returns nothing outside a comment (D-046(b)).
 
 ## 9. R-7 — NACE harmonisation (D-025) — *do the two reads first*
 

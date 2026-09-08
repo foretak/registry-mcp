@@ -505,6 +505,30 @@ Chrome fills it in with Kim watching. Source: `~/research/registry-mcp/02-regist
 
 ---
 
+## 7.8 Norway (R-6 / T43) — ask Digdir for ELMA's re-use terms — **NOT BLOCKING**
+
+Why: nobody publishes a licence for any part of the Peppol lookup path. Digdir's ELMA docs state
+no terms, no rate limit and no licence for reading; OpenPeppol states none for the SML or for an
+SMP; the Peppol Directory states none; and data.norge.no catalogues *"Mottakere i ELMA"*
+(publisher Digitaliseringsdirektoratet, access level *"Allmenn tilgang"*) with
+**Lisens: "Ikke oppgitt"** — not stated. Verified 2026-09-08, `tasks/T48-recon.md` Fact 3.
+
+**This blocks nothing and must not be treated as a gate on a 1 January 2027 feature.** D-046(g)
+rules that `SourceRef.license` carries a stated absence — a sentence recording that no licence is
+published — which is true today and stays true whatever the answer is. An answer would only let us
+shorten that sentence.
+
+- [ ] **One e-mail to `servicedesk@digdir.no`**, asking under what terms ELMA participant data
+      (participant registration and advertised document types, retrieved through an ordinary Peppol
+      SML → SMP lookup) may be relayed by a third-party service, and whether Digdir intends to state
+      a licence for the dataset that data.norge.no records as *"Ikke oppgitt"*.
+      **Worth knowing before you send it:** Digdir can only answer **for ELMA**, and about 2% of
+      Norwegian participants (measured: 1 of 43) answer from a different SMP entirely, so even a
+      perfect reply narrows the sentence rather than replacing it. If the reply names a licence,
+      the change is one string in `registries/no/peppol.py` and one line in `DECISIONS.md`.
+
+---
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in
