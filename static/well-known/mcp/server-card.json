@@ -1007,7 +1007,7 @@
                           }
                         ],
                         "default": null,
-                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "description": "Licence of the upstream data for this attachment's own fetch, e.g. 'CC0 1.0'. A block's licence is the register's own for that endpoint and may equal the base report's without being derived from it: Norway's Regnskapsregisteret accounts endpoint states no licence of its own, so the blocks it serves carry NLOD 2.0 — the same value the company record on the same host already carries.",
                         "title": "License"
                       },
                       "fetched_at": {
@@ -1060,13 +1060,13 @@
             "anyOf": [
               {
                 "additionalProperties": false,
-                "description": "Registered charges for one entity — an `include=[\"charges\"]` attachment\n(D-042(g), D-045(a)), never a plain field on `CompanyReport` (D-041(c)):\nit is a second round trip with its own moment, its own cache state and its\nown failure mode, so it carries its own `SourceRef` rather than reusing\nthe report's.\n\n**The count fields are ruled by D-045(a)**, not by D-042(h). It strikes\n`outstanding_count` — `total_count - satisfied_count` is our arithmetic\nwearing a register figure's name, and on a shared model it would mean\n\"outstanding\" for a register with no partially-satisfied state and \"not\nfully satisfied\" for one that has it (D-011) — and adds the register's\nown `part_satisfied_count` in its place. **This class has not yet been\nreconciled with that ruling**; the task that does so is named in D-045(a)\nand is due before the next deploy.\n\nTwo-level nullability is the point of this shape (D-026(c), D-041(c),\nD-042(d)(3)): `CompanyReport.charges` is `None` when `charges` was not in\n`include`, or when the fetch failed (`Registry.lookup_with` appends a\n`notes` sentence on the report saying which). Once *present*, this block\ncarries `charges: []` for an entity the register confirms has none —\nthat case must never collapse into the absent case, and must never be\n`not_found` (D-011).",
+                "description": "Registered charges for one entity — an `include=[\"charges\"]` attachment\n(D-042(g), D-045(a)), never a plain field on `CompanyReport` (D-041(c)):\nit is a second round trip with its own moment, its own cache state and its\nown failure mode, so it carries its own `SourceRef` rather than reusing\nthe report's.\n\n**The count fields are ruled by D-045(a)**, not by D-042(h). It strikes\n`outstanding_count` — `total_count - satisfied_count` was our arithmetic\nwearing a register figure's name, and on a shared model it would have\nmeant \"outstanding\" for a register with no partially-satisfied state and\n\"not fully satisfied\" for one that has it (D-011) — and adds the\nregister's own `part_satisfied_count` in its place: a whole-company\nfigure Companies House publishes directly, `0` in every fixture observed\nso far, and not derived from anything else on this block.\n\nTwo-level nullability is the point of this shape (D-026(c), D-041(c),\nD-042(d)(3)): `CompanyReport.charges` is `None` when `charges` was not in\n`include`, or when the fetch failed (`Registry.lookup_with` appends a\n`notes` sentence on the report saying which). Once *present*, this block\ncarries `charges: []` for an entity the register confirms has none —\nthat case must never collapse into the absent case, and must never be\n`not_found` (D-011).",
                 "properties": {
                   "charges": {
                     "description": "Sorted newest first (a country module's own tie-break rule).",
                     "items": {
                       "additionalProperties": false,
-                      "description": "One registered charge (a mortgage or other security interest) against\nan entity — one row of a `ChargeBlock`.\n\nField names are country-neutral (D-042(g)): GB is the first filler\n(Companies House `/company/{n}/charges`, `registries/gb/__init__.py`),\nand any future filler (e.g. Norway's Løsøreregisteret, once it opens a\npublic API) maps onto this same shape rather than getting one of its own.\n\n**The field list is ruled by D-045(a)**, not by D-042(h) — which rules\n`FiledDocument` and no charge shape at all. D-045(a) accepts these names,\ncorrects `created_on`'s description (it is the date the charge instrument\nwas created, not a record timestamp), and adds `contains_fixed_charge` and\n`contains_negative_pledge` beside `contains_floating_charge`, all three of\nwhich Companies House emits **only when true** — so an absent flag means\nthe register did not mark this instrument, never that it lacks one\n(D-011). **This class has not yet been reconciled with that ruling**; the\ntask that does so is named in D-045(a) and is due before the next deploy.",
+                      "description": "One registered charge (a mortgage or other security interest) against\nan entity — one row of a `ChargeBlock`.\n\nField names are country-neutral (D-042(g)): GB is the first filler\n(Companies House `/company/{n}/charges`, `registries/gb/__init__.py`),\nand any future filler (e.g. Norway's Løsøreregisteret, once it opens a\npublic API) maps onto this same shape rather than getting one of its own.\n\n**The field list is ruled by D-045(a)**, not by D-042(h) — which rules\n`FiledDocument` and no charge shape at all. D-045(a) accepts the names\nthis class started with, corrects the `created_on` / `delivered_on` /\n`satisfied_on` descriptions, and adds `contains_fixed_charge` and\n`contains_negative_pledge` beside `contains_floating_charge`, all three of\nwhich Companies House emits **only when true** — so an absent flag means\nthe register did not mark this instrument, never that it lacks one, and\nnever `False` (D-011). It also adds `assets_charged_type` and\n`obligations_secured_type`, the register's own category token for each\nfree-text field (S-series finding 7, D-042(e)(3)'s `persons_entitled`\ntreatment reused twice over).",
                       "properties": {
                         "charge_id": {
                           "anyOf": [
@@ -1078,7 +1078,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "The register's own opaque handle for this charge; not fetchable through this API. `None` when the register has no such handle for an older filing — honestly absent, not guessed.",
+                          "description": "The register's own opaque handle for this charge; not fetchable through this API. `None` on an older filing that predates the register assigning one — 19 of 110 items observed, all pre-2013 — honestly absent, not guessed.",
                           "title": "Charge Id"
                         },
                         "charge_number": {
@@ -1091,7 +1091,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "The register's sequence number for this charge, within this company.",
+                          "description": "The register's own sequence number for this charge, scoped to this company only: not unique across companies, and not a lookup key.",
                           "title": "Charge Number"
                         },
                         "status": {
@@ -1130,7 +1130,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "What kind of instrument this is, as the register describes it.",
+                          "description": "What kind of instrument this is, in the register's own prose — not a code, and not the same field as `FiledDocument.type_code`.",
                           "title": "Classification"
                         },
                         "created_on": {
@@ -1144,7 +1144,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "When the charge was created.",
+                          "description": "The date the *charge instrument* was created — not a record timestamp. See `delivered_on` for the date it reached the register; the gap between the two is the Companies Act 2006 s.859A window a charge must be delivered within to be registered at all.",
                           "title": "Created On"
                         },
                         "delivered_on": {
@@ -1158,7 +1158,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "When the charge was delivered to the register for registration.",
+                          "description": "The register's own receipt date: when the charge was delivered to the register for registration, which is not the same date as `created_on`. The interval between them is the Companies Act 2006 s.859A window a charge must be delivered within to be registered at all.",
                           "title": "Delivered On"
                         },
                         "satisfied_on": {
@@ -1172,7 +1172,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "When the charge was satisfied, if it has been.",
+                          "description": "The date the register recorded this charge as satisfied, exactly as published. `None` while outstanding — see `status` for the register's own word and `is_outstanding` for the derived flag.",
                           "title": "Satisfied On"
                         },
                         "assets_charged": {
@@ -1185,8 +1185,21 @@
                             }
                           ],
                           "default": null,
-                          "description": "The register's own free-text description of what is charged.",
+                          "description": "The register's own free-text description of what is charged, relayed verbatim and uncapped. It may contain particulars of property, account details or a natural person's name (e.g. a guarantor): never a lookup key, never indexed, never searchable and never reaches a log line (D-028(1), D-040) — the same binding `parties_entitled` carries. See `assets_charged_type` for the register's own category token this text is filed under.",
                           "title": "Assets Charged"
+                        },
+                        "assets_charged_type": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "The register's own category token for `assets_charged`, verbatim: `short-particulars` or `brief-description` are the two seen on Companies House's `particulars.type` — two different kinds of text under one field name, which this token disambiguates. National vocabulary lives here, in the value, never in the field name (D-042(g)).",
+                          "title": "Assets Charged Type"
                         },
                         "obligations_secured": {
                           "anyOf": [
@@ -1198,8 +1211,34 @@
                             }
                           ],
                           "default": null,
-                          "description": "The register's own free-text description of what the charge secures.",
+                          "description": "The register's own free-text description of what the charge secures, relayed verbatim and uncapped, under the same binding as `assets_charged` (D-028(1), D-040): never a lookup key, never indexed, never searchable, never reaches a log line. See `obligations_secured_type` for the register's own category token — on every observed item that carried one (19 of 19) it was `amount-secured`, never `obligations-secured`, so this field's name is a category the token disambiguates, not a description every value matches.",
                           "title": "Obligations Secured"
+                        },
+                        "obligations_secured_type": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "The register's own category token for `obligations_secured`, verbatim from Companies House's `secured_details.type`. Observed as `amount-secured` on 19 of 19 items that carried a token at all — `obligations_secured` itself has never once carried an `obligations-secured` value, which is exactly why this token, not the field's name, is the category. National vocabulary lives here, in the value, never in the field name (D-042(g)).",
+                          "title": "Obligations Secured Type"
+                        },
+                        "contains_fixed_charge": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Whether Companies House marks this instrument as including a fixed charge. The register emits this key **only when `True`**: absence means the register did not mark this instrument, never that it lacks one, and must never be read or stored as `False` (D-011). Norway's Løsøreregisteret and Sweden's företagsinteckningar use different taxonomies for security interests, so a future filler for either may leave this `None` on every item it fills, forever — the same shape as `FiledDocument.days_from_fee_point`.",
+                          "title": "Contains Fixed Charge"
                         },
                         "contains_floating_charge": {
                           "anyOf": [
@@ -1211,11 +1250,24 @@
                             }
                           ],
                           "default": null,
-                          "description": "Whether the register marks this instrument as including a floating charge.",
+                          "description": "Whether Companies House marks this instrument as including a floating charge. The register emits this key **only when `True`**: absence means the register did not mark this instrument, never that it lacks one, and must never be read or stored as `False` (D-011). Norway's Løsøreregisteret and Sweden's företagsinteckningar use different taxonomies for security interests, so a future filler for either may leave this `None` on every item it fills, forever — the same shape as `FiledDocument.days_from_fee_point`.",
                           "title": "Contains Floating Charge"
                         },
+                        "contains_negative_pledge": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Whether Companies House marks this instrument as including a negative pledge — a covenant restricting further charges over the same assets, and, on its own, a fact a lender changes behaviour on. The register emits this key **only when `True`**: absence means the register did not mark this instrument, never that it lacks one, and must never be read or stored as `False` (D-011). Norway's Løsøreregisteret and Sweden's företagsinteckningar use different taxonomies for security interests, so a future filler for either may leave this `None` on every item it fills, forever — the same shape as `FiledDocument.days_from_fee_point`.",
+                          "title": "Contains Negative Pledge"
+                        },
                         "parties_entitled": {
-                          "description": "Names exactly as the register publishes them for the party or parties the charge is entitled to (typically a bank, an insurer or a trustee company; occasionally a natural person, e.g. a director lending to their own company). This is a term of the company's own instrument, not a person record: it is never a lookup key, never indexed, never searchable and never reaches a log line (D-028(1), D-040). It is the one place in this product a natural person's name can appear, and it is deliberately not named the register's own `persons_entitled` — that name asserts a natural person; this one does not.",
+                          "description": "Names exactly as the register publishes them for the party or parties the charge is entitled to (typically a bank, an insurer or a trustee company; occasionally a natural person, e.g. a director lending to their own company). This is a term of the company's own instrument, not a person record: it is never a lookup key, never indexed, never searchable and never reaches a log line (D-028(1), D-040) — the same binding `assets_charged` and `obligations_secured` carry, because free prose describing charged property can also name a guarantor or a charged dwelling. It is deliberately not named the register's own `persons_entitled` — that name asserts a natural person; this one does not.",
                           "items": {
                             "type": "string"
                           },
@@ -1242,19 +1294,6 @@
                     "description": "The register's own count of charges for this company, which may exceed `len(charges)` — see `notes` for a truncation disclosure when it does.",
                     "title": "Total Count"
                   },
-                  "outstanding_count": {
-                    "anyOf": [
-                      {
-                        "type": "integer"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "default": null,
-                    "description": "Derived as `total_count - satisfied_count` when the register publishes both as whole-company figures; a register that also tracks a distinct partially-satisfied state folds it in here as not-fully-satisfied. `None` when the register does not publish enough to derive it.",
-                    "title": "Outstanding Count"
-                  },
                   "satisfied_count": {
                     "anyOf": [
                       {
@@ -1267,6 +1306,19 @@
                     "default": null,
                     "description": "The register's own whole-company count of satisfied charges, verbatim.",
                     "title": "Satisfied Count"
+                  },
+                  "part_satisfied_count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The register's own whole-company count of charges it marks partially satisfied, identical in kind to `total_count` and `satisfied_count`. `None` when the register does not publish it. Observed as `0` in every fixture this project has seen — this project has never observed a non-zero value — and the count is the register's own; it is not derived from anything else on this block.",
+                    "title": "Part Satisfied Count"
                   },
                   "provenance": {
                     "additionalProperties": false,
@@ -1308,7 +1360,7 @@
                           }
                         ],
                         "default": null,
-                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "description": "Licence of the upstream data for this attachment's own fetch, e.g. 'CC0 1.0'. A block's licence is the register's own for that endpoint and may equal the base report's without being derived from it: Norway's Regnskapsregisteret accounts endpoint states no licence of its own, so the blocks it serves carry NLOD 2.0 — the same value the company record on the same host already carries.",
                         "title": "License"
                       },
                       "fetched_at": {
@@ -1336,7 +1388,7 @@
                     "type": "object"
                   },
                   "notes": {
-                    "description": "Plain-English caveats about this block, e.g. truncation when `total_count` exceeds `len(charges)`.",
+                    "description": "Plain-English caveats about this block: truncation when `total_count` exceeds `len(charges)`, and — whenever any charge on this page carries free text in `assets_charged` or `obligations_secured` — a disclosure that the text is the register's own prose, relayed verbatim and not parsed, and may name a natural person or carry an account identifier.",
                     "items": {
                       "type": "string"
                     },
@@ -1364,7 +1416,7 @@
                 "description": "What one entity has filed with its national register — an\n``include=[\"filings\"]`` attachment (D-041(d), D-042), never a plain field\non :class:`CompanyReport` (D-041(c)): it is a second round trip with its\nown moment, its own cache state and its own failure mode, so it carries its\nown :class:`SourceRef` rather than reusing the report's.\n\nAll three live countries declare it, and each answers a differently-scoped\nquestion its register actually supports — Companies House returns the whole\nfiling history, Bolagsverket the filed annual reports, Regnskapsregisteret\nthe filed annual accounts. `notes` says which, in words, on every block.\n\nTwo-level nullability is the contract (D-011, D-026(c), D-041(c)):\n**absent** means \"you did not ask, or the fetch failed\" — `lookup_with`\nappends one `notes` sentence to the report saying which — while **present\nwith `documents: []`** means \"the register lists no filings for this\nentity\", a real and useful answer about a counterparty that must never be\nrendered as an absence.",
                 "properties": {
                   "documents": {
-                    "description": "One page of the register's own filing history, newest first by `filed_at`. Never paginated further; when the register holds more, `total_count` says how many and `notes` says so in words. Empty means the register lists none — not that we could not look.",
+                    "description": "One page of the register's own filing history, newest first by the register's own period or filing date: Britain sorts by `filed_at`; Sweden by `period_end` then `filed_at`; Norway by `period_end` then `period_start`. Never paginated further; when the register holds more, `total_count` says how many and `notes` says so in words. Empty means the register lists none — not that we could not look.",
                     "items": {
                       "additionalProperties": false,
                       "description": "One filing a national register publishes for one entity — one row of a\n:class:`FilingHistory`.\n\nThe shape ``DECISIONS.md`` D-041(d) ruled and D-042(h) widened, and it is\ncountry-neutral by construction rather than by intent: Britain, Sweden and\nNorway each built this model independently behind their own seam, and all\nthree arrived field-for-field at this one. National vocabulary lives in the\n*values* (`category`, `type_code`, `description_code`), never in a field\nname (D-042(g)).\n\nEvery field is nullable and every `None` means the same thing: **the\nregister does not publish it** (D-011). It never means zero, never means\n\"no\", and is never filled by derivation — a register that does not publish\na period start gets `None`, not a start inferred by subtracting twelve\nmonths from the end (D-009).",
@@ -1407,7 +1459,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "The reporting period's first day, as published. `None` wherever the register publishes no counterpart to `period_end` — deriving one would assert a period length the register never stated, and a first, shortened or extended accounting period is lawful and common (D-009). Norway's Regnskapsregisteret publishes `regnskapsperiode: {fraDato, tilDato}` and fills both ends; Companies House publishes only the end.",
+                          "description": "The reporting period's first day, as published. `None` wherever the register publishes no counterpart to `period_end` — deriving one would assert a period length the register never stated, and a first, shortened or extended accounting period is lawful and common (D-009). Norway's Regnskapsregisteret publishes `regnskapsperiode: {fraDato, tilDato}` and fills both ends; Companies House publishes only the end; so does Sweden's Bolagsverket, whose bokföringslagen 3 kap. 3 § permits an 18-month first or final period — exactly the period length a subtracted twelve months would falsely assert.",
                           "title": "Period Start"
                         },
                         "filed_at": {
@@ -1434,7 +1486,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "Signed days from a named late-fee datum to `filed_at`, **only where the register itself publishes such a datum for that period**. Negative is early. `None` is the common answer and means the datum does not exist in the data, not that the arithmetic was skipped: Sweden fills it because årsredovisningslagen 8 kap. 6 § names one datum for every company, while Companies House publishes only the *next* period's due date and nothing per-period historical, so there is nothing to measure a past filing against. Deriving one from the statutory rule would require guessing a period length, a first-accounts variant and any shortening the register has not disclosed, then presenting the result as the register's own — the invented figure D-009 forbids.",
+                          "description": "Signed days from a named late-fee datum to `filed_at`, **only where the register itself publishes such a datum for that period**. Negative is early. `None` is the common answer and means the datum does not exist in the data, not that the arithmetic was skipped. Sweden's Bolagsverket fills it: årsredovisningslagen 8 kap. 6 § starts a förseningsavgift of 7 500 kr (15 000 kr for a public company) at that datum. It is **not** the company's own filing deadline — ÅRL 8 kap. 3 § instead requires filing within one month of the general meeting that adopts the accounts — and a nine-month variant of 8 kap. 6 § cannot be excluded, because the dataset does not identify which companies it applies to. Companies House publishes only the *next* period's due date — `accounts.next_accounts.due_on` and `confirmation_statement.next_due` on the company profile — and no per-period historical due date at all, so there is nothing to measure a past filing against without guessing a 9-month or 6-month period and presenting the guess as the register's own — the invented figure D-009 forbids.",
                           "title": "Days From Fee Point"
                         },
                         "document_id": {
@@ -1447,7 +1499,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "The register's own opaque handle for this filing, relayed verbatim and never interpreted. **Not fetchable through this API**: the filed document itself lives behind a separate host, which is a second upstream with its own provenance and out of scope for this block (D-041(c)). It is the key a support case with the register can name.",
+                          "description": "The register's own opaque handle for this filing, relayed verbatim and never interpreted. **Not fetchable through this API**: the filed document itself lives behind a separate host, which is a second upstream with its own provenance and out of scope for this block (D-041(c)). It is the key a support case with the register can name. Norway's payload also carries an integer `id`, an internal row identifier, which is not relayed.",
                           "title": "Document Id"
                         },
                         "file_format": {
@@ -1460,7 +1512,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "What the register holds the document as, where it says. `None` where the filing-history endpoint publishes no format — Companies House keeps the media type on its separate document host, a second fetch this block does not make.",
+                          "description": "What the register holds the document as, where it says. `None` where the filing-history endpoint publishes no format: Companies House's filing-history endpoint publishes only a page count and a `paper_filed` marker, no media type — the media type itself lives on a separate document host, a second fetch this block does not make.",
                           "title": "File Format"
                         },
                         "category": {
@@ -1473,7 +1525,7 @@
                             }
                           ],
                           "default": null,
-                          "description": "The register's own category for this filing, verbatim and never translated — \"accounts\", \"mortgage\", \"confirmation-statement\", \"gazette\" and some twenty more in Britain alone, and none of these lists is closed. It is the field `kind` is derived from.",
+                          "description": "The register's own category for this filing, verbatim and never translated. It is the field `kind` is derived from. Twenty-two words observed live in Britain, and the list is not closed: \"accounts\", \"capital\", \"officers\", \"mortgage\", \"confirmation-statement\", \"annual-return\", \"resolution\", \"gazette\", \"incorporation\", \"address\", \"insolvency\", \"dissolution\", \"change-of-name\", \"persons-with-significant-control\", \"auditors\", \"miscellaneous\", \"historical\", \"restoration\", \"document-replacement\", \"change-of-constitution\", \"return\" and \"other\".",
                           "title": "Category"
                         },
                         "type_code": {
@@ -1576,7 +1628,7 @@
                           }
                         ],
                         "default": null,
-                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "description": "Licence of the upstream data for this attachment's own fetch, e.g. 'CC0 1.0'. A block's licence is the register's own for that endpoint and may equal the base report's without being derived from it: Norway's Regnskapsregisteret accounts endpoint states no licence of its own, so the blocks it serves carry NLOD 2.0 — the same value the company record on the same host already carries.",
                         "title": "License"
                       },
                       "fetched_at": {
@@ -1692,7 +1744,7 @@
                                   }
                                 ],
                                 "default": null,
-                                "description": "The register's own word for what happened, verbatim — national vocabulary lives here, in the value, never in a field name (D-042(g)). Thirteen words have been observed live in Britain, from \"petitioned-on\" and \"wound-up-on\" to \"declaration-solvent-on\" and \"dissolved-on\". A word outside the observed set is still relayed verbatim: this field is never filtered, only reported.",
+                                "description": "The register's own word for what happened, verbatim — national vocabulary lives here, in the value, never in a field name (D-042(g)). Thirteen words have been observed live in Britain: \"administration-started-on\", \"administration-ended-on\", \"administration-discharged-on\", \"instrumented-on\", \"petitioned-on\", \"wound-up-on\", \"concluded-winding-up-on\", \"voluntary-arrangement-started-on\", \"voluntary-arrangement-ended-on\", \"moratorium-started-on\", \"declaration-solvent-on\", \"due-to-be-dissolved-on\" and \"dissolved-on\" (the last of which Companies House's own published enumeration omits). A word outside the observed set is still relayed verbatim: this field is never filtered, only reported.",
                                 "title": "Event Type"
                               },
                               "occurred_on": {
@@ -1717,7 +1769,7 @@
                           "type": "array"
                         },
                         "note_codes": {
-                          "description": "The register's own note **codes** for this case, verbatim and never resolved into prose — the same treatment D-042(e)(1) gives a filing's `description_code`. Companies House declares this field an unbounded `array[string]`, so it is the one place in that payload a name could hide; codes are therefore relayed through an allow-list of observed codes, and an unrecognised one is dropped and disclosed in the block's `notes` rather than passed through.",
+                          "description": "The register's own note **codes** for this case, verbatim and never resolved into prose — the same treatment D-042(e)(1) gives a filing's `description_code`. Only one code has ever been observed live: \"scottish-insolvency-info\", which means the Accountant in Bankruptcy's Register of Insolvencies holds further detail this API does not. Companies House declares this field an unbounded `array[string]`, so it is the one place in that payload a name could hide; codes are therefore relayed through an allow-list of observed codes, and an unrecognised one is dropped and disclosed in the block's `notes` rather than passed through.",
                           "items": {
                             "type": "string"
                           },
@@ -1732,7 +1784,7 @@
                     "type": "array"
                   },
                   "statuses": {
-                    "description": "The register's own entity-level insolvency status words, verbatim — national vocabulary in values (D-042(g)). Eight observed live in Britain, among them \"in-administration\", \"liquidation\" and \"voluntary-arrangement\". An **empty list means the register publishes no such word for this entity**, which is not the same as 'not currently insolvent': about one in ten companies whose Companies House status is itself an insolvency status still has no word here. No yes/no flag is derived from this field for exactly that reason (D-011).",
+                    "description": "The register's own entity-level insolvency status words, verbatim — national vocabulary in values (D-042(g)). Eight observed live in Britain: \"in-administration\", \"liquidation\", \"receivership\", \"receiver-manager\", \"administrative-receiver\", \"administration-order\", \"voluntary-arrangement\" and \"live-receiver-manager-on-at-least-one-charge\". An **empty list means the register publishes no such word for this entity**, which is not the same as 'not currently insolvent': about one in ten companies whose Companies House status is itself an insolvency status still has no word here. No yes/no flag is derived from this field for exactly that reason (D-011).",
                     "items": {
                       "type": "string"
                     },
@@ -1779,7 +1831,7 @@
                           }
                         ],
                         "default": null,
-                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "description": "Licence of the upstream data for this attachment's own fetch, e.g. 'CC0 1.0'. A block's licence is the register's own for that endpoint and may equal the base report's without being derived from it: Norway's Regnskapsregisteret accounts endpoint states no licence of its own, so the blocks it serves carry NLOD 2.0 — the same value the company record on the same host already carries.",
                         "title": "License"
                       },
                       "fetched_at": {
@@ -2308,7 +2360,7 @@
                           }
                         ],
                         "default": null,
-                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "description": "Licence of the upstream data for this attachment's own fetch, e.g. 'CC0 1.0'. A block's licence is the register's own for that endpoint and may equal the base report's without being derived from it: Norway's Regnskapsregisteret accounts endpoint states no licence of its own, so the blocks it serves carry NLOD 2.0 — the same value the company record on the same host already carries.",
                         "title": "License"
                       },
                       "fetched_at": {
