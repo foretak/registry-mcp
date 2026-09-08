@@ -6,14 +6,14 @@
     "url": "https://github.com/foretak"
   },
   "metadata": {
-    "description": "Self-hosted Claude Code plugin marketplace for foretak's registry-mcp."
+    "description": "Self-hosted Claude Code plugin marketplace for foretak — Company Check, over the UK, Norwegian and Swedish national business registers."
   },
   "plugins": [
     {
       "name": "registry-mcp",
       "source": "./plugins/registry-mcp",
-      "displayName": "registry-mcp — national company registries",
-      "description": "Company data for AI agents: the United Kingdom (Companies House), Norway (Brønnøysundregistrene / brreg) and Sweden (Bolagsverket), read-only, one JSON shape. Look up by company number, organisasjonsnummer or organisationsnummer; VAT status, registered status and statutory filing deadlines with the provision each one cites. Adds the hosted registry-mcp server, no key needed.",
+      "displayName": "Company Check — UK, Sweden & Norway business registers",
+      "description": "Check a company before you deal with it. Look up an entity in its own national business register — the United Kingdom (Companies House, by company number), Norway (Brønnøysundregistrene / Enhetsregisteret, by organisasjonsnummer) and Sweden (Bolagsverket, by organisationsnummer) — in one identical JSON shape: registered name, legal form, status, address, industry codes, VAT/MVA registration, and the statutory filing deadlines with the provision each one cites. Bundles the hosted read-only MCP server (no account, no key), a skill that teaches the counterparty, filing-deadline and register-coverage workflows, and three commands: /check-supplier, /filing-deadlines and /enrich-company-list. Not sanctions or bank-detail screening.",
       "version": "0.3.0",
       "author": {
         "name": "Kim",
@@ -40,7 +40,11 @@
         "company-number",
         "kyb",
         "due-diligence",
-        "vat"
+        "vat",
+        "supplier-onboarding",
+        "filing-deadlines",
+        "counterparty-check",
+        "united-kingdom"
       ]
     }
   ]

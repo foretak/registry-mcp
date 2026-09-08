@@ -1,7 +1,7 @@
 {
   "name": "registry-mcp",
-  "displayName": "registry-mcp — national company registries",
-  "description": "Company data for AI agents: Norway (Brønnøysundregistrene / brreg) and the UK (Companies House), read-only, one JSON shape. Adds the hosted registry-mcp MCP server over Streamable HTTP: lookup_company, search_company, company_deadlines, validate_company_id, list_countries.",
+  "displayName": "Company Check — UK, Sweden & Norway business registers",
+  "description": "Check a company before you deal with it. Bundles the hosted Company Check MCP server (Companies House, Bolagsverket, Brønnøysundregistrene — read-only, no key) with a skill that teaches the counterparty, filing-deadline and register-coverage workflows, and three commands: /check-supplier, /filing-deadlines and /enrich-company-list.",
   "version": "0.3.0",
   "author": {
     "name": "Kim",
@@ -15,10 +15,22 @@
     "mcp",
     "company-registry",
     "company-lookup",
-    "brreg",
+    "company-number",
+    "due-diligence",
+    "kyb",
+    "supplier-onboarding",
+    "filing-deadlines",
+    "vat",
     "companies-house",
+    "united-kingdom",
+    "brreg",
+    "brønnøysundregistrene",
+    "enhetsregisteret",
+    "organisasjonsnummer",
     "norway",
-    "uk"
+    "bolagsverket",
+    "organisationsnummer",
+    "sweden"
   ],
   "mcpServers": "./.mcp.json"
 }

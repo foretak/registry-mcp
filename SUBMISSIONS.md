@@ -26,6 +26,8 @@ corrections appended rather than erased):
 | 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo still archived (re-checked 2026-09-07: `archived: true`, last push 2026-05-06). |
 | 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **LIVE — approved 2026-09-05 22:02Z** (https://mcpservers.org/servers/foretak/registry-mcp; badge offered; approval mail to hello@foretak.dev). **Freshness unverified 2026-09-07** — the page now sits behind a Cloudflare bot challenge for automated fetches (curl and WebFetch both got the "Just a moment…" interstitial, not the real page). Needs a human with a real browser; no PR path and no documented API either way. |
 | 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**now present**) | **Yes** — GitHub | **Icon blocker cleared** (`static/icon.png`, confirmed 400×400 PNG, shipped 2026-09-05). Still blocked on Cline's own requirement to *confirm you tested* a README-only install in Cline — no Cline runtime available to an agent here, and claiming a test that didn't happen would break the "keep it factual" rule. Ready block in [§10](#10-cline-mcp-marketplace-bonus). |
+| 11 | [Anthropic Connectors Directory](#11-anthropic-connectors-directory) | `content/anthropic-connectors-submission.md` (every portal field pre-filled) | **Yes** — Claude.ai **Team/Enterprise** org (not yet bought) | **PENDING — package ready 2026-09-09 (T50), Kim submits.** The only surface in the ecosystem that proactively suggests a connector to a user who never went looking (Suggested Connectors; same catalog serves Claude.ai, Cowork, Desktop, mobile **and Claude Code**). Peers in this exact category are listed — Pappers, Firmenbuch, D&B — and **no Nordic or UK register is**. Blockers: Team plan ≈$50/mo (Kim's purchase), and **the served privacy policy is stale** (says NO+UK, Sweden live since 09-07) which is an *immediate-rejection* criterion — fix `legal/privacy.md` first. Ranking is usage-based, so book this as a position, not traffic. `HUMAN_TODO.md` §7.9. |
+| 12 | [Claude plugin directory](#12-claude-plugin-directory) | `plugins/registry-mcp/` (rebuilt as a job by T50) + `.claude-plugin/marketplace.json` | **Yes** — individual **Console** login (free) | **PENDING — plugin ready 2026-09-09 (T50), Kim submits.** Free, no Team plan needed, ~5 minutes at <https://platform.claude.com/plugins/submit>; takes a public GitHub link. Plugin is no longer a bare `.mcp.json`: skill + `/check-supplier` + `/filing-deadlines` + `/enrich-company-list`; `claude plugin validate --strict` passes on all four targets. Expect the **community** marketplace, which users add by hand — a catalog, not a channel. `HUMAN_TODO.md` §7.9. |
 | — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Topics done** — 20/20 slots, re-verified 2026-09-07 (includes `bolagsverket`, `sweden`, `united-kingdom`). The repo **description** this section tells you to set was still the Norway-only sentence verbatim from this file — fixed 2026-09-07 via `gh repo edit`; this file's own suggested command below is now updated to match so nobody re-pastes the stale one. |
 
 **Order matters.** Do #1 first: PulseMCP ingests from it automatically, and
@@ -949,6 +951,101 @@ Then file the three drafts in [`.github/SEED_ISSUES.md`](.github/SEED_ISSUES.md)
 
 ---
 
+## 11. Anthropic Connectors Directory
+
+**Status 2026-09-09: PENDING — the package is written, Kim submits.** Prepared by T50 on the
+2026-09-08 dispatch. Everything below is a summary; the submission itself is
+[`content/anthropic-connectors-submission.md`](content/anthropic-connectors-submission.md), which
+holds every portal field in the order the portal asks for it, the review-criteria checklist item by
+item, and the data-handling answer with all four licences.
+
+| | |
+|---|---|
+| Portal | <https://claude.ai/admin-settings/directory/submissions/new> (403 unauthenticated — it is behind the org login, as expected) |
+| Docs | <https://claude.com/docs/connectors/building/submission> · <https://claude.com/docs/connectors/building/review-criteria> · <https://claude.com/docs/connectors/directory> |
+| Needs a login? | **Yes, and a plan.** Team or Enterprise organisation, Owner role. Individual plans have no organisation settings at all. |
+| Cost | Claude Team, two-seat minimum, **$25/seat/month billed monthly** ($20 annually), *"for teams of 2 to 150"*, cancel anytime — <https://www.claude.com/pricing>, checked 2026-09-08. **≈$50/month, cancellable.** |
+| Listing name | **Company Check — UK, Sweden & Norway business registers** (54/100 chars) — the job, not the architecture, and the same name as the Smithery listing since 2026-09-08. **Never `registry-mcp`.** |
+| Categories | `Data` + `Financial services` (of 11 offered at <https://claude.com/connectors>) |
+| Server | `https://api.foretak.dev/mcp`, Streamable HTTP, **no authentication** |
+
+**Why it is worth the money, and the caveat in the same breath.** First-party:
+*"Directory connectors are eligible for Suggested Connectors — in-chat recommendations when relevant
+to the user's task. Every directory entry is included automatically. Ranking is usage-based, similar
+to other app stores."* The first two sentences are the reason to do it — it is the only push
+mechanism in the ecosystem, across Claude.ai, Cowork, Desktop, mobile and Claude Code. The third is
+why not to expect much: a listing with zero usage ranks last, and there is no public data on what a
+fresh entry receives (`~/mcp-growth/ADOPTION.md` Finding 3 — high confidence this is the best
+available surface, low confidence it produces usage inside 30 days).
+
+**What already passes, and it is the part that fails most submissions.** Every one of the seven
+tools carries a `title` and `readOnlyHint: true` — verified on the wire in the served card, not just
+in source. HTTPS Streamable HTTP. Icon 400×400. Privacy policy served (it 404'd until commit
+`0d20df9`; that alone was an automatic rejection from this channel). Tool names ≤19 characters
+against a 64 limit. No write tool exists in the software at all.
+
+**What is open.** Three things, in order of risk:
+
+1. **The served privacy policy is stale**, and *"missing or incomplete privacy policies result in
+   immediate rejection"*. It says the service covers Norway and the United Kingdom; Sweden has been
+   live since 2026-09-07 and is named elsewhere on the same page. It also still opens "Draft …
+   effective once published at a public URL" on a published page. Four edits, listed in the
+   package's §12 OPEN-1. **Fix and deploy before submitting.** (`legal/terms.md` has the same
+   three-country gap — not a portal field, so not blocking; it rides with T47.)
+2. **The Team plan.** Kim's purchase.
+3. **The "I ran every tool myself" confirmation.** Kim's five minutes — agents on this project are
+   barred from lookup calls against production.
+
+**The risk that has to be argued rather than satisfied** is the API-ownership criterion (*"Your
+server must call your own first-party APIs, or APIs you legitimately proxy"*). We proxy four public
+sources: NLOD 2.0 (Brønnøysundregistrene), Crown copyright / Companies House, Bolagsverket's
+värdefulla-datamängder regime, GLEIF CC0. The portal has an explicit "Data handling" step for
+exactly this, and Pappers, Firmenbuch and D&B are listed precedents. The full answer, quoted and
+sourced, is the package's §8.
+
+---
+
+## 12. Claude plugin directory
+
+**Status 2026-09-09: PENDING — the plugin is rebuilt and validated, Kim submits.**
+
+| | |
+|---|---|
+| Form | <https://platform.claude.com/plugins/submit> (Console) — or <https://claude.ai/admin-settings/directory/submissions/plugins/new> if the Team org exists |
+| Docs | <https://claude.com/docs/plugins/submit> · <https://code.claude.com/docs/en/discover-plugins> |
+| Needs a login? | **Yes — Console (Developer/Admin/Owner).** *"Individual authors who aren't part of a claude.ai Team or Enterprise organization can sign up for Console at platform.claude.com and submit there."* **No Team plan needed**, so this does not wait on §11. |
+| Cost | **Free.** |
+| What it takes | A **public** GitHub link: `https://github.com/foretak/registry-mcp`. Closed-source is not accepted. Run `claude plugin validate` first — done, passes `--strict` on the plugin manifest, the marketplace manifest, the commands and the skills. |
+| Updates | Automatic. *"Updates pushed to your GitHub repo are picked up automatically… You do not need to re-submit the form for updates."* |
+
+**What changed in the repo (T50).** `plugins/registry-mcp/` was a bare `.mcp.json` pointing at the
+hosted URL — which is a tool, not a job, and Anthropic's guidance is explicit that *"the best plugins
+bundle related capabilities together into a coherent package that solves a specific job function or
+workflow end-to-end"*. It now carries `skills/company-check/SKILL.md` (the counterparty,
+filing-deadline and register-coverage workflows, mirroring the three MCP prompts' logic, including
+the payment-fraud caveat verbatim) and three commands — `/check-supplier`, `/filing-deadlines`,
+`/enrich-company-list` — plus a plugin README. `.claude-plugin/marketplace.json` and
+`plugin.json` were renamed to the job as well.
+
+**Official or community? Community — and the docs genuinely disagree, so here is the reasoning.**
+<https://claude.com/docs/plugins/submit> says the directory *"is surfaced as the official
+`claude-plugins-official` marketplace and is automatically available to all users"*, while
+<https://code.claude.com/docs/en/discover-plugins> says *"the official marketplace is curated by
+Anthropic, and inclusion is at Anthropic's discretion. The in-app submission forms add plugins to the
+community marketplace, not the official one."* Both fetched 2026-09-08. **Believe the Claude Code
+page:** it is the more specific claim, it describes a mechanism the other page does not (the
+community marketplace gates on automated validation and safety screening and pins each plugin to a
+commit SHA), and the submit page's own vocabulary concedes it — it calls what you submit a *community
+plugin* and warns that *"there are no guarantees that any community plugin will become Anthropic
+Verified."*
+
+So expect: **`/plugin marketplace add anthropics/claude-plugins-community`**, then
+`/plugin install registry-mcp@claude-community` — a marketplace the user adds by hand. A catalog, not
+a channel. ADOPTION measured 2,282 plugins in it, of which exactly one is categorised finance. Free
+and likely accepted, so do it; do not book it as distribution.
+
+---
+
 ## What changed since the build plan
 
 Two of the build plan's assumptions (§3.3) are out of date. Both were verified
@@ -980,6 +1077,8 @@ One thing the build plan did not know about at all:
 | A **real inbox** at `hello@<domain>` | #9's confirmation, the JSON-LD, and the upstream `User-Agent` — inbox exists, listing approved 2026-09-05 |
 | **A browser that passes Cloudflare** | #9 — re-verifying or fixing the live listing text needs a real browser session, not a login exactly; curl/WebFetch both get the bot-challenge page instead of the site |
 | **Cline, actually installed** | #10's testing-confirmation step — this is a capability gap, not a login: no amount of GitHub access substitutes for having run the install |
+| **Claude.ai Team or Enterprise org** (Owner) | #11 — the Connectors Directory portal is inside organisation settings and does not exist on an individual plan. ≈$50/month, two seats, cancellable. **Not bought yet.** This is a purchase, not a login, and agents on this project buy nothing. |
+| **Anthropic Console** (Developer/Admin/Owner) | #12 — the plugin submission form. Free, individual sign-up at platform.claude.com, and independent of the Team plan. |
 
 **The line that used to close this file — "nothing on this page can be completed by an agent alone" — is no
 longer true, and is worth flagging as the one thing in here that turned out to be wrong.** It was accurate when
