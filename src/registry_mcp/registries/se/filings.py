@@ -156,16 +156,26 @@ _ANNUAL_ACCOUNTS = "annual_accounts"
 #: `core/models.py`'s `FilingHistory` docstring publish. Unconditional and
 #: first, exactly like Norway's `_ONE_PERIOD_NOTE` (the pattern this copies).
 _SCOPE_NOTE = (
-    "Bolagsverket's document list publishes filed annual reports only, not a general "
-    "filing history; other filings this organisation has made — board changes, "
-    "articles, capital — are not listed here, and their absence here means nothing."
+    "Bolagsverket's own API documentation describes this operation as retrieving "
+    "'available annual reports' for the organisation — filed annual reports only, not a "
+    "general filing history; other filings this organisation has made — board changes, "
+    "articles, capital — are not listed here, and their absence here means nothing. "
+    "That documentation does not say whether the list is complete for every annual "
+    "report the organisation has ever filed, or only for some channel or period of "
+    "filing."
 )
 
 _EMPTY_NOTE = (
     "Bolagsverket's document list holds no filed annual report for this organisation. "
     "That is the register's own answer, not a failed lookup — but it is not proof that "
     "none was ever due: the list covers the documents Bolagsverket publishes through "
-    "this dataset, and a newly filed report can take time to appear."
+    "this dataset, and a newly filed report can take time to appear. It may also not "
+    "cover every filing channel: observed live, Telefonaktiebolaget LM Ericsson "
+    "(organisationsnummer 5560160680) — Sweden's largest listed company — returns this "
+    "same empty answer, against six listed annual reports for organisationsnummer "
+    "5561890038. Bolagsverket's documentation does not explain the difference; as an "
+    "observation rather than a confirmed rule, this list may omit annual reports for "
+    "companies that do not file them through Bolagsverket's own digital channel."
 )
 
 _BROKEN_YEAR_NOTE = (

@@ -17,7 +17,15 @@ from typing import Any
 
 import pytest
 
-from registry_mcp.core.models import CompanyReport, CompanyStatus, ErrorCode, RegistryError
+from registry_mcp.core.models import (
+    CompanyReport,
+    CompanyStatus,
+    ErrorCode,
+    FiledDocument,
+    FilingHistory,
+    RegistryError,
+    SourceRef,
+)
 from registry_mcp.registries.se import mapping
 from registry_mcp.registries.se.rules import (
     AS_OF,
@@ -700,7 +708,10 @@ def test_60_kkav_reason_never_sets_bankruptcy_date() -> None:
 
 
 def _report(
-    *, legal_form_code: str = "AB", status: CompanyStatus = CompanyStatus.ACTIVE
+    *,
+    legal_form_code: str = "AB",
+    status: CompanyStatus = CompanyStatus.ACTIVE,
+    filings: FilingHistory | None = None,
 ) -> CompanyReport:
     return CompanyReport(
         country="SE",
@@ -710,7 +721,34 @@ def _report(
         legal_form_code=legal_form_code,
         status=status,
         is_active=(status is CompanyStatus.ACTIVE),
+        filings=filings,
     )
+
+
+def _filings(*, documents: list[FiledDocument]) -> FilingHistory:
+    """A `FilingHistory` block as `include=["filings"]` would attach it —
+    `financial_year_end`/`documents` sort order match
+    `registries/se/filings.py::map_dokumentlista`'s own contract, built by
+    hand here rather than through the mapper (T44's footprint is `rules.py`,
+    not `filings.py`'s mapping logic)."""
+    sorted_documents = sorted(
+        documents, key=lambda d: (d.period_end or date.min, d.filed_at or date.min), reverse=True
+    )
+    financial_year_end = sorted_documents[0].period_end if sorted_documents else None
+    return FilingHistory(
+        documents=sorted_documents,
+        financial_year_end=financial_year_end,
+        provenance=SourceRef(
+            source="Bolagsverket (bolagsverket.se)",
+            source_url="https://gw.api.bolagsverket.se/vardefulla-datamangder/v1",
+            license="Free re-use",
+            cached=False,
+        ),
+    )
+
+
+def _filed(*, period_end: date | None, filed_at: date | None = None) -> FiledDocument:
+    return FiledDocument(kind="annual_accounts", period_end=period_end, filed_at=filed_at)
 
 
 def _by_kind(deadlines: list[Any], kind: str) -> Any:
@@ -1145,19 +1183,171 @@ def test_147_rules_module_is_untouched_by_the_filings_block() -> None:
     report = _report()
     assert report.last_annual_accounts_year is None
     assert report.published_deadlines == []
-    # `deadlines_for` is pure and reads nothing this task added.
+    # `deadlines_for` is still pure (T44 adds a read of `report.filings`, not
+    # I/O or a clock read) and neither of the two fields above is touched by it.
     assert deadlines_for(report, date(2026, 3, 1))
 
 
-def test_148_deadline_prose_is_unchanged_by_this_task() -> None:
-    """R-5b changed no `applies_because` and no note. The false clause
-    D-041(a) identifies — *"Bolagsverket's free dataset does not publish the
-    financial year"* — is still shipped here, and correcting it is T31 Part A,
-    which is **not** this task and is still unsequenced (D-042(i): "D-041(a)'s
-    prose correction is still not sequenced at all"). This test records that
-    it is knowingly outstanding rather than overlooked; when Part A lands it
-    should be inverted, not deleted."""
+def test_148_deadline_prose_drops_the_does_not_publish_claim() -> None:
+    """Inverted, not deleted (T44, D-041(a),(f)) — this pinned the false claim
+    by name; now it guards its absence. Asserted on the *claim*, scanning
+    every shipped string in `registries/se/*.py` for any of the three
+    retired phrasings, rather than on one deadline's `applies_because`
+    alone: a bare substring check (the old `"does not publish" in text`)
+    would keep passing even after this fix, because "Bolagsverket does not
+    publish the meeting date" is a different, true sentence that was never
+    wrong and is still here. This is the same guard the orchestrator's
+    done-check runs against `src/` and `SWEDEN_SPEC.md`."""
+    from pathlib import Path
+
+    import registry_mcp.registries.se as se_pkg
+
+    se_dir = Path(se_pkg.__file__).parent
+    false_claims = (
+        "does not publish the financial year",
+        "does not publish a company's financial year",
+        "which the free dataset does not publish",
+    )
+    for path in sorted(se_dir.glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        for claim in false_claims:
+            assert claim not in source, f"{path.name} still says: {claim!r}"
+
+    rules_source = (se_dir / "rules.py").read_text(encoding="utf-8")
+    assert "not yet exposed by this module" not in rules_source
+
     aa = _by_kind(deadlines_for(_report(), date(2026, 3, 1)), "annual_accounts")
-    assert "does not publish" in aa.applies_because
+    assert 'include=["filings"]' in aa.applies_because
     assert aa.statutory_date == aa.due_date
     assert aa.rolled_forward is False
+
+
+# ---------------------------------------------------------------------------
+# `report.filings` and the rung-2 `VERIFY` gate (149-154, T44 / D-041(e),(f))
+#
+# Rung 2 (a computed date that moves off 30 June / 31 July for a non-December
+# year end) is **not implemented** — the `VERIFY` on Bolagsverket's own
+# published table of *sista dag för årsstämma* / *sista dag att lämna in
+# årsredovisningen* by räkenskapsårsslut could not be sourced (see the module
+# comment above `_observed_annual_report` in `rules.py`). Every test below
+# therefore asserts the same due dates a plain `_report()` (no `filings`)
+# would give at the same `today` — that is the regression that matters, not
+# a hope — and checks only that `applies_because` renders the fact honestly.
+# ---------------------------------------------------------------------------
+
+
+def test_149_filings_absent_applies_because_names_the_call_on_both_deadlines() -> None:
+    """State 1 of N9 (D-041(f)): no `include=["filings"]` was read, so both
+    deadlines say so and name the call that would replace the assumption —
+    not just `annual_accounts` (test 148's job), `general_meeting` too."""
+    today = date(2026, 3, 1)
+    deadlines = deadlines_for(_report(filings=None), today)
+    gm = _by_kind(deadlines, "general_meeting")
+    aa = _by_kind(deadlines, "annual_accounts")
+    for deadline in (gm, aa):
+        assert "financial year ending 31 December" in deadline.applies_because
+        assert 'include=["filings"]' in deadline.applies_because
+        assert "register's own figure" in deadline.applies_because
+
+
+def test_150_filings_present_but_empty_still_assumes_the_calendar_year() -> None:
+    """The Ericsson shape: `include=["filings"]` was read and Bolagsverket's
+    document list held no filed annual report (`financial_year_end is
+    None`), so the assumption still applies — but the sentence now says a
+    call was made rather than pretending ignorance, and neither date
+    moves relative to the no-`filings` baseline."""
+    today = date(2026, 3, 1)
+    empty = _filings(documents=[])
+    assert empty.financial_year_end is None
+
+    with_empty_block = deadlines_for(_report(filings=empty), today)
+    baseline = deadlines_for(_report(filings=None), today)
+    assert [d.due_date for d in with_empty_block] == [d.due_date for d in baseline]
+
+    for deadline in with_empty_block:
+        text = deadline.applies_because
+        assert "financial year ending 31 December" in text
+        assert 'include=["filings"]' in text
+        assert "no filed annual report" in text
+
+
+def test_151_filings_present_december_year_end_is_confirmed_not_assumed() -> None:
+    """State 2 of N9: a 31 December year end is a confirmation, not a
+    guess — the word "assum" must not appear (D-041(f)) — and the date is
+    byte-identical to the no-`filings` baseline, because rung 2 and rung 3
+    agree exactly for 31 December (D-041(e)'s invariant)."""
+    today = date(2026, 3, 1)
+    december = _filings(
+        documents=[_filed(period_end=date(2025, 12, 31), filed_at=date(2026, 2, 20))]
+    )
+    confirmed = deadlines_for(_report(filings=december), today)
+    baseline = deadlines_for(_report(filings=None), today)
+    assert [(d.kind, d.due_date, d.statutory_date, d.rolled_forward) for d in confirmed] == [
+        (d.kind, d.due_date, d.statutory_date, d.rolled_forward) for d in baseline
+    ]
+
+    for deadline in confirmed:
+        text = deadline.applies_because
+        assert "assum" not in text.lower(), text
+        assert "Confirmed, not a guess" in text
+        assert "2025-12-31" in text
+        assert "registered 2026-02-20" in text
+
+
+def test_152_filings_present_non_december_year_end_does_not_move_the_date() -> None:
+    """State 3 of N9, and the test that matters most for the `VERIFY` gate:
+    a known, non-December year end (30 April) still gets 30 June /
+    31 July — proof rung 2 was **not** implemented rather than a hope — and
+    `applies_because` says the fact is known but not computed from, naming
+    the observed date, rather than either the "not asked" or the
+    "confirmed" sentence."""
+    today = date(2026, 3, 1)
+    broken_year = _filings(
+        documents=[_filed(period_end=date(2025, 4, 30), filed_at=date(2025, 10, 15))]
+    )
+    with_block = deadlines_for(_report(filings=broken_year), today)
+    baseline = deadlines_for(_report(filings=None), today)
+    assert [d.due_date for d in with_block] == [d.due_date for d in baseline]
+    assert _by_kind(with_block, "general_meeting").due_date == date(2026, 6, 30)
+    assert _by_kind(with_block, "annual_accounts").due_date == date(2026, 7, 31)
+
+    for deadline in with_block:
+        text = deadline.applies_because
+        assert "2025-04-30" in text
+        assert "registered 2025-10-15" in text
+        assert "Confirmed, not a guess" not in text
+        assert 'include=["filings"]' not in text  # this state already has the fact
+        assert "has not been able to confirm" in text
+        assert "D-041(e)" in text
+
+
+def test_153_year_end_clause_picks_the_document_the_year_end_actually_came_from() -> None:
+    """`financial_year_end` is the *latest* period among filed annual
+    reports; when two are on file, the "registered" date quoted in
+    `applies_because` must be the one attached to *that* period, not
+    whichever document happens to be first."""
+    today = date(2026, 3, 1)
+    two_reports = _filings(
+        documents=[
+            _filed(period_end=date(2024, 12, 31), filed_at=date(2025, 6, 10)),
+            _filed(period_end=date(2025, 12, 31), filed_at=date(2026, 6, 27)),
+        ]
+    )
+    assert two_reports.financial_year_end == date(2025, 12, 31)
+
+    aa = _by_kind(deadlines_for(_report(filings=two_reports), today), "annual_accounts")
+    assert "2025-12-31" in aa.applies_because
+    assert "registered 2026-06-27" in aa.applies_because
+    assert "2025-06-10" not in aa.applies_because
+    assert "2024-12-31" not in aa.applies_because
+
+
+def test_154_year_end_clause_omits_registered_when_filed_at_is_missing() -> None:
+    """`FiledDocument.filed_at` is nullable (D-041(d)); the clause must
+    degrade gracefully rather than rendering `registered None`."""
+    today = date(2026, 3, 1)
+    undated_filing = _filings(documents=[_filed(period_end=date(2025, 12, 31), filed_at=None)])
+    aa = _by_kind(deadlines_for(_report(filings=undated_filing), today), "annual_accounts")
+    assert "2025-12-31" in aa.applies_because
+    assert "registered" not in aa.applies_because
+    assert "None" not in aa.applies_because

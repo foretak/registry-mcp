@@ -22,6 +22,8 @@ from registry_mcp.core.models import (
     Deadline,
     DeadlineRecurrence,
     ErrorCode,
+    FiledDocument,
+    FilingHistory,
     RegistryError,
 )
 from registry_mcp.core.rules.common import next_occurrence
@@ -672,41 +674,170 @@ _ARL_URL = "https://lagen.nu/1995:1554"
 
 _CALENDAR_YEAR_NOTE = (
     "Filing deadlines are computed assuming a financial year ending 31 December. "
-    "Bolagsverket's free dataset does not publish a company's financial year, and a "
-    "Swedish financial year need not be the calendar year. If it is not, both dates move "
-    "by the same number of months — a 30 June year end gives 31 December for the annual "
-    "general meeting and 31 January for the filing. The filing date is also an outer "
-    "limit rather than this company's own: årsredovisningslagen 8 kap. 3 § requires "
-    "filing within one month of the general meeting that adopts the accounts, so a "
-    "company whose meeting was earlier must file earlier. Årsredovisningslagen 8 kap. 6 § "
-    "allows nine months instead of seven for a company that has filed the notice and "
-    "auditor's assurance it describes; the free dataset does not say which companies "
-    "those are."
+    "Bolagsverket does not name a company's financial year in the record this figure is "
+    "read from by default, but its document list does publish it, for a company's filed "
+    "annual reports — call company_deadlines or lookup_company with include=[\"filings\"] "
+    "to read Bolagsverket's own document list and replace this assumption with the "
+    "register's own figure. Without it: if the true financial year is not the calendar "
+    "year, both dates move, and the filing date is also an outer limit rather than this "
+    "company's own regardless: årsredovisningslagen 8 kap. 3 § requires filing within one "
+    "month of the general meeting that adopts the accounts, so a company whose meeting "
+    "was earlier must file earlier. Årsredovisningslagen 8 kap. 6 § allows nine months "
+    "instead of seven for a company that has filed the notice and auditor's assurance it "
+    "describes; the free dataset does not say which companies those are."
 )
 
-_GENERAL_MEETING_APPLIES_BECAUSE = (
-    "An aktiebolag must hold its ordinary general meeting (årsstämma) within six months "
-    "of the end of each financial year (aktiebolagslagen 7 kap. 10 §). Assumes a "
-    "financial year ending 31 December — Bolagsverket's free dataset does not publish the "
-    "financial year. Six months is an outer limit and there is no filing office to be "
-    "closed, so this date does not move off a weekend or a public holiday."
+# ---------------------------------------------------------------------------
+# The financial-year-end fact (D-041(a),(e),(f)) — rung 2 is NOT implemented
+# ---------------------------------------------------------------------------
+#
+# `report.filings.financial_year_end` (D-044) is a real, sourced fact once a
+# caller asks for it via `include=["filings"]`: Bolagsverket's own
+# `/dokumentlista` publishes `rapporteringsperiodTom`, the reporting period
+# of a company's last filed annual report. D-041(a) ruled that the old claim
+# to the contrary — "Bolagsverket's free dataset does not publish the
+# financial year" — is false, and `_CALENDAR_YEAR_NOTE` above and
+# `_year_end_clause` below are the correction.
+#
+# What is **not** implemented is D-041(e)'s rung 2: computing a *different*
+# `due_date` from that fact for a non-31-December year end. That needs
+# Bolagsverket's own published table of *sista dag för årsstämma* and *sista
+# dag att lämna in årsredovisningen* by räkenskapsårsslut, because ABL 7 kap.
+# 10 §'s "inom sex månader" and ÅRL 8 kap. 6 §'s "inom sju månader" do not by
+# themselves settle whether a 30 April year end gives 30 October (same day
+# of month) or 31 October (end of the sixth month) — both readings agree
+# only for a 31 December year end, which is why nothing shipped here depends
+# on the answer.
+#
+# `VERIFY` attempted 2026-09-09, not sourced. `bolagsverket.se` answered a
+# CAPTCHA challenge on every path tried in this environment — both guidance
+# pages, the English mirror, `robots.txt`, and a direct PDF download link —
+# so no Bolagsverket page could be read at all. Independent third-party
+# accounting sites disagree with each other on exactly the disambiguating
+# case (a 30 June year end's seven-month filing datum): one gives 31 January
+# (end of month), another gives 30 January (same day of month) while also
+# folding in an unrelated, unsourced weekend-roll-forward rule this project
+# has separately declined to adopt for Sweden (§5.3, no Bolagsverket source
+# found). Per D-009 and this task's own instruction, a non-December date is
+# not computed from that disagreement. Rung 2 is therefore left out:
+# `deadlines_for` still computes only rung 3 (the calendar-year assumption)
+# for every year end, and `financial_year_end` is read only to choose which
+# of `_year_end_clause`'s honest sentences below is true for this call —
+# never to move a date. If this table is sourced later, rung 2 is one `if`
+# per deadline plus a cited day-of-month rule; nothing else here changes.
+
+
+def _observed_annual_report(filings: FilingHistory | None) -> FiledDocument | None:
+    """The filed annual report ``FilingHistory.financial_year_end`` was taken
+    from, or ``None`` when there is nothing to report: ``filings`` was never
+    requested or its fetch failed (both leave ``filings`` itself ``None``),
+    or Bolagsverket's document list held no filed annual report with a
+    usable period end (``financial_year_end`` is then also ``None`` — the
+    Ericsson case, ``registries/se/filings.py``'s ``_EMPTY_NOTE``)."""
+    if filings is None or filings.financial_year_end is None:
+        return None
+    year_end = filings.financial_year_end
+    return next((doc for doc in filings.documents if doc.period_end == year_end), None)
+
+
+_NOT_ASKED_CLAUSE = (
+    "Assumes a financial year ending 31 December: Bolagsverket does not name a company's "
+    "financial year in the record this figure is read from by default, but its document "
+    "list does publish it, for a company's filed annual reports — call company_deadlines "
+    "or lookup_company with include=[\"filings\"] to read Bolagsverket's own document list "
+    "and replace this assumption with the register's own figure."
 )
 
-_ANNUAL_ACCOUNTS_APPLIES_BECAUSE = (
-    "An aktiebolag or ekonomisk förening must file its annual report with Bolagsverket "
-    "within one month of the general meeting that adopts it (årsredovisningslagen 8 kap. "
-    "3 §), and that meeting must be held within six months of the financial year end "
-    "(aktiebolagslagen 7 kap. 10 §). Bolagsverket does not publish the meeting date, so "
-    "this is the outer limit instead: a late fee of 7 500 kr (15 000 kr for a public "
-    "company) starts if the documents have not arrived within seven months of the "
-    "financial year end (årsredovisningslagen 8 kap. 6 §). This company's own deadline "
-    "may be earlier if its general meeting was held earlier. Assumes a financial year "
-    "ending 31 December, which the free dataset does not publish. The date does not move "
-    "off a weekend or a public holiday."
+_ASKED_BUT_NOTHING_FILED_CLAUSE = (
+    "Assumes a financial year ending 31 December. include=[\"filings\"] was read for this "
+    "company and Bolagsverket's document list holds no filed annual report with a usable "
+    "financial year end, so there is nothing in it yet to confirm or correct that "
+    "assumption against."
 )
 
 
-def _general_meeting(today: date) -> Deadline:
+def _year_end_clause(filings: FilingHistory | None) -> str:
+    """The sentence that replaces "Assumes a financial year ending 31
+    December …" in each deadline's ``applies_because`` — D-041(f)'s three
+    states of note N9, realised here rather than on ``CompanyReport.notes``.
+
+    N9 was specified against ``CompanyReport.notes`` (``CALENDAR_YEAR_NOTE``
+    below), but that field is fixed by ``registries/se/mapping.py`` when
+    ``lookup`` runs — before ``include=["filings"]`` has been read, if it
+    ever is — and ``Registry.deadline_report`` (``core/registry.py``, out of
+    this task's footprint) copies ``report.notes`` verbatim rather than
+    re-deriving it from the assembled report (D-018). A sentence that must
+    vary with *this call's* ``filings`` cannot live there; it lives here,
+    on the one document ``deadlines_for`` builds fresh, from the fully
+    assembled ``report``, every time it runs. ``_NOT_ASKED_CLAUSE`` below
+    says roughly what ``CALENDAR_YEAR_NOTE`` says — shorter, because each
+    deadline's own fixed prose already names the one-month and nine-month
+    provisions ``CALENDAR_YEAR_NOTE`` also carries, and repeating them
+    verbatim inside the same ``applies_because`` would read as a stutter
+    rather than as a second, independent statement.
+
+    Four states, not three: D-041(e)'s own text anticipates the fourth for
+    exactly the "rung 2 not sourced" outcome this module ships — "N9 says
+    the year end is known but not yet computed from" — which is why a known
+    non-December year end gets its own sentence below rather than reusing
+    either the "not asked" or the "confirmed" one.
+    """
+    if filings is None:
+        return _NOT_ASKED_CLAUSE
+    document = _observed_annual_report(filings)
+    if document is None or document.period_end is None:
+        return _ASKED_BUT_NOTHING_FILED_CLAUSE
+
+    year_end = document.period_end
+    filed_clause = f", registered {document.filed_at.isoformat()}" if document.filed_at else ""
+    if (year_end.month, year_end.day) == (12, 31):
+        # D-041(f): the word "assum" must not appear in this state.
+        return (
+            "Confirmed, not a guess: Bolagsverket's document list shows this company's "
+            f"last filed annual report covering a period ending {year_end.isoformat()}"
+            f"{filed_clause} — a financial year ending 31 December, the same year end "
+            "this date is computed from."
+        )
+    return (
+        "Bolagsverket's document list shows this company's last filed annual report "
+        f"covering a period ending {year_end.isoformat()}{filed_clause} — not "
+        "31 December. This module has not been able to confirm, from a primary "
+        "Bolagsverket source, how to convert a financial year end other than "
+        "31 December into an exact statutory date (VERIFY, D-041(e)), so the date below "
+        "still assumes a 31 December year end and may not be this company's own. A "
+        "company may also relay its räkenskapsår under bokföringslagen 3 kap., and only "
+        "the period end shown above is published."
+    )
+
+
+def _general_meeting_applies_because(filings: FilingHistory | None) -> str:
+    return (
+        "An aktiebolag must hold its ordinary general meeting (årsstämma) within six "
+        "months of the end of each financial year (aktiebolagslagen 7 kap. 10 §). "
+        f"{_year_end_clause(filings)} Six months is an outer limit and there is no "
+        "filing office to be closed, so this date does not move off a weekend or a "
+        "public holiday."
+    )
+
+
+def _annual_accounts_applies_because(filings: FilingHistory | None) -> str:
+    return (
+        "An aktiebolag or ekonomisk förening must file its annual report with "
+        "Bolagsverket within one month of the general meeting that adopts it "
+        "(årsredovisningslagen 8 kap. 3 §), and that meeting must be held within six "
+        "months of the financial year end (aktiebolagslagen 7 kap. 10 §). Bolagsverket "
+        "does not publish the meeting date, so this is the outer limit instead: a late "
+        "fee of 7 500 kr (15 000 kr for a public company) starts if the documents have "
+        "not arrived within seven months of the financial year end (årsredovisningslagen "
+        "8 kap. 6 §) — nine months instead of seven for a company that has filed the "
+        "notice and auditor's assurance 8 kap. 6 § describes; the free dataset does not "
+        "say which companies those are. This company's own deadline may be earlier if "
+        f"its general meeting was held earlier. {_year_end_clause(filings)} The date "
+        "does not move off a weekend or a public holiday."
+    )
+
+
+def _general_meeting(today: date, filings: FilingHistory | None) -> Deadline:
     """30 June, and it does **not** roll forward (§5.3: no sourced rule)."""
     statutory = next_occurrence(6, 30, today)
     period = statutory.year - 1
@@ -725,13 +856,13 @@ def _general_meeting(today: date) -> Deadline:
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         mandatory=True,
-        applies_because=_GENERAL_MEETING_APPLIES_BECAUSE,
+        applies_because=_general_meeting_applies_because(filings),
         days_until=(statutory - today).days,
         source_url=_ABL_URL,
     )
 
 
-def _annual_accounts(today: date) -> Deadline:
+def _annual_accounts(today: date, filings: FilingHistory | None) -> Deadline:
     """31 July, and it does **not** roll forward (§5.3: no sourced rule)."""
     statutory = next_occurrence(7, 31, today)
     period = statutory.year - 1
@@ -750,7 +881,7 @@ def _annual_accounts(today: date) -> Deadline:
         period_end=date(period, 12, 31),
         recurrence=DeadlineRecurrence.ANNUAL,
         mandatory=True,
-        applies_because=_ANNUAL_ACCOUNTS_APPLIES_BECAUSE,
+        applies_because=_annual_accounts_applies_because(filings),
         days_until=(statutory - today).days,
         source_url=_ARL_URL,
     )
@@ -765,6 +896,14 @@ def deadlines_for(report: CompanyReport, today: date) -> list[Deadline]:
     unclassified form gets none at all). ``verksamOrganisation`` never
     suppresses a deadline (§5.4.5) — a dormant ``AB`` still owes an annual
     report.
+
+    Reads ``report.filings`` (D-044) — present only when the caller asked
+    ``lookup_company`` or ``company_deadlines`` for ``include=["filings"]``
+    and the fetch succeeded — to choose which of ``applies_because``'s
+    honest sentences applies (D-041(f)); this is still a pure read of the
+    already-assembled ``report``, never I/O, and never moves a computed date
+    off the calendar-year assumption (see the module comment above
+    ``_observed_annual_report`` for why rung 2 itself is not implemented).
     """
     if report.status is not CompanyStatus.ACTIVE:
         return []
@@ -773,10 +912,11 @@ def deadlines_for(report: CompanyReport, today: date) -> list[Deadline]:
     if code not in DEADLINE_FORM_CODES:
         return []
 
+    filings = report.filings
     deadlines: list[Deadline] = []
     if code in GENERAL_MEETING_FORM_CODES:
-        deadlines.append(_general_meeting(today))
-    deadlines.append(_annual_accounts(today))
+        deadlines.append(_general_meeting(today, filings))
+    deadlines.append(_annual_accounts(today, filings))
 
     deadlines.sort(key=lambda d: (d.due_date, d.kind))
     return deadlines
@@ -975,13 +1115,20 @@ def rules_markdown() -> str:
         "the same field, rather than translated into a guessed organisationsform.\n\n"
         "## What this dataset does not publish\n"
         "Officers, share capital, beneficial owners, employee counts, financial figures, "
-        "the financial-year end, VAT registration, a visiting (business) address, email, "
-        "phone and website. `postal_address` is a correspondence address only — often an "
-        "accountant's office, a box, or (for a sole trader) a home address — never a "
-        "registered office; Sweden has no equivalent dataset for that. Skatteverket's own "
-        "deadlines (inkomstdeklaration 2, moms, arbetsgivardeklaration) are real "
-        "obligations this module does not compute, because the free dataset gives neither "
-        "a financial-year end nor a VAT period to key them from.\n\n"
-        "`/dokumentlista` and `/dokument` (filed annual reports, as a zip) exist in the "
-        "upstream API and are not yet exposed by this module.\n"
+        "VAT registration, a visiting (business) address, email, phone and website — none "
+        "of these reach this module from any call. A company's financial year end is "
+        "different: Bolagsverket does not include it in the base company record, but does "
+        "publish it, for a company's filed annual reports, in its document list — call "
+        "lookup_company or company_deadlines with `include=[\"filings\"]` to read it. "
+        "`postal_address` is a correspondence address only — often an accountant's "
+        "office, a box, or (for a sole trader) a home address — never a registered "
+        "office; Sweden has no equivalent dataset for that. Skatteverket's own deadlines "
+        "(inkomstdeklaration 2, moms, arbetsgivardeklaration) are real obligations this "
+        "module does not compute: the free dataset gives no VAT period to key them from, "
+        "and Skatteverket's own dates are additionally keyed to filing channel as well as "
+        "financial-year-end month, which this module does not attempt to derive even "
+        "where `include=[\"filings\"]` supplies the year end.\n\n"
+        "`/dokumentlista` (filed annual reports) is exposed by this module as "
+        "`include=[\"filings\"]`. `/dokument`, the zip behind each filed report, is not: "
+        "a third request, an XBRL package to parse, and out of scope by design.\n"
     )
