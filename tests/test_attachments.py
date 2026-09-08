@@ -445,6 +445,7 @@ async def test_lookup_with_fetches_attachments_concurrently_by_default(
     example_registry: Registry,
 ) -> None:
     order: list[str] = []
+    gadget_started = asyncio.Event()
 
     class _SlowRegistry(type(example_registry)):  # type: ignore[misc]
         country = "XV"
@@ -457,13 +458,16 @@ async def test_lookup_with_fetches_attachments_concurrently_by_default(
 
         async def widget(self, id: str) -> _Widget:
             order.append("widget-start")
-            await asyncio.sleep(0.03)
+            # Block until gadget signals it has started. If the two were fetched
+            # sequentially this wait would never be satisfied, so the timeout is
+            # the failure — deterministic, unlike racing two sleep lengths.
+            await asyncio.wait_for(gadget_started.wait(), timeout=5)
             order.append("widget-end")
             return _Widget(items=["w"])
 
         async def gadget(self, id: str) -> _Widget:
             order.append("gadget-start")
-            await asyncio.sleep(0.01)
+            gadget_started.set()
             order.append("gadget-end")
             return _Widget(items=["g"])
 
@@ -471,8 +475,11 @@ async def test_lookup_with_fetches_attachments_concurrently_by_default(
     assert isinstance(result, _ReportWithAttachments)
     assert result.widget is not None and result.widget.items == ["w"]
     assert result.gadget is not None and result.gadget.items == ["g"]
-    # Concurrent: gadget's shorter sleep finishes first. Strictly sequential
-    # would give ["widget-start", "widget-end", "gadget-start", "gadget-end"].
+    # Overlap proven by rendezvous: widget cannot finish until gadget has started,
+    # so this exact order is only reachable if both were in flight at once. The
+    # earlier version raced a 0.03s sleep against a 0.01s one and flaked under load
+    # — the same fault `test_105_token_bucket_does_not_serialise_concurrent_lookups`
+    # documents in tests/test_client_gb.py.
     assert order == ["widget-start", "gadget-start", "gadget-end", "widget-end"]
 
 
@@ -492,7 +499,7 @@ async def test_max_concurrency_bounds_in_flight_attachment_fetches(
 
         async def widget(self, id: str) -> _Widget:
             order.append("widget-start")
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0)
             order.append("widget-end")
             return _Widget(items=[])
 
