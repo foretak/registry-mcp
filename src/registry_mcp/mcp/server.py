@@ -167,9 +167,16 @@ mcp: FastMCP = FastMCP(
     name="registry-mcp",
     version=__version__,
     instructions=(
-        "The company registry MCP: company data for AI agents, any country. One JSON shape, "
-        "many national business registries — a lookup_company report here is byte-identical "
-        "to the REST API's.\n\n"
+        "Check whether a company you're about to deal with — a new supplier, a "
+        "counterparty, an entity you're onboarding — is real, active and keeping up with "
+        "its statutory filings, straight from the national business register itself, not "
+        "a resold copy. lookup_company returns identity and status; company_deadlines "
+        "returns filing health; validate_company_id checks an identifier's shape for free "
+        "before you spend a real lookup. The prompts counterparty_check and "
+        "register_coverage each carry out one of those jobs end to end from a single "
+        "identifier, when you want the finished assessment rather than the raw report. A "
+        "lookup_company report here is byte-identical to the REST API's, so nothing "
+        "changes if an agent switches surfaces mid-task.\n\n"
         "Three countries answer today, one of them by identifier only. Norway is "
         "country=\"NO\": Enhetsregisteret / "
         "Brønnøysundregistrene (brreg), looked up by organisasjonsnummer (orgnr, org.nr), "
@@ -633,7 +640,16 @@ _register_concrete_rules_resources()
 
 
 # ---------------------------------------------------------------------------
-# Prompt
+# Prompts
+#
+# Each takes the same (id, country) shape as the tools above and carries out
+# one whole job an actual caller has, across whichever tools and resources it
+# needs — never a new tool (`DECISIONS.md` D-042(c): a tool is bought by a
+# distinct question an agent asks, and this entry authorises none today;
+# prompts are free of that constraint). `counterparty_check` and
+# `register_coverage` are named in `mcp`'s own `instructions` above, so a
+# client that reads the server description before its first call already
+# knows they exist.
 # ---------------------------------------------------------------------------
 
 
@@ -650,6 +666,73 @@ def explain_company(id: str, country: str = "NO") -> str:
         "either result is non-empty, mention the caveats it names, in plain language. If "
         "either call fails, explain the error's `hint` in plain English instead of "
         "showing raw JSON."
+    )
+
+
+@mcp.prompt
+def counterparty_check(id: str, country: str = "NO") -> str:
+    """Check a counterparty before contracting with or onboarding them: existence, current
+    legal status and filing health — not a payment-fraud or bank-detail check."""
+    return (
+        f"Call validate_company_id(id={id!r}, country={country!r}) first. If `valid` is "
+        "false, stop here and report `reason` and `hint` in plain English — do not guess "
+        f"at a corrected identifier. If valid, call lookup_company(id={id!r}, "
+        f"country={country!r}) for identity and status, then call "
+        f"company_deadlines(id={id!r}, country={country!r}) for filing health. Using both "
+        "results, answer three questions in this order: "
+        "(1) Existence — does the entity exist, and does `name` match what you were told? "
+        "(2) Status — is `status` active right now; if it is not, lead your answer with "
+        "that and quote `status_detail` verbatim. "
+        "(3) Filing health — is every entry in `deadlines` current, or does any have a "
+        "negative `days_until`; name which obligation is overdue and by how many days. "
+        "Quote every `notes` entry from both calls verbatim and in full — bankruptcy, "
+        "dissolution, an unclassified legal form and every other register-specific caveat "
+        "live there, and summarising them away is the one mistake this prompt exists to "
+        "prevent.\n\n"
+        "End with a section titled exactly 'What this does not establish'. State plainly: "
+        "this is not sanctions, PEP or adverse-media screening; it does not verify bank "
+        "account or payment details; and it is not a defence against payment fraud. The "
+        "costly fraud pattern — business email compromise, where an attacker redirects a "
+        "genuine payment — uses a real, active, correctly-registered company and forges "
+        "only the bank details, so a clean result here is consistent with that fraud, not "
+        "evidence against it. Tell the reader to confirm any bank detail, and any change "
+        "to one, through a channel they already trust — a phone call to a number they "
+        "already had, never a number or link supplied in the same message that gave the "
+        "new details — and never through this lookup. If any call fails, explain the "
+        "error's `hint` in plain English instead of showing raw JSON."
+    )
+
+
+@mcp.prompt
+def register_coverage(id: str, country: str = "NO") -> str:
+    """Explain what this company's register record actually says — and, the point of this
+    prompt, what it stays silent on and why."""
+    return (
+        f"Call lookup_company(id={id!r}, country={country!r}) for the full CompanyReport, "
+        f"and read the resource registry://rules/{country} for this register's own stated "
+        "rules and caveats. Then write two sections, not one, and do not shorten the "
+        "second: '## What the register states' and '## What it does not state' — the "
+        "second section is the point of this prompt.\n\n"
+        "For every field in the report that is `null`, work out which of two different "
+        "things the null means, because they are not the same fact and must not be "
+        "reported the same way. (a) A structural silence: this register never publishes "
+        "this kind of fact, for any company in this country, so the null is a fact about "
+        "the register, not about this entity — the rules resource names most of these. "
+        "(b) An entity-level gap: the register could hold a value here but has none for "
+        "this particular company — `employees` null alongside `employees_reported: false` "
+        "is exactly this, the register stating it holds no employee figure for this "
+        "entity, which is a different fact from zero employees. Never render a null as "
+        "'no', 'zero' or 'not applicable' — say plainly that the register is silent, and "
+        "say which of the two reasons it is wherever you can tell.\n\n"
+        "Quote every `notes` entry verbatim — an unclassified legal form, a deleted "
+        "entity, a bankruptcy flag and every other register-specific caveat live there, in "
+        "the register's own words. Also surface anything the rules resource states that "
+        "is not a field on this report at all but limits what a caller can do with this "
+        "register — a register with no name search, for instance, cannot be queried from "
+        "a name alone, which matters to a reader who does not yet have this identifier. "
+        "Close with one line naming the register (`source`) and its `source_url`, so the "
+        "reader knows whose silence this is — this tool's, or the register's. If the "
+        "lookup fails, explain the error's `hint` in plain English instead of raw JSON."
     )
 
 

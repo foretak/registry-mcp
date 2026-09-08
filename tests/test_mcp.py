@@ -154,6 +154,44 @@ def test_server_card_lookup_company_output_schema_matches_model() -> None:
     assert entry["outputSchema"] == dereference_refs(CompanyReport.model_json_schema())
 
 
+async def test_server_card_tools_and_prompts_match_the_live_server() -> None:
+    """The general-purpose sibling of the test above: that one pins one tool's
+    ``outputSchema`` alone. `static/well-known/mcp/server-card.json` is hand-maintained end
+    to end (T17, T26c, T29, this task's two new prompts) and nothing regenerates it from
+    the live server, so every tool's name, description and annotation title, and every
+    prompt's name, description and argument list, must match ``tools/list``/``prompts/list``
+    byte for byte here — or an edit to either side (a docstring changed in `mcp/server.py`
+    or `mcp/connector.py`, a prompt added or renamed) silently desyncs the one document a
+    directory or crawler reads *without* ever calling the server (`~/mcp-growth/DEPTH.md`
+    §2.1's finding that Smithery's own listing did not know about `search`/`fetch` is
+    exactly this failure mode, one level up)."""
+    card_path = Path(__file__).parent.parent / "static" / "well-known" / "mcp" / "server-card.json"
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+
+    async with Client(mcp) as client:
+        live_tools = await client.list_tools()
+        live_prompts = await client.list_prompts()
+
+    card_tools = {t["name"]: t for t in card["tools"]}
+    assert card_tools.keys() == {t.name for t in live_tools}
+    for tool in live_tools:
+        entry = card_tools[tool.name]
+        assert entry["description"] == tool.description, f"{tool.name} description drifted"
+        live_title = tool.annotations.title if tool.annotations else None
+        assert entry["annotations"]["title"] == live_title, f"{tool.name} title drifted"
+
+    card_prompts = {p["name"]: p for p in card["prompts"]}
+    assert card_prompts.keys() == {p.name for p in live_prompts}
+    for prompt in live_prompts:
+        entry = card_prompts[prompt.name]
+        assert entry["description"] == prompt.description, f"{prompt.name} description drifted"
+        live_arguments = [
+            {"name": a.name, "description": a.description, "required": a.required}
+            for a in (prompt.arguments or [])
+        ]
+        assert entry["arguments"] == live_arguments, f"{prompt.name} arguments drifted"
+
+
 async def test_tool_annotations() -> None:
     """Backlog item 2: all five tools are read-only, non-destructive and
     idempotent; the three that call a national register are `openWorldHint`
@@ -406,8 +444,25 @@ async def test_rules_resource_unsupported_country_is_json_error() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Prompt
+# Prompts
 # ---------------------------------------------------------------------------
+
+
+async def test_prompts_list_has_explain_counterparty_and_coverage() -> None:
+    """Two prompts added alongside the pre-existing `explain_company`
+    (`~/mcp-growth/DEPTH.md` §6: a job-shaped prompt is the artefact that most
+    distinguishes a used server from an unused one). `DECISIONS.md` D-042(c) rules that a
+    tool is bought by a distinct question and authorises zero new tools today — a prompt
+    is a different MCP primitive and is not gated by that ruling, so this adds no tool and
+    does not touch `test_tools_list_has_five_registry_tools_plus_two_connector_aliases`
+    above."""
+    async with Client(mcp) as client:
+        prompts = await client.list_prompts()
+    assert {p.name for p in prompts} == {
+        "explain_company",
+        "counterparty_check",
+        "register_coverage",
+    }
 
 
 async def test_explain_company_prompt_renders() -> None:
@@ -418,6 +473,63 @@ async def test_explain_company_prompt_renders() -> None:
     assert "923609016" in text
     assert "lookup_company" in text
     assert "company_deadlines" in text
+
+
+async def test_counterparty_check_prompt_renders_and_names_its_tools() -> None:
+    async with Client(mcp) as client:
+        result = await client.get_prompt(
+            "counterparty_check", {"id": "923609016", "country": "NO"}
+        )
+    assert len(result.messages) >= 1
+    text = result.messages[0].content.text
+    assert "923609016" in text
+    assert "validate_company_id" in text
+    assert "lookup_company" in text
+    assert "company_deadlines" in text
+
+
+async def test_counterparty_check_prompt_states_what_it_does_not_establish() -> None:
+    """The load-bearing caveat (`DECISIONS.md`, this task's brief, `~/mcp-growth/ADOPTION.md`
+    §3): business-email-compromise fraud impersonates a real, active, correctly-registered
+    supplier and forges only the bank details, so "check a supplier before you pay"
+    over-promises. This prompt's own output — not just its docstring — must say plainly
+    what it does not establish, every time it renders, regardless of which company was
+    asked about."""
+    async with Client(mcp) as client:
+        result = await client.get_prompt("counterparty_check", {"id": "923609016"})
+    text = result.messages[0].content.text
+    assert "What this does not establish" in text
+    assert "bank account or payment details" in text
+    assert "not a defence against payment fraud" in text
+    assert "business email compromise" in text
+    assert "sanctions, PEP or adverse-media" in text
+
+
+async def test_register_coverage_prompt_renders_and_reads_the_rules_resource() -> None:
+    async with Client(mcp) as client:
+        result = await client.get_prompt(
+            "register_coverage", {"id": "00445790", "country": "GB"}
+        )
+    text = result.messages[0].content.text
+    assert "00445790" in text
+    assert "lookup_company" in text
+    assert "registry://rules/GB" in text
+
+
+async def test_register_coverage_prompt_distinguishes_structural_from_entity_nulls() -> None:
+    """The honest-negatives requirement operationalised: a `null` field on a
+    `CompanyReport` is not one fact, it is two (`DECISIONS.md` D-011 — `employees_reported`
+    distinguishes "no figure held" from "brreg set the flag"), and this prompt must tell
+    the agent to tell them apart rather than rendering every null the same way, for
+    whichever country was asked about."""
+    async with Client(mcp) as client:
+        result = await client.get_prompt("register_coverage", {"id": "923609016"})
+    text = result.messages[0].content.text
+    assert "What the register states" in text
+    assert "What it does not state" in text
+    assert "structural" in text
+    assert "employees_reported" in text
+    assert "never render a null as" in text.lower()
 
 
 # ---------------------------------------------------------------------------

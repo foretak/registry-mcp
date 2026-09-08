@@ -3,6 +3,8 @@
     "name": "registry-mcp",
     "version": "0.3.0"
   },
+  "title": "registry-mcp — company status & filing check",
+  "description": "Check whether a company you're about to deal with is real, active and keeping up with its statutory filings, straight from the national business register itself (Norway, the United Kingdom, Sweden today) — not a resold copy, and not a payment-fraud or sanctions check.",
   "authentication": {
     "required": false,
     "schemes": []
@@ -1949,6 +1951,38 @@
     {
       "name": "explain_company",
       "description": "Explain one company for a non-expert reader: call lookup + deadlines and summarise.",
+      "arguments": [
+        {
+          "name": "id",
+          "description": "Provide a value matching the following JSON schema: {\"type\":\"string\"}. Encode non-string values as JSON.",
+          "required": true
+        },
+        {
+          "name": "country",
+          "description": "Provide a value matching the following JSON schema: {\"type\":\"string\"}. Encode non-string values as JSON.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "counterparty_check",
+      "description": "Check a counterparty before contracting with or onboarding them: existence, current\nlegal status and filing health — not a payment-fraud or bank-detail check.",
+      "arguments": [
+        {
+          "name": "id",
+          "description": "Provide a value matching the following JSON schema: {\"type\":\"string\"}. Encode non-string values as JSON.",
+          "required": true
+        },
+        {
+          "name": "country",
+          "description": "Provide a value matching the following JSON schema: {\"type\":\"string\"}. Encode non-string values as JSON.",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "register_coverage",
+      "description": "Explain what this company's register record actually says — and, the point of this\nprompt, what it stays silent on and why.",
       "arguments": [
         {
           "name": "id",
