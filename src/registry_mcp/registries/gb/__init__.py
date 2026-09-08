@@ -21,7 +21,14 @@ from __future__ import annotations
 from datetime import date
 from typing import ClassVar
 
-from registry_mcp.core.models import CompanyReport, Deadline, SearchResult
+from registry_mcp.core.models import (
+    Charge,
+    ChargeBlock,
+    CompanyReport,
+    Deadline,
+    SearchResult,
+    SourceRef,
+)
 from registry_mcp.core.registry import Registry, register
 
 __all__ = ["CompaniesHouseRegistry"]
@@ -45,6 +52,7 @@ class CompaniesHouseRegistry(Registry):
     is_stub: ClassVar[bool] = False
     requires_api_key: ClassVar[bool] = True
     api_key_env: ClassVar[str] = "COMPANIES_HOUSE_API_KEY"
+    supported_includes: ClassVar[frozenset[str]] = frozenset({"charges"})
 
     def validate_id(self, id: str) -> str:
         """Normalise and shape-check a UK company number (``registries/gb/rules.py``)."""
@@ -72,6 +80,41 @@ class CompaniesHouseRegistry(Registry):
         from registry_mcp.registries.gb import client
 
         return await client.search(name, limit)
+
+    async def charges(self, id: str) -> ChargeBlock:
+        """Registered charges (mortgages) for this entity (``registries/gb/client.py``).
+
+        The ``include=["charges"]`` attachment (``DECISIONS.md`` D-042,
+        ``tasks/T37.md``): :meth:`Registry.lookup_with` calls this by name —
+        it must stay named exactly ``charges``, matching both
+        :attr:`supported_includes` and :class:`~registry_mcp.core.models.
+        CompanyReport`'s ``charges`` field (D-042(b),(g)).
+
+        ``registries/gb/charges.py`` was built behind a seam, self-contained
+        and blind to ``core/models.py``'s shapes on purpose (R-5 had not
+        landed when it was written): its ``ChargeList``/``ChargeProvenance``
+        are field-for-field the same shape as the real ``ChargeBlock``/
+        ``SourceRef`` this method returns, so wiring the two together here is
+        a straight copy, not a translation — verified by comparing both
+        model's field names before this method was written.
+
+        A malformed ``id`` raises ``invalid_id`` the same way :meth:`lookup`
+        does; a company with no registered charges still returns a
+        **present** ``ChargeBlock`` with an empty ``charges`` list, never
+        ``not_found`` (D-041(h), confirmed live — ``registries/gb/charges.py``'s
+        module docstring).
+        """
+        from registry_mcp.registries.gb import client
+
+        block = await client.fetch_charges(id)
+        return ChargeBlock(
+            charges=[Charge.model_validate(c.model_dump()) for c in block.charges],
+            total_count=block.total_count,
+            outstanding_count=block.outstanding_count,
+            satisfied_count=block.satisfied_count,
+            provenance=SourceRef.model_validate(block.provenance.model_dump()),
+            notes=list(block.notes),
+        )
 
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """UK filing deadlines for this entity (``registries/gb/rules.py``).

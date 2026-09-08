@@ -51,6 +51,7 @@ def _load_fixture(name: str) -> dict[str, Any]:
 
 EQUINOR = _load_fixture("brreg_923609016.json")
 TESCO = _load_fixture("ch_00445790.json")
+TESCO_CHARGES = _load_fixture("ch_00445790_charges.json")
 
 
 @pytest.fixture(autouse=True)
@@ -601,6 +602,93 @@ def test_rest_and_mcp_lookup_company_are_identical_gb(monkeypatch: pytest.Monkey
     assert {k: v for k, v in rest_body.items() if k not in volatile} == {
         k: v for k, v in mcp_body.items() if k not in volatile
     }
+
+
+@respx.mock
+def test_rest_and_mcp_lookup_company_include_charges_are_identical_gb(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `include=["charges"]` path (T37 / D-042), same D-004 guarantee:
+    `?include=charges` (REST) and `include=["charges"]` (MCP) attach the
+    identical `charges` block, both with a `SourceRef` distinct from the
+    report's own provenance."""
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_DISABLED", "1")
+    respx.get(f"{GB_BASE_URL}/company/00445790").mock(
+        return_value=httpx.Response(200, json=TESCO)
+    )
+    respx.get(f"{GB_BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+
+    with TestClient(app) as rest_client:
+        rest_body = rest_client.get(
+            "/v1/GB/company/00445790",
+            params={"include": "charges"},
+            headers={"X-Forwarded-For": "203.0.113.98"},
+        ).json()
+
+    async def _mcp_call() -> dict[str, Any]:
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "lookup_company", {"id": "00445790", "country": "GB", "include": ["charges"]}
+            )
+            assert result.structured_content is not None
+            data: dict[str, Any] = result.structured_content
+            return data
+
+    mcp_body = anyio.run(_mcp_call)
+
+    assert rest_body["charges"] is not None
+    assert len(rest_body["charges"]["charges"]) == 9
+
+    # `charges.provenance.fetched_at` is a *second* live timestamp — its own
+    # independent moment (D-041(c)) — captured separately by REST's call and
+    # MCP's call here, so it is allowed to differ by microseconds exactly
+    # like the report's own `fetched_at` is; strip both before the byte-equal
+    # comparison the rest of D-004's guarantee still has to satisfy.
+    rest_body["charges"]["provenance"].pop("fetched_at")
+    mcp_body["charges"]["provenance"].pop("fetched_at")
+
+    volatile = {"fetched_at"}
+    assert {k: v for k, v in rest_body.items() if k not in volatile} == {
+        k: v for k, v in mcp_body.items() if k not in volatile
+    }
+
+
+@respx.mock
+def test_rest_and_mcp_lookup_company_unknown_include_agree_gb(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both surfaces raise the identical `bad_request` for an `include` value
+    GB does not declare (D-042(d)) — never a silently empty `charges`."""
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_DISABLED", "1")
+    respx.get(f"{GB_BASE_URL}/company/00445790").mock(
+        return_value=httpx.Response(200, json=TESCO)
+    )
+
+    with TestClient(app) as rest_client:
+        rest_resp = rest_client.get(
+            "/v1/GB/company/00445790",
+            params={"include": "officers"},
+            headers={"X-Forwarded-For": "203.0.113.99"},
+        )
+    assert rest_resp.status_code == 400
+    rest_error = rest_resp.json()["error"]
+
+    async def _mcp_call() -> dict[str, Any]:
+        async with Client(mcp) as client:
+            with pytest.raises(ToolError) as excinfo:
+                await client.call_tool(
+                    "lookup_company", {"id": "00445790", "country": "GB", "include": ["officers"]}
+                )
+            payload: dict[str, Any] = json.loads(str(excinfo.value))
+            return payload
+
+    mcp_payload = anyio.run(_mcp_call)
+
+    assert rest_error["code"] == mcp_payload["error"]["code"] == "bad_request"
+    assert rest_error["hint"] == mcp_payload["error"]["hint"]
+    assert "charges" in rest_error["hint"]
 
 
 def test_rest_and_mcp_list_countries_are_identical() -> None:

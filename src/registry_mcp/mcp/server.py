@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -281,6 +281,18 @@ _COUNTRY_DESCRIPTION = (
 )
 _COUNTRY_EXAMPLES = ["NO", "GB"]
 
+_INCLUDE_DESCRIPTION = (
+    "Optional attachment names to fetch alongside the base report, e.g. ['charges'] for "
+    "United Kingdom (country='GB') registered charges (mortgages and other security "
+    "interests) — a second, independent fetch attached at that same name, with its own "
+    "provenance. Empty by default, which costs exactly one upstream request, same as "
+    "before this argument existed. Most countries declare none yet — call list_countries "
+    "and check a country's supported_includes before guessing; an include value that "
+    "country does not declare is a bad_request naming what it does support, never a "
+    "silently empty result."
+)
+_INCLUDE_EXAMPLES: list[list[str]] = [["charges"], []]
+
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -299,6 +311,9 @@ async def lookup_company(
     country: Annotated[
         str, Field(description=_COUNTRY_DESCRIPTION, examples=_COUNTRY_EXAMPLES)
     ] = "NO",
+    include: Annotated[
+        Sequence[str], Field(description=_INCLUDE_DESCRIPTION, examples=_INCLUDE_EXAMPLES)
+    ] = (),
 ) -> dict[str, Any]:
     """Look up a company by its national identifier and get the full CompanyReport — legal
     form, status, address, VAT registration where the register publishes it, board and
@@ -314,6 +329,14 @@ async def lookup_company(
     556016-0680 — or, for a sole trader (enskild näringsidkare), the proprietor's
     twelve-digit personnummer; Sweden is looked up by identifier only, since Bolagsverket's
     free API has no name search.
+
+    For United Kingdom companies, pass `include=["charges"]` to also fetch that entity's
+    registered charges (mortgages and other security interests against the company) as
+    `charges` on the result — a second, independent fetch with its own provenance, `null`
+    unless you asked for it. Most countries declare no attachments yet; call
+    `list_countries` and read a country's `supported_includes` before guessing, since an
+    `include` value that country does not declare raises `bad_request` naming what it does
+    support instead of silently returning nothing.
 
     Use it once you have the identifier — from the user, an invoice, a contract, or a
     `search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and
@@ -331,13 +354,16 @@ async def lookup_company(
     fix it or call `search_company` with the company name instead of retrying the same
     string. `not_found` means the identifier is well-formed but no such entity exists —
     call `search_company`. `unsupported_country` means no module exists for that country
-    yet — call `list_countries`. `upstream_error`/`upstream_timeout` means the national
-    register is unavailable; it has already been retried once here, so wait roughly a
-    minute before trying again yourself.
+    yet — call `list_countries`. `bad_request` means an `include` value is not declared by
+    this country — its `hint` names what is. `upstream_error`/`upstream_timeout` means the
+    national register is unavailable; it has already been retried once here, so wait
+    roughly a minute before trying again yourself. A failed *attachment* fetch never raises
+    any of these: the base report still comes back, `charges` is left `null`, and `notes`
+    gains one sentence saying which attachment failed and why.
     """
     with _call_context(operation="lookup_company", country=country, query=id) as outcome:
         registry = get_registry(country)
-        report = await registry.lookup(id)
+        report = await registry.lookup_with(id, include)
         outcome.cached = report.cached
     return report.model_dump(mode="json")
 

@@ -14,7 +14,7 @@ import logging
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pydantic
@@ -22,11 +22,18 @@ import pytest
 import respx
 
 from registry_mcp.core import cache
-from registry_mcp.core.models import CompanyStatus, ErrorCode, RegistryError
+from registry_mcp.core.models import (
+    Charge,
+    ChargeBlock,
+    CompanyStatus,
+    ErrorCode,
+    RegistryError,
+    SourceRef,
+)
 from registry_mcp.core.registry import get_registry
+from registry_mcp.registries.gb import CompaniesHouseRegistry, mapping
 from registry_mcp.registries.gb import charges as charges_module
 from registry_mcp.registries.gb import client as client_module
-from registry_mcp.registries.gb import mapping
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = client_module.BASE_URL
@@ -1094,6 +1101,141 @@ async def test_fetch_charges_institution_names_never_reach_a_log_line(
         message = record.getMessage()
         for name in names:
             assert name not in message
+
+
+# ---------------------------------------------------------------------------
+# H. Wiring `charges` through `include=[...]` (joining R-5 and R-5c/T37 Part
+# B's seam, `DECISIONS.md` D-042): `CompaniesHouseRegistry.charges()` copies
+# `registries/gb/charges.py`'s local `ChargeList`/`ChargeProvenance` onto the
+# real `core.models.ChargeBlock`/`SourceRef`, and `Registry.lookup_with`
+# (R-5, `core/registry.py`) is what a caller actually uses.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_registry_charges_returns_real_core_models_chargeblock() -> None:
+    """`CompaniesHouseRegistry.charges()` returns the wired
+    `core.models.ChargeBlock`/`Charge`/`SourceRef` — not the local stand-ins
+    `registries/gb/charges.py` defines for itself — with every field copied
+    across, not just the count."""
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+    # `charges()` is concrete on `CompaniesHouseRegistry`, not on the abstract
+    # `Registry` `get_registry` is typed to return — the same dynamic-dispatch
+    # relationship `Registry.lookup_with` relies on (`getattr(self, name)`).
+    registry = cast(CompaniesHouseRegistry, get_registry("GB"))
+    block = await registry.charges("00445790")
+
+    assert isinstance(block, ChargeBlock)
+    assert isinstance(block.provenance, SourceRef)
+    assert all(isinstance(c, Charge) for c in block.charges)
+    assert [c.charge_number for c in block.charges] == [9, 8, 7, 6, 5, 4, 3, 2, 1]
+    assert block.total_count == 9
+    assert block.outstanding_count == 2
+    assert block.satisfied_count == 7
+
+    outstanding = block.charges[0]
+    assert outstanding.status == "outstanding"
+    assert outstanding.is_outstanding is True
+    assert outstanding.parties_entitled == [
+        "Tesco Trustee Company of Ireland Limited as Trustee of the Tesco Ireland Limited "
+        "Senior Executive Pension Scheme"
+    ]
+    assert block.provenance.source == "Companies House (UK)"
+    assert block.provenance.source_url == (
+        "https://find-and-update.company-information.service.gov.uk/company/00445790/charges"
+    )
+    assert (
+        block.provenance.license
+        == "Crown copyright — Companies House public register, free to re-use"
+    )
+    assert block.provenance.cached is False
+
+
+def test_gb_supported_includes_is_charges_only() -> None:
+    registry = get_registry("GB")
+    assert registry.supported_includes == frozenset({"charges"})
+
+
+@respx.mock
+async def test_lookup_with_charges_round_trip_tesco_has_own_source_ref() -> None:
+    """The adversarial round trip: `lookup_with("00445790", ["charges"])`
+    returns a report whose `charges` block holds all nine charges, with its
+    own `SourceRef` distinct from the report's own provenance (D-041(c))."""
+    respx.get(f"{BASE_URL}/company/00445790").mock(return_value=httpx.Response(200, json=TESCO))
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(
+        return_value=httpx.Response(200, json=TESCO_CHARGES)
+    )
+    registry = get_registry("GB")
+
+    report = await registry.lookup_with("00445790", ["charges"])
+    assert report.name == "TESCO PLC"
+    assert report.charges is not None
+    assert len(report.charges.charges) == 9
+    assert report.charges.provenance.fetched_at != report.fetched_at
+    assert report.charges.provenance.source == "Companies House (UK)"
+
+
+@respx.mock
+async def test_lookup_with_no_include_leaves_charges_absent() -> None:
+    """Nullability level one: not requested at all -> `None`, not an empty block."""
+    respx.get(f"{BASE_URL}/company/00445790").mock(return_value=httpx.Response(200, json=TESCO))
+    registry = get_registry("GB")
+
+    report = await registry.lookup_with("00445790")
+    assert report.charges is None
+    report_empty_list = await registry.lookup_with("00445790", [])
+    assert report_empty_list.charges is None
+
+
+@respx.mock
+async def test_lookup_with_charges_present_empty_block_for_company_with_none() -> None:
+    """Nullability level two, the load-bearing case (D-011, D-042(d)): a
+    company Companies House confirms has no charges gets a *present* block
+    with `charges: []` — never absent, never `not_found`."""
+    respx.get(f"{BASE_URL}/company/OC303675").mock(return_value=httpx.Response(200, json=DELOITTE))
+    respx.get(f"{BASE_URL}/company/OC303675/charges").mock(
+        return_value=httpx.Response(200, json=DELOITTE_CHARGES)
+    )
+    registry = get_registry("GB")
+
+    report = await registry.lookup_with("OC303675", ["charges"])
+    assert report.charges is not None
+    assert report.charges.charges == []
+    assert report.charges.total_count == 0
+
+
+@respx.mock
+async def test_lookup_with_unknown_include_is_bad_request_naming_gb_allowed_set() -> None:
+    respx.get(f"{BASE_URL}/company/00445790").mock(return_value=httpx.Response(200, json=TESCO))
+    registry = get_registry("GB")
+
+    with pytest.raises(RegistryError) as excinfo:
+        await registry.lookup_with("00445790", ["officers"])
+    assert excinfo.value.code is ErrorCode.BAD_REQUEST
+    assert "charges" in excinfo.value.hint
+    assert excinfo.value.details == {"allowed": ["charges"], "unknown": ["officers"]}
+
+
+@respx.mock
+async def test_lookup_with_failing_charges_fetch_leaves_lookup_intact_with_a_note() -> None:
+    """A failed attachment never fails the lookup (D-041(c), D-042(b),(j)):
+    the base report still comes back complete, `charges` is left absent, and
+    `notes` gains one sentence naming the failed attachment."""
+    respx.get(f"{BASE_URL}/company/00445790").mock(return_value=httpx.Response(200, json=TESCO))
+    respx.get(f"{BASE_URL}/company/00445790/charges").mock(return_value=httpx.Response(401))
+    registry = get_registry("GB")
+
+    report = await registry.lookup_with("00445790", ["charges"])
+    assert report.name == "TESCO PLC"
+    assert report.charges is None
+    assert any("charges" in note for note in report.notes)
+
+
+def test_se_and_no_still_declare_no_includes() -> None:
+    assert get_registry("SE").supported_includes == frozenset()
+    assert get_registry("NO").supported_includes == frozenset()
 
 
 # --- Live done-check --------------------------------------------------------

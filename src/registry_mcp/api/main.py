@@ -26,7 +26,7 @@ import os
 import re
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager
 from html import escape
 from pathlib import Path
@@ -791,11 +791,27 @@ async def get_countries(request: Request) -> CountriesResponse:
     ),
     responses={200: {"content": {"application/json": {"example": _COMPANY_EXAMPLE}}}},
 )
-async def get_company(country: str, id: str, request: Request) -> CompanyReport:
+async def get_company(
+    country: str,
+    id: str,
+    request: Request,
+    include: Sequence[str] = Query(
+        default_factory=list,
+        description=(
+            "Optional attachment names to fetch alongside the base report, e.g. "
+            "?include=charges for United Kingdom (GB) registered charges (mortgages and "
+            "other security interests), attached at that same key with its own "
+            "provenance. Repeat the parameter for more than one (?include=a&include=b). "
+            "Empty by default. A value the resolved country does not declare is a "
+            "bad_request (400) naming what it does support — see a country's "
+            "supported_includes at GET /v1/countries."
+        ),
+    ),
+) -> CompanyReport:
     started = time.monotonic()
     registry = get_registry(country)
     try:
-        report = await registry.lookup(id)
+        report = await registry.lookup_with(id, include)
     except RegistryError as exc:
         _record(
             operation="lookup_company", country=country.upper(), query=id, request=request,

@@ -96,7 +96,7 @@ to approach the ceiling.
 | Lookup a company | `GET /company/{company_number}` | 200 with the profile; 404 if unknown |
 | Search by name | `GET /search/companies?q={q}&items_per_page={n}` | §4 |
 | Officers | `GET /company/{n}/officers` | `DEFERRED` — the exact analogue of Norway's `/roller` |
-| Charges | `GET /company/{n}/charges` | `DEFERRED` |
+| Charges | `GET /company/{n}/charges` | Exposed via `include=["charges"]` on `lookup_company` / `?include=charges` on the company route (`DECISIONS.md` D-042, `tasks/T37.md`). `registries/gb/charges.py`, `registries/gb/client.py::fetch_charges` |
 | Insolvency | `GET /company/{n}/insolvency` | `DEFERRED` |
 | PSCs | `GET /company/{n}/persons-with-significant-control` | `DEFERRED` |
 | Filing history | `GET /company/{n}/filing-history` | `DEFERRED` |

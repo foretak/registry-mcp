@@ -31,6 +31,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 __all__ = [
     "Address",
+    "Charge",
+    "ChargeBlock",
     "CompanyReport",
     "CompanyStatus",
     "CountriesResponse",
@@ -590,6 +592,129 @@ class SourceRef(_Base):
     )
 
 
+class Charge(_Base):
+    """One registered charge (a mortgage or other security interest) against
+    an entity — one row of a `ChargeBlock`.
+
+    Field names are country-neutral (D-042(g)): GB is the first filler
+    (Companies House `/company/{n}/charges`, `registries/gb/__init__.py`),
+    and any future filler (e.g. Norway's Løsøreregisteret, once it opens a
+    public API) maps onto this same shape rather than getting one of its own.
+    """
+
+    charge_id: str | None = Field(
+        default=None,
+        description=(
+            "The register's own opaque handle for this charge; not fetchable through this "
+            "API. `None` when the register has no such handle for an older filing — "
+            "honestly absent, not guessed."
+        ),
+    )
+    charge_number: int | None = Field(
+        default=None,
+        description="The register's sequence number for this charge, within this company.",
+    )
+    status: str | None = Field(
+        default=None,
+        description=(
+            'The register\'s own word, verbatim, e.g. "outstanding", "fully-satisfied" — '
+            "national vocabulary lives here, in the value, never in a field name (D-042(g)). "
+            "See `is_outstanding` for the country-neutral derived flag."
+        ),
+    )
+    is_outstanding: bool | None = Field(
+        default=None,
+        description=(
+            "Derived from `status` by membership of a country module's own committed table "
+            "of status words it has actually observed on the wire. `None` when `status` is "
+            "absent or is a word not yet in that table — never guessed, never `False` by "
+            "default (D-025(d), D-011)."
+        ),
+    )
+    classification: str | None = Field(
+        default=None, description="What kind of instrument this is, as the register describes it."
+    )
+    created_on: date | None = Field(default=None, description="When the charge was created.")
+    delivered_on: date | None = Field(
+        default=None, description="When the charge was delivered to the register for registration."
+    )
+    satisfied_on: date | None = Field(
+        default=None, description="When the charge was satisfied, if it has been."
+    )
+    assets_charged: str | None = Field(
+        default=None, description="The register's own free-text description of what is charged."
+    )
+    obligations_secured: str | None = Field(
+        default=None,
+        description="The register's own free-text description of what the charge secures.",
+    )
+    contains_floating_charge: bool | None = Field(
+        default=None,
+        description="Whether the register marks this instrument as including a floating charge.",
+    )
+    parties_entitled: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Names exactly as the register publishes them for the party or parties the "
+            "charge is entitled to (typically a bank, an insurer or a trustee company; "
+            "occasionally a natural person, e.g. a director lending to their own company). "
+            "This is a term of the company's own instrument, not a person record: it is "
+            "never a lookup key, never indexed, never searchable and never reaches a log "
+            "line (D-028(1), D-040). It is the one place in this product a natural "
+            "person's name can appear, and it is deliberately not named the register's own "
+            "`persons_entitled` — that name asserts a natural person; this one does not."
+        ),
+    )
+
+
+class ChargeBlock(_Base):
+    """Registered charges for one entity — an `include=["charges"]` attachment
+    (D-042(g),(h)), never a plain field on `CompanyReport` (D-041(c)): it is a
+    second round trip with its own moment, its own cache state and its own
+    failure mode, so it carries its own `SourceRef` rather than reusing the
+    report's.
+
+    Two-level nullability is the point of this shape (D-026(c), D-041(c),
+    D-042(d)(3)): `CompanyReport.charges` is `None` when `charges` was not in
+    `include`, or when the fetch failed (`Registry.lookup_with` appends a
+    `notes` sentence on the report saying which). Once *present*, this block
+    carries `charges: []` for an entity the register confirms has none —
+    that case must never collapse into the absent case, and must never be
+    `not_found` (D-011).
+    """
+
+    charges: list[Charge] = Field(
+        default_factory=list,
+        description="Sorted newest first (a country module's own tie-break rule).",
+    )
+    total_count: int | None = Field(
+        default=None,
+        description=(
+            "The register's own count of charges for this company, which may exceed "
+            "`len(charges)` — see `notes` for a truncation disclosure when it does."
+        ),
+    )
+    outstanding_count: int | None = Field(
+        default=None,
+        description=(
+            "Derived as `total_count - satisfied_count` when the register publishes both as "
+            "whole-company figures; a register that also tracks a distinct "
+            "partially-satisfied state folds it in here as not-fully-satisfied. `None` when "
+            "the register does not publish enough to derive it."
+        ),
+    )
+    satisfied_count: int | None = Field(
+        default=None, description="The register's own whole-company count of satisfied charges, verbatim."
+    )
+    provenance: SourceRef = Field(
+        description="Where, when and under what licence this block was fetched."
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description="Plain-English caveats about this block, e.g. truncation when `total_count` exceeds `len(charges)`.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Company report
 # ---------------------------------------------------------------------------
@@ -784,6 +909,19 @@ class CompanyReport(_Base):
             "input `Registry.deadlines(report, today)` needs to prefer the register's own "
             "figure over any calculation (DECISIONS.md D-018), and it is what keeps that "
             "method the pure function of (report, today) its contract promises."
+        ),
+    )
+
+    # --- attachments (opt-in via `include=[...]`, D-026(c), D-042) ----------
+    charges: ChargeBlock | None = Field(
+        default=None,
+        description=(
+            "Registered charges (mortgages / security interests) against this entity. "
+            "`None` unless `charges` was passed in `include=[...]` — and, even then, `None` "
+            "if that fetch failed (see `notes` for which attachment and why). A country "
+            "that declares this attachment (`CountryInfo.supported_includes`) returns a "
+            "*present* block with an empty `charges` list for an entity that genuinely has "
+            "none — the two states never collapse into each other (D-011, D-042(d))."
         ),
     )
 
