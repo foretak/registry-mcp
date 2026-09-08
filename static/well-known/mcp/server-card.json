@@ -922,6 +922,140 @@
             "title": "Published Deadlines",
             "type": "array"
           },
+          "lei": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "description": "The Legal Entity Identifier GLEIF (the Global LEI Foundation) publishes\nfor one entity — the ``include=[\"lei\"]`` attachment, D-026(c)'s shape,\nunamended by D-045(e). Unlike every other attachment, this upstream is\nnot any one country's own register: GLEIF publishes every jurisdiction\nfrom one endpoint, under one CC0 licence, with one TTL, so it is the\nfirst attachment every country declares by default\n(``Registry.universal_includes``, D-045(e)) rather than something a\ncountry module opts into.\n\nThe two-level nullability is D-026(c)'s and D-011's, restated here: an\n**absent** ``CompanyReport.lei`` means the attachment was not requested,\nor the fetch failed (a ``notes`` sentence on the report says which); a\n**present** block with ``lei=None`` means GLEIF holds no LEI for this\nentity, which is a real and useful answer about a counterparty and must\nnever be rendered as though nothing were known.",
+                "properties": {
+                  "lei": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The 20-character Legal Entity Identifier GLEIF publishes for this entity. `None` *inside a present block* means GLEIF holds no LEI for it — a real and useful answer about a counterparty, and not the same as this block being absent (D-026(c), D-011). The LEI is **not** the EUID — see `CompanyReport.euid`'s own description for that distinction rather than restating it here.",
+                    "title": "Lei"
+                  },
+                  "legal_name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The legal name as GLEIF publishes it, carried verbatim. May differ from `CompanyReport.name`, because the two are two registers' opinions recorded at two different moments — never reconciled against it and never used to correct the company record (D-018: say which source said what).",
+                    "title": "Legal Name"
+                  },
+                  "registration_status": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "GLEIF's own `registration.status` for this LEI record, verbatim: 'ISSUED', 'LAPSED', … (national-vocabulary-in-values, D-042(g)). A 'LAPSED' LEI means the entity stopped renewing its registration and is **not** evidence of insolvency or inactivity — Carillion plc ('03782379') and Lehman Brothers International (Europe) ('02538254') both read `entity.status: ACTIVE` beside `registration.status: LAPSED`. This field carries the *registration's* status; GLEIF's `entity.status` is not carried at all, because it is a claim about the company made by neither the company's own register nor us.",
+                    "title": "Registration Status"
+                  },
+                  "provenance": {
+                    "additionalProperties": false,
+                    "description": "Where, when and under what licence this block was fetched. `source` names GLEIF, `license` is 'CC0 1.0', and `source_url` is this record's own GLEIF URL. Never implies endorsement and never describes registry-mcp as a GLEIF service — GLEIF's anti-impersonation clause sits outside its data licence (D-026(c)).",
+                    "properties": {
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Human-readable source name, e.g. 'GLEIF Level 1 (gleif.org)'.",
+                        "title": "Source"
+                      },
+                      "source_url": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Direct URL of the upstream record, for citation.",
+                        "title": "Source Url"
+                      },
+                      "license": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "title": "License"
+                      },
+                      "fetched_at": {
+                        "anyOf": [
+                          {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "UTC timestamp of the live fetch this attachment came from.",
+                        "title": "Fetched At"
+                      },
+                      "cached": {
+                        "default": false,
+                        "description": "True when this attachment was served from cache rather than a live fetch.",
+                        "title": "Cached",
+                        "type": "boolean"
+                      }
+                    },
+                    "title": "SourceRef",
+                    "type": "object"
+                  },
+                  "notes": {
+                    "description": "Plain-English caveats about this block. Always names the exact string sent as GLEIF's `entity.registeredAs` filter, so a `lei: null` answer is legible rather than silent, and the register-authority code GLEIF cites for this entity. If GLEIF returned more than one record for this registration number, a sentence discloses how many and each LEI, rather than silently picking one.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "title": "Notes",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "provenance"
+                ],
+                "title": "LeiRecord",
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "This entity's Legal Entity Identifier record, from GLEIF — not a national register (D-026(c), D-045(e)). `None` unless `lei` was passed in `include=[...]` — and, even then, `None` if that fetch failed (see `notes` for why). A country that declares this attachment (`CountryInfo.supported_includes`) returns a *present* block even for an entity GLEIF holds no LEI for: `LeiRecord.lei` is `None` inside it, which is a real answer, never the same as this field being absent (D-011). Declared by default by every country whose identifiers cannot be a natural person's (`Registry.universal_includes`) — Sweden does not declare it, because GLEIF is a third-party host queried by identifier in a URL query string."
+          },
           "charges": {
             "anyOf": [
               {
@@ -1693,6 +1827,535 @@
             ],
             "default": null,
             "description": "Insolvency proceedings the register publishes against this entity. `None` unless `insolvency` was passed in `include=[...]`, or that fetch failed. A *present* block with `cases: []` means the register publishes no case, which for Companies House is the normal answer for a solvent company — and is not evidence the entity exists, since that register answers the same way for a number never issued. Read `InsolvencyCase.is_liquidation` with its own caveat: a members' voluntary liquidation is a solvent wind-up."
+          },
+          "financials": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "description": "Key figures from an entity's filed annual accounts — an\n``include=[\"financials\"]`` attachment (DECISIONS.md D-043), never a plain\nfield on :class:`CompanyReport` (D-041(c)): it is a second round trip with\nits own moment, its own cache state and its own failure mode, so it\ncarries its own :class:`SourceRef` rather than reusing the report's.\n\n**A second block, not a wider `FiledDocument`** (D-043(b)): \"did they file\non time\" and \"what do the numbers say\" are two different questions, and\nfolding nineteen numeric fields onto `FiledDocument` would collapse two\nmeanings into one `None` — \"Britain does not publish this\" and \"this\nNorwegian company did not report this line\" — which D-011 forbids.\n\nNorway fills this block today; Sweden and Britain do not, and the reason\nis a scope decision this project made (Bolagsverket's figures live only\ninside a zip this project declines to parse; Companies House's only\ninside filed iXBRL this project declines to parse), not the register's\nsilence (DECISIONS.md D-043(i)). `include=[\"financials\"]` on a country\nthat does not declare it is `bad_request`, never a silently empty block.\n\nTwo-level nullability is the point of the shape (D-011, D-026(c),\nD-041(c), D-042(d)(3)): once *present*, this block carries `periods: []`\nfor an entity Regnskapsregisteret holds no filed accounts for — that\nstate must never collapse into the absent state and must never be\n``not_found``. **No field on this block or on `FinancialPeriod` is a\nderived ratio, indicator or verdict** — DECISIONS.md D-043(e) rules out an\nequity ratio, a current ratio, a net-debt figure, a working-capital\nfigure and every similar field on three independent grounds, the\nstrongest being that the register relays filings whose own totals do not\nreconcile on 27 of 358 observed filings. The one comparison this project\nmakes is a `notes` sentence, never a number: see `notes` below.",
+                "properties": {
+                  "periods": {
+                    "description": "Filed accounting periods, sorted newest first by `period_end`. Regnskapsregisteret publishes exactly one — the endpoint takes no year argument and holds no history — so this is a latest-figures block, not a trend; `notes` says so on every non-empty block. The list exists for a register that publishes more than one.",
+                    "items": {
+                      "additionalProperties": false,
+                      "description": "One filed accounting period's key figures — Regnskapsregisteret's own\nfiling, mapped a second time alongside :class:`~registry_mcp.core.models.\nFiledDocument` (D-043(h)): the two travel together because both come from\nthe same fetch, and `document_id` and `period_end` are the join keys a\ncaller uses to line this period up with its sibling `FiledDocument`.\n\n`currency` is the one field in this whole block with no default\n(DECISIONS.md D-043(d)): a figure separated from its currency is not\npartially wrong, it is meaningless, and this model makes constructing one\na `pydantic.ValidationError` rather than a silently-`None` currency. A\nperiod the register published with no `valuta` is not carried at all —\nthe mapper skips it and says why in `FinancialSummary.notes` — which is\nsafe because `valuta` was present on 573 of 573 payloads this project has\nread.",
+                      "properties": {
+                        "period_start": {
+                          "anyOf": [
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "The reporting period's first day, as published (`regnskapsperiode.fraDato`). Real, published data — never derived by subtracting twelve months from `period_end`, because a first or final period may be shorter or longer (DECISIONS.md D-009).",
+                          "title": "Period Start"
+                        },
+                        "period_end": {
+                          "anyOf": [
+                            {
+                              "format": "date",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "The reporting period's last day, as published (`regnskapsperiode.tilDato`). Equal to the sibling `FiledDocument.period_end` for this filing on the same report (DECISIONS.md D-043(h)).",
+                          "title": "Period End"
+                        },
+                        "currency": {
+                          "description": "ISO-4217-shaped currency code, verbatim from `valuta`. **Required — this field has no default, and a period the register published with no currency is not constructed at all** (DECISIONS.md D-043(d)): a figure without its currency is not partially wrong, it is meaningless, and this model makes that state unrepresentable rather than merely discouraged. 12 of 358 observed Norwegian filings are not in kroner (USD, EUR, SEK, DKK), so two *Norwegian* companies can be incomparable without either crossing a border. Values are whole units of this currency; scale (thousands, millions) is not recorded because the register does not publish one, and the figures are exact integers that are not significant to that precision.",
+                          "title": "Currency",
+                          "type": "string"
+                        },
+                        "accounting_framework": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "The accounting framework this period was prepared under, verbatim from `regnkapsprinsipper.regnskapsregler` — observed values include 'regnskapslovenAlminneligRegler', 'IFRS' and 'forenkletAnvendelseIFRS'. Two Norwegian companies' figures are not necessarily on the same basis; no field here converts between them (DECISIONS.md D-043(d)).",
+                          "title": "Accounting Framework"
+                        },
+                        "scope": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "What this filing covers, the register's own word, verbatim from `regnskapstype` — 'SELSKAP' (company accounts) is the only value observed in 573 payloads; 'KONSERN' (consolidated) is implied by the vocabulary but was never seen. See `consolidated` for the country-neutral derived flag.",
+                          "title": "Scope"
+                        },
+                        "consolidated": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Whether this filing is a consolidated (group) statement, derived from `scope` by a committed table of words this module has actually observed on the wire — today only `{'SELSKAP': False}`. A word outside that table, including an implied-but-unobserved 'KONSERN', gets `None`, never `False` (DECISIONS.md D-011, D-025(d)): this field never guesses.",
+                          "title": "Consolidated"
+                        },
+                        "small_entity": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Whether this filing was prepared under the reduced-disclosure regime for a *lite foretak* (regnskapsloven § 1-6), from `regnkapsprinsipper.smaaForetak`. **Not a distress signal** — True on 315 of 358 observed filings, the majority case — it is a disclosure caveat: fewer figures exist, and those that do were prepared under rules that permit simplification.",
+                          "title": "Small Entity"
+                        },
+                        "audit_exempt": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Whether the company has resolved to opt out of audit under aksjeloven § 7-6, from `revisjon.fravalgRevisjon` — lawful below that section's thresholds and True on 65 of 358 observed filings (18%). The consequence a credit decision must weigh: no independent auditor checked these figures.",
+                          "title": "Audit Exempt"
+                        },
+                        "unaudited": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Relayed uninverted from `revisjon.ikkeRevidertAarsregnskap`, which its own name claims means these accounts were not audited. **`True` was never observed** in 573 sampled payloads, including every filing by a company that had opted out of audit under `audit_exempt` — so this flag's semantics are unverified: do not read a `False` here as an assertion that the accounts were audited, and do not read this field as more reliable than `audit_exempt` (DECISIONS.md D-043(g)).",
+                          "title": "Unaudited"
+                        },
+                        "liquidation_basis": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Whether this filing is an *avviklingsregnskap* under aksjeloven § 16-10 — a winding-up account prepared on a realisation rather than a going-concern basis, over a final stub period — from `avviklingsregnskap`. Rare (3 of 215 entities the register marks `underAvvikling`) and, when true, real: read `FinancialSummary.notes` for the caveat this triggers. It does not restate the winding-up itself, which `CompanyReport.status` already carries.",
+                          "title": "Liquidation Basis"
+                        },
+                        "document_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "The register's own opaque handle for this filing, verbatim from `journalnr` — the same handle the sibling `FiledDocument.document_id` on `filings` carries for the same filing, and the join key between the two blocks (DECISIONS.md D-043(h)). Not fetchable through this API.",
+                          "title": "Document Id"
+                        },
+                        "income_statement": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "description": "Flows over one reporting period — Regnskapsregisteret's\n``resultatregnskapResultat``, one of two sub-objects on a\n:class:`FinancialPeriod` (D-043(c)). Nested apart from :class:`BalanceSheet`\non purpose: revenue is a flow over a span, not a stock at an instant, and a\ncaller who mixes the two time semantics makes precisely the error this\nsplit exists to prevent.\n\nEvery field is `None` or a whole-unit figure in :attr:`FinancialPeriod.currency`\n— never both `None` and zero at once, and never inferred from the other\n(D-043(f)); see `FinancialPeriod.currency` for what the unit is and why it\nis required.",
+                              "properties": {
+                                "revenue": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Turnover for the period (`sumDriftsinntekter`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)). Absent on 51 of 358 observed filings (14%) — not rare.",
+                                  "title": "Revenue"
+                                },
+                                "operating_costs": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Total operating costs for the period (`sumDriftskostnad`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Operating Costs"
+                                },
+                                "operating_result": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Operating result for the period (`driftsresultat`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Operating Result"
+                                },
+                                "financial_income": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Financial income for the period (`sumFinansinntekter`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Financial Income"
+                                },
+                                "financial_costs": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Financial costs for the period (`sumFinanskostnad`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Financial Costs"
+                                },
+                                "net_financial_items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Net financial items for the period (`nettoFinans`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Net Financial Items"
+                                },
+                                "profit_before_tax": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Ordinary result before tax (`ordinaertResultatFoerSkattekostnad`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Profit Before Tax"
+                                },
+                                "profit_for_period": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Profit or loss for the period (`aarsresultat`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)). One of only three fields present on every one of 573 observed filings.",
+                                  "title": "Profit For Period"
+                                },
+                                "total_comprehensive_income": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Total comprehensive income for the period (`totalresultat`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)). Absent on 209 of 358 observed filings (58%) — the register's own line, not this project's omission.",
+                                  "title": "Total Comprehensive Income"
+                                }
+                              },
+                              "title": "IncomeStatement",
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Flows for this period. `None` when the register published no line in this statement at all for this filing; otherwise present with whichever lines it published, each individually nullable (DECISIONS.md D-043(f))."
+                        },
+                        "balance_sheet": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "description": "Stocks at the period's last instant — Regnskapsregisteret's\n``eiendeler`` and ``egenkapitalGjeld``, the other of the two sub-objects on\na :class:`FinancialPeriod` (D-043(c)). See :class:`IncomeStatement` for why\nthe two are separate models rather than one flat one.\n\nEvery field is `None` or a whole-unit figure in :attr:`FinancialPeriod.currency`\n— never both `None` and zero at once, and never inferred from the other\n(D-043(f)). **No field here is a ratio or a verdict** — an equity ratio, a\ncurrent ratio and every similar derived figure are declined by D-043(e): the\nregister's own `total_assets` and `total_equity_and_liabilities` disagree\non 27 of 358 filings (7.5%), so a ratio built from this block would be a\nratio of two numbers the register itself does not vouch for jointly. The\none comparison this project makes is a `notes` sentence, never a number —\nsee :class:`FinancialSummary`.",
+                              "properties": {
+                                "fixed_assets": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Fixed assets at period end (`sumAnleggsmidler`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Fixed Assets"
+                                },
+                                "current_assets": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Current assets at period end (`sumOmloepsmidler`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Current Assets"
+                                },
+                                "total_assets": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Total assets at period end (`sumEiendeler`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)). One of only three fields present on every one of 573 observed filings. Compare with `total_equity_and_liabilities` (DECISIONS.md D-043(e)): the two disagree on 27 of 358 filings, and this block's own `notes` names the gap when they do; neither figure is edited, reconciled or dropped.",
+                                  "title": "Total Assets"
+                                },
+                                "paid_in_equity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Paid-in equity at period end (`sumInnskuttEgenkaptial` — the register's own spelling, not a typo in this field's description). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Paid In Equity"
+                                },
+                                "retained_equity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Retained equity at period end (`sumOpptjentEgenkapital`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Retained Equity"
+                                },
+                                "equity": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Total equity at period end (`sumEgenkapital`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Equity"
+                                },
+                                "non_current_liabilities": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Non-current liabilities at period end (`sumLangsiktigGjeld`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Non Current Liabilities"
+                                },
+                                "current_liabilities": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Current liabilities at period end (`sumKortsiktigGjeld`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)).",
+                                  "title": "Current Liabilities"
+                                },
+                                "liabilities": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Total liabilities at period end (`sumGjeld`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)). Carried exactly as the register states it, including negative: DECISIONS.md D-043(e) records real filings with a negative `sumGjeld` (e.g. -108,837), which is a filing the register relayed without validating, not a company fact this field corrects.",
+                                  "title": "Liabilities"
+                                },
+                                "total_equity_and_liabilities": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null,
+                                  "description": "Total equity and liabilities at period end (`sumEgenkapitalGjeld`). `None` means the register did not publish this line for this filing — never zero. The register is inconsistent about when it states an explicit zero for an absent figure versus omitting the line entirely, so this field's absence is not evidence the true value is zero, and a stated zero is not evidence the register omits the line elsewhere (DECISIONS.md D-043(f)). One of only three fields present on every one of 573 observed filings. See `total_assets` for the reconciliation note the two together can trigger.",
+                                  "title": "Total Equity And Liabilities"
+                                }
+                              },
+                              "title": "BalanceSheet",
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "description": "Stocks at this period's last instant. `None` when the register published no line in this statement at all for this filing; otherwise present with whichever lines it published, each individually nullable (DECISIONS.md D-043(f))."
+                        }
+                      },
+                      "required": [
+                        "currency"
+                      ],
+                      "title": "FinancialPeriod",
+                      "type": "object"
+                    },
+                    "title": "Periods",
+                    "type": "array"
+                  },
+                  "provenance": {
+                    "additionalProperties": false,
+                    "description": "Where, when and under what licence this block was fetched. **Identical in all five fields to the sibling `filings` block's `provenance` when both are requested together**: they are the same upstream fetch, not two (DECISIONS.md D-043(h)).",
+                    "properties": {
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Human-readable source name, e.g. 'GLEIF Level 1 (gleif.org)'.",
+                        "title": "Source"
+                      },
+                      "source_url": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Direct URL of the upstream record, for citation.",
+                        "title": "Source Url"
+                      },
+                      "license": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "Licence of the upstream data, e.g. 'CC0 1.0'.",
+                        "title": "License"
+                      },
+                      "fetched_at": {
+                        "anyOf": [
+                          {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "default": null,
+                        "description": "UTC timestamp of the live fetch this attachment came from.",
+                        "title": "Fetched At"
+                      },
+                      "cached": {
+                        "default": false,
+                        "description": "True when this attachment was served from cache rather than a live fetch.",
+                        "title": "Cached",
+                        "type": "boolean"
+                      }
+                    },
+                    "title": "SourceRef",
+                    "type": "object"
+                  },
+                  "notes": {
+                    "description": "Plain-English caveats about this block. Unconditional on any non-empty block: that figures are denominated in the stated currency and framework and are not comparable across companies or borders without regard to both, and that this is the latest filed period rather than a history. Conditional: a reconciliation note when `total_assets` and `total_equity_and_liabilities` disagree, a non-NOK currency note, and one note each for `small_entity`, `audit_exempt`, `liquidation_basis` and an observed `unaudited` (DECISIONS.md D-043(e),(g)).",
+                    "items": {
+                      "type": "string"
+                    },
+                    "title": "Notes",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "provenance"
+                ],
+                "title": "FinancialSummary",
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Key figures from this entity's filed annual accounts. `None` unless `financials` was passed in `include=[...]` — and, even then, `None` if that fetch failed (see `notes` for which attachment and why). A country that declares this attachment returns a *present* block with `periods: []` for an entity the register holds no filed accounts for — the two states never collapse into each other (D-011, D-042(d)). Norway only, today: Sweden's and Britain's figures live inside documents this API declines to parse, which is this project's scope decision, not the register's silence (D-043(i))."
           },
           "confidence": {
             "default": 1.0,
