@@ -46,6 +46,7 @@ __all__ = [
     "RegistryError",
     "SearchHit",
     "SearchResult",
+    "SourceRef",
     "Surface",
     "ValidationResult",
 ]
@@ -252,6 +253,16 @@ class CountryInfo(_Base):
         description=(
             "Name of the environment variable holding that credential, e.g. "
             "'COMPANIES_HOUSE_API_KEY'. None when no key is needed. Never the key itself."
+        ),
+    )
+    supported_includes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Attachment names this registry declares — the closed set of valid values for "
+            "`include=[…]` on `lookup_company`, sorted. Empty when this registry offers no "
+            "attachments today. Lets an agent discover what more it can ask for before it "
+            "asks (DECISIONS.md D-042(d)); an `include` value outside this list raises "
+            "`bad_request` naming this same set, never a silently empty block."
         ),
     )
 
@@ -533,6 +544,50 @@ class ValidationResult(_Base):
     @classmethod
     def _upper_country(cls, v: str) -> str:
         return v.upper()
+
+
+# ---------------------------------------------------------------------------
+# Attachments (`DECISIONS.md` D-026(c), sharpened by D-041(c) and D-042)
+# ---------------------------------------------------------------------------
+
+
+class SourceRef(_Base):
+    """Provenance for one attachment fetch — never for `CompanyReport` itself.
+
+    `CompanyReport` has one `source`, one `source_url`, one `license` and one
+    `fetched_at`: every field on it is an assertion by *that* register under
+    *that* licence *at that moment* (D-026(c)). An attachment (`include=[…]`
+    on `lookup_company`, assembled by `Registry.lookup_with`) is a **second**
+    round trip, so it needs its own moment, its own cache state and its own
+    failure mode — even when it happens to be the same upstream as the first
+    fetch (D-041(c)'s correction: the discipline is **one fetch, one
+    `SourceRef`**, not one organisation). No new vocabulary: this reuses the
+    five provenance names `CompanyReport` already carries.
+
+    Every attachment model — the LEI (D-026(c)), officers (D-028(5)), Peppol
+    (D-029(b)), filing history (D-041(d)) and whatever else lands behind a
+    future `include` value — carries exactly one of these, however many
+    fields the rest of the block has. None of those models are added by this
+    task (D-042(g)): this is the shape they will all reuse.
+    """
+
+    source: str | None = Field(
+        default=None,
+        description="Human-readable source name, e.g. 'GLEIF Level 1 (gleif.org)'.",
+    )
+    source_url: str | None = Field(
+        default=None, description="Direct URL of the upstream record, for citation."
+    )
+    license: str | None = Field(
+        default=None, description="Licence of the upstream data, e.g. 'CC0 1.0'."
+    )
+    fetched_at: datetime | None = Field(
+        default=None, description="UTC timestamp of the live fetch this attachment came from."
+    )
+    cached: bool = Field(
+        default=False,
+        description="True when this attachment was served from cache rather than a live fetch.",
+    )
 
 
 # ---------------------------------------------------------------------------

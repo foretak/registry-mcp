@@ -30,14 +30,29 @@ call ``validate_id`` and ``deadlines`` directly: they call the concrete
 :meth:`Registry.validate` and :meth:`Registry.deadline_report`, which wrap the
 primitives into the single ``ValidationResult`` / ``DeadlineReport`` document
 that REST and MCP both emit (``DECISIONS.md`` D-010).
+
+A country that wants **depth** — a second round trip to the same or a
+different upstream endpoint, opt-in via ``include=[...]`` on ``lookup_company``
+— declares :attr:`Registry.supported_includes` and adds one concrete method
+per name, e.g. ``async def lei(self, id: str) -> LeiRecord: ...``, where the
+method name, the ``include`` value and the field it fills on
+:class:`~registry_mcp.core.models.CompanyReport` are the same string. Nothing
+else changes: the surfaces call the concrete :meth:`Registry.lookup_with`,
+which validates ``include`` against :attr:`Registry.supported_includes`,
+fetches every requested attachment with bounded concurrency, and leaves a
+failed one absent with a ``notes`` sentence rather than failing the whole
+lookup (``DECISIONS.md`` D-026(c), D-041(b),(c), D-042(b),(d)). No country
+declares an attachment yet — this module ships the mechanism only.
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import date
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from registry_mcp.core.models import (
     CompanyReport,
@@ -125,6 +140,25 @@ class Registry(ABC):
     national identity number (Sweden: a sole trader's organisationsnummer is
     their personnummer). The surfaces consult it before logging; the module
     does not.
+    """
+
+    supported_includes: ClassVar[frozenset[str]] = frozenset()
+    """The closed set of ``include=[...]`` values this registry declares.
+
+    Empty by default, like :attr:`requires_api_key` (``DECISIONS.md`` D-017):
+    a country that offers no attachments gains nothing and edits nothing. A
+    non-default value both (a) is what :meth:`lookup_with` validates a
+    caller's ``include`` argument against, and (b) is surfaced verbatim,
+    sorted, as ``CountryInfo.supported_includes`` — so an agent can discover
+    what a country offers *before* asking (``DECISIONS.md`` D-042(d)).
+
+    Each name in this set must be exactly the name of a concrete, awaitable
+    method this class defines — ``async def <name>(self, id: str) -> ...`` —
+    and, per D-042(b),(g), exactly the name of the field on
+    :class:`~registry_mcp.core.models.CompanyReport` that method's result is
+    attached to. :meth:`lookup_with` calls that method dynamically by name;
+    a mismatch (a declared include with no matching field, or no matching
+    method) is a country-module bug and fails loudly there, not silently.
     """
 
     # -- required operations -------------------------------------------------
@@ -259,6 +293,112 @@ class Registry(ABC):
             reason=reason,
         )
 
+    async def lookup_with(
+        self, id: str, include: Sequence[str] = (), *, max_concurrency: int = 5
+    ) -> CompanyReport:
+        """Fetch the base report and merge in every requested attachment.
+
+        The one assembler for ``include=[...]`` (``DECISIONS.md`` D-026(c),
+        D-041(b), D-042(b)): every surface calls this rather than validating
+        ``include`` or handling a failed attachment itself, so both of those
+        live in one place instead of being reimplemented per surface and per
+        country — and drifting the moment one of the copies is not updated.
+
+        Args:
+            id: passed to :meth:`lookup` and, unchanged, to every requested
+                attachment method — an attachment never takes a second
+                identifier scheme.
+            include: attachment names to fetch alongside the base report.
+                Must be a subset of :attr:`supported_includes`. ``()`` (the
+                default) fetches nothing extra, so ``lookup_with(id)`` costs
+                exactly the one upstream request ``lookup(id)`` costs.
+                Duplicates are fetched once, not once each.
+            max_concurrency: bound on simultaneous attachment fetches
+                (``DECISIONS.md`` D-024(g): at most 5 in flight).
+
+        Returns:
+            The report from :meth:`lookup`, with one field set per
+            successfully fetched attachment (same name as the ``include``
+            value) and, for any attachment that failed, that field left
+            absent and one sentence appended to ``notes`` naming which
+            attachment and why. **A failed attachment never fails the
+            lookup** (``DECISIONS.md`` D-042(b),(j)) — only :meth:`lookup`
+            failing does that.
+
+        Raises:
+            RegistryError: whatever :meth:`lookup` raises, unchanged —
+                nothing to attach to without a base report. ``bad_request``,
+                raised before :meth:`lookup` is even called, when
+                ``include`` names a value outside :attr:`supported_includes`;
+                its ``hint`` and ``details["allowed"]`` name that country's
+                declared set (``DECISIONS.md`` D-042(d)) — never silently
+                ignored and never answered with an empty block.
+
+        Only ``RegistryError`` raised by an attachment method is treated as a
+        failed fetch. Anything else propagates: a country module whose
+        :attr:`supported_includes` names a method it does not define, or
+        whose result does not match a field on the report :meth:`lookup`
+        returned, is a bug and fails loudly here rather than silently
+        dropping the attachment (see the ``RuntimeError`` below).
+        """
+        unknown = sorted({name for name in include if name not in self.supported_includes})
+        if unknown:
+            allowed = sorted(self.supported_includes)
+            raise RegistryError(
+                ErrorCode.BAD_REQUEST,
+                f"Unknown include value(s) for {self.country}: {', '.join(unknown)}.",
+                hint=(
+                    f"Allowed include values for {self.country} today: "
+                    f"{', '.join(allowed) if allowed else '(this registry declares none yet)'}."
+                ),
+                country=self.country,
+                registry=self.registry,
+                details={"allowed": allowed, "unknown": unknown},
+            )
+
+        report = await self.lookup(id)
+
+        # De-duplicated, first-occurrence order: a repeated include value
+        # costs one fetch, not two (the same principle D-024(e) applies to
+        # a repeated batch identifier).
+        names = list(dict.fromkeys(include))
+        if not names:
+            return report
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _fetch(name: str) -> tuple[str, Any, RegistryError | None]:
+            method = getattr(self, name)
+            try:
+                async with semaphore:
+                    block: Any = await method(id)
+            except RegistryError as exc:
+                return name, None, exc
+            return name, block, None
+
+        fetched = await asyncio.gather(*(_fetch(name) for name in names))
+
+        updates: dict[str, Any] = {}
+        notes = list(report.notes)
+        for name, block, error in fetched:
+            if error is not None:
+                notes.append(f"Could not fetch the '{name}' attachment: {error.message}")
+            else:
+                updates[name] = block
+
+        report_fields = type(report).model_fields
+        misconfigured = sorted(name for name in updates if name not in report_fields)
+        if misconfigured:
+            raise RuntimeError(
+                f"{type(self).__name__}.supported_includes declares {misconfigured!r} but "
+                f"{type(report).__name__} has no matching field for it — a country-module "
+                "bug (DECISIONS.md D-042(b),(g)), not a runtime condition."
+            )
+
+        if not updates and notes == report.notes:
+            return report
+        return report.model_copy(update={**updates, "notes": notes})
+
     # -- optional helpers ----------------------------------------------------
 
     def format_id(self, id: str) -> str | None:
@@ -337,6 +477,7 @@ class Registry(ABC):
             is_stub=self.is_stub,
             requires_api_key=self.requires_api_key,
             api_key_env=self.api_key_env or None,
+            supported_includes=sorted(self.supported_includes),
         )
 
     def describe(self) -> dict[str, str | bool]:
