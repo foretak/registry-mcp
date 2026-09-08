@@ -1,31 +1,18 @@
 """SE filing history — ``POST /dokumentlista`` (Bolagsverket).
 
-Built for **R-5b / T31 Part B**, **behind the seam** (``DECISIONS.md``
-D-041, D-042(b), ``tasks/T31.md``): this module is deliberately
-self-contained inside ``registries/se/``, built against no assumption about
-what ``core/models.py`` carries. ``SourceRef``, ``FiledDocument`` and
-``FilingHistory`` are R-5's ``include=[...]`` machinery, owned and being
-edited in parallel by other agents, per this task's explicit footprint.
-**Nothing here touches ``core/``, and nothing here depends on its shape** —
-the only ``core`` import is :func:`core.rules.common.add_months`, a pure
-date helper ``registries/se/rules.py`` already draws from the same module.
-
-This mirrors ``registries/gb/charges.py`` exactly, one country over: local
-model stand-ins whose field names are the ruled ones, plus a pure mapper,
-wired up by a follow-up task. Wiring is then a rename, not a redesign:
-
-* delete (or thinly re-export) :class:`FiledDocument`,
-  :class:`FilingProvenance` and :class:`FilingHistory` from this module;
-* ``core/models.py`` gains the real ``FiledDocument`` / ``FilingHistory``
-  (D-041(d) as amended by D-042(h)) and
-  ``CompanyReport.filings: FilingHistory | None = None``;
-* ``BolagsverketRegistry`` (``registries/se/__init__.py``) gains
-  ``async def filings(self, id: str) -> FilingHistory`` — call
-  :func:`registry_mcp.registries.se.client.fetch_filings` and copy the
-  returned :class:`FilingHistory`'s fields onto the real model
-  (``provenance`` becomes a real ``SourceRef`` built from
-  :class:`FilingProvenance`'s five identically-named fields);
-* ``BolagsverketRegistry.supported_includes`` gains ``"filings"``.
+**R-5b / T31 Part B** (``DECISIONS.md`` D-041, D-042). This module maps the
+wire straight onto the canonical :class:`~registry_mcp.core.models.FiledDocument`
+/ :class:`~registry_mcp.core.models.FilingHistory` / :class:`~registry_mcp.core.models.SourceRef`
+(D-041(d), as widened by D-042(h)) — the same shapes
+``registries/gb/filing_history.py`` and ``registries/no/accounts.py`` build,
+because all three registers converged on one shape independently (D-044(a)).
+There is no local stand-in and nothing to convert: :func:`map_dokumentlista`
+constructs the canonical classes directly, and
+``BolagsverketRegistry.filings`` (``registries/se/__init__.py``) returns
+:func:`registry_mcp.registries.se.client.fetch_filings`'s result unchanged.
+The only other ``core`` import is :func:`core.rules.common.add_months`, a
+pure date helper ``registries/se/rules.py`` already draws from the same
+module.
 
 **The finding this module exists for.** ``SWEDEN_SPEC.md`` §5.4 computes
 both Swedish deadlines from an *assumed* 31 December financial year end, and
@@ -105,11 +92,10 @@ Three shape choices flagged for the architect rather than made quietly:
   ``tasks/T31.md`` predates D-042 and says D-041(d)'s shape "is not to be
   widened"; D-042(h) then widened ``FiledDocument`` by ``category``,
   ``type_code`` and ``description_code`` **by name**, ruling that Britain's
-  superset defines the model before Sweden fills it. Following the later,
-  explicit ruling is what makes wiring a rename; all three are honestly
-  ``None`` here, because ``/dokumentlista`` publishes no category, form code
-  or description key. If the architect wants strictly D-041(d), it is a
-  three-line deletion.
+  superset defines the model before Sweden fills it (now the canonical
+  model in ``core/models.py``, which this module imports rather than
+  re-declares). All three are honestly ``None`` here, because
+  ``/dokumentlista`` publishes no category, form code or description key.
 * **``days_from_fee_point`` uses the same-day-of-month reading of "sju
   månader".** For the only year end this module can observe, 31 December,
   every reading agrees: 31 July, and D-041(g)'s own worked example ("filed
@@ -139,201 +125,15 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
+from registry_mcp.core.models import FiledDocument, FilingHistory, SourceRef
 from registry_mcp.core.rules.common import add_months
 
 __all__ = [
     "FEE_POINT_MONTHS",
     "FiledDocument",
     "FilingHistory",
-    "FilingProvenance",
     "map_dokumentlista",
 ]
-
-
-class _Base(BaseModel):
-    """Local stand-in for ``core.models._Base`` — the same ``extra="forbid"``
-    discipline (``DECISIONS.md`` D-004), kept out of ``core/`` per this
-    task's footprint restriction rather than imported from there."""
-
-    model_config = ConfigDict(extra="forbid", frozen=False)
-
-
-class FilingProvenance(_Base):
-    """Stand-in for the future ``core.models.SourceRef`` (D-026(c)) — the
-    same five field names, unrenamed, so that building the real
-    ``FilingHistory.provenance`` from this object is a straight field copy.
-
-    Its independence from ``CompanyReport``'s own provenance is the whole
-    point of D-041(c): *one fetch, one ``SourceRef`` — not one organisation.*
-    Two round trips have two moments, two failure modes and two cache
-    states, so this block's ``fetched_at`` and ``cached`` are its own and
-    may disagree with the record's.
-    """
-
-    source: str | None = Field(
-        default=None,
-        description='Who published this block, e.g. "Bolagsverket (bolagsverket.se)".',
-    )
-    source_url: str | None = Field(
-        default=None, description="Where this block was fetched from."
-    )
-    license: str | None = Field(
-        default=None, description="The licence this block is published under."
-    )
-    fetched_at: datetime | None = Field(
-        default=None,
-        description=(
-            "When this block was fetched from Bolagsverket — its own moment, not the "
-            "company record's. `None` inside a present block means no request was made."
-        ),
-    )
-    cached: bool = Field(
-        default=False,
-        description=(
-            "Whether this block was served from this deployment's cache — its own cache "
-            "state, which may differ from the company record's."
-        ),
-    )
-
-
-class FiledDocument(_Base):
-    """One filed annual report from ``POST /dokumentlista``. Field-for-field
-    the shape ``DECISIONS.md`` D-041(d) rules for the future
-    ``core.models.FiledDocument``, plus the three fields D-042(h) adds to it
-    (all ``None`` for Sweden — see this module's docstring)."""
-
-    kind: str | None = Field(
-        default=None,
-        description=(
-            "The `Deadline.kind` slug this filing discharges, or `None` when it discharges "
-            'none. Always "annual_accounts" for Sweden: `/dokumentlista` returns filed '
-            "annual reports and nothing else."
-        ),
-    )
-    period_end: date | None = Field(
-        default=None,
-        description=(
-            "The reporting period's last day, exactly as the register published it "
-            "(`rapporteringsperiodTom`) — this filing's financial year end."
-        ),
-    )
-    period_start: date | None = Field(
-        default=None,
-        description=(
-            "The reporting period's first day. **Always `None` for Sweden**: Bolagsverket "
-            "publishes no `...From` counterpart, and deriving one by subtracting twelve "
-            "months would assert a period length the register never stated "
-            "(bokföringslagen 3 kap. 3 § permits an 18-month first or final period). The "
-            "field exists because Norway's Regnskapsregisteret publishes "
-            "`regnskapsperiode: {fraDato, tilDato}` and will fill it."
-        ),
-    )
-    filed_at: date | None = Field(
-        default=None,
-        description=(
-            "When the register recorded this filing (`registreringstidpunkt`), verbatim. "
-            "Named for a point in time, but published as a plain date."
-        ),
-    )
-    days_from_fee_point: int | None = Field(
-        default=None,
-        description=(
-            "Signed days from the late-fee point to `filed_at`: negative means filed "
-            "before it, positive means after. The datum is **seven months after "
-            "`period_end`**, where årsredovisningslagen 8 kap. 6 § starts a "
-            "förseningsavgift of 7 500 kr (15 000 kr for a public company). It is **not "
-            "this company's own filing deadline**: ÅRL 8 kap. 3 § requires filing within "
-            "one month of the general meeting that adopts the accounts, and that meeting "
-            "date is not published, so a company's real deadline may be much earlier. Nor "
-            "can the nine-month variant of 8 kap. 6 § be excluded — it applies to "
-            "companies this dataset does not identify. A measurement against a named "
-            "datum, never a verdict: there is deliberately no `filed_late` boolean. "
-            "`None` when `period_end` or `filed_at` is missing."
-        ),
-    )
-    document_id: str | None = Field(
-        default=None,
-        description=(
-            "The register's own opaque handle for this document (`dokumentId`), relayed "
-            "verbatim and never interpreted. **Not fetchable through this API** — "
-            "Bolagsverket's `GET /dokument/{dokumentId}` returns a zip, which is out of "
-            "scope; this is the only key a Bolagsverket support case can name."
-        ),
-    )
-    file_format: str | None = Field(
-        default=None,
-        description=(
-            'What Bolagsverket holds the document as (`filformat`), verbatim: '
-            '"application/zip" on every document observed — a MIME type despite the '
-            "field name."
-        ),
-    )
-    category: str | None = Field(
-        default=None,
-        description=(
-            "The register's own category for this filing, verbatim. **`None` for "
-            "Sweden**: `/dokumentlista` publishes no category, because it returns annual "
-            "reports and nothing else."
-        ),
-    )
-    type_code: str | None = Field(
-        default=None,
-        description=(
-            "The register's own form code for this filing, verbatim. **`None` for "
-            "Sweden**: Bolagsverket publishes none on this endpoint."
-        ),
-    )
-    description_code: str | None = Field(
-        default=None,
-        description=(
-            "The register's own description-template key, verbatim and never resolved. "
-            "**`None` for Sweden**: Bolagsverket publishes none on this endpoint."
-        ),
-    )
-
-
-class FilingHistory(_Base):
-    """Stand-in for the future ``core.models.FilingHistory`` (D-041(d)) — the
-    same field names, ``provenance`` typed to :class:`FilingProvenance`
-    above rather than to ``core.models.SourceRef``, which this module
-    deliberately does not depend on.
-
-    Two-level nullability is the contract (D-041(c)) and belongs to whoever
-    wires this up: **an absent block** on a report means "you did not ask, or
-    the fetch failed" — never a present block with invented content — while
-    **a present block with ``documents: []``** means "Bolagsverket holds no
-    filed annual report for this entity", which is a real and useful answer
-    about a counterparty and must never be rendered as an absence.
-    """
-
-    documents: list[FiledDocument] = Field(
-        default_factory=list,
-        description=(
-            "Every filed annual report the register lists, sorted newest first: "
-            "`period_end` descending, then `filed_at` descending. Empty means the "
-            "register holds none — not that we could not look."
-        ),
-    )
-    financial_year_end: date | None = Field(
-        default=None,
-        description=(
-            "The `period_end` of this company's most recent filed annual report, carried "
-            "verbatim — never a synthesised month-day. It is **evidence of** the "
-            "company's financial year, not a statement of it: a company may relay its "
-            "räkenskapsår under bokföringslagen 3 kap., and only the period *end* is "
-            "published, so a shortened or extended period is invisible here. `None` when "
-            "no filed report carries a reporting period."
-        ),
-    )
-    provenance: FilingProvenance = Field(
-        description="Where, when and under what licence this block was fetched."
-    )
-    notes: list[str] = Field(
-        default_factory=list,
-        description="Plain-English caveats about this block.",
-    )
 
 
 #: Årsredovisningslagen 8 kap. 6 §: the förseningsavgift starts when the
@@ -349,6 +149,17 @@ _LICENSE = (
 )
 
 _ANNUAL_ACCOUNTS = "annual_accounts"
+
+#: D-044(b): one include name, `filings`, covers three differently-scoped
+#: answers, and the scope difference must be disclosed in the block's own
+#: `notes` **on every call** — the promise `mcp/server.py` and
+#: `core/models.py`'s `FilingHistory` docstring publish. Unconditional and
+#: first, exactly like Norway's `_ONE_PERIOD_NOTE` (the pattern this copies).
+_SCOPE_NOTE = (
+    "Bolagsverket's document list publishes filed annual reports only, not a general "
+    "filing history; other filings this organisation has made — board changes, "
+    "articles, capital — are not listed here, and their absence here means nothing."
+)
 
 _EMPTY_NOTE = (
     "Bolagsverket's document list holds no filed annual report for this organisation. "
@@ -469,7 +280,10 @@ def map_dokumentlista(
 
     financial_year_end = documents[0].period_end if documents else None
 
-    notes: list[str] = []
+    # D-044(b): the scope note is first and unconditional — empty or not,
+    # calendar year or not — because it is what tells a caller which subset
+    # of "this company's filings" the block below actually is.
+    notes: list[str] = [_SCOPE_NOTE]
     if not documents:
         notes.append(_EMPTY_NOTE)
     elif financial_year_end is not None and (
@@ -481,7 +295,7 @@ def map_dokumentlista(
     return FilingHistory(
         documents=documents,
         financial_year_end=financial_year_end,
-        provenance=FilingProvenance(
+        provenance=SourceRef(
             source=_SOURCE_NAME,
             source_url=_SOURCE_URL,
             license=_LICENSE,

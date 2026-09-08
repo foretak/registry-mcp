@@ -44,7 +44,15 @@ import httpx
 
 from registry_mcp import __version__
 from registry_mcp.core import cache
-from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
+from registry_mcp.core.models import (
+    ChargeBlock,
+    CompanyReport,
+    ErrorCode,
+    FilingHistory,
+    InsolvencyBlock,
+    RegistryError,
+    SearchResult,
+)
 from registry_mcp.registries.gb import charges, filing_history, insolvency, mapping
 
 __all__ = [
@@ -396,7 +404,7 @@ def _charges_cache_key(company_number: str) -> str:
     return f"GB:companies-house:charges:{company_number}"
 
 
-async def fetch_charges(id: str) -> charges.ChargeList:
+async def fetch_charges(id: str) -> ChargeBlock:
     """Fetch one entity's charges, consulting the cache first.
 
     One page, ``charges.CHARGES_ITEMS_PER_PAGE`` (100 — the register's own
@@ -469,7 +477,7 @@ def _filings_cache_key(company_number: str) -> str:
     return f"GB:companies-house:filings:{company_number}"
 
 
-async def fetch_filings(id: str) -> filing_history.FilingHistory:
+async def fetch_filings(id: str) -> FilingHistory:
     """Fetch one entity's filing history, consulting the cache first.
 
     One page, ``filing_history.FILINGS_ITEMS_PER_PAGE`` (25 — D-042(j)'s
@@ -562,7 +570,7 @@ def _insolvency_cache_key(company_number: str) -> str:
     return f"GB:companies-house:insolvency:{company_number}"
 
 
-async def fetch_insolvency(id: str) -> insolvency.InsolvencyList:
+async def fetch_insolvency(id: str) -> InsolvencyBlock:
     """Fetch one entity's insolvency history, consulting the cache first.
 
     The whole history in one request: this endpoint is not paginated and

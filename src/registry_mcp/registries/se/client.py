@@ -56,7 +56,13 @@ import httpx
 
 from registry_mcp import __version__
 from registry_mcp.core import cache
-from registry_mcp.core.models import CompanyReport, ErrorCode, RegistryError, SearchResult
+from registry_mcp.core.models import (
+    CompanyReport,
+    ErrorCode,
+    FilingHistory,
+    RegistryError,
+    SearchResult,
+)
 from registry_mcp.registries.se import filings, mapping
 
 __all__ = ["aclose", "fetch_filings", "lookup", "search"]
@@ -725,7 +731,7 @@ def _apply_environment_notes_to_filings(
     )
 
 
-async def fetch_filings(id: str) -> filings.FilingHistory:
+async def fetch_filings(id: str) -> FilingHistory:
     """Fetch one entity's filed annual reports, consulting the cache first.
 
     **A failed fetch is not swallowed here.** It raises, and

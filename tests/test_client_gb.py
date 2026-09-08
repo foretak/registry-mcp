@@ -38,7 +38,6 @@ from registry_mcp.registries.gb import client as client_module
 from registry_mcp.registries.gb import filing_history as filing_history_module
 from registry_mcp.registries.gb import insolvency as insolvency_module
 from registry_mcp.registries.gb import rules as gb_rules
-from registry_mcp.registries.se import filings as se_filings_module
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BASE_URL = client_module.BASE_URL
@@ -1118,20 +1117,18 @@ async def test_fetch_charges_institution_names_never_reach_a_log_line(
 
 
 # ---------------------------------------------------------------------------
-# H. Wiring `charges` through `include=[...]` (joining R-5 and R-5c/T37 Part
-# B's seam, `DECISIONS.md` D-042): `CompaniesHouseRegistry.charges()` copies
-# `registries/gb/charges.py`'s local `ChargeList`/`ChargeProvenance` onto the
-# real `core.models.ChargeBlock`/`SourceRef`, and `Registry.lookup_with`
-# (R-5, `core/registry.py`) is what a caller actually uses.
+# H. Wiring `charges` through `include=[...]` (R-5 and R-5c/T37, `DECISIONS.md`
+# D-042): `registries/gb/charges.py` builds the canonical `ChargeBlock`
+# directly, and `Registry.lookup_with` (R-5, `core/registry.py`) is what a
+# caller actually uses.
 # ---------------------------------------------------------------------------
 
 
 @respx.mock
 async def test_registry_charges_returns_real_core_models_chargeblock() -> None:
-    """`CompaniesHouseRegistry.charges()` returns the wired
-    `core.models.ChargeBlock`/`Charge`/`SourceRef` — not the local stand-ins
-    `registries/gb/charges.py` defines for itself — with every field copied
-    across, not just the count."""
+    """`CompaniesHouseRegistry.charges()` returns the canonical
+    `core.models.ChargeBlock`/`Charge`/`SourceRef`, with every field intact,
+    not just the count."""
     respx.get(f"{BASE_URL}/company/00445790/charges").mock(
         return_value=httpx.Response(200, json=TESCO_CHARGES)
     )
@@ -1590,11 +1587,14 @@ def test_filings_days_from_fee_point_is_none_for_gb_and_the_reason_is_stated() -
             assert "publishes no due date for a period already filed" in reasons[0]
 
     # The field's own description carries the reason too, so a caller reading
-    # only the schema is not left to infer it.
+    # only the schema is not left to infer it. Country-neutral now that it is
+    # the canonical `core.models.FiledDocument` (D-044(a)), but it still names
+    # Companies House specifically and still states the datum-not-calculation
+    # reason, not just the value.
     described = filing_history_module.FiledDocument.model_fields["days_from_fee_point"].description
     assert described is not None
-    assert "Always `None` for Britain" in described
-    assert "missing datum rather than a missing calculation" in described
+    assert "Companies House publishes only the" in described
+    assert "not that the arithmetic was skipped" in described
 
 
 def test_filings_empty_available_and_empty_unavailable_are_two_answers() -> None:
@@ -1616,9 +1616,12 @@ def test_filings_empty_available_and_empty_unavailable_are_two_answers() -> None
     assert BR_FILINGS["total_count"] == 0
     assert held_none.documents == []
     assert held_none.total_count == 0
-    assert len(held_none.notes) == 1
-    assert "lists no filings for this company" in held_none.notes[0]
-    assert "the register's own answer, not a failed lookup" in held_none.notes[0]
+    # notes[0] is the D-044(b) scope note, unconditional on every block; the
+    # empty-state sentence follows it.
+    assert len(held_none.notes) == 2
+    assert held_none.notes[0] == filing_history_module._SCOPE_NOTE
+    assert "lists no filings for this company" in held_none.notes[1]
+    assert "the register's own answer, not a failed lookup" in held_none.notes[1]
 
     cannot_answer = filing_history_module.map_filing_history(
         CIO_FILINGS, "CE020555", cached=False, fetched_at=_FETCHED_AT
@@ -1627,9 +1630,10 @@ def test_filings_empty_available_and_empty_unavailable_are_two_answers() -> None
     assert CIO_FILINGS["total_count"] == 0  # the register did publish a zero...
     assert cannot_answer.documents == []
     assert cannot_answer.total_count is None  # ...and we do not relay it as one
-    assert len(cannot_answer.notes) == 1
-    assert "filing-history-not-available-unknown-prefix" in cannot_answer.notes[0]
-    assert "rather than that the company has filed nothing" in cannot_answer.notes[0]
+    assert len(cannot_answer.notes) == 2
+    assert cannot_answer.notes[0] == filing_history_module._SCOPE_NOTE
+    assert "filing-history-not-available-unknown-prefix" in cannot_answer.notes[1]
+    assert "rather than that the company has filed nothing" in cannot_answer.notes[1]
 
     # The two blocks must not be confusable by a caller reading fields only.
     assert held_none.total_count != cannot_answer.total_count
@@ -1711,24 +1715,23 @@ def test_filings_provenance_and_extra_forbid() -> None:
         filing_history_module.FiledDocument(category="accounts", not_a_real_field=True)  # type: ignore[call-arg]
 
 
-def test_filings_model_mirrors_the_swedish_one_field_for_field() -> None:
-    """D-042(g)/(h): Britain's payload is the superset that defines the shared
-    model, and Sweden fills a subset — so wiring both into `core/models.py` is
-    a rename, not a redesign. `FiledDocument` must be identical in name and
-    order; `FilingHistory` differs by exactly one field, `total_count`, which
-    D-042(j) rules by name ("the block carries the register's own
-    `total_count`") and which `ChargeBlock` already carries with the same
-    meaning. Flagged for the architect in this module's docstring."""
-    assert list(filing_history_module.FiledDocument.model_fields) == list(
-        se_filings_module.FiledDocument.model_fields
+def test_scope_note_is_present_first_on_every_block_d044b() -> None:
+    """D-044(b): one include name, `filings`, covers three differently-scoped
+    answers *because* "the scope difference is disclosed in the block's own
+    `notes`, on every call". D-044 wiring review, finding 1 (blocking): this
+    British block's notes never named the scope at all. `_SCOPE_NOTE` is now
+    unconditional and first — on both a non-empty and an empty block."""
+    non_empty = filing_history_module.map_filing_history(
+        TESCO_FILINGS, "00445790", cached=False, fetched_at=_FETCHED_AT
     )
-    assert list(filing_history_module.FilingProvenance.model_fields) == list(
-        se_filings_module.FilingProvenance.model_fields
+    assert non_empty.notes[0] == filing_history_module._SCOPE_NOTE
+    assert "not only accounts" in non_empty.notes[0]
+
+    empty = filing_history_module.map_filing_history(
+        BR_FILINGS, "BR026263", cached=False, fetched_at=_FETCHED_AT
     )
-    gb_block = list(filing_history_module.FilingHistory.model_fields)
-    se_block = list(se_filings_module.FilingHistory.model_fields)
-    assert set(gb_block) - set(se_block) == {"total_count"}
-    assert set(se_block) - set(gb_block) == set()
+    assert empty.notes[0] == filing_history_module._SCOPE_NOTE
+    assert any("lists no filings for this company" in n for n in empty.notes)
 
 
 # --- The two minimisation proofs (D-042(e)(1), D-028) ---------------------
@@ -2357,7 +2360,7 @@ def test_insolvency_the_bar_holds_no_practitioner_reaches_the_mapped_output() ->
     # (`notes` may say the word — that disclosure is the next test's subject.)
     fields = set(insolvency_module.InsolvencyCase.model_fields) | set(
         insolvency_module.InsolvencyEvent.model_fields
-    ) | set(insolvency_module.InsolvencyList.model_fields)
+    ) | set(insolvency_module.InsolvencyBlock.model_fields)
     for barred in ("practitioner", "practitioners", "name", "address", "appointed_on",
                    "ceased_to_act_on", "role"):
         assert barred not in fields, barred

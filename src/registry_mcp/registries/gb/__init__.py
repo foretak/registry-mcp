@@ -22,17 +22,12 @@ from datetime import date
 from typing import ClassVar
 
 from registry_mcp.core.models import (
-    Charge,
     ChargeBlock,
     CompanyReport,
     Deadline,
-    FiledDocument,
     FilingHistory,
     InsolvencyBlock,
-    InsolvencyCase,
-    InsolvencyEvent,
     SearchResult,
-    SourceRef,
 )
 from registry_mcp.core.registry import Registry, register
 
@@ -95,13 +90,8 @@ class CompaniesHouseRegistry(Registry):
         :attr:`supported_includes` and :class:`~registry_mcp.core.models.
         CompanyReport`'s ``charges`` field (D-042(b),(g)).
 
-        ``registries/gb/charges.py`` was built behind a seam, self-contained
-        and blind to ``core/models.py``'s shapes on purpose (R-5 had not
-        landed when it was written): its ``ChargeList``/``ChargeProvenance``
-        are field-for-field the same shape as the real ``ChargeBlock``/
-        ``SourceRef`` this method returns, so wiring the two together here is
-        a straight copy, not a translation — verified by comparing both
-        model's field names before this method was written.
+        ``registries/gb/charges.py`` builds the canonical ``ChargeBlock``
+        directly — there is no seam left to cross here.
 
         A malformed ``id`` raises ``invalid_id`` the same way :meth:`lookup`
         does; a company with no registered charges still returns a
@@ -111,15 +101,7 @@ class CompaniesHouseRegistry(Registry):
         """
         from registry_mcp.registries.gb import client
 
-        block = await client.fetch_charges(id)
-        return ChargeBlock(
-            charges=[Charge.model_validate(c.model_dump()) for c in block.charges],
-            total_count=block.total_count,
-            outstanding_count=block.outstanding_count,
-            satisfied_count=block.satisfied_count,
-            provenance=SourceRef.model_validate(block.provenance.model_dump()),
-            notes=list(block.notes),
-        )
+        return await client.fetch_charges(id)
 
     async def filings(self, id: str) -> FilingHistory:
         """Everything this entity has filed with Companies House (``registries/gb/filing_history.py``).
@@ -136,13 +118,10 @@ class CompaniesHouseRegistry(Registry):
         ``total_count`` and a ``notes`` sentence disclosing any truncation
         rather than hiding it (D-042(j)).
 
-        The module behind the seam was written blind to ``core/models.py``'s
-        shapes on purpose, and its ``FilingHistory``/``FiledDocument``/
-        ``FilingProvenance`` are field-for-field the canonical
-        :class:`~registry_mcp.core.models.FilingHistory`/``FiledDocument``/
-        :class:`~registry_mcp.core.models.SourceRef` — all three countries
-        converged on the same shape independently — so wiring them together
-        here is a straight copy, not a translation.
+        ``registries/gb/filing_history.py`` builds the canonical
+        ``FilingHistory`` directly — all three countries converged on the
+        same shape independently (D-044(a)), and there is no seam left to
+        cross here.
 
         A failed fetch raises; :meth:`Registry.lookup_with` turns that into an
         absent block plus one ``notes`` sentence on the report, in one place
@@ -152,14 +131,7 @@ class CompaniesHouseRegistry(Registry):
         """
         from registry_mcp.registries.gb import client
 
-        block = await client.fetch_filings(id)
-        return FilingHistory(
-            documents=[FiledDocument.model_validate(d.model_dump()) for d in block.documents],
-            financial_year_end=block.financial_year_end,
-            total_count=block.total_count,
-            provenance=SourceRef.model_validate(block.provenance.model_dump()),
-            notes=list(block.notes),
-        )
+        return await client.fetch_filings(id)
 
     async def insolvency(self, id: str) -> InsolvencyBlock:
         """Insolvency proceedings Companies House publishes against this entity
@@ -196,22 +168,7 @@ class CompaniesHouseRegistry(Registry):
         """
         from registry_mcp.registries.gb import client
 
-        block = await client.fetch_insolvency(id)
-        return InsolvencyBlock(
-            cases=[
-                InsolvencyCase(
-                    case_number=case.case_number,
-                    case_type=case.case_type,
-                    is_liquidation=case.is_liquidation,
-                    events=[InsolvencyEvent.model_validate(e.model_dump()) for e in case.events],
-                    note_codes=list(case.note_codes),
-                )
-                for case in block.cases
-            ],
-            statuses=list(block.statuses),
-            provenance=SourceRef.model_validate(block.provenance.model_dump()),
-            notes=list(block.notes),
-        )
+        return await client.fetch_insolvency(id)
 
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """UK filing deadlines for this entity (``registries/gb/rules.py``).

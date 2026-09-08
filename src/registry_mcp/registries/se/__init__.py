@@ -30,10 +30,8 @@ from typing import ClassVar
 from registry_mcp.core.models import (
     CompanyReport,
     Deadline,
-    FiledDocument,
     FilingHistory,
     SearchResult,
-    SourceRef,
 )
 from registry_mcp.core.registry import Registry, register
 
@@ -117,13 +115,9 @@ class BolagsverketRegistry(Registry):
         fills ``days_from_fee_point``, because årsredovisningslagen 8 kap.
         6 § names one late-fee datum for every company.
 
-        The module behind the seam was written blind to ``core/models.py``'s
-        shapes on purpose, and its ``FilingHistory``/``FiledDocument``/
-        ``FilingProvenance`` are field-for-field the canonical
-        :class:`~registry_mcp.core.models.FilingHistory`/``FiledDocument``/
-        :class:`~registry_mcp.core.models.SourceRef` — all three countries
-        converged on the same shape independently — so wiring them together
-        here is a straight copy, not a translation.
+        ``registries/se/filings.py`` builds the canonical ``FilingHistory``
+        directly — all three countries converged on the same shape
+        independently (D-044(a)), and there is no seam left to cross here.
 
         A failed fetch raises; :meth:`Registry.lookup_with` turns that into an
         absent block plus one ``notes`` sentence on the report, in one place
@@ -133,14 +127,7 @@ class BolagsverketRegistry(Registry):
         """
         from registry_mcp.registries.se import client
 
-        block = await client.fetch_filings(id)
-        return FilingHistory(
-            documents=[FiledDocument.model_validate(d.model_dump()) for d in block.documents],
-            financial_year_end=block.financial_year_end,
-            total_count=None,
-            provenance=SourceRef.model_validate(block.provenance.model_dump()),
-            notes=list(block.notes),
-        )
+        return await client.fetch_filings(id)
 
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """Swedish filing deadlines for this entity (``registries/se/rules.py``, §5.4).
