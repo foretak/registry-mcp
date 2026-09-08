@@ -1452,7 +1452,7 @@ async def test_d043_invariant5_financials_on_gb_is_bad_request_naming_gb_allowed
         await gb.lookup_with(gb.id_example, ["financials"])
     assert excinfo.value.code is ErrorCode.BAD_REQUEST
     assert "financials" not in excinfo.value.hint
-    assert excinfo.value.details["allowed"] == sorted(gb.supported_includes)
+    assert excinfo.value.details["allowed"] == sorted(gb.effective_includes)
 
 
 async def test_d043_invariant5_financials_on_se_is_bad_request_naming_se_allowed_set() -> None:
@@ -1461,7 +1461,7 @@ async def test_d043_invariant5_financials_on_se_is_bad_request_naming_se_allowed
         await se.lookup_with(se.id_example, ["financials"])
     assert excinfo.value.code is ErrorCode.BAD_REQUEST
     assert "financials" not in excinfo.value.hint
-    assert excinfo.value.details["allowed"] == sorted(se.supported_includes)
+    assert excinfo.value.details["allowed"] == sorted(se.effective_includes)
 
 
 def test_d043_invariant6_country_info_shows_financials_only_for_norway() -> None:
