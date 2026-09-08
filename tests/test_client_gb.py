@@ -1234,11 +1234,15 @@ async def test_lookup_with_unknown_include_is_bad_request_naming_gb_allowed_set(
         await registry.lookup_with("00445790", ["officers"])
     assert excinfo.value.code is ErrorCode.BAD_REQUEST
     assert "charges" in excinfo.value.hint
+    # `lei` is the universal attachment every non-Swedish country gets by
+    # default (D-045(e)) — it is not in `registry.supported_includes` (GB's
+    # own declarations) but is in the effective set `lookup_with` validates
+    # against.
     assert excinfo.value.details == {
-        "allowed": ["charges", "filings", "insolvency"],
+        "allowed": ["charges", "filings", "insolvency", "lei"],
         "unknown": ["officers"],
     }
-    assert excinfo.value.details["allowed"] == sorted(registry.supported_includes)
+    assert excinfo.value.details["allowed"] == sorted(registry.effective_includes)
 
 
 @respx.mock
@@ -2636,13 +2640,18 @@ def test_every_declared_include_is_reachable_in_every_country() -> None:
     surface on a live call. Checked statically here for every registered
     country, so adding a country or an attachment cannot quietly break the seam.
     Replaced `test_insolvency_is_not_wired_to_include_yet`, whose own docstring
-    asked the follow-up to delete it."""
+    asked the follow-up to delete it.
+
+    Reads `effective_includes`, not `supported_includes` (D-045(e)): `lei` is
+    declared by every country via `Registry.universal_includes` rather than
+    by any single country module, so checking `supported_includes` alone
+    would never exercise it here."""
     for country in list_countries():
         registry = get_registry(country)
-        for name in registry.supported_includes:
+        for name in registry.effective_includes:
             assert callable(getattr(registry, name, None)), f"{country}: no method {name}"
             assert name in CompanyReport.model_fields, f"{country}: no report field {name}"
-        assert sorted(registry.supported_includes) == registry.country_info().supported_includes
+        assert sorted(registry.effective_includes) == registry.country_info().supported_includes
 
 
 # --- Live done-check (excluded from CI) ------------------------------------

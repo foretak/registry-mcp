@@ -1,16 +1,21 @@
-"""Tests for R-5's attachment machinery: `SourceRef`, `Registry.supported_includes`
-and `Registry.lookup_with` (`DECISIONS.md` D-026(c), D-041(b),(c), D-042(b),(d)).
+"""Tests for R-5's attachment machinery: `SourceRef`, `Registry.supported_includes`,
+`Registry.universal_includes`/`effective_includes` and `Registry.lookup_with`
+(`DECISIONS.md` D-026(c), D-041(b),(c), D-042(b),(d), D-045(e)).
 
-Three attachments now ship: `charges` (GB), `filings` (GB, SE, NO) and
-`insolvency` (GB). The machinery tests in the first part of this file still run
-against fakes on purpose — they exercise edge cases no live country produces,
-such as a registry that declares an include with no method — and the real
-countries are exercised in the last section, "The three real attachments, wired
-through the seam". Every test in this first part either exercises the real `XX` example
-registry — which correctly declares no attachments, since `Registry.
-supported_includes` defaults to an empty set — or a small test-local fake
-registry that declares one or two, standing in for a country module that does
-not exist yet. Each fake subclasses the real `ExampleRegistry` (`type(
+Four attachments now ship: `charges` (GB), `filings` (GB, SE, NO), `insolvency`
+(GB) and `lei` — declared by every country except Sweden via the base class's
+own `Registry.universal_includes` rather than by any one country module
+(D-045(e)); its GLEIF-specific tests live in `tests/test_gleif.py`, not here.
+The machinery tests in the first part of this file still run against fakes on
+purpose — they exercise edge cases no live country produces, such as a
+registry that declares an include with no method — and the real countries are
+exercised in the last section, "The three real attachments, wired through the
+seam". Every test in this first part either exercises the real `XX` example
+registry — which declares no attachments *of its own*, since `Registry.
+supported_includes` defaults to an empty set, though it still gets `lei` for
+free via `universal_includes` — or a small test-local fake registry that
+declares one or two of its own, standing in for a country module that does not
+exist yet. Each fake subclasses the real `ExampleRegistry` (`type(
 example_registry)`) so it inherits a working `validate_id`/`search`/
 `deadlines` for free, exactly as `test_interface.py`'s `CaveatRegistry` does;
 none of these fakes are ever `register()`-ed, so they cannot leak into
@@ -143,6 +148,7 @@ def test_source_ref_forbids_unknown_fields() -> None:
 
 # ---------------------------------------------------------------------------
 # `Registry.supported_includes` / `CountryInfo.supported_includes` (D-042(d))
+# and `Registry.universal_includes` / `effective_includes` (D-045(e))
 # ---------------------------------------------------------------------------
 
 
@@ -152,17 +158,60 @@ def test_supported_includes_defaults_to_empty(example_registry: Registry) -> Non
     assert example_registry.supported_includes == frozenset()
 
 
-def test_country_info_carries_empty_supported_includes(example_registry: Registry) -> None:
+def test_universal_includes_is_lei(example_registry: Registry) -> None:
+    """The base class's own declaration, inherited unedited by every country
+    module (D-045(e)) — `example_registry` here stands in for that, exactly
+    as it does for `supported_includes` defaulting to empty."""
+    assert type(example_registry).universal_includes == frozenset({"lei"})
+
+
+def test_effective_includes_unions_universal_with_supported(attach_registry: Registry) -> None:
+    """`effective_includes` = `universal_includes` | `supported_includes`
+    (D-045(e)) — the one helper every call site reads instead of inlining
+    the union three times. `attach_registry` declares `{"gadget", "widget"}`
+    and never mentions `lei`, yet gains it."""
+    assert attach_registry.effective_includes == frozenset({"gadget", "lei", "widget"})
+
+
+def test_effective_includes_drops_universal_when_id_may_be_personal(
+    example_registry: Registry,
+) -> None:
+    """A registry whose identifiers can be a natural person's national
+    identity number gets none of `universal_includes`, no matter what it
+    declares in `supported_includes` — `lei` sends the identifier to a
+    third-party host in a URL query string, which is exactly the exposure
+    D-039/D-040 protect the usage log from (DECISIONS.md D-045(e))."""
+
+    class _PersonalRegistry(type(example_registry)):  # type: ignore[misc]
+        country = "XM"
+        registry = "example-personal"
+        is_stub = True
+        id_may_be_personal = True
+        supported_includes = frozenset({"widget"})
+
+    registry = _PersonalRegistry()
+    assert registry.effective_includes == frozenset({"widget"})
+    assert "lei" not in registry.effective_includes
+
+
+def test_country_info_carries_only_the_universal_include_by_default(
+    example_registry: Registry,
+) -> None:
+    """`supported_includes` (the country's own declarations) is empty, but
+    `country_info().supported_includes` reads `effective_includes`
+    (D-045(e)), which is never empty: `lei` reaches every registry by
+    default via `universal_includes`, XX included."""
     info = example_registry.country_info()
     assert isinstance(info, CountryInfo)
-    assert info.supported_includes == []
+    assert info.supported_includes == ["lei"]
 
 
-def test_country_info_carries_supported_includes_sorted(attach_registry: Registry) -> None:
+def test_country_info_carries_effective_includes_sorted(attach_registry: Registry) -> None:
     """Sorted, for a stable wire (D-042(d)(1)) — declared as
-    `{"gadget", "widget"}`, a set with no guaranteed iteration order."""
+    `{"gadget", "widget"}` plus the universal `lei` (D-045(e)), a set with no
+    guaranteed iteration order."""
     info = attach_registry.country_info()
-    assert info.supported_includes == ["gadget", "widget"]
+    assert info.supported_includes == ["gadget", "lei", "widget"]
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +272,9 @@ async def test_unknown_include_value_raises_bad_request_naming_allowed_set(
     assert err.http_status == 400
     assert "bogus" in err.message
     assert "gadget" in err.hint and "widget" in err.hint
-    assert err.details["allowed"] == ["gadget", "widget"]
+    # `effective_includes` (D-045(e)): the country's own two attachments
+    # plus the universal `lei`, which no fake here ever had to declare.
+    assert err.details["allowed"] == ["gadget", "lei", "widget"]
     assert err.details["unknown"] == ["bogus"]
     assert err.country == "XW"
     assert err.registry == "example-attach"
@@ -239,19 +290,20 @@ async def test_unknown_include_value_is_never_silently_dropped_from_a_mixed_list
     assert excinfo.value.details["unknown"] == ["bogus"]
 
 
-async def test_a_country_that_declares_none_rejects_every_include_value(
+async def test_a_country_that_declares_none_rejects_every_other_include_value(
     example_registry: Registry,
 ) -> None:
-    """The real `XX` stub: `supported_includes` is the default empty set, so
-    any `include` value is unknown, and the caller is told so rather than
-    silently getting an empty block back."""
+    """The real `XX` stub: `supported_includes` (its own declarations) is the
+    default empty set, so `effective_includes` is just the universal `lei`
+    (D-045(e)) — any *other* `include` value is unknown, and the caller is
+    told so rather than silently getting an empty block back."""
     with pytest.raises(RegistryError) as excinfo:
-        await example_registry.lookup_with("12345678", ["lei"])
+        await example_registry.lookup_with("12345678", ["bogus"])
     err = excinfo.value
     assert err.code is ErrorCode.BAD_REQUEST
-    assert err.details["allowed"] == []
-    assert "lei" in err.message
-    assert "lei" in err.hint or "none" in err.hint.lower()
+    assert err.details["allowed"] == ["lei"]
+    assert "bogus" in err.message
+    assert "lei" in err.hint
 
 
 async def test_bad_include_value_raises_before_any_upstream_request(
@@ -552,6 +604,40 @@ async def test_an_include_with_no_matching_report_field_fails_loudly(
 
     with pytest.raises(RuntimeError, match="ghost"):
         await _GhostRegistry().lookup_with("1", ["ghost"])
+
+
+async def test_an_include_with_no_matching_method_fails_loudly(
+    example_registry: Registry,
+) -> None:
+    """The other half of S-series finding 6 (`REVIEW.md` § S-series,
+    `tasks/T42.md`'s orchestrator addendum): a country-module bug —
+    `supported_includes` (or, since D-045(e), `universal_includes`) names
+    something with **no matching method at all** — used to escape
+    `lookup_with` as a bare `AttributeError` out of `getattr(self, name)`,
+    with no mention of the misconfiguration and no test covering it. It must
+    surface as the same clear `RuntimeError` the missing-field case above
+    does, naming the registry class and the offending include, and it must
+    do so **before** `lookup` is even attempted — cheap to fail, like an
+    unknown include value."""
+    calls = 0
+
+    class _PhantomRegistry(type(example_registry)):  # type: ignore[misc]
+        country = "XP"
+        registry = "example-phantom"
+        is_stub = True
+        supported_includes = frozenset({"phantom"})
+
+        async def lookup(self, id: str) -> CompanyReport:
+            nonlocal calls
+            calls += 1
+            return _report(self.country, self.registry, id)
+
+        # Deliberately no `phantom` method — the whole point of this test.
+
+    with pytest.raises(RuntimeError, match="phantom") as excinfo:
+        await _PhantomRegistry().lookup_with("1", ["phantom"])
+    assert "_PhantomRegistry" in str(excinfo.value)
+    assert calls == 0
 
 
 # ---------------------------------------------------------------------------

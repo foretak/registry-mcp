@@ -597,6 +597,80 @@ class SourceRef(_Base):
     )
 
 
+class LeiRecord(_Base):
+    """The Legal Entity Identifier GLEIF (the Global LEI Foundation) publishes
+    for one entity — the ``include=["lei"]`` attachment, D-026(c)'s shape,
+    unamended by D-045(e). Unlike every other attachment, this upstream is
+    not any one country's own register: GLEIF publishes every jurisdiction
+    from one endpoint, under one CC0 licence, with one TTL, so it is the
+    first attachment every country declares by default
+    (``Registry.universal_includes``, D-045(e)) rather than something a
+    country module opts into.
+
+    The two-level nullability is D-026(c)'s and D-011's, restated here: an
+    **absent** ``CompanyReport.lei`` means the attachment was not requested,
+    or the fetch failed (a ``notes`` sentence on the report says which); a
+    **present** block with ``lei=None`` means GLEIF holds no LEI for this
+    entity, which is a real and useful answer about a counterparty and must
+    never be rendered as though nothing were known.
+    """
+
+    lei: str | None = Field(
+        default=None,
+        description=(
+            "The 20-character Legal Entity Identifier GLEIF publishes for this entity. "
+            "`None` *inside a present block* means GLEIF holds no LEI for it — a real "
+            "and useful answer about a counterparty, and not the same as this block "
+            "being absent (D-026(c), D-011). The LEI is **not** the EUID — see "
+            "`CompanyReport.euid`'s own description for that distinction rather than "
+            "restating it here."
+        ),
+    )
+    legal_name: str | None = Field(
+        default=None,
+        description=(
+            "The legal name as GLEIF publishes it, carried verbatim. May differ from "
+            "`CompanyReport.name`, because the two are two registers' opinions recorded "
+            "at two different moments — never reconciled against it and never used to "
+            "correct the company record (D-018: say which source said what)."
+        ),
+    )
+    registration_status: str | None = Field(
+        default=None,
+        description=(
+            "GLEIF's own `registration.status` for this LEI record, verbatim: "
+            "'ISSUED', 'LAPSED', … (national-vocabulary-in-values, D-042(g)). A "
+            "'LAPSED' LEI means the entity stopped renewing its registration and is "
+            "**not** evidence of insolvency or inactivity — Carillion plc ('03782379') "
+            "and Lehman Brothers International (Europe) ('02538254') both read "
+            "`entity.status: ACTIVE` beside `registration.status: LAPSED`. This field "
+            "carries the *registration's* status; GLEIF's `entity.status` is not "
+            "carried at all, because it is a claim about the company made by neither "
+            "the company's own register nor us."
+        ),
+    )
+    provenance: SourceRef = Field(
+        description=(
+            "Where, when and under what licence this block was fetched. `source` "
+            "names GLEIF, `license` is 'CC0 1.0', and `source_url` is this record's "
+            "own GLEIF URL. Never implies endorsement and never describes registry-mcp "
+            "as a GLEIF service — GLEIF's anti-impersonation clause sits outside its "
+            "data licence (D-026(c))."
+        )
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plain-English caveats about this block. Always names the exact string "
+            "sent as GLEIF's `entity.registeredAs` filter, so a `lei: null` answer is "
+            "legible rather than silent, and the register-authority code GLEIF cites "
+            "for this entity. If GLEIF returned more than one record for this "
+            "registration number, a sentence discloses how many and each LEI, rather "
+            "than silently picking one."
+        ),
+    )
+
+
 class Charge(_Base):
     """One registered charge (a mortgage or other security interest) against
     an entity — one row of a `ChargeBlock`.
@@ -1271,6 +1345,22 @@ class CompanyReport(_Base):
     )
 
     # --- attachments (opt-in via `include=[...]`, D-026(c), D-042) ----------
+    lei: LeiRecord | None = Field(
+        default=None,
+        description=(
+            "This entity's Legal Entity Identifier record, from GLEIF — not a national "
+            "register (D-026(c), D-045(e)). `None` unless `lei` was passed in "
+            "`include=[...]` — and, even then, `None` if that fetch failed (see `notes` "
+            "for why). A country that declares this attachment "
+            "(`CountryInfo.supported_includes`) returns a *present* block even for an "
+            "entity GLEIF holds no LEI for: `LeiRecord.lei` is `None` inside it, which "
+            "is a real answer, never the same as this field being absent (D-011). "
+            "Declared by default by every country whose identifiers cannot be a "
+            "natural person's (`Registry.universal_includes`) — Sweden does not "
+            "declare it, because GLEIF is a third-party host queried by identifier in "
+            "a URL query string."
+        ),
+    )
     charges: ChargeBlock | None = Field(
         default=None,
         description=(

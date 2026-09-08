@@ -1,0 +1,163 @@
+{
+  "meta": {
+    "goldenCopy": {
+      "publishDate": "2026-09-08T08:00:00Z"
+    },
+    "pagination": {
+      "currentPage": 1,
+      "perPage": 15,
+      "from": 1,
+      "to": 1,
+      "total": 1,
+      "lastPage": 1
+    }
+  },
+  "links": {
+    "first": "https://api.gleif.org/api/v1/lei-records?filter%5Bentity.jurisdiction%5D=SE&filter%5Bentity.registeredAs%5D=556016-0680&page%5Bnumber%5D=1&page%5Bsize%5D=15",
+    "last": "https://api.gleif.org/api/v1/lei-records?filter%5Bentity.jurisdiction%5D=SE&filter%5Bentity.registeredAs%5D=556016-0680&page%5Bnumber%5D=1&page%5Bsize%5D=15"
+  },
+  "data": [
+    {
+      "type": "lei-records",
+      "id": "549300W9JLPW15XIFM52",
+      "attributes": {
+        "lei": "549300W9JLPW15XIFM52",
+        "entity": {
+          "legalName": {
+            "name": "Telefonaktiebolaget LM Ericsson",
+            "language": "sv"
+          },
+          "otherNames": [],
+          "transliteratedOtherNames": [],
+          "legalAddress": {
+            "language": "sv",
+            "addressLines": [
+              "Torshamnsgatan 21"
+            ],
+            "addressNumber": null,
+            "addressNumberWithinBuilding": null,
+            "mailRouting": null,
+            "city": "Stockholm",
+            "region": "SE-AB",
+            "country": "SE",
+            "postalCode": "164 83"
+          },
+          "headquartersAddress": {
+            "language": "sv",
+            "addressLines": [
+              "Torshamnsgatan 21"
+            ],
+            "addressNumber": null,
+            "addressNumberWithinBuilding": null,
+            "mailRouting": null,
+            "city": "Stockholm",
+            "region": "SE-AB",
+            "country": "SE",
+            "postalCode": "164 83"
+          },
+          "registeredAt": {
+            "id": "RA000544",
+            "other": null
+          },
+          "registeredAs": "556016-0680",
+          "jurisdiction": "SE",
+          "category": "GENERAL",
+          "legalForm": {
+            "id": "XJHM",
+            "other": null
+          },
+          "associatedEntity": {
+            "lei": null,
+            "name": null
+          },
+          "status": "ACTIVE",
+          "expiration": {
+            "date": null,
+            "reason": null
+          },
+          "successorEntity": {
+            "lei": null,
+            "name": null
+          },
+          "successorEntities": [],
+          "creationDate": "1918-08-19T00:00:00Z",
+          "subCategory": null,
+          "otherAddresses": [],
+          "eventGroups": []
+        },
+        "registration": {
+          "initialRegistrationDate": "2013-09-16T14:34:00Z",
+          "lastUpdateDate": "2026-07-16T09:07:00Z",
+          "status": "ISSUED",
+          "nextRenewalDate": "2027-09-12T00:00:00Z",
+          "managingLou": "549300O897ZC5H7CY412",
+          "corroborationLevel": "FULLY_CORROBORATED",
+          "validatedAt": {
+            "id": "RA000544",
+            "other": null
+          },
+          "validatedAs": "556016-0680",
+          "otherValidationAuthorities": []
+        },
+        "bic": [
+          "TEERSESSXXX"
+        ],
+        "mic": null,
+        "ocid": "se/556016-0680",
+        "qcc": "QSE0U5Y9RD",
+        "gem": null,
+        "spglobal": [
+          "269706"
+        ],
+        "conformityFlag": "CONFORMING"
+      },
+      "relationships": {
+        "managing-lou": {
+          "links": {
+            "related": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/managing-lou"
+          }
+        },
+        "lei-issuer": {
+          "links": {
+            "related": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/lei-issuer"
+          }
+        },
+        "field-modifications": {
+          "links": {
+            "related": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/field-modifications"
+          }
+        },
+        "direct-parent": {
+          "links": {
+            "reporting-exception": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/direct-parent-reporting-exception"
+          }
+        },
+        "ultimate-parent": {
+          "links": {
+            "reporting-exception": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/ultimate-parent-reporting-exception"
+          }
+        },
+        "direct-children": {
+          "links": {
+            "relationship-records": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/direct-child-relationships",
+            "related": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/direct-children"
+          }
+        },
+        "ultimate-children": {
+          "links": {
+            "relationship-records": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/ultimate-child-relationships",
+            "related": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/ultimate-children"
+          }
+        },
+        "isins": {
+          "links": {
+            "related": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52/isins"
+          }
+        }
+      },
+      "links": {
+        "self": "https://api.gleif.org/api/v1/lei-records/549300W9JLPW15XIFM52"
+      }
+    }
+  ]
+}
