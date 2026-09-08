@@ -81,8 +81,68 @@ def cache_disabled() -> bool:
     return os.environ.get(_DISABLED_ENV, "").strip().lower() in {"1", "true", "yes"}
 
 
-def _ttl_seconds(status: str) -> int:
-    """TTL for a given cache status. Only the ``ok`` TTL is overridable by env."""
+#: kind -> (ok_ttl_seconds, empty_ttl_seconds). A kind absent from this table
+#: falls through to today's behaviour byte for byte: the fixed
+#: ``_NOT_FOUND_TTL_SECONDS`` / ``_DEFAULT_OK_TTL_SECONDS`` pair below, the
+#: latter still overridable by ``REGISTRY_MCP_CACHE_TTL_SECONDS``.
+#:
+#: The kind is read from the cache key itself (see :func:`_kind_from_key`)
+#: rather than passed as a new argument — D-006's convention already puts it
+#: there as the third ``:``-separated segment
+#: (``"GB:companies-house:charges:{crn}"``), so this amends D-042(j) without
+#: touching a single existing call site (``DECISIONS.md`` D-045(e)). In
+#: particular the five sites that fake a per-kind TTL today with
+#: ``status="not_found"`` (``registries/gb/client.py`` x3, ``se/client.py``,
+#: ``no/client.py``) need no migration: their kinds (``charges``,
+#: ``filings``, ``insolvency``) are simply absent from this table.
+#:
+#: **A declared kind ignores ``REGISTRY_MCP_CACHE_TTL_SECONDS`` entirely.**
+#: That is deliberate, not an oversight: it is D-028(2)'s hard rule arriving
+#: early — when a person-bearing kind such as ``officers`` gets a row here at
+#: one hour, an operator tuning cache performance must not be able to
+#: silently extend personal-data retention by raising one environment
+#: variable. Add a row here for a new kind; do not add a second override
+#: mechanism.
+_TTL_BY_KIND: dict[str, tuple[int, int]] = {
+    # 7 days on a hit, 24 h empty — not D-006's default 24 h / 1 h. An LEI
+    # renews annually and nothing statutory, time-critical or
+    # credit-bearing turns on an entity acquiring one, so re-asking a free
+    # service hourly for an answer that is "no" for most of the world's
+    # companies points the harm the wrong way (DECISIONS.md D-026(c),
+    # D-045(e)).
+    "lei": (7 * 24 * 60 * 60, 24 * 60 * 60),
+}
+
+
+def _kind_from_key(key: str) -> str | None:
+    """The cache key's third ``:``-separated segment, e.g. ``"charges"`` from
+    ``"GB:companies-house:charges:00445790"`` or ``"filings"`` from
+    ``"SE:bolagsverket:filings:prod:5560160680"``.
+
+    Parsed defensively — a key with fewer than three segments (should not
+    happen for a real registry key, but this module must never assume) has
+    no kind and yields ``None``, which is exactly what makes it fall through
+    :data:`_TTL_BY_KIND` untouched.
+    """
+    parts = key.split(":", 3)
+    return parts[2] if len(parts) >= 3 else None
+
+
+def _ttl_seconds(status: str, key: str) -> int:
+    """TTL for a given cache status and key.
+
+    A kind present in :data:`_TTL_BY_KIND` (the key's third ``:``-separated
+    segment, per :func:`_kind_from_key`) reads its own
+    ``(ok_ttl, empty_ttl)`` pair and ignores ``REGISTRY_MCP_CACHE_TTL_SECONDS``
+    entirely — see that table's own docstring for why. A kind absent from
+    the table (or a key with no kind) falls through to today's behaviour
+    byte for byte, ``REGISTRY_MCP_CACHE_TTL_SECONDS`` included.
+    """
+    kind = _kind_from_key(key)
+    if kind is not None and kind in _TTL_BY_KIND:
+        ok_ttl, empty_ttl = _TTL_BY_KIND[kind]
+        return empty_ttl if status == "not_found" else ok_ttl
+
     if status == "not_found":
         return _NOT_FOUND_TTL_SECONDS
     raw = os.environ.get(_TTL_ENV, "").strip()
@@ -172,7 +232,7 @@ def set(
         return
     try:
         when = fetched_at or _now()
-        expires_at = when.timestamp() + _ttl_seconds(status)
+        expires_at = when.timestamp() + _ttl_seconds(status, key)
         expires_iso = datetime.fromtimestamp(expires_at, tz=UTC).isoformat()
         with _connect() as conn:
             conn.execute(

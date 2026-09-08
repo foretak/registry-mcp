@@ -434,3 +434,38 @@ byte-for-byte recording is never labelled as a redacted one.
 **Do not use this endpoint to look up a specific individual.** It is reachable
 only from a company number and must stay that way (D-028(1)); the sampling
 that produced the recon above went company → cases and never the other way.
+
+## GLEIF (`gleif_*.json`)
+
+Six fixtures for `include=["lei"]` (`DECISIONS.md` D-026(c), D-045(e),
+`core/gleif.py`). All recorded live and keyless from
+`https://api.gleif.org/api/v1/lei-records` on 2026-09-08 — no personal data
+of any kind is in scope for this upstream (GLEIF publishes corporate entity
+records under CC0 1.0), so unlike the Companies House insolvency fixtures
+above, nothing here is stripped: every file is byte-for-byte what GLEIF
+returned for the query named below.
+
+| Fixture | jurisdiction | registeredAs | Why |
+|---|---|---|---|
+| `gleif_923609016.json` | `NO` | `923 609 016` | Norway's space-grouped form — a bare-digit query for the same entity returns zero hits, which is the trap this attachment exists to avoid |
+| `gleif_00445790.json` | `GB` | `00445790` | Tesco PLC — Britain does not group its own identifier, so the normalised id is queried as-is |
+| `gleif_SC090312.json` | `GB` | `SC090312` | NatWest Markets plc — a Scottish registration, on a different Companies House registration-authority code from an England-and-Wales one |
+| `gleif_556016-0680.json` | `SE` | `556016-0680` | Sweden's hyphenated form. Recorded for the mapper only — `SE` does not declare `lei` (its identifier can be a sole trader's personnummer, D-039), so no live `SE` lookup ever reaches this query |
+| `gleif_03782379.json` | `GB` | `03782379` | Carillion plc — GLEIF's own `entity.status` reads `ACTIVE` while its `registration.status` reads `LAPSED`, which is why `LeiRecord.registration_status` carries the latter and not the former |
+| `gleif_empty.json` | `GB` | `00223668` | `meta.pagination.total: 0` — the present-block-with-`lei: null` case |
+
+Recording recipe (no credential needed; the brackets in the filter names
+must be percent-encoded, or a shell/curl will glob them and produce a
+confusing empty result that is a probing artefact, not a GLEIF behaviour):
+
+```bash
+python3 - <<'PY'
+import json, urllib.parse, urllib.request
+
+params = {"filter[entity.jurisdiction]": "NO", "filter[entity.registeredAs]": "923 609 016"}
+url = "https://api.gleif.org/api/v1/lei-records?" + urllib.parse.urlencode(params)
+with urllib.request.urlopen(url) as resp:
+    body = json.load(resp)
+print(json.dumps(body, indent=2, ensure_ascii=False))
+PY
+```

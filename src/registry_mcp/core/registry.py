@@ -60,6 +60,7 @@ from registry_mcp.core.models import (
     Deadline,
     DeadlineReport,
     ErrorCode,
+    LeiRecord,
     RegistryError,
     SearchResult,
     ValidationResult,
@@ -159,7 +160,51 @@ class Registry(ABC):
     attached to. :meth:`lookup_with` calls that method dynamically by name;
     a mismatch (a declared include with no matching field, or no matching
     method) is a country-module bug and fails loudly there, not silently.
+
+    See also :attr:`universal_includes` and :attr:`effective_includes`: a
+    country's *own* declared set, unioned with the attachments every country
+    gets by default.
     """
+
+    universal_includes: ClassVar[frozenset[str]] = frozenset({"lei"})
+    """Attachments whose upstream is not a national register, and which
+    every country therefore declares by default (``DECISIONS.md`` D-045(e)).
+
+    Today this is just ``{"lei"}``: GLEIF publishes every jurisdiction from
+    one endpoint, under one CC0 licence, with one TTL, so it is not *any*
+    country's own register and a per-country declaration would be three
+    (eventually more) modules asserting the same global fact. A country
+    module adds nothing and edits nothing to gain it, unlike
+    :attr:`supported_includes` — see :attr:`effective_includes`, which is
+    what every call site actually reads instead of this attribute alone.
+    """
+
+    @property
+    def effective_includes(self) -> frozenset[str]:
+        """:attr:`universal_includes` unioned with :attr:`supported_includes`
+        — what a caller may actually pass to :meth:`lookup_with`, and what
+        :meth:`country_info` publishes as ``CountryInfo.supported_includes``.
+
+        The one helper every call site uses (``DECISIONS.md`` D-045(e)), so
+        the union is never inlined three times.
+
+        **The** :attr:`id_may_be_personal` **subtraction is not optional.**
+        Every attachment in :attr:`universal_includes` today sends the
+        identifier to a third-party host, in a URL query string (GLEIF is
+        queried by ``filter[entity.registeredAs]=<identifier>``). For a
+        registry whose identifiers can be a natural person's national
+        identity number (Sweden: a sole trader's organisationsnummer is
+        their personnummer, D-039), that string reaching a third party's
+        URLs, access logs and ``Referer`` headers is exactly what
+        :attr:`id_may_be_personal` exists to prevent (D-040) — unlike
+        Bolagsverket's own second call, which D-041(g) permits because it is
+        the same host, the same TLS session and a POST body. GLEIF is none
+        of those. So a registry with the flag set gets none of
+        :attr:`universal_includes`, no matter what it declares in
+        :attr:`supported_includes`.
+        """
+        universal = frozenset() if self.id_may_be_personal else type(self).universal_includes
+        return universal | self.supported_includes
 
     # -- required operations -------------------------------------------------
 
@@ -309,7 +354,7 @@ class Registry(ABC):
                 attachment method — an attachment never takes a second
                 identifier scheme.
             include: attachment names to fetch alongside the base report.
-                Must be a subset of :attr:`supported_includes`. ``()`` (the
+                Must be a subset of :attr:`effective_includes`. ``()`` (the
                 default) fetches nothing extra, so ``lookup_with(id)`` costs
                 exactly the one upstream request ``lookup(id)`` costs.
                 Duplicates are fetched once, not once each.
@@ -329,21 +374,25 @@ class Registry(ABC):
             RegistryError: whatever :meth:`lookup` raises, unchanged —
                 nothing to attach to without a base report. ``bad_request``,
                 raised before :meth:`lookup` is even called, when
-                ``include`` names a value outside :attr:`supported_includes`;
-                its ``hint`` and ``details["allowed"]`` name that country's
-                declared set (``DECISIONS.md`` D-042(d)) — never silently
-                ignored and never answered with an empty block.
-
-        Only ``RegistryError`` raised by an attachment method is treated as a
-        failed fetch. Anything else propagates: a country module whose
-        :attr:`supported_includes` names a method it does not define, or
-        whose result does not match a field on the report :meth:`lookup`
-        returned, is a bug and fails loudly here rather than silently
-        dropping the attachment (see the ``RuntimeError`` below).
+                ``include`` names a value outside :attr:`effective_includes`;
+                its ``hint`` and ``details["allowed"]`` name that registry's
+                effective declared set (``DECISIONS.md`` D-042(d), D-045(e))
+                — never silently ignored and never answered with an empty
+                block.
+            RuntimeError: a country-module bug, never a caller's mistake — a
+                name in :attr:`effective_includes` with no matching method,
+                or whose method's result does not match a field on the
+                report :meth:`lookup` returns. Checked for every requested
+                name before any network I/O happens for it: the method half
+                before :meth:`lookup` is even called, the field half right
+                after, so both fail loudly here rather than escaping as a
+                bare ``AttributeError`` or hiding behind a plausible-looking
+                failed-fetch note (``REVIEW.md`` § S-series finding 6).
         """
-        unknown = sorted({name for name in include if name not in self.supported_includes})
+        effective = self.effective_includes
+        unknown = sorted({name for name in include if name not in effective})
         if unknown:
-            allowed = sorted(self.supported_includes)
+            allowed = sorted(effective)
             raise RegistryError(
                 ErrorCode.BAD_REQUEST,
                 f"Unknown include value(s) for {self.country}: {', '.join(unknown)}.",
@@ -356,14 +405,44 @@ class Registry(ABC):
                 details={"allowed": allowed, "unknown": unknown},
             )
 
-        report = await self.lookup(id)
-
         # De-duplicated, first-occurrence order: a repeated include value
         # costs one fetch, not two (the same principle D-024(e) applies to
         # a repeated batch identifier).
         names = list(dict.fromkeys(include))
+
+        # Misconfiguration guard, part one (method): needs no report, so it
+        # runs before `lookup` is even attempted — a broken country module
+        # fails loudly for free rather than spending a network call first.
+        # `getattr(self, name)` inside `_fetch` below used to let this
+        # escape as a bare `AttributeError` (S-series finding 6).
+        for name in names:
+            if not callable(getattr(type(self), name, None)):
+                raise RuntimeError(
+                    f"{type(self).__name__} declares include {name!r} but defines no "
+                    "matching method — a country-module bug (DECISIONS.md D-042(b),(g)), "
+                    "not a runtime condition."
+                )
+
+        report = await self.lookup(id)
         if not names:
             return report
+
+        # Misconfiguration guard, part two (report field): checked for
+        # *every* requested name, not only the ones about to be fetched
+        # successfully — otherwise a misconfigured include whose method
+        # raises `RegistryError` hides behind a plausible-looking
+        # failed-fetch note instead of failing loudly (S-series finding 6's
+        # third, previously-silent case). Run before any attachment is
+        # actually fetched.
+        report_fields = type(report).model_fields
+        misconfigured = sorted(name for name in names if name not in report_fields)
+        if misconfigured:
+            raise RuntimeError(
+                f"{type(self).__name__} declares include(s) {misconfigured!r} but "
+                f"{type(report).__name__} has no matching field for it — a "
+                "country-module bug (DECISIONS.md D-042(b),(g)), not a runtime "
+                "condition."
+            )
 
         semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -386,18 +465,53 @@ class Registry(ABC):
             else:
                 updates[name] = block
 
-        report_fields = type(report).model_fields
-        misconfigured = sorted(name for name in updates if name not in report_fields)
-        if misconfigured:
-            raise RuntimeError(
-                f"{type(self).__name__}.supported_includes declares {misconfigured!r} but "
-                f"{type(report).__name__} has no matching field for it — a country-module "
-                "bug (DECISIONS.md D-042(b),(g)), not a runtime condition."
-            )
-
         if not updates and notes == report.notes:
             return report
         return report.model_copy(update={**updates, "notes": notes})
+
+    async def lei(self, id: str) -> LeiRecord:
+        """The Legal Entity Identifier GLEIF publishes for this entity.
+
+        The base class's own concrete attachment (``DECISIONS.md`` D-045(e))
+        — unlike every other ``include=[...]`` value, this upstream is not
+        any country's own register: GLEIF publishes every jurisdiction from
+        one endpoint, under one CC0 licence, with one TTL, so it lives here
+        once instead of being declared identically by three (eventually
+        more) country modules. See :attr:`universal_includes`.
+
+        Normalises ``id`` through :meth:`validate_id` first, exactly as
+        every other method here does, so an invalid id raises ``invalid_id``
+        before a request is made. Queries GLEIF's own
+        ``entity.registeredAs``, which is an *exact* match on the string the
+        national register itself published to GLEIF and not on this
+        project's own normalised form: :meth:`format_id`'s output is tried
+        first when it is not ``None``, and the bare, normalised ``id`` only
+        on a zero-hit miss (D-045(e)'s measured trap — Norway and Sweden
+        both group their identifiers when reporting to GLEIF, so a
+        bare-digit query for either returns zero hits, which reads exactly
+        like "no LEI"). ``core/gleif.py`` does the actual HTTP call, cache
+        read/write and mapping; this method only normalises the id and
+        delegates, so no HTTP transport dependency is imported here.
+
+        Returns a **present** :class:`~registry_mcp.core.models.LeiRecord`
+        even when GLEIF holds no LEI for this entity (``lei=None``) — a
+        real, useful answer about a counterparty, not an absence (D-011,
+        D-026(c)).
+
+        Raises:
+            RegistryError: ``invalid_id`` from :meth:`validate_id`, or
+                ``upstream_error`` on any GLEIF transport failure or
+                non-200 response. :meth:`lookup_with` turns the latter into
+                an absent block plus a ``notes`` sentence rather than
+                failing the whole lookup (D-042(b)).
+        """
+        from registry_mcp.core import gleif
+
+        normalized = self.validate_id(id)
+        result: LeiRecord = await gleif.fetch_lei(
+            self.country, self.registry, normalized, self.format_id(normalized)
+        )
+        return result
 
     # -- optional helpers ----------------------------------------------------
 
@@ -477,7 +591,7 @@ class Registry(ABC):
             is_stub=self.is_stub,
             requires_api_key=self.requires_api_key,
             api_key_env=self.api_key_env or None,
-            supported_includes=sorted(self.supported_includes),
+            supported_includes=sorted(self.effective_includes),
         )
 
     def describe(self) -> dict[str, str | bool]:
