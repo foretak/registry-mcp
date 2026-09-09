@@ -34,7 +34,7 @@ Six months to the *årsstämma* (aktiebolagslagen 7 kap. 10 §) and seven to the
 Four things it does not do, so you find out here rather than later:
 
 - **No name search, permanently.** The free API has four operations and none takes a company name. `search_company` returns `501 not_implemented` with a hint saying to use the identifier or Bolagsverket's bulk files. Search "ericsson" through the tool and you get the British and Norwegian Ericsson entities and not the Swedish parent — which is a fair illustration of the limit.
-- **The financial year is assumed, not known.** The free dataset does not publish it, so both dates assume 31 December and a `notes` sentence says so, plus how to shift them if it is not.
+- **The financial year is assumed by default, not known.** Both dates assume 31 December and a `notes` sentence says so, plus how to shift them if it is not — but pass `include=["filings"]` and Bolagsverket's own document list gives you the year end of the entity's last filed annual report instead of the assumption.
 - **`is_active` means on the register and not winding down — not trading.** Sweden publishes no status field; it is derived from a strike-off date, ongoing procedures, and SCB's *verksam* flag. A dormant company is `active` here, with a note saying SCB does not mark it economically active.
 - **The check digit is Bolagsverket's to enforce, not ours.** I could not confirm the modulus-10 rule against a primary source, so `validate_company_id` says so in `reason` rather than rejecting numbers, and Bolagsverket answers *"Identitetsbeteckning har ogiltig kontrollsiffra"* for a bad one.
 

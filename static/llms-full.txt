@@ -303,7 +303,7 @@ Response (abridged the same way; MCP
       "founded_at": "1947-11-27",
       "vat_registered": null,
       "vat_number": null,
-      "registers": {"charges": false, "insolvency": false},
+      "registers": {"insolvency": false},
       "employees": null,
       "employees_reported": false,
       "industry_codes": [
@@ -353,9 +353,9 @@ here as "this company has no employees" or "not VAT-registered" — read it as
 "this register does not say".
 
 `industry_codes` for `GB` are SIC 2007 codes with `description: null`;
-Companies House returns the code only. `registers` for `GB` has two boolean
-`registers` carries one key for Britain, `insolvency`, from the register's own
-`has_insolvency_history`. **`charges` is deliberately absent.** Companies House
+Companies House returns the code only. `registers` carries one key for
+Britain, `insolvency`, from the register's own `has_insolvency_history`.
+**`charges` is deliberately absent.** Companies House
 publishes `has_charges: false` for companies that do have charges — TESCO PLC says
 false while the charges endpoint returns nine, two still outstanding (recorded live
 2026-09-08). A key here asserts membership of a sub-register; we can assert neither,
@@ -450,26 +450,30 @@ the financial-year end; a visiting address, `email`, `phone` and `website`.
 so both Swedish deadlines are computed from statute — see §3.4.
 
 **`include=[...]` adds a second, independent fetch alongside the base report,
-opt-in and at the cost of one extra upstream request per name.** Three exist
+opt-in and at the cost of one extra upstream request per name.** Seven exist
 today: `filings` answers *do they file, and on time* (`GB`, `NO` and `SE` all
-declare it); `charges` answers *are assets already pledged* (`GB` only); and
-`insolvency` answers *are they being wound up* (`GB` only). Ask for more than
-one by repeating the parameter — REST `?include=filings&include=charges`, MCP
-`include=["filings", "charges"]`. Empty by default, which costs exactly one
-upstream request, same as before this argument existed. Call `GET
-/v1/countries` (§3.1) / MCP `list_countries` and read a country's
-`supported_includes` before guessing: a name that country does not declare is
-a `400 bad_request` naming what it does support, never a silently empty
-result.
+declare it); `charges` answers *are assets already pledged* (`GB` only);
+`insolvency` answers *are they being wound up* (`GB` only); `financials`
+answers *what do the numbers say* (`NO` only); `lei` and `parents` answer
+*who does GLEIF say this entity and its group are* (every country except
+`SE`); and `peppol` answers *would an e-invoice reach them* (`NO` only). Ask
+for more than one by repeating the parameter — REST
+`?include=filings&include=charges`, MCP `include=["filings", "charges"]`.
+Empty by default, which costs exactly one upstream request, same as before
+this argument existed. Call `GET /v1/countries` (§3.1) / MCP
+`list_countries` and read a country's `supported_includes` before guessing:
+a name that country does not declare is a `400 bad_request` naming what it
+does support, never a silently empty result.
 
-**Two-level nullability, the same shape on every attachment.** The attachment
-key on the response (`charges`, `filings`, `insolvency`) is `null` for one of
-two reasons: you did not ask for it, or the fetch failed — the report's own
-top-level `notes` names which attachment and why, in the second case. Once
-*present*, an empty attachment (e.g. `"filings": {"documents": [], ...}`) is
-a real, different answer: the register was asked and lists none for this
-entity. Never read an absent attachment as "the register has none" — it may
-only mean nobody asked.
+**Two-level nullability, the same shape on every attachment.** The
+attachment key on the response — `charges`, `filings`, `insolvency`,
+`financials`, `lei`, `parents`, `peppol` — is `null` for one of two reasons:
+you did not ask for it, or the fetch failed — the report's own top-level
+`notes` names which attachment and why, in the second case. Once *present*,
+an empty attachment (e.g. `"filings": {"documents": [], ...}`) is a real,
+different answer: the register was asked and lists none for this entity.
+Never read an absent attachment as "the register has none" — it may only
+mean nobody asked.
 
 **`filings` is one name for three differently-scoped answers**, because each
 register publishes a different slice of an entity's filing life and none
@@ -489,6 +493,74 @@ byte-identical to its answer for a company number that was never issued — so
 it is never evidence the entity exists, only that the register holds no case
 against it.
 
+**`financials` (`NO` only): the register's own key figures for the latest
+filed accounting period, never a ratio or a verdict.** Regnskapsregisteret's
+open dataset publishes exactly one period — revenue (turnover), operating
+result, profit, balance sheet totals, equity and liabilities — each figure
+beside its own `currency`, because a figure separated from its currency is
+not partially wrong, it is meaningless: 12 of 358 sampled Norwegian filings
+were not in kroner. This is the fact the block exists to answer *is this
+supplier solvent*, and nothing here computes that answer for you — no
+equity ratio, current ratio or similar field exists, because the register's
+own totals do not always reconcile (27 of 358 sampled filings) and any ratio
+built on them would be a verdict the register itself does not vouch for.
+**A `None` figure inside a present block means the company itself did not
+report that line for this filing; an absent `financials` block means the
+country's register does not publish figures at all.** Britain and Sweden do
+not declare `financials` today, and the reason is ours, not theirs: their
+figures live only inside filed accounts documents (iXBRL, a zip) this API
+does not parse. Companies House and Bolagsverket are not silent about
+financial figures — this project has simply not built the document parser
+yet — so no sentence anywhere says either register "does not publish
+financial figures".
+
+**`lei` (every country except `SE`): the Legal Entity Identifier GLEIF, the
+Global LEI Foundation, publishes for this entity.** CC0-licensed and
+keyless. A present block with `"lei": null` means GLEIF holds no LEI for
+this entity — a real, useful answer about a counterparty, not the same as
+the block being absent. Sweden does not declare `lei`: the query sends the
+identifier to a third-party host in a URL, and a Swedish identifier can be a
+natural person's own (a sole trader's personnummer), so `include=["lei"]`
+for `SE` is a `400 bad_request` naming Sweden's allowed set instead.
+
+**`parents` (the same countries as `lei`): GLEIF's Level 2 "who owns whom"
+data — the direct parent and the ultimate parent, independently.** A parent
+here is the entity that *consolidates this one's accounts*, which is not
+necessarily its majority shareholder, and the two need not agree: GLEIF's
+own wire word is `IS_DIRECTLY_CONSOLIDATED_BY` / `IS_ULTIMATELY_CONSOLIDATED_BY`.
+Where GLEIF discloses a parent, that side carries the parent's own `lei`,
+`legal_name`, `jurisdiction` and a `corroboration_level` — `FULLY_CORROBORATED`,
+`PARTIALLY_CORROBORATED` or `ENTITY_SUPPLIED_ONLY`, because roughly a third
+of disclosed parent links are the filer's own unchecked assertion. Where
+GLEIF discloses no parent on a side, that side instead carries the entity's
+own stated reason from a closed vocabulary — `NATURAL_PERSONS`,
+`NON_CONSOLIDATING`, `NO_KNOWN_PERSON` and others. **Read every such reason
+as a category word, never a name**: it says a person exists and nothing
+else about them, it is the filer's own unverified claim, and it is applied
+inconsistently — EQUINOR ASA (67% owned by the Norwegian State) reads
+`NATURAL_PERSONS` on both sides, while three other listed companies at the
+top of their own groups (DNB, Telenor, Tesco) read `NON_CONSOLIDATING` for
+the identical situation. A present block whose `direct` and `ultimate` are
+both `null` means GLEIF holds no LEI at all for this entity, so there is no
+Level 2 to hold either — itself the answer, not a gap.
+
+**`peppol` (`NO` only): whether this entity can receive an e-invoice over
+the Peppol network, read live from the SML/SMP walk — the same route
+ELMA itself resolves — ahead of Norway's 1 January 2027 duty for
+bookkeeping-obliged businesses to send and receive e-invoices in the EHF
+format (now Peppol BIS Billing 3.0).** `registered` has three states, and an
+agent branches on this field under a statute, so all three matter: `true`
+when the authoritative SMP served a ServiceGroup or the Peppol Directory
+listed a match; **`false` only from an NXDOMAIN at the SML or a 404 from the
+SMP the SML named — nothing else, ever**; `null` for everything else,
+including a DNS or SMP failure and a Directory miss, because both Peppol
+operators say in writing that a Directory miss does not mean the entity is
+not on the network. **`registered: null` means this tool could not get an
+authoritative answer — never read it as "no".** `can_receive_invoice` is
+`true` when the Peppol BIS Billing 3.0 Invoice (or its PINT successor) is
+advertised, `null` when only the lagging Peppol Directory answered and did
+not list it, and `false` only when `registered` itself is `false`.
+
 REST — a UK company's filing history and registered charges in one call:
 
     curl "https://api.foretak.dev/v1/GB/company/00445790?include=filings&include=charges"
@@ -496,6 +568,22 @@ REST — a UK company's filing history and registered charges in one call:
 MCP — the same call:
 
     lookup_company("00445790", country="GB", include=["filings", "charges"])
+
+REST — a Norwegian company's key figures, LEI and Peppol reachability in one
+call (generated locally against committed fixtures, not production):
+
+    curl "https://api.foretak.dev/v1/NO/company/923609016?include=financials&include=lei&include=peppol"
+
+MCP — the same call, plus `parents`, which shares its GLEIF request with
+`lei`:
+
+    lookup_company("923609016", country="NO", include=["financials", "lei", "parents", "peppol"])
+
+For 923609016 (EQUINOR ASA) that last call's `parents` block reads
+`"reporting_exception": "NATURAL_PERSONS"` on both `direct` and `ultimate` —
+the wire example `parents`' own field descriptions are written against
+(`DECISIONS.md` D-047(a)) — never read as a fact that the company has no
+institutional owner; it is the entity's own filing choice, unverified.
 
 ### 3.3 GET /v1/{country}/search?q={name}
 
@@ -819,13 +907,18 @@ per company. Live, asked on 2026-09-07:
 
 Three things to carry into your answer:
 
-- **The financial year is assumed, not known.** Bolagsverket's free dataset
-  does not publish a company's financial year, and a Swedish financial year
-  need not be the calendar year. Both dates assume 31 December, the `notes`
-  entry says so, and it also says how to shift them: a 30 June year end gives
-  31 December for the meeting and 31 January for the filing. If the user knows
-  their year end and it is not December, move both dates by the same number of
-  months yourself and tell them you did.
+- **The calendar year is the fallback, not the only figure available.**
+  Bolagsverket's document list *does* publish a filed annual report's own
+  reporting-period end — pass `include=["filings"]` on `company_deadlines`
+  (both surfaces accept it) to read it and replace the 31 December
+  assumption with the register's own figure, exactly as `include=["filings"]`
+  already does for Norway's rung 2. Without it, both dates assume 31
+  December — a Swedish financial year need not be the calendar year — the
+  `notes` entry says so and also says how to shift them by hand: a 30 June
+  year end gives 31 December for the meeting and 31 January for the filing.
+  If the user knows their year end and it is not December and you did not
+  pass `include=["filings"]`, move both dates by the same number of months
+  yourself and tell them you did.
 - **The filing date is an outer limit, not this company's own.**
   Årsredovisningslagen 8 kap. 3 § requires filing within one month of the
   general meeting that adopts the accounts; Bolagsverket does not publish the
@@ -837,6 +930,20 @@ Three things to carry into your answer:
   was found saying the date moves — not because something was found saying it
   does not. `registry://rules/SE` states that distinction; it matters if a
   Swedish deadline lands on a Sunday.
+
+REST — read Bolagsverket's own filed year end instead of assuming December:
+
+    curl "https://api.foretak.dev/v1/SE/company/5560160680/deadlines?today=2026-09-07&include=filings"
+
+MCP — the same call:
+
+    company_deadlines("5560160680", country="SE", today="2026-09-07", include=["filings"])
+
+`company_deadlines`' own `include` set is narrower than `lookup_company`'s:
+today only `filings` can change a computed date, so `?include=financials` or
+any other value `lookup_company` accepts is a `400 bad_request` naming this
+route's own allowed set — `financials` never was and is not now an input to
+a deadline.
 
 Skatteverket's deadlines — inkomstdeklaration 2, moms, arbetsgivardeklaration —
 are real Swedish obligations that this endpoint does **not** compute, for the
@@ -1108,6 +1215,13 @@ House publishes no parent or group field on the company profile, so it is
 always `null` for the United Kingdom, and a UK group has to be inferred from
 ownership filings this endpoint does not return.
 
+`include=["parents"]` (§3.2) is the closest this API comes for `GB` and
+`NO`, and it is a different question again from either `parent_id` or PSC:
+GLEIF's Level 2 "who owns whom" data names the entity that *consolidates
+this one's accounts* — direct and ultimate, independently — which is an
+accounting relationship, not necessarily the majority shareholder and never
+a beneficial-ownership answer either.
+
 `euid` is the EU-wide identifier some member-state registers publish under
 Commission Implementing Regulation (EU) 2021/1042 — Finland hands one over
 unprompted, ours do not yet. It is **not the LEI** (register-issued,
@@ -1305,9 +1419,14 @@ each other by e-invoice ("bokføringspliktige virksomheter skal fakturere
 hverandre med e-faktura innen 1. januar 2027"), under a new second paragraph of
 bokføringsloven § 10. The receiver is resolved in ELMA by country code plus
 identifier, "landkoden, f.eks. Norge 0192: + organisasjonsnummer", the same
-organisasjonsnummer `lookup_company` and `validate_company_id` take. This
-server reads the company register; it does not query ELMA, so treat a lookup
-here as the identifier check, not the e-invoicing capability check.
+organisasjonsnummer `lookup_company` and `validate_company_id` take.
+`lookup_company` on its own reads the company register only — it is the
+identifier check, not the e-invoicing capability check. For that,
+`include=["peppol"]` (§3.2) queries the Peppol network itself, the same SML/SMP
+walk ELMA resolves through, and answers whether the entity can actually
+receive an e-invoice today: `registered: null` means the check could not be
+made — never read it as "no" — and only an authoritative NXDOMAIN or SMP 404
+earns `false`.
 https://www.regjeringen.no/no/aktuelt/nye-lovregler-om-e-fakturering-i-naringslivet-og-enkelte-andre-lovendringer-pa-finansmarkedsomradet-settes-i-kraft/
 https://www.anskaffelser.no/verktoy/veiledere/mottakere-av-ehf-og-peppol-bis
 

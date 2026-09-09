@@ -27,7 +27,7 @@ What makes it worth a tool slot:
 - **Never more than 24 hours stale, and it says so.** Every response carries `cached` and `fetched_at`. OpenCorporates' own knowledge base tells users to ["allow 30 days"](https://knowledge.opencorporates.com/knowledge-base/the-data-on-opencorporates-is-out-of-date/) for a correction to reach its site — a 30× freshness gap, stated by the incumbent about itself.
 - **Seven tools, not fifty** — five registry tools plus two ChatGPT connector aliases. Tool-selection accuracy [degrades past 30-50 tools loaded into an agent's context](https://code.claude.com/docs/en/agent-sdk/tool-search), and some clients cap around 40. Seven tools is roughly 17% of that budget, next to competitors in this space shipping 23 to 78 tools for the same job.
 
-**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. Three named upstreams, and nothing else is ever called: `data.brreg.no`, `api.company-information.service.gov.uk` and `gw.api.bolagsverket.se`. No personal data beyond what each national register already publishes about the entity itself — and because a Swedish sole trader's company number *is* their personnummer, the usage log stores no identifier at all for a country whose identifiers can be a natural person's ([`legal/privacy.md`](legal/privacy.md)). This service does not perform sanctions, PEP or adverse-media screening, and it does not verify bank account details. Details: [SECURITY.md](SECURITY.md).
+**Security.** Read-only, always — nothing here writes to a register or anywhere else. No credentials are required from a caller; this deployment's own upstream credential (`COMPANIES_HOUSE_API_KEY`) is read from the environment and never logged or returned. The base lookup calls three named upstreams and nothing else: `data.brreg.no`, `api.company-information.service.gov.uk` and `gw.api.bolagsverket.se`. `include=["lei"]`/`include=["parents"]` additionally call `api.gleif.org` (GLEIF, CC0, keyless); `include=["peppol"]` additionally resolves a DNS record at the Peppol SML and calls whichever SMP host it names for that participant, falling back to the Peppol Directory (`directory.peppol.eu`) only when neither answers — see the [attachments](#tools) above. No personal data beyond what each national register already publishes about the entity itself — and because a Swedish sole trader's company number *is* their personnummer, the usage log stores no identifier at all for a country whose identifiers can be a natural person's ([`legal/privacy.md`](legal/privacy.md)). This service does not perform sanctions, PEP or adverse-media screening, and it does not verify bank account details. Details: [SECURITY.md](SECURITY.md).
 
 One-click install, for a remote streamable-HTTP server:
 
@@ -100,7 +100,7 @@ $ curl https://api.foretak.dev/v1/GB/company/00445790
   "status": "active", "is_active": true, "registered_at": "1947-11-27",
   "vat_registered": null, "vat_number": null,
   "employees": null, "employees_reported": false,
-  "registers": {"charges": false, "insolvency": false},
+  "registers": {"insolvency": false},
   "industry_codes": [{"code": "47110", "description": null, "scheme": "SIC 2007", "rank": 1}],
   "business_address": {"lines": ["Tesco House, Shire Park", "Kestrel Way"], "postal_code": "AL7 1GA", "city": "Welwyn Garden City"},
   "advertising_protected": null,
@@ -147,7 +147,7 @@ $ curl "https://api.foretak.dev/v1/SE/company/5560160680/deadlines?today=2026-09
 {"kind": "annual_accounts",  "due_date": "2027-07-31", "days_until": 327, "rolled_forward": false, "period_label": "2026"}
 ```
 
-Six months to the annual general meeting (aktiebolagslagen 7 kap. 10 §) and seven to the filing before a late fee bites (årsredovisningslagen 8 kap. 6 §). Neither date is rolled forward off a weekend, because no Swedish source says it moves. Both assume a financial year ending 31 December, which the free dataset does not publish — and a `notes` sentence says exactly that, including how to shift both dates if the year end is different. `search_company` answers `not_implemented` for Sweden: the free API has four operations and none of them accepts a name.
+Six months to the annual general meeting (aktiebolagslagen 7 kap. 10 §) and seven to the filing before a late fee bites (årsredovisningslagen 8 kap. 6 §). Neither date is rolled forward off a weekend, because no Swedish source says it moves. Both assume a financial year ending 31 December by default — a `notes` sentence says exactly that, including how to shift both dates if the year end is different — but Bolagsverket's document list does publish a filed annual report's own year end: pass `include=["filings"]` (`company_deadlines` accepts it on both surfaces) to read it and replace the assumption with the register's own figure. `search_company` answers `not_implemented` for Sweden: the free API has four operations and none of them accepts a name.
 
 Note the `null`s. Companies House publishes no VAT status, no employee count and no share capital for any company, so those fields are `null` rather than guessed — `null` means "this register does not say", never "no". That honesty is the point of one shape across countries.
 
@@ -196,10 +196,14 @@ Plus the resource `registry://rules/{country}` (identifier rules, legal forms, d
 - `filings` — what the entity has filed, and when (`GB`, `NO`, `SE`)
 - `charges` — registered charges against the entity (`GB` only)
 - `insolvency` — winding-up and administration proceedings (`GB` only)
+- `financials` — the register's own financial figures (turnover, profit, balance sheet, equity and liabilities) for the latest filed accounting period, answering whether a supplier looks solvent (`NO` only)
+- `lei` — the Legal Entity Identifier GLEIF publishes for the entity, CC0-licensed and keyless (every country except `SE`)
+- `parents` — the direct and ultimate corporate parent GLEIF's Level 2 data discloses, or the entity's own stated reason — a category word such as `NATURAL_PERSONS`, never a name — when it discloses none (same countries as `lei`)
+- `peppol` — whether the entity can receive an e-invoice over the Peppol network, read live from the SML/SMP walk ahead of the 1 January 2027 e-invoicing duty (`NO` only)
 
 A country's declared set is `supported_includes` on `list_countries` / `GET /v1/countries`; see [`llms-full.txt`](static/llms-full.txt) for the two-level nullability and the per-country scope of `filings`.
 
-`parent_id` and `in_group` on a Norwegian `CompanyReport` describe Enhetsregisteret's own parent/sub-unit relation for that entity — nothing more. There is no group-walk tool: following a corporate group upward means calling `lookup_company` again on `parent_id`, repeatedly, and that walk answers "what does the register list as this entity's parent?", not "who beneficially owns or controls this company?" — a different question this service does not answer. See [`llms-full.txt`](static/llms-full.txt) §5.
+`parent_id` and `in_group` on a Norwegian `CompanyReport` describe Enhetsregisteret's own parent/sub-unit relation for that entity — nothing more. There is no group-walk tool: following a corporate group upward means calling `lookup_company` again on `parent_id`, repeatedly, and that walk answers "what does the register list as this entity's parent?", not "who beneficially owns or controls this company?" — a different question this service does not answer. `include=["parents"]` above is a different route to an adjacent fact — GLEIF's opinion of who consolidates this entity's accounts, not Enhetsregisteret's own hierarchy and not beneficial ownership either. See [`llms-full.txt`](static/llms-full.txt) §5.
 
 ## Why an agent checks a company
 
