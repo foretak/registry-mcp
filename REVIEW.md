@@ -2113,4 +2113,181 @@ Built a throwaway harness in the scratch export (`tests/test_t58_e2e.py`, never 
 | `peppol` when the SMP 500s and the Directory 500s | **PASS** — present block, `registered: null`, two notes; **not** absent, because `participant_id` is still worth returning (D-029(c)) |
 | `peppol` when the resolver *and* the Directory both fail | **PASS** — absent block plus the report-level note (the only total-failure path) |
 
-*(Findings, deploy delta and verdict follow; this section is committed partial so it survives a lost session.)*
+### The person-bearing line
+
+| # | Claim under test | Method | Result |
+|---|---|---|---|
+| P1 | Nothing reads `practitioners` | `grep -rn practitioner src/` | **PASS** — every hit is prose; `strip_practitioners` removes the key before the cache, and neither `InsolvencyCase` nor `InsolvencyEvent` has a field one could land in (`extra="forbid"`) |
+| P2 | Nothing reads the Peppol Directory's `contact` | `grep -rn contact src/` | **PASS** — the only `contact` hits are `REGISTRY_MCP_CONTACT_EMAIL` in the three User-Agent builders, plus `no/peppol.py:68-71`'s docstring saying the block is never requested or read |
+| P3 | `description_values` beyond `made_up_date` | `grep -rn description_values src/registries/gb/` | **PASS** — one allow-list, `frozenset({"made_up_date"})`, one reader (`_allowed_values`), written as a filter over the list so a payload key outside it can reach nothing |
+| P4 | Officer / PSC keys | grep for `/officers`, `persons-with-significant`, `officer_name`, `psc` | **PASS** — prose and the allow-list's own comment only; no fetch, no field |
+| P5 | GLEIF `SOLE_PROPRIETOR` / `NATURAL_PERSONS` handling | read `core/gleif.py` and `ParentLink`'s descriptions | **PASS** — `reporting_exception` is GLEIF's closed category vocabulary relayed verbatim, never a name; `ParentLink.legal_name` is a *company* name bound by D-028(1), and its description records the sole-proprietor risk explicitly rather than assuming it away |
+| P6 | Nothing outside an `ix:nonFraction` value reaches the Swedish block | mutation M11 + a runtime check | **PASS with a caveat** — see finding 5 |
+| P7 | No committed Swedish fixture carries a natural person's name | read every `bv_*.json` and every `se_ixbrl_*.xhtml` | **PASS** — T57's live TEST recordings carry `[REDACTED TEST NAME]` / `[REDACTED TEST NAME 1|2]` placeholders; all five iXBRL fixtures are hand-built and carry a `FIXTURE NOTICE` saying so, none has an `ix:nonNumeric` signature concept except the deliberate leak-check one, whose token is `ZZZ-NOT-A-REAL-NAME-LEAK-CHECK-ZZZ` |
+| P8 | …or a real personnummer | listed every 10–12-digit run in the Swedish fixtures | **PASS** — the four twelve-digit numbers (`193403223328`, `198101032384`, `198101052382`, `194009272719`) are Bolagsverket's own **TEST**-environment workbook identifiers, each row documented in `tests/fixtures/README.md:141-144`; no production personnummer anywhere |
+
+### Findings
+
+**1. Five published surfaces say a `financials` block is *present-with-`periods: []`* when the register
+holds no accounts. For Sweden the block is **absent** — deliberately, per `tasks/T55.md` §"Absent versus
+empty" — and for Britain the state described cannot occur at all. — BLOCKING (a false statement about a
+wire-visible state, in the JSON schema itself).**
+
+Measured end to end on the real app, both surfaces, with an empty `dokumentlista`:
+
+```
+NO include=financials, no filed accounts  -> block PRESENT,  periods: []
+SE include=financials, no filed accounts  -> block ABSENT,   report note: "Could not fetch the
+    'financials' attachment: Bolagsverket's digital annual-report channel holds no filed annual
+    report for 5561890038."
+GB include=financials                     -> 400 bad_request (never an absent block at all)
+```
+
+The **code is right** — `registries/se/__init__.py:154-158` and `client.py::fetch_financials` state the
+asymmetry explicitly and `tasks/T55.md` line 233 makes it non-negotiable ("gets an **absent** block plus a
+report-level `notes` sentence … **not** an empty `FinancialSummary`"). What is wrong is every sentence
+written about it. The claim was true when T38 wrote it for Norway alone; T46b corrected this description's
+*mechanism* half ("Norway only … the reason is ours") and left its *nullability* half generalised to "a
+country that declares this attachment":
+
+* `src/registry_mcp/core/models.py:2299-2302` — `CompanyReport.financials`: *"A country that declares this
+  attachment returns a **present** block with `periods: []` for an entity the register holds no filed
+  accounts for — the two states never collapse into each other (D-011, D-042(d))."* This ships in the
+  card's `lookup_company.outputSchema` (verified: the string is in `static/well-known/mcp/server-card.json`)
+  and in `/openapi.json`.
+* `src/registry_mcp/mcp/server.py:404-406` — `lookup_company`'s docstring, i.e. the card's tool
+  description and every MCP client's tool list: *"an absent block means the country's register publishes
+  no figures at all — true of Britain today"*.
+* `src/registry_mcp/api/main.py:821-823` — the REST `include` query description: *"an absent block means
+  the country does not publish figures at all — true of the United Kingdom today"*.
+* `static/llms-full.txt:517-519` — in **bold**: *"an absent `financials` block means the country's
+  register does not publish figures at all."*
+* `CHANGELOG.md:61-63` — *"A company whose document list is empty gets a present block with `periods: []`,
+  the same two-level nullability `filings` already has (D-047(f),(g))."*
+
+*Failure scenario.* An agent asks for `include=["financials"]` on a Swedish supplier, gets no block, and
+has been told in the schema it is reading that this can only mean *the country publishes no figures* or
+*you did not ask*. Both are false; the true meaning is *this company has filed no digital annual report* —
+which is a fact about the company and, for a solvency question, a signal. The `notes` sentence is there
+and is correct, but the schema tells the reader not to look for it. This is D-011's two-states collapse in
+the one document written to prevent it, and it is the same defect class as the D-044-wiring review's
+finding 1, one round later.
+
+*Exact change (≈25 min, 5 files, no test rewrite needed — nothing pins these strings).*
+1. `core/models.py:2299-2302`: replace the sentence with the country-true pair — *"Norway returns a
+   **present** block with `periods: []` for an entity Regnskapsregisteret holds no filed accounts for.
+   Sweden instead returns **no block at all**, plus a report-level `notes` sentence naming the reason,
+   because Bolagsverket's digital annual-report channel holds nothing for that entity — a fact about the
+   company, not about the country (D-042(d)(3), `tasks/T55.md`)."*
+2. `mcp/server.py:404-406` and `api/main.py:821-823`: replace *"an absent block means the country's
+   register publishes no figures at all — true of Britain today"* with *"an absent block means either you
+   did not ask, or the fetch failed, or — for Sweden — this company has filed no digital annual report;
+   the report's own `notes` says which. Britain does not declare `financials` at all, so
+   `include=["financials"]` for `GB` is a `bad_request`, never an empty or absent block"*, keeping the
+   existing 1 April 2028 clause as the reason Britain does not declare it.
+3. `static/llms-full.txt:517-519`: the same correction, and drop the bold.
+4. `CHANGELOG.md:61-63`: *"A company whose document list is empty gets **no** `financials` block and a
+   report-level note saying so — deliberately unlike `filings`, which returns a present block with
+   `documents: []` for the identical wire state."*
+5. Re-run `uv run python scripts/regen_server_card.py` (it rewrites `outputSchema` and the tool
+   descriptions), then `uv run pytest -m "not live" -o addopts="" -p no:cacheprovider`.
+
+**2. `liabilities` can be derived from the two Swedish sub-totals and no test notices. — URGENT
+(non-blocking today; the guard the docstring promises does not exist).**
+`registries/se/financials.py`'s module docstring says the sum *"is refused by name, D-043(e), D-043(f)"*.
+Mutation M13 added exactly that arithmetic — `values["liabilities"] = (current or 0.0) + (non_current or
+0.0)` in `_map_balance_sheet` — and **1030 tests still pass**. The same is true of
+`total_comprehensive_income`: `grep -rn "\.liabilities\b\|total_comprehensive_income" tests/` returns
+**nothing**. D-043(e) is this project's single most-argued rule and the two fields it bites hardest on are
+pinned by prose alone.
+*Exact change (≈10 min, `tests/test_client_se.py`):* one test asserting that on both real K2 fixtures
+`period.balance_sheet.liabilities is None` **and**
+`period.income_statement.total_comprehensive_income is None` even though `current_liabilities` (and, on the
+2020 fixture, `non_current_liabilities`) are present and non-`None` — so the arithmetic is what the test
+forbids, not the absence of inputs. Name D-043(e)/(f) in the docstring.
+
+**3. Norway's `filings` scope note — the one the D-044-wiring review called "precisely the disclosure
+D-044(b) describes" — can be deleted outright and every test still passes. — URGENT (non-blocking today).**
+Mutations M8c (note no longer first) and M8d (note removed entirely) both leave **1030 passing**. Sweden and
+Britain each got `test_scope_note_is_present_first_on_every_block_d044b` from T40; Norway, whose
+`_ONE_PERIOD_NOTE` was the *model* for both, never did — `grep -rn "d044b" tests/` finds exactly two hits,
+`test_client_gb.py:1926` and `test_client_se.py:1425`.
+*Exact change (≈10 min, `tests/test_client_no.py`):* the same test for Norway — map
+`brreg_regnskap_923609016.json` through `accounts.map_accounts` and assert `notes[0]` starts with
+Regnskapsregisteret's one-period sentence, and that the empty-payload case leads with `_EMPTY_NOTE`. Both
+states, because Norway's note is chosen by a branch rather than prepended unconditionally.
+
+**4. Sweden's currency can silently acquire a default and no test notices. — NON-BLOCKING.**
+D-043(d) makes `currency` required with no default, and `financials.py::_resolve_currency` correctly
+returns `None` when zero or more than one currency resolves. Mutation M12a changed that `return None` to
+`return "SEK"` — the exact shape D-043(d) forbids — and **1030 tests pass**. The reason is that no fixture
+exercises the branch at all: `grep -rn "CURRENCY_UNRESOLVED" tests/` is empty, so
+`build_period`'s only `None` return, `summary_notes(None)` and `_CURRENCY_UNRESOLVED_NOTE` are together
+dead code as far as the suite is concerned. (M12b — reading the `Redovisningsvaluta` concept as a fallback —
+*is* caught, by F2's AST check, so the "never from a concept" half is genuinely load-bearing; it is the
+"from the unit, or not at all" half that is not.)
+*Exact change (≈15 min):* one hand-built fixture whose facts carry a `procent`/`pure` unit only (or two
+different ISO 4217 units), asserted to yield `periods == []` and `notes == [_CURRENCY_UNRESOLVED_NOTE]`.
+
+**5. The `ix:nonFraction`-only guarantee rests entirely on one AST assertion; the runtime half cannot
+catch a breach. — NON-BLOCKING, but say so where the guarantee is claimed.**
+`test_d047_f3_...` has a static half and a runtime half. I mutated the filter to
+`not in ("nonFraction", "nonNumeric")` and confirmed the test goes red — but on the static half only, and
+via `assert "nonFraction" in compared_literals`, not via `assert "nonNumeric" not in compared_literals`.
+I then ran the mutated extractor against the leak-check fixture directly: **the token does not leak**,
+because `_parse_number` drops any fact whose `@format` is not one of the two comma-decimal forms and an
+`ix:nonNumeric` element carries no `@format`. So the runtime half passes under the very mutation it exists
+to catch. The static half is what holds the line, and it holds it in the robust direction — any
+restructuring that removes the literal `!= "nonFraction"` comparison fails the positive assertion, however
+the negative one is dodged. Worth one sentence in the test's docstring saying which half is load-bearing,
+so a future edit does not "simplify" the positive assertion away.
+
+**6. `README.md:63` still advertises 0.3.0, including a `/health` body it quotes verbatim. — NON-BLOCKING,
+but it is the PyPI long description and the repo's first screen.**
+`> Status: `0.3.0`, live — `GET /health` returns `{"version":"0.3.0","countries":["GB","NO","SE"]}`.`
+Every manifest is at 0.4.0 (verified: `pyproject.toml`, `src/registry_mcp/__init__.py`, `server.json`,
+`mcpb/manifest.json`, `.claude-plugin/marketplace.json`, `plugins/registry-mcp/.claude-plugin/plugin.json`,
+both npm `package.json`s, `packages/brreg-mcp/pyproject.toml` *and* its `registry-mcp==0.4.0` pin,
+`static/well-known/mcp/server-card.json`, and **`uv.lock`'s own project entry at line 1560**) — README is
+the one that was missed. Lines 117 and 346 ("added in 0.3.0", "shipped in 0.3.0") are historical and correct;
+leave them.
+*Exact change (≈2 min, `README.md:63`):* both `0.3.0` occurrences in that line become `0.4.0`.
+
+**7. The server card publishes `"resources": []` while the server serves three. — NON-BLOCKING
+(pre-dates this scope; the card-drift test still does not cover it).**
+`static/well-known/mcp/server-card.json` → `resources: []`. Live: `registry://rules/GB`,
+`registry://rules/NO`, `registry://rules/SE`, plus the template `registry://rules/{country}`. This is
+D-044-wiring finding 5's third face: `scripts/regen_server_card.py` (added `69b79da`) regenerates tools and
+prompts and not resources, and `test_server_card_tools_and_prompts_match_the_live_server` compares tools and
+prompts and not resources — so the one document a crawler reads without calling the server says this server
+has no resources. *Exact change (≈15 min):* four lines in the regen script (`await client.list_resources()`
+→ `card["resources"]`), the same three lines in the drift test, run the script.
+
+**8. The `country` and `id` argument descriptions on every tool name two of three countries. —
+NON-BLOCKING (pre-dates `e03a518`; T17's `86132df`).**
+`mcp/server.py:304-311`: `_COUNTRY_DESCRIPTION` = *"'NO' = Norway …, 'GB' = United Kingdom … Call
+list_countries for the current set"*; `_COUNTRY_EXAMPLES = ["NO", "GB"]`. `_ID_DESCRIPTION` likewise
+documents the Norwegian and British identifier formats and not the organisationsnummer. These are published
+in the card's `inputSchema` for `lookup_company`, `company_deadlines` and `validate_company_id`. The
+`instructions` string and the tool docstrings both cover Sweden properly, so this is an omission in the one
+place a client renders per-argument help. *Exact change (≈5 min):* add the Swedish clause to both constants
+and `"SE"` to `_COUNTRY_EXAMPLES`, then re-run `scripts/regen_server_card.py`.
+
+### What is factually untrue in what was committed
+
+1. `core/models.py:2299-2302`, in the card's `outputSchema`: **"A country that declares this attachment
+   returns a *present* block with `periods: []` for an entity the register holds no filed accounts for —
+   the two states never collapse into each other."** Sweden returns no block. (Finding 1.)
+2. `mcp/server.py:404-406` and `api/main.py:821-823`: **"an absent block means the country's register
+   publishes no figures at all — true of Britain today."** Britain cannot produce an absent block;
+   `include=["financials"]` for `GB` is a 400. (Finding 1.)
+3. `static/llms-full.txt:517-519`: the same sentence, in bold. (Finding 1.)
+4. `CHANGELOG.md:61-63`, `9778f29`/`447b015`: **"A company whose document list is empty gets a present
+   block with `periods: []`."** It gets no block. (Finding 1.)
+5. `registries/se/financials.py`'s module docstring: **"`current_liabilities + non_current_liabilities` is
+   refused by name"** — refused by the code, yes; by nothing that would notice if it stopped being.
+   (Finding 2.)
+6. `README.md:63`: **"Status: `0.3.0`, live."** `pyproject.toml` says 0.4.0. (Finding 6.)
+7. `static/well-known/mcp/server-card.json`: **`"resources": []`.** Three are served. (Finding 7.)
+
+*(Deploy delta, orchestrator commits and verdict follow.)*
