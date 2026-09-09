@@ -53,6 +53,7 @@ __all__ = [
     "InsolvencyBlock",
     "InsolvencyCase",
     "InsolvencyEvent",
+    "PeppolParticipant",
     "PublishedDeadline",
     "RegistryError",
     "SearchHit",
@@ -1676,6 +1677,133 @@ class FinancialSummary(_Base):
 
 
 # ---------------------------------------------------------------------------
+# Peppol (DECISIONS.md D-029, amended by D-046)
+# ---------------------------------------------------------------------------
+
+
+class PeppolParticipant(_Base):
+    """Whether one entity can be reached over the Peppol network — the
+    ``include=["peppol"]`` attachment (DECISIONS.md D-029(b), amended in full
+    by D-046 after ``tasks/T48-recon.md`` read the wire). Norway-only today:
+    declared by ``BrregRegistry.supported_includes``, not by
+    :attr:`Registry.universal_includes` (D-046(h)) — the participant
+    identifier needs a country's own ISO 6523 ICD, the answer's provenance is
+    a *different SMP per participant* rather than one endpoint, and the
+    licence sentence below was earned by reading a Norwegian catalogue page.
+
+    The Peppol network is not Enhetsregisteret: ELMA is a Peppol SMP operated
+    by Digitaliseringsdirektoratet, a second organisation entirely, so this
+    is a second round trip with its own :class:`SourceRef` rather than a
+    field on :class:`CompanyReport` itself (D-026(c)).
+    """
+
+    participant_id: str = Field(
+        description=(
+            "The ISO 6523 participant identifier, `'0192:' + normalised orgnr` — "
+            "`0192` is Norway's ICD (International Code Designator) inside the "
+            "Peppol network. Derived offline from the identifier alone and "
+            "**always populated, even when every lookup failed** (D-029(c)): it "
+            "is the key a caller needs to ask elsewhere, regardless of what this "
+            "block's own `registered` field says."
+        )
+    )
+    registered: bool | None = Field(
+        default=None,
+        description=(
+            "Three states, and an agent branches on this field under a statute, "
+            "so all three matter. `true`: the Peppol network answered for this "
+            "participant — either the SMP the Peppol SML named for it served a "
+            "ServiceGroup, or the Peppol Directory listed a match. `false`: "
+            "**the authoritative SML/SMP route answered that it is not "
+            "registered** — an NXDOMAIN resolving the Peppol SML, or a 404 from "
+            "the SMP the SML named. Nothing else ever earns `false` (D-046(a)). "
+            "`null`: we could not get an authoritative answer — a DNS resolver "
+            "exception, a timeout, a NOERROR answer with no `Meta:SMP` record, "
+            "an SMP error, **or the Peppol Directory simply not listing this "
+            "participant**, which both Peppol operators state in writing means "
+            "nothing: publication to the Directory is voluntary, and its own "
+            "introduction page says a miss there 'doesn't mean the entity is "
+            "not in the Peppol Network' (D-046(a))."
+        ),
+    )
+    can_receive_invoice: bool | None = Field(
+        default=None,
+        description=(
+            "Whether this participant advertises the Peppol BIS Billing 3.0 "
+            "Invoice document type or its PINT successor — DFØ's own "
+            "equation: 'Peppol BIS billing v3.0 er det samme som EHF-faktura', "
+            "which is exactly the 1 January 2027 question. Derived by **exact "
+            "membership of a committed table of document type identifiers**, "
+            "never by matching text, a substring or a version range. `true` "
+            "when a table id is in `document_types` via the authoritative SMP "
+            "route; also `true` via the Peppol Directory fallback, but a "
+            "Directory list is a subset of the SMP's, so a Directory miss "
+            "here is `null`, never `false` — see `document_types`. `false` "
+            "only when `registered` itself is `false`. `null` when `registered` "
+            "is `null`. **The SMP publishes a per-document-type "
+            "ServiceActivationDate/ServiceExpirationDate that this block does "
+            "not read** (one extra HTTP call per document type), so an "
+            "advertised document type may be future-dated or already expired — "
+            "`notes` says so whenever this is `true`."
+        ),
+    )
+    document_types: list[str] = Field(
+        default_factory=list,
+        description=(
+            "The **document type** identifiers the answering SMP (or, on the "
+            "Directory fallback, the Peppol Directory) advertises for this "
+            "participant, full qualified `'<scheme>::<value>'` strings, e.g. "
+            "`'busdox-docid-qns::urn:oasis:...:billing:3.0::2.1'`. **Not "
+            "process identifiers** — those live one HTTP call deeper, per "
+            "document type, and are not carried (D-046(e)). No cap and no "
+            "truncation: the modal Norwegian participant lists two, some list "
+            "many more. Only *receiving* capabilities are registered anywhere "
+            "in the Peppol network, which is the right semantics for 'can this "
+            "counterparty receive an e-invoice'."
+        ),
+    )
+    smp_url: str | None = Field(
+        default=None,
+        description=(
+            "The SMP base URL the Peppol SML named for **this participant**, "
+            "verbatim. This varies per participant and is **never assumed**: "
+            "ELMA (`smp.elma-smp.no`) is not the only Norwegian SMP — a "
+            "measured 1-in-43 Norwegian participants resolve to a different "
+            "one entirely (D-046(b)). `null` when the SML never named a host "
+            "for this participant (NXDOMAIN, or no usable `Meta:SMP` record)."
+        ),
+    )
+    provenance: SourceRef = Field(
+        description=(
+            "Where, when and under what licence this block's answer was "
+            "produced. `source` names the SMP host and route that answered "
+            "(e.g. 'smp.elma-smp.no (Peppol SMP, via the Peppol SML)'), or the "
+            "Peppol Directory named as an index that may lag — **derived at "
+            "request time from what actually answered, never a constant** "
+            "(D-046(b)). `license` carries D-046(g)'s stated absence: nobody "
+            "publishes a licence for the Peppol SML, for any SMP or for the "
+            "Peppol Directory. One `SourceRef` for the whole block even though "
+            "up to two round trips were made (a DNS read and an HTTPS read): "
+            "the DNS step only located the host and fills no field of this "
+            "block except `smp_url`, so it is disclosed as that field rather "
+            "than as a second provenance (D-046(d))."
+        )
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plain-English caveats about this block. Always names which route "
+            "answered (the SMP, or the Peppol Directory) or which step failed "
+            "when `registered` is `null`; that only *receiving* capabilities "
+            "are registered in the Peppol network; on the Directory route, "
+            "that it is a voluntary, lagging index of the SMP; and, on a "
+            "Directory miss, the operators' own statement that this does not "
+            "mean the entity is not in the Peppol Network."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Company report
 # ---------------------------------------------------------------------------
 
@@ -1937,6 +2065,22 @@ class CompanyReport(_Base):
             "collapse into each other (D-011, D-042(d)). Norway only, today: Sweden's and "
             "Britain's figures live inside documents this API declines to parse, which is "
             "this project's scope decision, not the register's silence (D-043(i))."
+        ),
+    )
+    peppol: PeppolParticipant | None = Field(
+        default=None,
+        description=(
+            "Whether this entity can be reached over the Peppol e-invoicing network. "
+            "`None` unless `peppol` was passed in `include=[...]` — and, even then, "
+            "`None` only if the attachment could not be built at all (see `notes` for "
+            "why). A country that declares this attachment returns a **present** block "
+            "even when the network could not be reached: `PeppolParticipant.registered` "
+            "carries the three-state answer (`true`/`false`/`null`) and "
+            "`PeppolParticipant.participant_id` is always populated, because that is the "
+            "key a caller needs to ask elsewhere regardless (D-011, D-029(c)). Norway "
+            "only, today (D-046(h)): the participant identifier needs a country's own "
+            "ISO 6523 ICD and the answer's provenance is a different SMP per participant, "
+            "neither of which generalises to `Registry.universal_includes` yet."
         ),
     )
 
