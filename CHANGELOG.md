@@ -42,8 +42,29 @@ frozen as of `0.2.0`.
   its own `currency`; a `None` figure inside a present block means the
   company did not report that line, an absent block means the country does
   not publish figures. One fetch serves both this and `filings` for Norway
-  — one `SourceRef`, not two. No derived ratio, indicator or verdict exists
-  on this block (D-043, `067a1cc`).
+  — one `SourceRef`, not two (Sweden's own `financials` line below shares
+  only its discovery fetch with `filings`, not its `SourceRef` — see
+  D-047(f)). No derived ratio, indicator or verdict exists on this block
+  (D-043, `067a1cc`).
+- **`include=["financials"]` for `SE`** — the same block, out of the
+  entity's own filed annual report instead of an open key-figures feed:
+  the K2 (and, on the taxonomy evidence available, K3) inline-XBRL document
+  Bolagsverket's document API serves, read out via a pure extractor that
+  reads only `ix:nonFraction` and never `ix:nonNumeric`. Shares the
+  `/dokumentlista` fetch with `filings`, then makes one further `/dokument`
+  request for the most recently filed report only; figures are cached 30
+  days on the immutable `dokumentId`, and the document itself is parsed and
+  discarded — never cached, logged or written to disk. `currency` comes
+  from the document's own unit, never from Bolagsverket's renamed,
+  re-typed currency concept. The block is entity accounts, never a group,
+  as a fact about the K2 channel; a K3 filing carries a caveat that no live
+  K3 document had been read when this shipped. A company whose document
+  list is empty gets a present block with `periods: []`, the same
+  two-level nullability `filings` already has (D-047(f),(g); `076faa7`,
+  `af94220`, `edbd105`).
+- **The `financials` cache-TTL row, `(30 days, 1 hour)`.** The per-kind
+  table in `core/cache.py` is now `lei`, `parents`, `peppol`, `financials`
+  (`03571eb`, `b5fc6a9`).
 - **`include=["lei"]` for `GB` and `NO`** — the Legal Entity Identifier
   GLEIF, the Global LEI Foundation, publishes for the entity, CC0-licensed
   and keyless, on a new `Registry.universal_includes` mechanism every
@@ -79,6 +100,17 @@ frozen as of `0.2.0`.
   `filings` alone today — and a value outside it (`financials` included) is
   `bad_request` naming this operation's own allowed set (D-041, D-045(g),
   `5c71bc8`).
+- **`registry://rules/{country}` for Norway gains an "Electronic invoicing
+  (2027) and electronic bookkeeping (2030)" section** — both statutory
+  dates, the ELMA-scoping sentence quoted from the statute, and the two
+  exemptions (turnover under NOK 50,000; regulated financial institutions).
+  States explicitly that neither date produces a computed `Deadline`,
+  because neither binds on a fact this register publishes (D-029(f),
+  `3e550f9`).
+- **The privacy policy and terms are served at `/legal/privacy` and
+  `/legal/terms`**, and the dashboard gains a breakdown by operation, the
+  cache hit rate, p50/p95 latency, freshness and a per-country call count
+  (`50a243e`, `b2b92b0`).
 
 ### Changed
 
@@ -112,7 +144,33 @@ frozen as of `0.2.0`.
   unconditional sentence, beside the existing truncation note, whenever a
   page carries either free-text field: the text is the register's own
   prose, relayed verbatim and not parsed, and may name a natural person
-  (D-045(a)).
+  (D-045(a), `7ce3979`).
+- **`instructions` (the string every MCP client puts in front of the model)
+  gains the payment-fraud caveat** — this is not sanctions, PEP or
+  adverse-media screening, does not verify bank account details, and is
+  not a defence against payment fraud — so a caller that only reads
+  `instructions` and never renders the `counterparty_check` prompt still
+  sees it (T45, `5e54a54`).
+- **The scope note leads every `SE` and `GB` `filings` block**, before any
+  other caveat (T40, `7143f9f`); the Swedish `filings` scope note and empty
+  note now state the channel's population precisely — digitally submitted
+  aktiebolag annual reports under K2 or K3, from 2020 onwards, so an IFRS
+  preparer's empty document list is a stated limit of the channel rather
+  than an unexplained gap (T44 `5c71bc8`, T55 `edbd105`).
+- **`dnspython>=2.7` (ISC licence) is a new runtime dependency**, bought by
+  the Peppol SML NAPTR walk (D-046, `919b01d`).
+- **The shared GLEIF and Peppol `httpx.AsyncClient`s are closed at
+  shutdown.** Neither was reached by the existing per-country shutdown
+  loop, so both outlived the request that was supposed to end them (T46
+  `74ce037`, T43 `64b5366`).
+- **The privacy policy and terms name all three countries and the privacy
+  page carries an effective date.** `legal/privacy.md` said "Norway … and
+  the United Kingdom", contradicted itself about Sweden three paragraphs
+  later, omitted Bolagsverket and GLEIF from *what we send to third
+  parties*, and opened with a draft preamble on a page that was already
+  published; `legal/terms.md` had the same two-country gap. Fixed, and the
+  mcpb manifest now declares the privacy policy URL too (T46 `ff2b89b`,
+  `2520a2d`).
 
 ### Fixed
 
@@ -121,6 +179,32 @@ frozen as of `0.2.0`.
   an `overflow-x` wrapper, so a phone opened it scrolled to the oldest,
   empty days while every real bar sat off-screen to the right. Sized by
   `viewBox` at `width: 100%` (capped 900px) instead (`13d5e4a`).
+- **The Swedish "does not publish the financial year" sentence is retired
+  from every surface.** It was already false once `include=["filings"]`
+  carried Bolagsverket's own filed year end, and false again once
+  `include=["financials"]` shipped (T44 `5c71bc8`, T46 `907aafc`).
+- **The usage log no longer counts an internal error as a success.**
+  `_CallOutcome.ok` is now `False` on any exception other than a
+  `RegistryError` the caller is meant to see, not only on the ones this
+  service raises deliberately (T45, `5e54a54`).
+- **A country module missing a declared `include` attachment method now
+  fails as a `RuntimeError` before any network I/O for it, not after.** A
+  `supported_includes` entry with no matching method previously escaped as
+  a bare `AttributeError`, or hid behind a plausible-looking failed-fetch
+  note, instead of failing loudly as the country-module bug it is
+  (`REVIEW.md` § S-series finding 6; T42, `e6e7ad1`).
+- **A concurrency test for the attachment machinery no longer races on
+  wall-clock time.** It asserted an exact interleaving produced by two
+  hard-coded sleep durations and failed once under machine load; it now
+  proves the two attachments were in flight together by rendezvous instead
+  (`5bf0134`).
+- **`legal/privacy` and `legal/terms` 404'd in the deployed container.**
+  The routes existed in code and passed every local test, but the runtime
+  image's `.dockerignore` excluded markdown and `legal/` was never copied
+  in, so the pages were unreachable in production from the moment they
+  were added until this was found. A test now asserts the runtime image
+  receives every directory the application reads at request time
+  (`0d20df9`).
 
 ## [0.3.0] — 2026-09-07
 

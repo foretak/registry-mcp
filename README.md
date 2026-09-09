@@ -196,7 +196,7 @@ Plus the resource `registry://rules/{country}` (identifier rules, legal forms, d
 - `filings` — what the entity has filed, and when (`GB`, `NO`, `SE`)
 - `charges` — registered charges against the entity (`GB` only)
 - `insolvency` — winding-up and administration proceedings (`GB` only)
-- `financials` — the register's own financial figures (turnover, profit, balance sheet, equity and liabilities) for the latest filed accounting period, answering whether a supplier looks solvent (`NO` only)
+- `financials` — the register's own financial figures (turnover, profit, balance sheet, equity and liabilities) for the latest filed accounting period, answering whether a supplier looks solvent — Norway's own key-figures feed, Sweden's read out of the entity's own filed annual report (`NO`, `SE`)
 - `lei` — the Legal Entity Identifier GLEIF publishes for the entity, CC0-licensed and keyless (every country except `SE`)
 - `parents` — the direct and ultimate corporate parent GLEIF's Level 2 data discloses, or the entity's own stated reason — a category word such as `NATURAL_PERSONS`, never a name — when it discloses none (same countries as `lei`)
 - `peppol` — whether the entity can receive an e-invoice over the Peppol network, read live from the SML/SMP walk ahead of the 1 January 2027 e-invoicing duty (`NO` only)

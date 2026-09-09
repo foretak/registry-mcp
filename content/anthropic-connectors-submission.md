@@ -110,25 +110,25 @@ the 64-character limit. There is no write tool, no delete tool, and no tool that
 ### 3.2 The one thing to check before you press Submit
 
 Production today serves **0.3.0** (`GET /health` → `{"status":"ok","version":"0.3.0","countries":["GB","NO","SE"]}`)
-and advertises exactly **three** attachments on `include`: `filings`, `charges`, `insolvency`. Two
-more — `financials` and `lei` — are **merged on `main` at `c854e9e` but not deployed**; the deploy is
-held behind T46 and lands with the 0.4.0 release.
+and advertises exactly **three** attachments on `include`: `filings`, `charges`, `insolvency`. The
+other four — `financials`, `lei`, `parents` and `peppol` — are **merged on `main`** and ship together
+in the **0.4.0** release; the deploy is held behind T58's review and lands after it.
 
 That gives two versions of the listing copy in §4, and one instruction:
 
 - **Submitting before the 0.4.0 deploy** → use **Description A**. Three attachments. Everything in it
   is callable by a reviewer today.
-- **Submitting after the 0.4.0 deploy** → use **Description B**. Five attachments. Check
+- **Submitting after the 0.4.0 deploy** → use **Description B**. Seven attachments. Check
   `GET https://api.foretak.dev/health` reports `0.4.0` first.
 
 Do not paste B before the deploy. "Every tool must return a successful response when called with
 valid parameters" is a review criterion, and a description promising an attachment the server
 answers `bad_request` for is the cheapest possible rejection.
 
-Not in either description, because they are not merged: **`peppol`** (Norwegian e-invoicing
-registration, D-046 — Norway's 2027 duty), the **Swedish filing-deadline rung** that reads the
-financial year end from `filings` instead of assuming 31 December, and the **charge-block reconcile**
-(D-045(a)). All three are in flight and land **after 0.4.0**. Say nothing about them in the listing.
+Not in either description, because they are not built at all: the **FCA regulator lookup**
+(`include=["regulator"]`, D-047(b)) and the **HMRC VAT check** (D-047(e)) — both wait on Kim's own
+registration with the respective agency (`HUMAN_TODO.md` §7.10) and neither has an implementation
+brief yet. Say nothing about them in the listing.
 
 ---
 
@@ -184,12 +184,12 @@ What this does not do: it is not sanctions, PEP or adverse-media screening; it d
 Read-only, and no account or key: connect and call.
 ```
 
-### 4.4 Description B — 1,969 / 2,000 characters — **use this only after `/health` reports 0.4.0**
+### 4.4 Description B — 1,992 / 2,000 characters — **use this only after `/health` reports 0.4.0**
 
 Identical to A except the attachment sentence, which becomes:
 
 ```
-A lookup can attach a second register on request: what the entity has actually filed and when (all three countries), its register of charges — mortgages and other security interests (United Kingdom), any winding-up or administration proceedings (United Kingdom), key figures from the filed annual accounts (Norway), and the Legal Entity Identifier it holds at GLEIF (Norway and the United Kingdom). Each attachment is a separate fetch with its own source and licence, absent unless you ask for it.
+Seven attachments are available on request: what the entity has actually filed and when (all three countries), its register of charges and any winding-up or administration proceedings (United Kingdom), key figures from the filed annual accounts (Norway and Sweden), its Legal Entity Identifier and parent company from GLEIF (Norway and the United Kingdom), and Peppol e-invoicing reachability ahead of Norway's 2027 duty. Each attachment is a separate fetch with its own source and licence, absent unless you ask for it.
 ```
 
 ### 4.5 Categories — pick 2 of the 11 offered
