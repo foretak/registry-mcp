@@ -111,6 +111,16 @@ _TTL_BY_KIND: dict[str, tuple[int, int]] = {
     # companies points the harm the wrong way (DECISIONS.md D-026(c),
     # D-045(e)).
     "lei": (7 * 24 * 60 * 60, 24 * 60 * 60),
+    # 30 days on a hit, 1 h empty. Key `SE:bolagsverket:financials:{env}:
+    # {dokumentId}` — keyed on the *document*, not on the company, because an
+    # annual report is immutable once filed and a correction is a new filing
+    # with a new id (DECISIONS.md D-047(f)). No collision with Norway's
+    # financials, which shares NO:brreg:filings:{orgnr} under kind `filings`
+    # (D-043(h)) rather than getting a kind of its own. Thirty days rather
+    # than indefinitely: nothing in this cache is kept forever, and the
+    # ceiling costs one re-parse a month while capping how long a
+    # taxonomy-handling bug in the extractor could otherwise outlive its fix.
+    "financials": (30 * 24 * 60 * 60, 60 * 60),
 }
 
 
