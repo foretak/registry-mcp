@@ -1,0 +1,40 @@
+{
+  "dokument": [
+    {
+      "dokumentId": "7c9e96b6-bcef-488c-9d68-eae350547fbf_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2020-12-31",
+      "registreringstidpunkt": "2021-07-30"
+    },
+    {
+      "dokumentId": "852f8ee2-eb16-404a-9c4e-77898688bede_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2021-12-31",
+      "registreringstidpunkt": "2022-07-06"
+    },
+    {
+      "dokumentId": "02f54e4f-b17a-4cfd-a1cc-d8ab4eaa7f49_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2022-12-31",
+      "registreringstidpunkt": "2023-06-27"
+    },
+    {
+      "dokumentId": "77ee7526-974e-4979-9004-472b30c01594_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2023-12-31",
+      "registreringstidpunkt": "2024-07-23"
+    },
+    {
+      "dokumentId": "079adb18-b33c-4b45-ad4d-f896fcc7c23c_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2024-12-31",
+      "registreringstidpunkt": "2025-06-10"
+    },
+    {
+      "dokumentId": "64caa943-a04b-4dda-8be6-26b8ba728adf_paket",
+      "filformat": "application/zip",
+      "rapporteringsperiodTom": "2025-12-31",
+      "registreringstidpunkt": "2026-06-30"
+    }
+  ]
+}

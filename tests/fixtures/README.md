@@ -188,6 +188,44 @@ own TEST-environment data, the same as the already-committed
 is synthetic, so the test-environment recordings are safe; **no production
 sole-trader payload may ever be committed as a fixture.**
 
+### `financials` — `se_ixbrl_*.xhtml` and `se_dokumentlista_*.json` (D-043, D-047(f),(g), T55)
+
+**Every `se_ixbrl_*.xhtml` fixture is hand-built, not a stripped copy of a
+filed document — say why, once, here.** T55's Part 0 fetched `5561890038`'s
+real 2020 and 2025 annual reports live from production (`tasks/T55-recon.md`),
+intending to commit them with `ix:nonNumeric` content stripped, exactly as
+the brief describes. **Stripping the *tagged* `ix:nonNumeric` elements turned
+out not to be enough**: Bolagsverket's own iXBRL repeats a signing director's
+name as **bare, untagged HTML text** elsewhere in the document (a rendering
+convention, not a tagging one) — found only by attempting the strip and
+grepping the result. Rather than trying to find every such occurrence in a
+~150 KB real document with no way to be sure none remain, every `se_ixbrl_*`
+fixture below is instead **built from scratch**: real `schemaRef` URLs, real
+`se-gen-base` concept names, and the real, measured figures (already published
+in `tasks/T52-recon.md`, `DECISIONS.md` D-047(f) and this brief's own
+done-check) — with **no company name, no address and no
+`ix:nonNumeric`-tagged signature concept of any kind** anywhere in the file.
+Every figure was cross-checked against the real document, through the shipped
+`registries/se/ixbrl.py` + `registries/se/financials.py` code, before being
+copied into the fixture (`tasks/T55-recon.md`'s "Orchestrator decision and
+continuation" section has the byte counts proving the real documents fetched
+matched `tasks/T52-recon.md`'s own measurements).
+
+| Fixture | Pins |
+|---|---|
+| `se_ixbrl_5561890038_2020.xhtml` | The 2017-09-30 taxonomy; `se-cd-base:Redovisningsvaluta` present as the plain string `"SEK"` (never read); a loss with `@sign="-"`; `LangfristigaSkulder` present. Two years tagged (period0/1, balans0/1) with different figures, so context selection is a real test. |
+| `se_ixbrl_5561890038_2025.xhtml` | The 2021-10-31 taxonomy; the renamed `se-cd-base:RedovisningsvalutaHandlingList` as the enum member `se-mem-base:ValutaSvenskaKronorMember` (never read); `LangfristigaSkulder` absent this year (present in 2020 — D-043(f) proven on the same company, different years); the done-check. |
+| `se_ixbrl_k3_specimen.xhtml` | K3 entity profile — figures measured from Bolagsverket's own published K3 taxonomy specimen (`taxonomier.se`, "faststalld-arsredovisning-k3-exempel-3-2021"), **not a real filer** — `tasks/T55-recon.md` records why no live K3 document exists to fixture. `schemaRef` says `/k3/`. |
+| `se_ixbrl_nonnumeric_leak_check.xhtml` | Hand-built, minimal. **Deliberately** carries three `ix:nonNumeric` "signature" facts, each holding the obviously-fake token `ZZZ-NOT-A-REAL-NAME-LEAK-CHECK-ZZZ` — so a test can assert the extractor's output never carries it, proving the filter holds when the element it must ignore is genuinely present, not merely absent (F3). |
+| `se_ixbrl_scale_handbuilt.xhtml` | Hand-built. No real or specimen document measured carries a non-zero `@scale` on a wanted concept, so this exists purely to exercise `scale="3"` (A4). |
+| `se_dokumentlista_5561890038.json` | **Live**, production, `5561890038`, fetched under D-047(f)'s continuation-authorized supplementary call — the real six annual reports, 2020-12-31 … 2025-12-31. No personal data in this shape (dates, a format string, an opaque `dokumentId`). |
+| `se_dokumentlista_empty.json` | **Not** re-fetched live this task (the supplementary budget was one `/dokumentlista` call, already spent above) — its own `_FIXTURE_NOTE` names the real, previously-observed production fact it stands in for: Telefonaktiebolaget LM Ericsson (`5560160680`) returns `{"dokument": []}`, observed live 2026-09-08 per `PROGRESS.md`'s deployment smoke test and explained by `tasks/T52-recon.md` Fact 2 (an IFRS preparer cannot use this channel). |
+
+**No two-entry-zip fixture is committed** — `tests/test_client_se.py` builds
+one in memory with `zipfile.ZipFile` at test time, matching the "commit no
+binaries" rule and D-047(f) continuation rule (3): a zip is a binary, so it is
+never a fixture *file* here regardless of what it contains.
+
 ## NO — Brønnøysundregistrene
 
 Two datasets on one host, and they are separate fixtures with separate shapes.

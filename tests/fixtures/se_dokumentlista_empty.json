@@ -1,0 +1,4 @@
+{
+  "_FIXTURE_NOTE": "Not re-fetched live this task (D-047(f)'s continuation authorized exactly one supplementary POST /dokumentlista, spent on 5561890038 -- see tasks/T55-recon.md). This shape is Bolagsverket's real production answer for an entity the digital channel excludes -- observed live 2026-09-08 for Telefonaktiebolaget LM Ericsson (5560160680), an IFRS preparer, per PROGRESS.md's deployment smoke test ('Ericsson documents: []') and tasks/T52-recon.md Fact 2. `dokument` absent-or-empty are the same answer (DokumentlistaSvar's schema does not require the key).",
+  "dokument": []
+}
