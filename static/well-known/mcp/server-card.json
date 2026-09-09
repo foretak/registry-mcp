@@ -1,7 +1,7 @@
 {
   "serverInfo": {
     "name": "registry-mcp",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "title": "registry-mcp — company status & filing check",
   "description": "Check whether a company you're about to deal with is real, active and keeping up with its statutory filings, straight from the national business register itself (Norway, the United Kingdom, Sweden today) — not a resold copy, and not a payment-fraud or sanctions check.",

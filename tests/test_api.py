@@ -231,6 +231,22 @@ def test_health(client: TestClient, ip: str) -> None:
     assert body == {"status": "ok", "version": __version__, "countries": ["GB", "NO", "SE"]}
 
 
+def test_version_matches_pyproject(client: TestClient, ip: str) -> None:
+    """`/health`'s version (asserted against `registry_mcp.__version__` above)
+    must also match `pyproject.toml`'s own `[project].version` — the source a
+    packager, not just an import, reads (`tasks/T46b.md` §4). A bump to one
+    without the other is exactly the drift a `uv sync --locked` catches for
+    `uv.lock`'s own copy, but nothing previously caught it here."""
+    import tomllib
+
+    pyproject = Path(__file__).parent.parent / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    assert data["project"]["version"] == __version__
+
+    resp = client.get("/health", headers={"X-Forwarded-For": ip})
+    assert resp.json()["version"] == data["project"]["version"]
+
+
 # ---------------------------------------------------------------------------
 # Static routes
 # ---------------------------------------------------------------------------
