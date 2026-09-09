@@ -37,6 +37,26 @@ We are **not affiliated with, endorsed by, or acting on behalf of
 Brønnøysundregistrene**, Skatteetaten, or any other authority named in a
 response.
 
+British data comes from the **Companies House** public register,
+`api.company-information.service.gov.uk`. Register information is made
+available under section 47 of the Copyright, Designs and Patents Act 1988
+and Schedule 1 of the Database Regulations (SI 1997/3032); Companies House
+states it imposes no rules or requirements on how public register
+information is used. We credit it as **"Crown copyright — Companies House
+public register, free to re-use"** in every response, even though the
+register data carries no attribution obligation, because a citation is what
+makes an agent's answer checkable. We are not affiliated with, endorsed by,
+or acting on behalf of Companies House.
+
+Swedish data comes from **Bolagsverket**'s "värdefulla datamängder"
+(high-value datasets) API, `gw.api.bolagsverket.se`, accessed with our own
+OAuth 2 client credentials. Bolagsverket states that no agreement is
+required to use the API and that the data may be used freely for commercial
+and non-commercial purposes; Bolagsverket names no licence, so neither do
+we — our licence field reads **"Free re-use (Bolagsverket/SCB high-value
+datasets, EU Open Data Directive) — the publisher names no licence"**. We
+are not affiliated with, endorsed by, or acting on behalf of Bolagsverket.
+
 **Where a register marks an entity as protected against direct marketing
 (`advertising_protected: true`), that marking is a condition of our passing
 the record on, and of you passing it on further.** Keep it with the contact

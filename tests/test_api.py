@@ -654,6 +654,24 @@ def test_legal_pages_are_served_and_readable(client: TestClient, ip: str) -> Non
         assert 'href="/legal/privacy"' in body and 'href="/legal/terms"' in body
 
 
+def test_privacy_policy_is_not_a_draft_and_names_all_three_countries(
+    client: TestClient, ip: str
+) -> None:
+    """T50 found the served privacy policy still labelled itself a draft
+    ("Draft written 2026-09-05 for Kim's review; effective once published at
+    a public URL") on a page that *is* published, and named only Norway and
+    the United Kingdom in "What the service does" even though Sweden has
+    been live since 2026-09-07 — an immediate-rejection defect for the
+    Anthropic Connectors Directory (`content/anthropic-connectors-submission.md`
+    §12 OPEN-1). T46 fixed both; this pins them so neither regresses."""
+    r = client.get("/legal/privacy", headers={"X-Forwarded-For": ip})
+    assert r.status_code == 200
+    body = r.text
+    assert "Draft" not in body
+    for country in ("Norway", "United Kingdom", "Sweden"):
+        assert country in body, f"{country} missing from the served privacy policy"
+
+
 def test_legal_pages_escape_before_they_render(client: TestClient, ip: str) -> None:
     """The renderer escapes first and marks up second, so a stray angle bracket in
     a legal document can never become live markup."""
@@ -680,3 +698,29 @@ def test_dockerfile_ships_every_directory_the_app_reads_at_runtime() -> None:
     shipped = " ".join(runtime_copies)
     for needed in ("/app/src", "/app/static", "/app/server.json", "/app/legal"):
         assert needed in shipped, f"the runtime image never receives {needed}"
+
+
+def test_lifespan_closes_the_gleif_client() -> None:
+    """`core/gleif.py` keeps its own shared `httpx.AsyncClient`, outside
+    `_close_registry_clients`'s loop over `list_registries()` — GLEIF is not a
+    registered country, so nothing reached its `aclose()` at shutdown
+    (`core/gleif.py::aclose`'s own docstring said so in terms: "Nothing in
+    this task's footprint calls this today"). T46 added one call in
+    `_lifespan`'s `finally` block, beside `_close_registry_clients()`; this
+    pins it so a future refactor of the shutdown sequence cannot drop it
+    silently. `registries/no/peppol.py`'s client needs no equivalent test —
+    it is already reached through `BrregRegistry.aclose()`, inside the loop
+    `_close_registry_clients` already walks."""
+    from unittest.mock import AsyncMock
+
+    from registry_mcp.core import gleif as gleif_module
+
+    mock_aclose = AsyncMock()
+    original = gleif_module.aclose
+    gleif_module.aclose = mock_aclose
+    try:
+        with TestClient(app):
+            pass
+    finally:
+        gleif_module.aclose = original
+    mock_aclose.assert_awaited_once()
