@@ -206,6 +206,14 @@ frozen as of `0.2.0`.
   were added until this was found. A test now asserts the runtime image
   receives every directory the application reads at request time
   (`0d20df9`).
+- **The server card published `"resources": []` while the server serves
+  three** (`registry://rules/{GB,NO,SE}`); `scripts/regen_server_card.py`
+  now writes the resource list and the card drift test pins it
+  (`REVIEW.md` § Depth track, finding 7; `3f72ec2`).
+- **The `country` and `id` argument descriptions on `lookup_company`,
+  `company_deadlines` and `validate_company_id` named two of three
+  countries.** Sweden's clause is added to both and `SE` to the examples
+  (finding 8; `24575c3`).
 
 ## [0.3.0] — 2026-09-07
 
