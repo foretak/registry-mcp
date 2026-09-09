@@ -801,6 +801,28 @@ def test_r5d_none_payload_maps_like_an_empty_list() -> None:
     assert accounts.map_regnskap(None, "974760673", cached=False, fetched_at=_FETCHED_AT).documents == []
 
 
+def test_scope_note_is_present_first_on_every_block_d044b() -> None:
+    """D-044(b): one include name, `filings`, covers three differently-scoped
+    answers *because* "the scope difference is disclosed in the block's own
+    `notes`, on every call". SE and GB got this test from T40; Norway's
+    `_ONE_PERIOD_NOTE`/`_EMPTY_NOTE` was the *model* for both but was never
+    itself pinned (REVIEW.md T58 finding 3; mutations M8c/M8d — appending
+    the note instead of inserting it first, and deleting it outright — both
+    left 1030 passing). Both branches, because Norway's note is chosen by a
+    branch (filled vs. empty) rather than prepended unconditionally like
+    Sweden's and Britain's."""
+    filled = accounts.map_regnskap(
+        EQUINOR_ACCOUNTS, "923609016", cached=False, fetched_at=_FETCHED_AT
+    )
+    assert filled.notes[0].startswith(
+        "Regnskapsregisteret's open dataset publishes only the most recently filed "
+        "accounting period"
+    )
+
+    empty = accounts.map_regnskap([], "974760673", cached=False, fetched_at=_FETCHED_AT)
+    assert empty.notes[0] == accounts._EMPTY_NOTE
+
+
 def test_r5d_documents_sorted_newest_first() -> None:
     """Norway's open dataset returns one period, but the list shape is the
     register's own and D-041(g)'s ordering is the model's contract."""
