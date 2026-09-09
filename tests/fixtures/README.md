@@ -237,16 +237,14 @@ environment's identifiers are synthetic test data rather than real
 personnummers, and D-039's own text does not reach addresses. **No
 production sole-trader payload may ever be committed as a fixture.**
 
-**Not fixed by this task, flagged for a follow-up:** `SWEDEN_SPEC.md` §2.2
-(lines ~586-587) and §14 test 91 (line ~2061) still quote
-`bv_enskild_two.json`'s two names verbatim (`CITY SKOR THOMAS CARLSON`,
-`SKO-STALLET, THOMAS CARLSSON`), and its own §17 carries a "Redaction"
-paragraph making the same "synthetic, so safe, so unredacted" argument this
-file's did. `SWEDEN_SPEC.md` is outside this task's footprint except where a
-spec claim is corrected by the wire, and quoting a name is a policy question,
-not a wire fact — so those three spots were left as they were rather than
-edited under a task whose footprint does not cover them. A future task
-should apply the same placeholder there.
+**Follow-up applied 2026-09-09 (T57, round 2):** `SWEDEN_SPEC.md` §2.2 and
+§14 test 91 had quoted `bv_enskild_two.json`'s two names verbatim, and its
+own §17 carried a "Redaction" paragraph arguing the same "synthetic, so
+safe, so unredacted" position this file's did — both now corrected to match:
+the quotes replaced with the same placeholders the fixture carries, and §17's
+paragraph rewritten to state the rule the way this section now does. The
+orchestrator widened this task's `SWEDEN_SPEC.md` footprint specifically for
+this fix (it is otherwise limited to wire-corrected claims).
 
 ### `financials` — `se_ixbrl_*.xhtml` and `se_dokumentlista_*.json` (D-043, D-047(f),(g), T55)
 

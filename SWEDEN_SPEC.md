@@ -586,8 +586,10 @@ Two rules about the notes themselves:
 
 `OrganisationerSvar.organisationer` is an **array**, and Bolagsverket's own
 `organisationer-enskild-svar` example returns **two** objects for the single identifier
-`194009272719`, distinguished only by `namnskyddslopnummer` 1 and 2 — *CITY SKOR THOMAS CARLSON* and
-*SKO-STALLET, THOMAS CARLSSON*. From the schema, verbatim:
+`194009272719`, distinguished only by `namnskyddslopnummer` 1 and 2 — the two names the fixture
+carries, redacted to `[REDACTED TEST NAME 1]` and `[REDACTED TEST NAME 2]` per D-039/D-040 (T57,
+2026-09-09; see `tests/fixtures/bv_enskild_two.json` and `tests/fixtures/README.md` "Redaction").
+From the schema, verbatim:
 
 > *"'Namnskyddslopnummer' is used to separate companies for organisation types that can have more
 > than one company on the same 'identitetsbeteckning'. For example the legal form 'enskild
@@ -2062,7 +2064,8 @@ Subject is an active `AB` unless stated. `today` is given per test.
     **datetime-shaped** string.
 91. `bv_enskild_two.json` (Bolagsverket's own two-business sole trader) → **one** `CompanyReport`,
     `id == "194009272719"`, `id_scheme == "personnummer"`,
-    `name == "CITY SKOR THOMAS CARLSON"` (the first element), `legal_form_code == "E"`,
+    `name == "[REDACTED TEST NAME 1]"` (the first element; redacted per D-039/D-040 — T57,
+    2026-09-09), `legal_form_code == "E"`,
     `activity == "HANDEL MED SKOR."` (**leading whitespace stripped**), and
     `postal_address.city == "ESLÖV"` — every field from the *same* element (§2.2).
 92. Same fixture: `notes` contains N7 naming both businesses **and** both `namnskyddslopnummer`
@@ -2303,7 +2306,7 @@ against the live TEST environment and corrected here 2026-09-07 (T26g):
 | `bv_scb_only.json` | `5567223705` | Aktiebolag, organisation finns ej hos SCB (real mechanism differs from what T26b assembled — §1.8's callout) |
 | `bv_finns_ej.json` | `198101032384` | Organisation finns inte registrerad. **Corrected 2026-09-07**: the workbook/original §17 gave this scenario as `193403223328`; live, `193403223328` is not this scenario (next row) — `198101032384` is. |
 | `bv_enskild_avregistrerad.json` | `193403223328` | **Corrected 2026-09-07**: the workbook/original §17 called this number "organisation finns inte registrerad". Live, it returns **two** organisations for a real, deregistered sole trader — `avregistreradOrganisation.avregistreringsdatum: "2016-08-24"`, `avregistreringsorsak: OVERK` — and `is_not_found` on it is correctly `False`. |
-| `bv_enskild_three.json` | `198101052382` | Enskild firma. The workbook calls this "**två** namnskyddslöpnummer"; live, it returns **three** (`namnskyddslopnummer` 1, 2, 3 — the last two both named "Sol i maj"). §14 test 114's text still says "two" and is stale pending a correction outside this section's footprint; the count is corrected here and pinned in `tests/test_client_se.py`. |
+| `bv_enskild_three.json` | `198101052382` | Enskild firma. The workbook calls this "**två** namnskyddslöpnummer"; live, it returns **three** (`namnskyddslopnummer` 1, 2, 3 — the last two sharing one name, redacted to `[REDACTED TEST NAME 2]` per D-039/D-040, T57 2026-09-09). §14 test 114's text still says "two" and is stale pending a correction outside this section's footprint; the count is corrected here and pinned in `tests/test_client_se.py`. |
 | `bv_enskild_two.json` | *(not recorded — kept as Bolagsverket's own OpenAPI example, `194009272719`)* | Enskild firma, two namnskyddslöpnummer, `typ.kod: PERSONNUMMER` — see §1.8's `typ.kod` callout for why this one stays synthetic on purpose |
 | `bv_hb_active.json` | `9124001992` | Handelsbolag |
 | `bv_brf_active.json` | `7164099017` | Bostadsrättsförening |
@@ -2321,9 +2324,14 @@ bare RFC 7807 400 pointing at the workbook (`tests/fixtures/README.md`). T57 con
 `/organisationer` live with `5560160680` (Ericsson's real production organisationsnummer, tried
 against the TEST host only). The permitted numbers are only in the workbook.
 
-Redaction: the recorded bodies contain **no credential**, but `bv_enskild_two.json` and any
-sole-trader recording contain a **personnummer, a name and a home address of a real natural person**
-— committed to a public MIT repository. Bolagsverket's test data is synthetic, so the test-environment
-recordings are safe; **no production sole-trader payload may ever be committed as a fixture.** That
-is D-039's rule applied to the repository rather than to the API response, and it is the one line in
-this section that cannot be relaxed for convenience.
+Redaction: the recorded bodies contain **no credential**, but `bv_enskild_two.json` and every
+sole-trader recording contain a **personnummer and a name**, and `bv_enskild_avregistrerad.json`
+also a real-looking home address. D-039/D-040's rule is unconditional — no fixture may be committed
+that carries a natural person's name, however synthetic-sounding the name looks — so every name
+these fixtures carry has been replaced with a marked placeholder (`[REDACTED TEST NAME]`, or `1`/`2`
+where a fixture's own test logic needs two distinguishable values; T57, 2026-09-09; full list in
+`tests/fixtures/README.md` "Redaction"). Identifiers, dates and addresses are not redacted: the rule
+names a name or a real personnummer, and the TEST environment's identifiers are synthetic test data,
+not real ones. **No production sole-trader payload may ever be committed as a fixture** — that part
+of the rule needed no correction and is the one line in this section that cannot be relaxed for
+convenience.

@@ -642,7 +642,8 @@ def test_enskild_three_fixture_three_not_two_and_id_scheme_personnummer() -> Non
     """`198101052382` is the workbook's "enskild firma, två
     namnskyddslöpnummer" number (SWEDEN_SPEC.md §17, §14 test 114) — the real
     TEST recording has **three** (`namnskyddslopnummer` 1, 2 and 3; the last
-    two are both named "Sol i maj"). See `test_114_live_enskild_two_...`'s
+    two share one name on the wire, redacted here to `[REDACTED TEST NAME 2]`
+    per D-039/D-040, T57 2026-09-09). See `test_114_live_enskild_two_...`'s
     amended docstring for the live (`@pytest.mark.live`) version of this same
     finding.
 
@@ -1096,7 +1097,8 @@ async def test_114_live_enskild_two_namnskyddslopnummer() -> None:
     """Amended 2026-09-07 (T26g): §14 test 114 and the workbook describe
     `198101052382` as "två namnskyddslöpnummer" (two) — the real TEST
     recording (`bv_enskild_three.json`) has **three**
-    (`namnskyddslopnummer` 1, 2, 3; the last two both named "Sol i maj"). The
+    (`namnskyddslopnummer` 1, 2, 3; the last two share one name on the wire,
+    not repeated here per D-039/D-040, T57 2026-09-09). The
     function name and §14's text are stale pending a spec correction; the
     assertion below matches the confirmed live body. See
     `test_enskild_three_fixture_three_not_two_and_id_scheme_personnummer` for
