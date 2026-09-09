@@ -454,7 +454,7 @@ opt-in and at the cost of one extra upstream request per name.** Seven exist
 today: `filings` answers *do they file, and on time* (`GB`, `NO` and `SE` all
 declare it); `charges` answers *are assets already pledged* (`GB` only);
 `insolvency` answers *are they being wound up* (`GB` only); `financials`
-answers *what do the numbers say* (`NO` only); `lei` and `parents` answer
+answers *what do the numbers say* (`NO` and `SE`); `lei` and `parents` answer
 *who does GLEIF say this entity and its group are* (every country except
 `SE`); and `peppol` answers *would an e-invoice reach them* (`NO` only). Ask
 for more than one by repeating the parameter — REST
@@ -493,26 +493,36 @@ byte-identical to its answer for a company number that was never issued — so
 it is never evidence the entity exists, only that the register holds no case
 against it.
 
-**`financials` (`NO` only): the register's own key figures for the latest
-filed accounting period, never a ratio or a verdict.** Regnskapsregisteret's
-open dataset publishes exactly one period — revenue (turnover), operating
-result, profit, balance sheet totals, equity and liabilities — each figure
-beside its own `currency`, because a figure separated from its currency is
-not partially wrong, it is meaningless: 12 of 358 sampled Norwegian filings
-were not in kroner. This is the fact the block exists to answer *is this
-supplier solvent*, and nothing here computes that answer for you — no
-equity ratio, current ratio or similar field exists, because the register's
-own totals do not always reconcile (27 of 358 sampled filings) and any ratio
-built on them would be a verdict the register itself does not vouch for.
+**`financials` (`NO` and `SE`): the register's own key figures for the latest
+filed accounting period, never a ratio or a verdict.** Norway and Sweden fill
+this block from two different sources. Regnskapsregisteret's open dataset
+publishes exactly one period — revenue (turnover), operating result, profit,
+balance sheet totals, equity and liabilities — each figure beside its own
+`currency`, because a figure separated from its currency is not partially
+wrong, it is meaningless: 12 of 358 sampled Norwegian filings were not in
+kroner. Sweden has no equivalent open key-figures feed, so this block is
+read out of the entity's own filed annual report — the K2 inline-XBRL
+document Bolagsverket's document API serves, the same `/dokumentlista` list
+`filings` already reads, plus one further `/dokument` fetch for the most
+recently filed report; `currency` there comes from the document's own unit,
+never from a renamed, re-typed currency concept. Sweden's block is entity
+accounts only, never a group, and a K3 (larger-company) filing carries a
+caveat that no live K3 document had been read when this was built. Neither
+register's figures are a ratio or a verdict: no equity ratio, current
+ratio or similar field exists on either country's block, because Norway's
+own totals do not always reconcile (27 of 358 sampled filings) and
+Bolagsverket's own tagged solvency ratio was measured on the same company
+at two different, undisambiguated scales — any ratio built from either
+would be a verdict the register itself does not vouch for.
 **A `None` figure inside a present block means the company itself did not
 report that line for this filing; an absent `financials` block means the
-country's register does not publish figures at all.** Britain and Sweden do
-not declare `financials` today, and the reason is ours, not theirs: their
-figures live only inside filed accounts documents (iXBRL, a zip) this API
-does not parse. Companies House and Bolagsverket are not silent about
-financial figures — this project has simply not built the document parser
-yet — so no sentence anywhere says either register "does not publish
-financial figures".
+country's register does not publish figures at all.** Britain does not
+declare `financials`: the accounts of the companies that matter are filed
+on paper or as PDF, the machine-readable (iXBRL) mandate is 1 April 2028
+with a profit-and-loss publication opt-out for small and micro companies,
+and no British filing sampled carried the balance-sheet totals this block
+relays — a population fact about Companies House, not a parser this
+project has declined to write.
 
 **`lei` (every country except `SE`): the Legal Entity Identifier GLEIF, the
 Global LEI Foundation, publishes for this entity.** CC0-licensed and
@@ -584,6 +594,52 @@ For 923609016 (EQUINOR ASA) that last call's `parents` block reads
 the wire example `parents`' own field descriptions are written against
 (`DECISIONS.md` D-047(a)) — never read as a fact that the company has no
 institutional owner; it is the entity's own filing choice, unverified.
+
+REST — a Swedish company's key figures out of its own filed annual report
+(generated locally from the committed fixture
+`tests/fixtures/se_ixbrl_5561890038_2025.xhtml`, run in-process through
+`registries/se/ixbrl.py` + `registries/se/financials.py`, not production):
+
+    curl "https://api.foretak.dev/v1/SE/company/5561890038?include=financials"
+
+Response (`financials` only, abridged):
+
+    {
+      "financials": {
+        "periods": [
+          {
+            "period_start": "2025-01-01", "period_end": "2025-12-31",
+            "currency": "SEK", "accounting_framework": "K2",
+            "scope": "entity accounts", "consolidated": false,
+            "document_id": "64caa943-a04b-4dda-8be6-26b8ba728adf_paket",
+            "income_statement": {
+              "revenue": 0.0, "operating_result": -4656.0,
+              "profit_before_tax": -10536.0, "profit_for_period": -10536.0
+            },
+            "balance_sheet": {
+              "current_assets": 515409.0, "total_assets": 515409.0,
+              "equity": 508409.0, "current_liabilities": 7000.0,
+              "total_equity_and_liabilities": 515409.0
+            }
+          }
+        ],
+        "notes": [
+          "This is the most recently filed annual report only. Bolagsverket's document list reported 6 annual report(s) for this organisation in total, covering the period ending 2025-12-31; the complete list with every period and document id is available through include=[\"filings\"].",
+          "`scope` is 'entity accounts' and `consolidated` is false because Bolagsverket's K2 digital-submission channel structurally excludes koncernredovisning — every K2 document reaching this block is entity-only by construction, which is a fact about the channel rather than something inferred about this company."
+        ]
+      }
+    }
+
+`fixed_assets`, `non_current_liabilities`, `total_comprehensive_income` and
+`liabilities` are all absent from this filing, never `0.0` — an absent line
+is a line this company's own report did not carry, not a reported nothing
+(`DECISIONS.md` D-043(f)). `document_id` is the same `dokumentId` the
+sibling `filings` block's matching `FiledDocument` carries, so the two can
+be joined; unlike Norway, Sweden's `financials.provenance` is **not**
+identical to `filings.provenance` when both are requested together — the
+two attachments share the `/dokumentlista` discovery fetch, but `financials`
+then makes its own `/dokument` request, and `provenance` describes that
+document fetch (DECISIONS.md D-047(f)).
 
 ### 3.3 GET /v1/{country}/search?q={name}
 

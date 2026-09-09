@@ -1661,11 +1661,14 @@ class BalanceSheet(_Base):
 
 
 class FinancialPeriod(_Base):
-    """One filed accounting period's key figures — Regnskapsregisteret's own
-    filing, mapped a second time alongside :class:`~registry_mcp.core.models.
-    FiledDocument` (D-043(h)): the two travel together because both come from
-    the same fetch, and `document_id` and `period_end` are the join keys a
-    caller uses to line this period up with its sibling `FiledDocument`.
+    """One filed accounting period's key figures, mapped a second time
+    alongside :class:`~registry_mcp.core.models.FiledDocument` for the same
+    filing (D-043(h), D-047(f)). For Norway the two come from the same
+    fetch; for Sweden `financials` shares `filings`' document-list discovery
+    step but then reads the filed document itself, a further fetch `filings`
+    never makes. Either way, `document_id` and `period_end` are the join
+    keys a caller uses to line this period up with its sibling
+    `FiledDocument`.
 
     `currency` is the one field in this whole block with no default
     (DECISIONS.md D-043(d)): a figure separated from its currency is not
@@ -1820,12 +1823,21 @@ class FinancialSummary(_Base):
     meanings into one `None` — "Britain does not publish this" and "this
     Norwegian company did not report this line" — which D-011 forbids.
 
-    Norway fills this block today; Sweden and Britain do not, and the reason
-    is a scope decision this project made (Bolagsverket's figures live only
-    inside a zip this project declines to parse; Companies House's only
-    inside filed iXBRL this project declines to parse), not the register's
-    silence (DECISIONS.md D-043(i)). `include=["financials"]` on a country
-    that does not declare it is `bad_request`, never a silently empty block.
+    Norway and Sweden fill this block today, from two different sources:
+    Norway's figures arrive in Regnskapsregisteret's own open key-figures
+    feed, the same fetch as `filings`; Sweden's are read out of the entity's
+    own filed annual report (the K2 inline-XBRL document Bolagsverket's
+    document API serves), a second request that shares its document-list
+    discovery step with `filings` but is not the same fetch (DECISIONS.md
+    D-047(f)). Britain does not fill this block, and that is the register's
+    own population, not a scope decision this project made: the accounts of
+    the companies that matter are filed on paper or as PDF, the
+    machine-readable (iXBRL) mandate is 1 April 2028 with a
+    profit-and-loss publication opt-out for small and micro companies, and
+    no British filing sampled carried the balance-sheet totals this block
+    relays (DECISIONS.md D-043(i), as amended by D-047(f)).
+    `include=["financials"]` on a country that does not declare it is
+    `bad_request`, never a silently empty block.
 
     Two-level nullability is the point of the shape (D-011, D-026(c),
     D-041(c), D-042(d)(3)): once *present*, this block carries `periods: []`
@@ -1843,19 +1855,28 @@ class FinancialSummary(_Base):
     periods: list[FinancialPeriod] = Field(
         default_factory=list,
         description=(
-            "Filed accounting periods, sorted newest first by `period_end`. "
-            "Regnskapsregisteret publishes exactly one — the endpoint takes no year "
-            "argument and holds no history — so this is a latest-figures block, not a "
-            "trend; `notes` says so on every non-empty block. The list exists for a "
-            "register that publishes more than one."
+            "Filed accounting periods, sorted newest first by `period_end`. Both "
+            "registers carry exactly one today, for different reasons: "
+            "Regnskapsregisteret publishes only one — the endpoint takes no year "
+            "argument and holds no history — while Bolagsverket lists every filed "
+            "annual report but only the most recent is parsed into this block, a "
+            "bounded-cost choice rather than a register limit (DECISIONS.md D-047(f)). "
+            "Either way this is a latest-figures block, not a trend; `notes` says so on "
+            "every non-empty block, and the rest of a Swedish entity's filed reports are "
+            "in `include=[\"filings\"]`. The list exists for a register that publishes "
+            "more than one."
         ),
     )
     provenance: SourceRef = Field(
         description=(
-            "Where, when and under what licence this block was fetched. **Identical in "
-            "all five fields to the sibling `filings` block's `provenance` when both are "
-            "requested together**: they are the same upstream fetch, not two (DECISIONS.md "
-            "D-043(h))."
+            "Where, when and under what licence this block was fetched. For Norway, "
+            "**identical in all five fields to the sibling `filings` block's "
+            "`provenance` when both are requested together**: they are the same upstream "
+            "fetch, not two (DECISIONS.md D-043(h)). For Sweden the two blocks' "
+            "`provenance` are **not** identical: `financials` shares `filings`' "
+            "document-list discovery fetch to decide what to fetch, but then makes its "
+            "own further request for the document itself, and this field describes that "
+            "further request, not the shared list (DECISIONS.md D-047(f))."
         )
     )
     notes: list[str] = Field(
@@ -2278,9 +2299,13 @@ class CompanyReport(_Base):
             "fetch failed (see `notes` for which attachment and why). A country that "
             "declares this attachment returns a *present* block with `periods: []` for an "
             "entity the register holds no filed accounts for — the two states never "
-            "collapse into each other (D-011, D-042(d)). Norway only, today: Sweden's and "
-            "Britain's figures live inside documents this API declines to parse, which is "
-            "this project's scope decision, not the register's silence (D-043(i))."
+            "collapse into each other (D-011, D-042(d)). Norway and Sweden today: "
+            "Norway's arrive in the register's own open key-figures feed, Sweden's are "
+            "read out of the entity's own filed annual report. Britain does not declare "
+            "this attachment because the accounts of the companies that matter are "
+            "filed on paper or as PDF ahead of the 1 April 2028 machine-readable "
+            "mandate — a fact about the register's own population, not a parser this "
+            "project has declined to write (D-043(i), D-047(f))."
         ),
     )
     peppol: PeppolParticipant | None = Field(

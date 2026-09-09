@@ -315,9 +315,11 @@ _INCLUDE_DESCRIPTION = (
     "and null unless you ask for it. Seven exist today. 'filings' (every country): what "
     "the entity has actually filed, and when. 'charges' (United Kingdom only): mortgages "
     "and other security interests. 'insolvency' (United Kingdom only): winding-up and "
-    "administration proceedings. 'financials' (Norway only): the register's own financial "
-    "figures — turnover, operating result, profit, a balance sheet, and more — for the "
-    "latest filed accounting period, answering whether a supplier looks solvent. 'lei' "
+    "administration proceedings. 'financials' (Norway and Sweden): the register's own "
+    "financial figures — turnover, operating result, profit, a balance sheet, and more — "
+    "for the latest filed accounting period, answering whether a supplier looks solvent; "
+    "Norway's arrive in the same fetch as 'filings', Sweden's are read out of the entity's "
+    "own filed annual report. 'lei' "
     "(every country except Sweden): the Legal Entity Identifier GLEIF publishes for the "
     "entity, CC0-licensed and keyless. 'parents' (the same countries as 'lei'): the "
     "corporate parent GLEIF's Level 2 data discloses, direct and ultimate, or the "
@@ -393,14 +395,18 @@ async def lookup_company(
     `is_liquidation: true` is not by itself evidence of distress.
 
     Three more attachments answer deeper questions, each its own upstream fetch. For
-    Norway only, `include=["financials"]` adds the register's own financial figures for
+    Norway and Sweden, `include=["financials"]` adds the register's own financial figures for
     the latest filed accounting period — turnover, operating result, profit, balance sheet
     totals, equity and liabilities, each beside its own currency — the fact this project
-    reads for a solvency check, never a computed ratio or a verdict; a `None` figure
+    reads for a solvency check, never a computed ratio or a verdict; Norway's arrive in the
+    same fetch as `filings`, Sweden's are read out of the entity's own filed annual report
+    (the K2 inline-XBRL document Bolagsverket's document API serves). A `None` figure
     inside a present block means the company itself did not report that line, an absent
-    block means the country's register publishes no figures at all — true of Britain and
-    Sweden today because this API does not parse filed accounts documents, not because
-    either register stays silent. For every country except Sweden, `include=["lei"]` adds
+    block means the country's register publishes no figures at all — true of Britain today
+    because the accounts of the companies that matter are filed on paper or as PDF ahead of
+    the 1 April 2028 machine-readable mandate, and no British document carries the
+    balance-sheet totals this block relays even when one exists. For every country except
+    Sweden, `include=["lei"]` adds
     the Legal Entity Identifier (LEI) GLEIF, the Global LEI Foundation, publishes for the
     entity — CC0-licensed, keyless, a `lei: null` inside a present block meaning GLEIF
     holds none; Sweden is excluded because its identifier can be a natural person's own
