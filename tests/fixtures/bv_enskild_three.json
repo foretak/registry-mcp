@@ -60,7 +60,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Snö i april",
+            "namn": "[REDACTED TEST NAME 1]",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"
@@ -158,7 +158,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Sol i maj",
+            "namn": "[REDACTED TEST NAME 2]",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"
@@ -256,7 +256,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Sol i maj",
+            "namn": "[REDACTED TEST NAME 2]",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"

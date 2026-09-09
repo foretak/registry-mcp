@@ -1,122 +1,99 @@
 {
-  "_SYNTHETIC_COMBINATION": "SHAPE CONFIRMED, COMBINATION SYNTHETIC — every field name and nesting level in this fixture also appears in Bolagsverket's OpenAPI document and in eight live Bolagsverket TEST recordings taken 2026-09-07 (5560021361, 5567223705, 9124001992, 7164099017, 7020008350, 193403223328, 198101052382, 198101032384 — SWEDEN_SPEC.md §17). Only this fixture's particular *combination* of states (which procedure is open, which dates, which reasons) is synthetic: no company in the Bolagsverket test register is currently in it. Re-record if one ever appears; see tests/fixtures/README.md.",
   "organisationer": [
     {
-      "organisationsidentitet": {
-        "identitetsbeteckning": "5299999994",
-        "typ": {
-          "kod": "ORGANISATIONSNUMMER",
-          "klartext": "Organisationsnummer"
+      "avregistreradOrganisation": null,
+      "avregistreringsorsak": null,
+      "juridiskForm": {
+        "kod": null,
+        "klartext": null,
+        "dataproducent": "SCB",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Den efterfrågade informationen gick inte att hitta."
         }
       },
       "namnskyddslopnummer": null,
-      "organisationsnamn": {
-        "organisationsnamnLista": [
-          {
-            "registreringsdatum": "2020-03-15",
-            "namn": "Cykelbolaget AB",
-            "organisationsnamntyp": {
-              "kod": "FORETAGSNAMN",
-              "klartext": "Företagsnamn"
-            },
-            "verksamhetsbeskrivningSarskiltForetagsnamn": null
-          },
-          {
-            "registreringsdatum": "2024-03-15",
-            "namn": "Mopedbolaget AB",
-            "organisationsnamntyp": {
-              "kod": "SARSKILT_FORETAGSNAMN",
-              "klartext": "Särskilt företagsnamn"
-            },
-            "verksamhetsbeskrivningSarskiltForetagsnamn": "Att bedriva handel med mopeder."
-          },
-          {
-            "registreringsdatum": "2020-04-01",
-            "namn": "Bicycle expert",
-            "organisationsnamntyp": {
-              "kod": "FORETAGSNAMN_PA_FRAMMANDE_SPRAK",
-              "klartext": "Företagsnamn på främmande språk"
-            },
-            "verksamhetsbeskrivningSarskiltForetagsnamn": null
-          }
-        ],
-        "fel": null,
-        "dataproducent": "Bolagsverket"
+      "naringsgrenOrganisation": {
+        "sni": [],
+        "dataproducent": "SCB",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Den efterfrågade informationen gick inte att hitta."
+        }
       },
-      "registreringsland": {
-        "kod": "SE-LAND",
-        "klartext": "Sverige"
-      },
-      "reklamsparr": {
-        "kod": "JA",
+      "organisationsdatum": {
+        "registreringsdatum": "1965-06-28",
+        "dataproducent": "Bolagsverket",
         "fel": null,
-        "dataproducent": "SCB"
+        "infortHosScb": null
       },
       "organisationsform": {
         "kod": "AB",
         "klartext": "Aktiebolag",
-        "fel": null,
-        "dataproducent": "Bolagsverket"
+        "dataproducent": "Bolagsverket",
+        "fel": null
       },
-      "avregistreradOrganisation": null,
-      "avregistreringsorsak": null,
+      "organisationsidentitet": {
+        "identitetsbeteckning": "5560986878",
+        "typ": {
+          "kod": "ORGNR",
+          "klartext": "Organisationsnummer"
+        }
+      },
+      "organisationsnamn": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
+        "organisationsnamnLista": [
+          {
+            "namn": "Testdata 1 AB",
+            "organisationsnamntyp": {
+              "kod": "FORETAGSNAMN",
+              "klartext": "Företagsnamn"
+            },
+            "registreringsdatum": "2025-06-19",
+            "verksamhetsbeskrivningSarskiltForetagsnamn": null
+          }
+        ]
+      },
       "pagaendeAvvecklingsEllerOmstruktureringsforfarande": {
+        "dataproducent": "Bolagsverket",
+        "fel": null,
         "pagaendeAvvecklingsEllerOmstruktureringsforfarandeLista": [
           {
             "kod": "KK",
-            "klartext": "Konkurs",
-            "fromDatum": "2024-01-26"
-          }
-        ],
-        "fel": null,
-        "dataproducent": "Bolagsverket"
-      },
-      "juridiskForm": {
-        "kod": "49",
-        "klartext": "Övriga aktiebolag",
-        "fel": null,
-        "dataproducent": "SCB"
-      },
-      "verksamOrganisation": {
-        "kod": "JA",
-        "fel": null,
-        "dataproducent": "SCB"
-      },
-      "organisationsdatum": {
-        "registreringsdatum": "2000-01-23",
-        "fel": null,
-        "dataproducent": "Bolagsverket",
-        "infortHosScb": "2000-02-03"
-      },
-      "verksamhetsbeskrivning": {
-        "fel": null,
-        "dataproducent": "Bolagsverket",
-        "beskrivning": "Bedriva handel med cyklar och tillbehör till cyklar"
-      },
-      "naringsgrenOrganisation": {
-        "fel": null,
-        "dataproducent": "Bolagsverket",
-        "sni": [
-          {
-            "kod": "47642",
-            "klartext": "Specialiserad butikshandel med cyklar"
-          },
-          {
-            "kod": "45400",
-            "klartext": "EU-mopeder, reservdelar och tillbehör, handel med"
+            "fromDatum": "2025-06-12",
+            "klartext": "Konkurs"
           }
         ]
       },
       "postadressOrganisation": {
         "postadress": {
-          "postnummer": "12345",
-          "utdelningsadress": "Jobbstigen 2",
-          "land": "Sverige",
-          "coAdress": "C/o Annat företag",
-          "postort": "Grönköping"
+          "postnummer": "85181",
+          "coAdress": null,
+          "land": null,
+          "postort": "SUNDSVALL",
+          "utdelningsadress": null
         },
-        "fel": null,
-        "dataproducent": "SCB"
+        "dataproducent": "Bolagsverket",
+        "fel": null
+      },
+      "registreringsland": {
+        "kod": "SE-LAND",
+        "klartext": "Sverige"
+      },
+      "reklamsparr": null,
+      "verksamOrganisation": {
+        "kod": null,
+        "dataproducent": "SCB",
+        "fel": {
+          "typ": "ORGANISATION_FINNS_EJ",
+          "felBeskrivning": "Den efterfrågade informationen gick inte att hitta."
+        }
+      },
+      "verksamhetsbeskrivning": {
+        "beskrivning": "Bolaget skall bedriva bilhandel, ävensom idka därmed förenlig verksamhet.",
+        "dataproducent": "Bolagsverket",
+        "fel": null
       }
     }
   ]

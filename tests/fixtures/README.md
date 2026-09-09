@@ -5,14 +5,14 @@ section says which fixtures are real recordings and which are shape-only.
 
 ## SE — Bolagsverket
 
-Of the 25 `bv_*.json` fixtures: **ten were recorded live against the
+Of the 25 `bv_*.json` fixtures: **eleven were recorded live against the
 Bolagsverket TEST environment** — eight on 2026-09-07 (T26g, once
-credentials arrived) and two on 2026-09-08 (R-5b, `/dokumentlista`);
-**seven more are verbatim copies of Bolagsverket's own OpenAPI
-document** (T26b, unchanged since); **eight are still assembled**, now
-confirmed shape-correct but not scenario-correct (below). `SWEDEN_SPEC.md`
-§1.8 and §17 carry the full per-fixture story; this file has the recording
-recipe and the number-to-fixture table.
+credentials arrived), two on 2026-09-08 (R-5b, `/dokumentlista`), and one
+on 2026-09-09 (T57, `bv_ab_konkurs.json`); **seven more are verbatim copies
+of Bolagsverket's own OpenAPI document** (T26b, unchanged since); **seven
+are still assembled**, now confirmed shape-correct but not scenario-correct
+(below). `SWEDEN_SPEC.md` §1.8 and §17 carry the full per-fixture story;
+this file has the recording recipe and the number-to-fixture table.
 
 **Recorded live by T26g:** `bv_ab_active.json`, `bv_scb_only.json`,
 `bv_finns_ej.json`, `bv_hb_active.json`, `bv_brf_active.json`,
@@ -40,20 +40,55 @@ reported by T26g and fixed in T33** — see `SWEDEN_SPEC.md` §1.8 and §2.4. Re
 `bv_enskild_two.json` would have silently swapped the one fixture that tests
 the *documented* mapping for one that only exposes the *undocumented* gap.
 
-**Still assembled** (`bv_ab_dormant.json`, `bv_ab_konkurs.json`,
-`bv_ab_kk_and_li.json`, `bv_ab_rekonstruktion.json`,
-`bv_ab_fusion_overtagande.json`, `bv_ab_avregistrerad.json`): no company in
-the Bolagsverket TEST register is currently in bankruptcy, liquidation,
-reconstruction, a fusion, or (for `bv_ab_avregistrerad.json` specifically) a
-deregistration shaped like the OpenAPI example — an `AB` with a
-datetime-shaped date. (A real, deregistered sole trader does exist —
-`bv_enskild_avregistrerad.json` — but it is a different legal form, a
-plain-date `avregistreringsdatum`, and a different `avregistreringsorsak`,
-so it does not stand in for this fixture's specific combination.) Their field
-names and nesting are confirmed against Bolagsverket's OpenAPI *and* against
-all eight live T26g recordings; only each fixture's particular *combination*
-of states remains synthetic. They carry a top-level `_SYNTHETIC_COMBINATION`
-header key — replacing the old `_VERIFY` — saying exactly that.
+**Recorded live by T57 (2026-09-09):** `bv_ab_konkurs.json`, replacing its
+`_SYNTHETIC_COMBINATION` placeholder. T26g's eight recordings above worked
+scenario-by-scenario down `tasks/T26-recon.md`'s named-scenario table; T57
+instead tried, live against TEST, the four numbers that table lists only as
+"also permitted" and that no earlier task had queried (`5562820745`,
+`5560986878`, `5560004755`, `198101012386`). Two are ordinary active
+companies (`5560004755`, an `AB`; `198101012386`, an active enskild firma)
+with no state this project lacked a fixture for. The other two were not:
+`5560986878` ("Testdata 1 AB") is a clean, single-procedure bankruptcy —
+`pagaende…Lista: [{"kod":"KK","fromDatum":"2025-06-12"}]`, nothing else
+open, not deregistered — a direct real match for `bv_ab_konkurs.json`'s
+scenario, now its live recording (`bankruptcy_date` is the real
+`2025-06-12`, not the assembled example's `2024-01-26`). `5562820745`
+("Testdata 2 AB") is also genuinely deregistered, but for a *different*
+combination than `bv_ab_avregistrerad.json` models — see that fixture's own
+header, below, for why it stays synthetic rather than being replaced by
+this near miss. This exhausts every identifier `tasks/T26-recon.md` names as
+permitted on the `/organisationer` allowlist except the four modulus-10
+counter-examples (left alone, below); the workbook's undocumented "~40
+more" remain out of reach without the workbook itself, which is new recon,
+not fixture recording, and stays outside this task's footprint.
+
+**Confirmed 2026-09-09 (T57) for `/organisationer`, not just
+`/dokumentlista`:** a well-formed, valid-checksum identifier that simply
+is not on the TEST allowlist also returns a bare RFC 7807 400, not a
+response listing the permitted ones — tried live with `5560160680`
+(Ericsson's real production organisationsnummer, against the TEST host,
+never production). This file's and `SWEDEN_SPEC.md` §17's older wording
+("another number returns a response listing the permitted ones") carried
+the workbook's own prose forward without a live check against
+`/organisationer`; R-5b had already shown the bare-400 behaviour for
+`/dokumentlista` alone (below), and it now holds for both operations.
+
+**Still assembled** (`bv_ab_dormant.json`, `bv_ab_kk_and_li.json`,
+`bv_ab_rekonstruktion.json`, `bv_ab_fusion_overtagande.json`,
+`bv_ab_avregistrerad.json`): no company in the Bolagsverket TEST register is
+currently in a dormant-but-registered state, liquidation, reconstruction, a
+fusion, or (for `bv_ab_avregistrerad.json` specifically) a deregistration
+shaped like the OpenAPI example — an `AB` with a datetime-shaped date and
+`avregistreringsorsak: LIAV`. (A real, deregistered sole trader does exist —
+`bv_enskild_avregistrerad.json` — and, since T57, a real, deregistered AB
+does too — `5562820745` above — but neither is this fixture's specific
+combination: different legal form or different date-shape-and-reason.)
+Their field names and nesting are confirmed against Bolagsverket's OpenAPI
+*and* against all eleven live recordings now on file; only each fixture's
+particular *combination* of states remains synthetic. They carry a
+top-level `_SYNTHETIC_COMBINATION` header key — replacing the old
+`_VERIFY` — saying exactly that, updated 2026-09-09 (T57) to record which
+further identifiers were tried and found not to match.
 `map_entity` ignores any top-level key it doesn't read, same as before.
 Re-record any of these the day a matching company appears in the test
 register.
@@ -110,6 +145,7 @@ had `193403223328` and `198101032384` backwards, and called `198101052382`
 | `bv_hb_active.json` | `9124001992` | Handelsbolag |
 | `bv_brf_active.json` | `7164099017` | Bostadsrättsförening |
 | `bv_ek_active.json` | `7020008350` | Ekonomisk förening |
+| `bv_ab_konkurs.json` | `5560986878` | Aktiebolag, konkurs (bankruptcy). **Recorded live 2026-09-09** (T57); found among `tasks/T26-recon.md`'s "also permitted" identifiers, not the workbook's named-scenario table — see "Recorded live by T57" above. |
 | `bv_dokumentlista.json` | `5561890038` | `POST /dokumentlista` — three filed annual reports. **Recorded live 2026-09-08** (R-5b); the number is confirmed, see below. |
 
 **Do not record `5560000002`, `7140000001`, `9160000001` or `198210300002`**
@@ -179,14 +215,36 @@ curl -sS -X POST \
 `bv_enskild_two.json`, `bv_enskild_avregistrerad.json`, `bv_enskild_three.json`
 and `bv_finns_ej.json` each contain a **personnummer and a name** —
 `bv_enskild_avregistrerad.json` also a real-looking home address — of a
-natural person. Bolagsverket's own placeholder names on most of these make
-the data's synthetic origin obvious ("Snö i april", "Sol i maj",
-"Testbolag_91"); `bv_enskild_avregistrerad.json`'s "Blekinge Mäklarbyrå
-Birgitta Andersson..." reads like a real business owner but is Bolagsverket's
-own TEST-environment data, the same as the already-committed
-`bv_enskild_two.json`'s "CITY SKOR THOMAS CARLSON". Bolagsverket's test data
-is synthetic, so the test-environment recordings are safe; **no production
-sole-trader payload may ever be committed as a fixture.**
+natural person. Every one of these fixtures' names has been replaced
+(T57, 2026-09-09) with a marked placeholder — `[REDACTED TEST NAME]`, or
+`[REDACTED TEST NAME 1]` / `[REDACTED TEST NAME 2]` where a fixture's own
+test logic needs two distinguishable values (`bv_enskild_two.json`'s two
+businesses; `bv_enskild_avregistrerad.json`'s two businesses;
+`bv_enskild_three.json`'s three, the last two sharing one placeholder because
+they shared one name on the wire). D-039/D-040's rule is unconditional —
+*"no fixture may be committed that carries a natural person's name ...
+if a TEST payload for an enskild näringsidkare carries a name, keep the
+shape, replace the name with a marked placeholder"* — and does not turn on
+how synthetic-sounding a given name looks: this file's previous wording
+("Bolagsverket's own placeholder names ... make the data's synthetic origin
+obvious ... so the test-environment recordings are safe") was exactly the
+judgment call the rule exists to avoid an agent making, since a
+Bolagsverket-authored placeholder and a real proprietor's name are not
+reliably distinguishable from the JSON alone. Identifiers (personnummer and
+organisationsnummer alike), dates and addresses are **not** redacted: the
+rule names a *natural person's name or a real personnummer*, the TEST
+environment's identifiers are synthetic test data rather than real
+personnummers, and D-039's own text does not reach addresses. **No
+production sole-trader payload may ever be committed as a fixture.**
+
+**Follow-up applied 2026-09-09 (T57, round 2):** `SWEDEN_SPEC.md` §2.2 and
+§14 test 91 had quoted `bv_enskild_two.json`'s two names verbatim, and its
+own §17 carried a "Redaction" paragraph arguing the same "synthetic, so
+safe, so unredacted" position this file's did — both now corrected to match:
+the quotes replaced with the same placeholders the fixture carries, and §17's
+paragraph rewritten to state the rule the way this section now does. The
+orchestrator widened this task's `SWEDEN_SPEC.md` footprint specifically for
+this fix (it is otherwise limited to wire-corrected claims).
 
 ### `financials` — `se_ixbrl_*.xhtml` and `se_dokumentlista_*.json` (D-043, D-047(f),(g), T55)
 
