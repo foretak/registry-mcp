@@ -514,10 +514,16 @@ own totals do not always reconcile (27 of 358 sampled filings) and
 Bolagsverket's own tagged solvency ratio was measured on the same company
 at two different, undisambiguated scales — any ratio built from either
 would be a verdict the register itself does not vouch for.
-**A `None` figure inside a present block means the company itself did not
-report that line for this filing; an absent `financials` block means the
-country's register does not publish figures at all.** Britain does not
-declare `financials`: the accounts of the companies that matter are filed
+A `None` figure inside a present block means the company itself did not
+report that line for this filing. An absent `financials` block means either
+you did not ask, or the fetch failed, or — for Sweden — this company has
+filed no digital annual report: Bolagsverket's channel holds nothing for it,
+so the block is absent and the report's own top-level `notes` says so
+(unlike `filings`, which returns a present block with `documents: []` for
+the identical wire state). Norway returns a present block with
+`periods: []` when Regnskapsregisteret holds no filed accounts. Britain does
+not declare `financials` at all, so `include=["financials"]` for `GB` is a
+`400 bad_request`, never an empty or absent block: the accounts of the companies that matter are filed
 on paper or as PDF, the machine-readable (iXBRL) mandate is 1 April 2028
 with a profit-and-loss publication opt-out for small and micro companies,
 and no British filing sampled carried the balance-sheet totals this block

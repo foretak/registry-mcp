@@ -59,9 +59,10 @@ frozen as of `0.2.0`.
   re-typed currency concept. The block is entity accounts, never a group,
   as a fact about the K2 channel; a K3 filing carries a caveat that no live
   K3 document had been read when this shipped. A company whose document
-  list is empty gets a present block with `periods: []`, the same
-  two-level nullability `filings` already has (D-047(f),(g); `076faa7`,
-  `af94220`, `edbd105`).
+  list is empty gets **no** `financials` block and a report-level note
+  saying so — deliberately unlike `filings`, which returns a present block
+  with `documents: []` for the identical wire state (D-047(f),(g);
+  `076faa7`, `af94220`, `edbd105`).
 - **The `financials` cache-TTL row, `(30 days, 1 hour)`.** The per-kind
   table in `core/cache.py` is now `lei`, `parents`, `peppol`, `financials`
   (`03571eb`, `b5fc6a9`).

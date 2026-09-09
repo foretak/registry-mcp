@@ -401,12 +401,14 @@ async def lookup_company(
     reads for a solvency check, never a computed ratio or a verdict; Norway's arrive in the
     same fetch as `filings`, Sweden's are read out of the entity's own filed annual report
     (the K2 inline-XBRL document Bolagsverket's document API serves). A `None` figure
-    inside a present block means the company itself did not report that line, an absent
-    block means the country's register publishes no figures at all — true of Britain today
-    because the accounts of the companies that matter are filed on paper or as PDF ahead of
-    the 1 April 2028 machine-readable mandate, and no British document carries the
-    balance-sheet totals this block relays even when one exists. For every country except
-    Sweden, `include=["lei"]` adds
+    inside a present block means the company itself did not report that line; an absent
+    block means either you did not ask, or the fetch failed, or — for Sweden — this company
+    has filed no digital annual report, and the report's own `notes` says which. Britain
+    does not declare `financials` at all, so `include=["financials"]` for `GB` is a
+    `bad_request`, never an empty or absent block — the accounts of the companies that
+    matter are filed on paper or as PDF ahead of the 1 April 2028 machine-readable mandate,
+    and no British document carries the balance-sheet totals this block relays even when
+    one exists. For every country except Sweden, `include=["lei"]` adds
     the Legal Entity Identifier (LEI) GLEIF, the Global LEI Foundation, publishes for the
     entity — CC0-licensed, keyless, a `lei: null` inside a present block meaning GLEIF
     holds none; Sweden is excluded because its identifier can be a natural person's own
