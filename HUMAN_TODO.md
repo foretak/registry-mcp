@@ -590,7 +590,8 @@ it at the day-45 gate.
 
 - [ ] **5. Check which description to paste.** `curl https://api.foretak.dev/health`. Reports
       `0.3.0` → paste **Description A** (three attachments). Reports `0.4.0` → paste **Description
-      B** (five: adds Norwegian key figures and LEI). Nothing else in the package changes. Pasting B
+      B** (seven attachments: adds Norwegian *and Swedish* key figures, LEI, corporate parents and Peppol
+      reachability — T46b rewrote it on 2026-09-09 to match what 0.4.0 serves). Nothing else in the package changes. Pasting B
       before the 0.4.0 deploy advertises attachments the server rejects, which is the cheapest
       possible rejection.
 
