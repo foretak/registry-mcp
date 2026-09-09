@@ -3936,7 +3936,26 @@
       }
     }
   ],
-  "resources": [],
+  "resources": [
+    {
+      "uri": "registry://rules/GB",
+      "name": "rules_gb",
+      "description": "Identifier rules, legal forms and filing-deadline rules for Companies House (United Kingdom) (GB) — the same document the registry://rules/{country} template serves for this country, listed concretely so it appears in resources/list.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "registry://rules/NO",
+      "name": "rules_no",
+      "description": "Identifier rules, legal forms and filing-deadline rules for Enhetsregisteret (Brønnøysundregistrene) (NO) — the same document the registry://rules/{country} template serves for this country, listed concretely so it appears in resources/list.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "registry://rules/SE",
+      "name": "rules_se",
+      "description": "Identifier rules, legal forms and filing-deadline rules for Bolagsverket (Sweden) (SE) — the same document the registry://rules/{country} template serves for this country, listed concretely so it appears in resources/list.",
+      "mimeType": "text/markdown"
+    }
+  ],
   "prompts": [
     {
       "name": "explain_company",

@@ -4,13 +4,13 @@ Run from the repo root::
 
     uv run python scripts/regen_server_card.py
 
-Rewrites every tool entry (description, annotation title, ``inputSchema``) and
-``lookup_company``'s ``outputSchema``, and every prompt (description, arguments),
-to match what FastMCP actually serves — the same comparison ``tests/test_mcp.py``'s
-two card tests make, so a synced card passes them and an out-of-date one is
-fixed by running this rather than by hand. Formatting is preserved (indent 2,
-``ensure_ascii=False``, trailing newline); running it on a synced card changes
-nothing.
+Rewrites every tool entry (description, annotation title, ``inputSchema``),
+``lookup_company``'s ``outputSchema``, every prompt (description, arguments), and
+every resource (uri, name, description, mimeType), to match what FastMCP actually
+serves — the same comparison ``tests/test_mcp.py``'s card tests make, so a synced
+card passes them and an out-of-date one is fixed by running this rather than by
+hand. Formatting is preserved (indent 2, ``ensure_ascii=False``, trailing newline);
+running it on a synced card changes nothing.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ async def main() -> None:
     async with Client(mcp) as client:
         tools = {t.name: t for t in await client.list_tools()}
         prompts = {p.name: p for p in await client.list_prompts()}
+        resources = await client.list_resources()
     for entry in card["tools"]:
         tool = tools[entry["name"]]
         entry["description"] = tool.description
@@ -48,8 +49,20 @@ async def main() -> None:
             {"name": a.name, "description": a.description, "required": a.required}
             for a in (prompt.arguments or [])
         ]
+    card["resources"] = [
+        {
+            "uri": str(resource.uri),
+            "name": resource.name,
+            "description": resource.description,
+            "mimeType": resource.mime_type,
+        }
+        for resource in resources
+    ]
     CARD.write_text(json.dumps(card, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"server card regenerated: {len(tools)} tools, {len(prompts)} prompts")
+    print(
+        f"server card regenerated: {len(tools)} tools, {len(prompts)} prompts, "
+        f"{len(resources)} resources"
+    )
 
 
 if __name__ == "__main__":

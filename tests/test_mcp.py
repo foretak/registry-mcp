@@ -168,13 +168,17 @@ async def test_server_card_tools_and_prompts_match_the_live_server() -> None:
     (`~/mcp-growth/DEPTH.md` §2.1's finding that Smithery's own listing did not know about
     `search`/`fetch` is exactly this failure mode, one level up; `REVIEW.md` "D-044 wiring"
     finding 5 is the `inputSchema` half of it — the card's `lookup_company.include` had
-    drifted from `_INCLUDE_DESCRIPTION`/`_INCLUDE_EXAMPLES` and this test did not catch it)."""
+    drifted from `_INCLUDE_DESCRIPTION`/`_INCLUDE_EXAMPLES` and this test did not catch it.
+    T58 finding 7: the card shipped `"resources": []` while the server serves three
+    (`registry://rules/GB`/`NO`/`SE`) — this test compared tools and prompts and not
+    resources, so it did not catch that either; resources are now compared the same way."""
     card_path = Path(__file__).parent.parent / "static" / "well-known" / "mcp" / "server-card.json"
     card = json.loads(card_path.read_text(encoding="utf-8"))
 
     async with Client(mcp) as client:
         live_tools = await client.list_tools()
         live_prompts = await client.list_prompts()
+        live_resources = await client.list_resources()
 
     card_tools = {t["name"]: t for t in card["tools"]}
     assert card_tools.keys() == {t.name for t in live_tools}
@@ -195,6 +199,15 @@ async def test_server_card_tools_and_prompts_match_the_live_server() -> None:
             for a in (prompt.arguments or [])
         ]
         assert entry["arguments"] == live_arguments, f"{prompt.name} arguments drifted"
+
+    card_resources = {r["uri"]: r for r in card["resources"]}
+    assert card_resources.keys() == {str(r.uri) for r in live_resources}
+    for resource in live_resources:
+        uri = str(resource.uri)
+        entry = card_resources[uri]
+        assert entry["name"] == resource.name, f"{uri} name drifted"
+        assert entry["description"] == resource.description, f"{uri} description drifted"
+        assert entry["mimeType"] == resource.mime_type, f"{uri} mimeType drifted"
 
 
 async def test_tool_annotations() -> None:
