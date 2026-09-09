@@ -297,17 +297,19 @@ _ID_DESCRIPTION = (
     "organisasjonsnummer (orgnr), e.g. '923609016'; spaces, dots and a "
     "'NO...MVA' VAT suffix are accepted and normalised. United Kingdom "
     "(country='GB'): a Companies House company number (CRN), eight characters, "
-    "e.g. '00445790' or 'OC303675'; a short number is zero-padded for you."
+    "e.g. '00445790' or 'OC303675'; a short number is zero-padded for you. "
+    "Sweden (country='SE'): a ten-digit organisationsnummer, e.g. '5560160680', "
+    "or a twelve-digit personnummer for a sole trader."
 )
 _ID_EXAMPLES = ["923609016", "00445790"]
 
 _COUNTRY_DESCRIPTION = (
     "ISO-3166-1 alpha-2 country code. 'NO' = Norway (Brønnøysundregistrene / "
-    "Enhetsregisteret), 'GB' = United Kingdom (Companies House). 'UK' is not "
-    "a country code here and is rejected. Call list_countries for the "
-    "current set rather than hard-coding one."
+    "Enhetsregisteret), 'GB' = United Kingdom (Companies House), 'SE' = Sweden "
+    "(Bolagsverket). 'UK' is not a country code here and is rejected. Call "
+    "list_countries for the current set rather than hard-coding one."
 )
-_COUNTRY_EXAMPLES = ["NO", "GB"]
+_COUNTRY_EXAMPLES = ["NO", "GB", "SE"]
 
 _INCLUDE_DESCRIPTION = (
     "Optional attachment names to fetch alongside the base report. Each is a second, "
