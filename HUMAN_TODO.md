@@ -838,9 +838,9 @@ Two separate Glama products, easy to conflate:
 
 **Do this:**
 
-- [ ] **1. Sign in to Glama** (<https://glama.ai>, GitHub OAuth — the same login family as the
+- [x] **1. Sign in to Glama** (<https://glama.ai>, GitHub OAuth — the same login family as the
       existing servers claim in §3, but confirm which account: see the namespace note below).
-- [ ] **2. Add a connector** for `https://api.foretak.dev/mcp` — **Streamable HTTP, no
+- [x] **2. Add a connector** for `https://api.foretak.dev/mcp` — **done 2026-09-09: `io.github.foretak/registry-mcp`, Healthy, TDQS A 4.6; badge pushed to PR #146 by the orchestrator, PR mergeable.** — **Streamable HTTP, no
       authentication**. That's the whole form; no key, no other field the way §3's servers listing
       needed a Dockerfile.
 - [ ] **3. While you're there, also refresh the stale servers listing** (`SUBMISSIONS.md` §3): it
