@@ -3783,13 +3783,13 @@
     },
     {
       "name": "search",
-      "description": "ChatGPT connector alias; other clients should prefer `search_company`, which takes an\nexplicit `country` and returns the full SearchResult. Finds companies in this server's\nnational business registers (United Kingdom, Norway, Sweden) from one free-text query — a name, a\nnational identifier, or a name plus a country — and returns {\"results\": [{\"id\", \"title\",\n\"url\"}]}. Pass a result's `id` to `fetch`.",
+      "description": "ChatGPT connector alias; other clients should prefer `search_company`, which takes an\nexplicit `country` and returns the full SearchResult. One free-text query — a name, an\nidentifier, or either plus a country — across Norway, the United Kingdom and Sweden.\nReturns {\"results\": [{\"id\", \"title\", \"url\"}]}; pass a result's `id` to `fetch`.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "query": {
-            "description": "What to look for: a company name, a national identifier, or a name plus a country, e.g. 'Equinor', '923609016', 'Tesco United Kingdom'.",
+            "description": "A company name, a national identifier, or either plus a country.",
             "examples": [
               "Equinor",
               "923609016",
@@ -3849,7 +3849,7 @@
     },
     {
       "name": "fetch",
-      "description": "ChatGPT connector alias; other clients should prefer `lookup_company` plus\n`company_deadlines`, which return the CompanyReport and DeadlineReport shapes directly.\nTakes one `id` from `search` — \"{COUNTRY}:{identifier}\", e.g. \"NO:923609016\" — and returns\nthat company's register record and statutory filing deadlines as readable text, with both\nfull JSON documents in `metadata`.",
+      "description": "ChatGPT connector alias; other clients should prefer `lookup_company` plus\n`company_deadlines`, which return the CompanyReport and DeadlineReport shapes directly.\nTakes one `id` from `search` — \"{COUNTRY}:{identifier}\", e.g. \"NO:923609016\" — and\nreturns that company's register record and statutory filing deadlines as readable text,\nboth full JSON documents in `metadata`.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,

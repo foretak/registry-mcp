@@ -608,19 +608,16 @@ async def search(
         str,
         Field(
             description=(
-                "What to look for: a company name, a national identifier, or a name "
-                "plus a country, e.g. 'Equinor', '923609016', 'Tesco United Kingdom'."
+                "A company name, a national identifier, or either plus a country."
             ),
             examples=["Equinor", "923609016", "Tesco GB"],
         ),
     ],
 ) -> dict[str, Any]:
     """ChatGPT connector alias; other clients should prefer `search_company`, which takes an
-    explicit `country` and returns the full SearchResult. Finds companies in this server's
-    national business registers (United Kingdom, Norway, Sweden) from one free-text query — a name, a
-    national identifier, or a name plus a country — and returns {"results": [{"id", "title",
-    "url"}]}. Pass a result's `id` to `fetch`.
-    """
+    explicit `country` and returns the full SearchResult. One free-text query — a name, an
+    identifier, or either plus a country — across Norway, the United Kingdom and Sweden.
+    Returns {"results": [{"id", "title", "url"}]}; pass a result's `id` to `fetch`."""
     with _call_context(operation="search", country=None, query=query) as outcome:
         stripped = query.strip()
         if not stripped:
@@ -701,10 +698,9 @@ async def fetch(
 ) -> dict[str, Any]:
     """ChatGPT connector alias; other clients should prefer `lookup_company` plus
     `company_deadlines`, which return the CompanyReport and DeadlineReport shapes directly.
-    Takes one `id` from `search` — "{COUNTRY}:{identifier}", e.g. "NO:923609016" — and returns
-    that company's register record and statutory filing deadlines as readable text, with both
-    full JSON documents in `metadata`.
-    """
+    Takes one `id` from `search` — "{COUNTRY}:{identifier}", e.g. "NO:923609016" — and
+    returns that company's register record and statutory filing deadlines as readable text,
+    both full JSON documents in `metadata`."""
     with _call_context(operation="fetch", country=None, query=id) as outcome:
         registry, identifier, is_rules = _resolve_fetch_id(id)
         if is_rules:
