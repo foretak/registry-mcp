@@ -52,7 +52,7 @@ Read `status_detail`, not `status`. And read this twice: for Sweden, `is_active:
 
 We could have invented a `dormant` status. We didn't. That would change a shared enum for one country's convenience, and an agent would read it as a lifecycle claim about Norwegian and British companies that we have no data to make.
 
-## What it cost the design: nothing in `core/`
+## What Sweden cost the design: nothing in `core/`
 
 The enum is shared; the derivation is not. Each country folder derives its own status and writes the sentence naming the signal that decided it. Three registers, three unrelated derivations, one shape at the tool boundary.
 
