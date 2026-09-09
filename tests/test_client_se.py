@@ -1758,6 +1758,32 @@ def test_d047_f2_2020_currency_via_unit_and_redovisningsvaluta_never_read() -> N
     assert not found_in_code, "Redovisningsvaluta must appear only in a module's own top docstring"
 
 
+# --- T60 finding 4 — the currency-unresolved branch has a fixture (D-043(d)) ---
+
+
+def test_currency_unresolved_yields_empty_periods_and_the_note() -> None:
+    """D-043(d): `currency` comes from the unit, or not at all, with no
+    default. `_resolve_currency` correctly returns `None` when zero (or
+    more than one) currency resolves, but REVIEW.md finding 4 (T58) found no
+    fixture ever exercised that branch: `grep -rn "CURRENCY_UNRESOLVED"
+    tests/` was empty, and mutation M12a (`_resolve_currency`'s
+    `return None` changed to `return "SEK"`) left 1030 tests passing.
+    `se_ixbrl_currency_unresolved_handbuilt.xhtml` is hand-built and tags
+    every fact with a `xbrli:pure` unit instead of an ISO 4217 one, so no
+    fact carries a currency at all."""
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_currency_unresolved_handbuilt.xhtml"))
+    summary = financials_module.map_financials(
+        doc,
+        document_id="handbuilt-currency-unresolved",
+        total_annual_reports=1,
+        source_url="https://example.invalid/currency-unresolved",
+        cached=False,
+        fetched_at=FETCHED_AT,
+    )
+    assert summary.periods == []
+    assert summary.notes == [financials_module._CURRENCY_UNRESOLVED_NOTE]
+
+
 # --- F3 — the extractor never touches ix:nonNumeric ---
 
 
