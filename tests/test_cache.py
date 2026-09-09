@@ -128,6 +128,7 @@ def test_cache_failure_is_swallowed_not_raised(
         ("SE:bolagsverket:filings:prod:5560160680", "filings"),
         ("NO:brreg:filings:923609016", "filings"),
         ("NO:brreg:lei:923609016", "lei"),
+        ("NO:brreg:parents:923609016", "parents"),
     ],
 )
 def test_kind_from_key_reads_the_third_segment(key: str, expected_kind: str) -> None:
@@ -187,6 +188,27 @@ def test_env_override_does_not_move_lei_ok_ttl(monkeypatch: pytest.MonkeyPatch) 
     still can for an undeclared one."""
     monkeypatch.setenv("REGISTRY_MCP_CACHE_TTL_SECONDS", "60")
     assert cache._ttl_seconds("ok", "NO:brreg:lei:923609016") == 7 * 24 * 60 * 60
+
+
+def test_parents_ok_ttl_is_seven_days() -> None:
+    """The same pair as `lei`, for the same reasons (D-047(a)): a GLEIF
+    relationship record renews annually, so seven days keeps a courtesy
+    load off a free service."""
+    assert cache._ttl_seconds("ok", "NO:brreg:parents:923609016") == 7 * 24 * 60 * 60
+
+
+def test_parents_empty_ttl_is_24h() -> None:
+    """Nothing statutory, time-critical or credit-bearing turns on a parent
+    link, so a 'GLEIF holds no LEI' answer is good for 24 hours, exactly
+    like `lei`'s (D-047(a))."""
+    assert cache._ttl_seconds("not_found", "GB:companies-house:parents:00445790") == 24 * 60 * 60
+
+
+def test_env_override_does_not_move_parents_ok_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same clamp as `lei`'s (D-028(2)): a declared kind ignores
+    `REGISTRY_MCP_CACHE_TTL_SECONDS` entirely."""
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_TTL_SECONDS", "60")
+    assert cache._ttl_seconds("ok", "NO:brreg:parents:923609016") == 7 * 24 * 60 * 60
 
 
 def test_lei_cache_entry_survives_past_the_old_24h_ok_ttl() -> None:

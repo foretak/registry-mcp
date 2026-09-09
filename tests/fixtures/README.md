@@ -476,3 +476,52 @@ with urllib.request.urlopen(url) as resp:
 print(json.dumps(body, indent=2, ensure_ascii=False))
 PY
 ```
+
+## GLEIF parents (`gleif_parent*.json`)
+
+Sixteen fixtures for `include=["parents"]` (`DECISIONS.md` D-047(a), `core/gleif.py`).
+All recorded live and keyless on 2026-09-09, the same day as the ruling, and
+byte-for-byte what GLEIF returned — nothing stripped, for the same reason the
+`lei` fixtures above are not: this upstream carries no personal data GLEIF
+itself does not already publish under CC0 1.0. The **search** fixtures
+(`gleif_parents_search_*.json`) are full `lei-records` search bodies, whose
+`data[0].relationships["direct-parent"|"ultimate-parent"].links` name the
+exact leg URLs the other fixtures below were recorded from — never a
+constructed path. Four entities, chosen so every named case in D-047(a) has a
+committed recording:
+
+| Entity | LEI | Search fixture | Legs |
+|---|---|---|---|
+| EQUINOR ENERGY AS (orgnr `990888213`) | `98450073EGD581D89F03` | `gleif_parents_search_990888213.json` | `gleif_parent_{lei,rel}_990888213_{direct,ultimate}.json` — both sides disclose EQUINOR ASA, `corroborationLevel: ENTITY_SUPPLIED_ONLY` on both. The "1 search + 4 legs" path |
+| EQUINOR ASA (orgnr `923609016`) | `OW6OFBNCKXC4US5C7523` | `gleif_parents_search_923609016.json` | `gleif_parent_exc_923609016_{direct,ultimate}.json` — both sides read `reason: NATURAL_PERSONS`, GLEIF's own words for the Norwegian State's 67%-owned oil company. The "1 search + 2 legs" path, and the fixture D-047(a)'s description text is about |
+| NATWEST MARKETS PLC (`SC090312`) | `RR3QWICWWIPCS8A4S074` | `gleif_parents_search_SC090312.json` | `gleif_parent_{lei,rel}_SC090312_{direct,ultimate}.json` — both sides disclose NATWEST GROUP PLC (`2138005O9XJIJN4JPN90`, `GB`), `corroborationLevel: FULLY_CORROBORATED` — the contrast with Equinor Energy's `ENTITY_SUPPLIED_ONLY` on an identical relationship type |
+| TESCO PLC (`00445790`) | `2138002P5RNKC5W2JZ46` | `gleif_parents_search_00445790.json` | `gleif_parent_exc_00445790_{direct,ultimate}.json` — both sides read `reason: NON_CONSOLIDATING` — the contrast with Equinor ASA's `NATURAL_PERSONS` on an identical situation (a listed company at the top of its own group) |
+| *(none — no LEI)* | — | `gleif_parents_empty.json` | `meta.pagination.total: 0` for orgnr `910000004` (a real MOD11-valid Norwegian form GLEIF has never indexed) — the present-block-with-both-sides-`None` case |
+
+Each leg fixture is one of three shapes, matching `core/gleif.py::_fetch_side`'s
+own three-way branch on the search response's `links` keys:
+
+* `gleif_parent_lei_*` — a GET on the `links["lei-record"]` URL: the parent's
+  own Level 1 record (`lei`, `entity.legalName.name`, `entity.jurisdiction`,
+  `registration.status`).
+* `gleif_parent_rel_*` — a GET on the neighbouring `links["relationship-record"]`
+  URL: `registration.corroborationLevel` and `relationship.periods` (the
+  latter read only for its `RELATIONSHIP_PERIOD` start date, never modelled).
+* `gleif_parent_exc_*` — a GET on the `links["reporting-exception"]` URL:
+  `attributes.reason` only. `attributes.reference` was `null` on all four
+  recorded here, matching D-047(a)'s 117-of-117 measurement, and is never
+  read regardless.
+
+Recording recipe, once the search fixture above names the leg URL (no
+credential needed, same percent-encoding caution as the `lei` recipe):
+
+```bash
+python3 - <<'PY'
+import json, urllib.request
+
+url = "https://api.gleif.org/api/v1/lei-records/98450073EGD581D89F03/direct-parent"
+with urllib.request.urlopen(url) as resp:
+    body = json.load(resp)
+print(json.dumps(body, indent=2, ensure_ascii=False))
+PY
+```

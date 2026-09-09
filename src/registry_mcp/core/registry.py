@@ -61,6 +61,7 @@ from registry_mcp.core.models import (
     DeadlineReport,
     ErrorCode,
     LeiRecord,
+    ParentBlock,
     RegistryError,
     SearchResult,
     ValidationResult,
@@ -88,9 +89,10 @@ _INCLUDE_STUBS_ENV = "REGISTRY_MCP_INCLUDE_STUBS"
 #: :attr:`Registry.supported_includes` in :meth:`Registry.deadline_report_with`
 #: — never with :attr:`Registry.effective_includes` — because every member of
 #: this set must be a per-country attachment that can change a *computed*
-#: date; ``lei`` cannot, so it is never a candidate regardless of how many
-#: countries declare it via :attr:`Registry.universal_includes`, and neither
-#: is Peppol participant status once a country declares it, which is why this
+#: date; ``lei`` and ``parents`` cannot, so neither is ever a candidate
+#: regardless of how many countries declare it via
+#: :attr:`Registry.universal_includes`, and neither is Peppol participant
+#: status once a country declares it, which is why this
 #: set must never contain ``"peppol"``. Today that leaves exactly ``filings``:
 #: a country's own filed-annual-report history, which can supply a real
 #: financial year end where one was previously assumed. A country that
@@ -183,17 +185,20 @@ class Registry(ABC):
     gets by default.
     """
 
-    universal_includes: ClassVar[frozenset[str]] = frozenset({"lei"})
+    universal_includes: ClassVar[frozenset[str]] = frozenset({"lei", "parents"})
     """Attachments whose upstream is not a national register, and which
-    every country therefore declares by default (``DECISIONS.md`` D-045(e)).
+    every country therefore declares by default (``DECISIONS.md`` D-045(e),
+    D-047(a)).
 
-    Today this is just ``{"lei"}``: GLEIF publishes every jurisdiction from
-    one endpoint, under one CC0 licence, with one TTL, so it is not *any*
-    country's own register and a per-country declaration would be three
-    (eventually more) modules asserting the same global fact. A country
-    module adds nothing and edits nothing to gain it, unlike
-    :attr:`supported_includes` — see :attr:`effective_includes`, which is
-    what every call site actually reads instead of this attribute alone.
+    Both members today — ``lei`` and ``parents`` — are GLEIF: it publishes
+    every jurisdiction from one endpoint, under one CC0 licence, with one
+    TTL, so this is not *any* country's own register and a per-country
+    declaration would be three (eventually more) modules asserting the same
+    global fact. A country module adds nothing and edits nothing to gain
+    either, unlike :attr:`supported_includes` — see :attr:`effective_includes`,
+    which is what every call site actually reads instead of this attribute
+    alone. A future non-GLEIF universal attachment would join this set the
+    same way; nothing about it is GLEIF-specific by construction.
     """
 
     @property
@@ -611,6 +616,49 @@ class Registry(ABC):
 
         normalized = self.validate_id(id)
         result: LeiRecord = await gleif.fetch_lei(
+            self.country, self.registry, normalized, self.format_id(normalized)
+        )
+        return result
+
+    async def parents(self, id: str) -> ParentBlock:
+        """Corporate parents from GLEIF Level 2 — accounting consolidation,
+        not shareholding (``DECISIONS.md`` D-047(a)).
+
+        The base class's own concrete attachment, exactly like :meth:`lei`
+        and for the same reason: GLEIF is not any one country's own
+        register, so it lives here once instead of being declared
+        identically by three (eventually more) country modules (see
+        :attr:`universal_includes`).
+
+        Normalises ``id`` through :meth:`validate_id` first and delegates to
+        ``core/gleif.py``, passing the same ``(country, registry, normalized,
+        format_id(normalized))`` tuple :meth:`lei` passes — that tuple is
+        what lets ``core/gleif.py`` share one discovery search between the
+        two attachments rather than making it twice on a cold cache
+        (D-043(h)(3)'s hazard, in a new place). ``core/gleif.py`` does the
+        actual HTTP calls, cache read/write and mapping; this method only
+        normalises the id and delegates, so no HTTP transport dependency is
+        imported here.
+
+        Returns a **present** :class:`~registry_mcp.core.models.ParentBlock`
+        even when GLEIF holds no LEI for this entity at all (``direct`` and
+        ``ultimate`` both ``None``) — GLEIF cannot hold Level 2 for an
+        entity it has no Level 1 for, and that is the answer, not an
+        absence (D-011).
+
+        Raises:
+            RegistryError: ``invalid_id`` from :meth:`validate_id`, or
+                ``upstream_error`` when the discovery search itself fails —
+                never for a failure confined to one side's own fetch, which
+                degrades that side to ``None`` with a ``notes`` sentence
+                instead (D-042(b),(j)). :meth:`lookup_with` turns the
+                propagated error into an absent block plus a report-level
+                note rather than failing the whole lookup.
+        """
+        from registry_mcp.core import gleif
+
+        normalized = self.validate_id(id)
+        result: ParentBlock = await gleif.fetch_parents(
             self.country, self.registry, normalized, self.format_id(normalized)
         )
         return result

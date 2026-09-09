@@ -115,7 +115,10 @@ Where a UK company has a registered charge, `parties_entitled`, `assets_charged`
 and `obligations_secured` are the fields a natural person's name is most likely
 to reach a response through — a director lending to their own company, a
 guarantor, or an occupant named in a property description — because those
-fields relay the register's own free text about the charge, verbatim.
+fields relay the register's own free text about the charge, verbatim; and
+`ParentBlock.legal_name` is a fourth such field, a corporate parent's name as
+GLEIF publishes it, person-bearing only where the parent itself is a sole
+proprietor.
 
 We do not create profiles, enrich, or combine this data with any other source,
 and we log only what is needed to run and monitor the service. **If you process

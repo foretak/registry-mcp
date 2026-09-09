@@ -1410,12 +1410,12 @@ async def test_lookup_with_unknown_include_is_bad_request_naming_gb_allowed_set(
         await registry.lookup_with("00445790", ["officers"])
     assert excinfo.value.code is ErrorCode.BAD_REQUEST
     assert "charges" in excinfo.value.hint
-    # `lei` is the universal attachment every non-Swedish country gets by
-    # default (D-045(e)) — it is not in `registry.supported_includes` (GB's
-    # own declarations) but is in the effective set `lookup_with` validates
-    # against.
+    # `lei` and `parents` are the universal attachments every non-Swedish
+    # country gets by default (D-045(e), D-047(a)) — neither is in
+    # `registry.supported_includes` (GB's own declarations) but both are in
+    # the effective set `lookup_with` validates against.
     assert excinfo.value.details == {
-        "allowed": ["charges", "filings", "insolvency", "lei"],
+        "allowed": ["charges", "filings", "insolvency", "lei", "parents"],
         "unknown": ["officers"],
     }
     assert excinfo.value.details["allowed"] == sorted(registry.effective_includes)
