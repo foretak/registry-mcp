@@ -1,6 +1,6 @@
 # Privacy policy — registry-mcp hosted service (api.foretak.dev)
 
-*Draft written 2026-09-05 for Kim's review; effective once published at a public URL. Plain facts, no legal boilerplate. Everything below describes what the software actually does today; change the software, change this page.*
+*Effective 2026-09-09. Plain facts, no legal boilerplate. Everything below describes what the software actually does today; change the software, change this page.*
 
 ## Who runs it
 
@@ -8,7 +8,7 @@ The hosted endpoint at `https://api.foretak.dev` (REST and MCP) is operated by E
 
 ## What the service does
 
-It looks up publicly registered companies in national business registers on your behalf and returns the register's data in one JSON shape. Today: Norway (Brønnøysundregistrene / Enhetsregisteret, `data.brreg.no`) and the United Kingdom (Companies House, `api.company-information.service.gov.uk`). It does not perform sanctions, PEP or adverse-media screening and does not verify bank accounts.
+It looks up publicly registered companies in national business registers on your behalf and returns the register's data in one JSON shape. Today: Norway (Brønnøysundregistrene / Enhetsregisteret, `data.brreg.no`), the United Kingdom (Companies House, `api.company-information.service.gov.uk`) and Sweden (Bolagsverket, `gw.api.bolagsverket.se`). It does not perform sanctions, PEP or adverse-media screening and does not verify bank accounts.
 
 ## What we receive and keep
 
@@ -22,11 +22,11 @@ National registers publish data about natural persons: the name and address of a
 
 ## What we send to third parties
 
-Your lookup is forwarded to the relevant register (Brønnøysundregistrene or Companies House) as an API request identifying our service and a contact address in the `User-Agent`, as the registers ask of API clients. For the UK we send our own Companies House API key with the request; your identity is not part of it. Nothing is sent anywhere else.
+Your lookup is forwarded to the relevant register (Brønnøysundregistrene, Companies House or Bolagsverket) as an API request identifying our service and a contact address in the `User-Agent`, as the registers ask of API clients. For the UK we send our own Companies House API key with the request; for Sweden we authenticate with our own Bolagsverket OAuth 2 client credentials. If you asked for the `lei` or `parents` attachment, the identifier is also sent to GLEIF (the Global LEI Foundation, `api.gleif.org`), a free, keyless, CC0-licensed service. Your identity is not part of any of these requests. Nothing is sent anywhere else.
 
 ## Legal basis and licences
 
-Register data is redistributed under the registers' own terms: Norway under the Norwegian Licence for Open Government Data (NLOD 2.0), the UK under Crown copyright terms permitting reuse. Every response carries `source`, `source_url` and `license` so you can cite the origin. Our processing of your request data rests on our legitimate interest in operating and improving a public service; the data is minimal and never used for marketing.
+Register data is redistributed under the registers' own terms: Norway under the Norwegian Licence for Open Government Data (NLOD 2.0), the UK under Crown copyright terms permitting reuse. Bolagsverket states that no agreement is required to use its API and that the data may be used freely for commercial and non-commercial purposes; Bolagsverket names no licence, so neither do we. GLEIF's Legal Entity Identifier data (the `lei` and `parents` attachments) is published under CC0 1.0. Every response carries `source`, `source_url` and `license` so you can cite the origin. Our processing of your request data rests on our legitimate interest in operating and improving a public service; the data is minimal and never used for marketing.
 
 ## Retention
 

@@ -218,6 +218,9 @@ mcp: FastMCP = FastMCP(
         "self-hosted deployment without COMPANIES_HOUSE_API_KEY or "
         "BOLAGSVERKET_CLIENT_ID/BOLAGSVERKET_CLIENT_SECRET set will answer for Norway "
         "only.\n\n"
+        "lookup_company also takes include=[...] for seven attachments beyond the base "
+        "report — filings, charges, insolvency, financials, lei, parents and peppol — "
+        "each a second fetch with its own provenance, null unless you ask for it.\n\n"
         "Every tool error is JSON: {\"error\": {\"code\", \"message\", \"hint\"}} — parse it "
         "for what to do next rather than treating it as an opaque failure."
     ),
@@ -309,18 +312,37 @@ _COUNTRY_EXAMPLES = ["NO", "GB"]
 _INCLUDE_DESCRIPTION = (
     "Optional attachment names to fetch alongside the base report. Each is a second, "
     "independent fetch attached at that same name on the result, with its own provenance, "
-    "and null unless you ask for it. Three exist today: 'filings' (what the entity has "
-    "actually filed, and when — every country), 'charges' (mortgages and other security "
-    "interests, United Kingdom only) and 'insolvency' (winding-up and administration "
-    "proceedings, United Kingdom only). Empty by default, which costs exactly one upstream "
-    "request. Ask for one when the base report is not enough to answer the question in "
-    "front of you: 'filings' answers whether they file on time, 'charges' whether assets "
-    "are already pledged, 'insolvency' whether they are being wound up. Call "
+    "and null unless you ask for it. Seven exist today. 'filings' (every country): what "
+    "the entity has actually filed, and when. 'charges' (United Kingdom only): mortgages "
+    "and other security interests. 'insolvency' (United Kingdom only): winding-up and "
+    "administration proceedings. 'financials' (Norway only): the register's own financial "
+    "figures — turnover, operating result, profit, a balance sheet, and more — for the "
+    "latest filed accounting period, answering whether a supplier looks solvent. 'lei' "
+    "(every country except Sweden): the Legal Entity Identifier GLEIF publishes for the "
+    "entity, CC0-licensed and keyless. 'parents' (the same countries as 'lei'): the "
+    "corporate parent GLEIF's Level 2 data discloses, direct and ultimate, or the "
+    "entity's own stated reason — a category word such as 'NATURAL_PERSONS', never a "
+    "name — when it discloses none. 'peppol' (Norway only): whether the entity can "
+    "receive an e-invoice over the Peppol network, read live from the SML/SMP walk ahead "
+    "of the 1 January 2027 e-invoicing duty. Empty by default, which costs exactly one "
+    "upstream request. Ask for one when the base report is not enough to answer the "
+    "question in front of you: 'filings' answers whether they file on time, 'charges' "
+    "whether assets are already pledged, 'insolvency' whether they are being wound up, "
+    "'financials' what the numbers say, 'lei' and 'parents' who GLEIF says this entity "
+    "and its group are, 'peppol' whether an e-invoice would reach them. Call "
     "list_countries and read a country's supported_includes before guessing; an include "
     "value that country does not declare is a bad_request naming what it does support, "
     "never a silently empty result."
 )
-_INCLUDE_EXAMPLES: list[list[str]] = [["filings"], ["charges", "insolvency"], []]
+_INCLUDE_EXAMPLES: list[list[str]] = [
+    ["filings"],
+    ["charges", "insolvency"],
+    ["financials"],
+    ["lei"],
+    ["parents"],
+    ["peppol"],
+    [],
+]
 
 
 # ---------------------------------------------------------------------------
@@ -368,10 +390,42 @@ async def lookup_company(
     adds registered charges (mortgages and other security interests against the company)
     and `include=["insolvency"]` adds winding-up and administration proceedings. Read
     `insolvency` carefully: a members' voluntary liquidation is a *solvent* wind-up, so
-    `is_liquidation: true` is not by itself evidence of distress. Call `list_countries` and
-    read a country's `supported_includes` before guessing, since an `include` value that
-    country does not declare raises `bad_request` naming what it does support instead of
-    silently returning nothing.
+    `is_liquidation: true` is not by itself evidence of distress.
+
+    Three more attachments answer deeper questions, each its own upstream fetch. For
+    Norway only, `include=["financials"]` adds the register's own financial figures for
+    the latest filed accounting period — turnover, operating result, profit, balance sheet
+    totals, equity and liabilities, each beside its own currency — the fact this project
+    reads for a solvency check, never a computed ratio or a verdict; a `None` figure
+    inside a present block means the company itself did not report that line, an absent
+    block means the country's register publishes no figures at all — true of Britain and
+    Sweden today because this API does not parse filed accounts documents, not because
+    either register stays silent. For every country except Sweden, `include=["lei"]` adds
+    the Legal Entity Identifier (LEI) GLEIF, the Global LEI Foundation, publishes for the
+    entity — CC0-licensed, keyless, a `lei: null` inside a present block meaning GLEIF
+    holds none; Sweden is excluded because its identifier can be a natural person's own
+    and the identifier would otherwise leave for a third-party host in a URL.
+    `include=["parents"]`, the same countries as `lei`, adds this entity's direct parent
+    and its ultimate parent from GLEIF's Level 2 "who owns whom" data — the entity that
+    consolidates this one's accounts into its own group on each side, named by its own
+    LEI, legal name and jurisdiction, which is not necessarily its majority shareholder;
+    where GLEIF discloses no parent on a side, that side instead carries the entity's own
+    stated reason from a closed vocabulary such as `NATURAL_PERSONS` — read every such
+    reason as a category word, never a name: it says a person exists and nothing else
+    about them, and it is not independently verified. For Norway only,
+    `include=["peppol"]` adds whether the entity can receive an e-invoice over the Peppol
+    network, read live from the Peppol SML/SMP walk the way ELMA itself resolves it,
+    ahead of the 1 January 2027 duty for Norwegian bookkeeping-obliged businesses to send
+    and receive e-invoices in the EHF format (now Peppol BIS Billing 3.0). Its
+    `registered: null` means this tool could not get an authoritative answer — never read
+    it as "no"; only an authoritative NXDOMAIN or an SMP 404 earns `false`.
+    `can_receive_invoice` is `true` when the invoice type is advertised, `null` when only
+    the lagging Peppol Directory answered and did not list it, and `false` only when
+    `registered` itself is `false`.
+
+    Call `list_countries` and read a country's `supported_includes` before guessing,
+    since an `include` value that country does not declare raises `bad_request` naming
+    what it does support instead of silently returning nothing.
 
     Use it once you have the identifier — from the user, an invoice, a contract, or a
     `search_company` hit's `id`; the identifier is normalised for you, so spaces, dots and
