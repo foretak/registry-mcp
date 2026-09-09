@@ -1060,6 +1060,14 @@ and likely accepted, so do it; do not book it as distribution.
   the endpoint with a real MCP `initialize` request and checks the badge slug resolves on Glama.
 - **Process:** star → fork → branch → edit `README.md` → PR.
 - **Status:** PR opened 2026-09-09 — <https://github.com/punkpeye/awesome-remote-mcp-servers/pull/146>
+- **2026-09-09 17:18Z — the maintainer (punkpeye) commented on #146 in person** (mail to fargerod@gmail.com the
+  same minute): the Glama *connector* badge "is a requirement"; (1) list the server at
+  <https://glama.ai/mcp/connectors> if it is not there, (2) once it shows **Healthy**, add the badge line from the
+  connector page as the entry's second line — he pasted the three-line format with `NAMESPACE/NAME` to be
+  replaced by the slug the page assigns — and (3) say so on the PR. The listing needs Kim's Glama login
+  (`HUMAN_TODO.md` §7.11(c)); the badge push to `foretak/awesome-remote-mcp-servers:add-company-check` and the
+  PR reply are an agent's one-commit follow-up once the slug is known. Frank (frank@glama.ai) never answered
+  Kim's 2026-09-04 reply to his onboarding mail; every later Glama mail is automated.
   — **open, blocked on the Glama connector badge (Kim).** CI ran automatically and labelled it
   `endpoint-ok` (the live handshake against `https://api.foretak.dev/mcp` passed) and
   **`missing-connector`**, with an automated comment quoting the rule verbatim: *"PRs without a badge
