@@ -2061,9 +2061,11 @@ substance. T40's report, not the tests, found it.
 
 ---
 
-## Depth track `e03a518..81c91e7` — 2026-09-09 — IN PROGRESS (partial section, committed as it is written)
+## Depth track `e03a518..81c91e7` — 2026-09-09 — APPROVED WITH FIXES (one blocking, two urgent; the machinery is correct end to end)
 
-Reviewer: Opus reviewer (T58). Scope: every commit since `e03a518` — rounds 1–3, T46, T46b, T55, T57.
+Reviewer: Opus reviewer (T58), `tasks/T58.md`. Scope: every commit since `e03a518` — 84 commits, rounds 1–3
+(T38, T40, T42, T43, T44, T45, T47), the rulings D-045/D-046/D-047, T46 and T46b's surfaces syncs, T55's
+Swedish financials and T57's re-recorded TEST fixtures.
 Executed against a pristine export of `HEAD` (`git archive HEAD | tar -x`), never the working tree,
 with `uv sync --locked --all-extras`.
 
