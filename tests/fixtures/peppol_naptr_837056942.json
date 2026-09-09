@@ -1,0 +1,13 @@
+{
+  "_comment": "The SML U-NAPTR answer for Hornnes Håndverkstjenester (0192:837056942) — the one-in-43 non-ELMA case (DECISIONS.md D-046(b), the hardcoded-host trap). tasks/T48-recon.md recorded only the resulting URL (smp.conta.no, no trailing slash), not the raw record fields, so this task made one fresh, keyless, live DNS call to record them: this session, 2026-09-09, dnspython 2.8.0 (dns.resolver.resolve, the system resolver via /etc/resolv.conf, lifetime=8s). `smp_base_url` is the substring between the second and third '!' of `regexp` — note it has NO trailing slash, unlike ELMA's, which is exactly the join trap C2 warns about.",
+  "query": "ZF34KC2257IGA3NVM5KVN5YXFCWDNNKMMAD45TA2524USSNRJA6A.iso6523-actorid-upis.participant.sml.prod.tech.peppol.org",
+  "type": "NAPTR",
+  "ttl": 60,
+  "order": 100,
+  "preference": 10,
+  "flags": "U",
+  "service": "Meta:SMP",
+  "regexp": "!.*!https://smp.conta.no!",
+  "replacement": ".",
+  "smp_base_url": "https://smp.conta.no"
+}
