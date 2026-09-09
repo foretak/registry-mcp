@@ -155,27 +155,37 @@ _ANNUAL_ACCOUNTS = "annual_accounts"
 #: `notes` **on every call** — the promise `mcp/server.py` and
 #: `core/models.py`'s `FilingHistory` docstring publish. Unconditional and
 #: first, exactly like Norway's `_ONE_PERIOD_NOTE` (the pattern this copies).
+#:
+#: **Rewritten by T55 §E**, now that `tasks/T52-recon.md` has read
+#: Bolagsverket's own documentation of the channel rather than only the
+#: `/dokumentlista` response shape: this list is not "we don't know the
+#: channel's population", it is a stated one. The pending 2027 digital-filing
+#: mandate is a bill, not a law (D-047(f)), and is deliberately not mentioned
+#: here — silence rather than a guess about whether or when it passes.
 _SCOPE_NOTE = (
     "Bolagsverket's own API documentation describes this operation as retrieving "
     "'available annual reports' for the organisation — filed annual reports only, not a "
     "general filing history; other filings this organisation has made — board changes, "
-    "articles, capital — are not listed here, and their absence here means nothing. "
-    "That documentation does not say whether the list is complete for every annual "
-    "report the organisation has ever filed, or only for some channel or period of "
-    "filing."
+    "articles, capital — are not listed here, and their absence here means nothing. This "
+    "list is digitally submitted aktiebolag annual reports prepared under K2 or K3, from "
+    "2020 onwards: Bolagsverket's digital-submission channel does not accept a "
+    "handelsbolag, an ekonomisk förening, a bostadsrättsförening, a financial company, an "
+    "insurer or an IFRS preparer at all, and a paper filing or an earlier year is outside "
+    "what this dataset can ever show."
 )
 
 _EMPTY_NOTE = (
     "Bolagsverket's document list holds no filed annual report for this organisation. "
     "That is the register's own answer, not a failed lookup — but it is not proof that "
-    "none was ever due: the list covers the documents Bolagsverket publishes through "
-    "this dataset, and a newly filed report can take time to appear. It may also not "
-    "cover every filing channel: observed live, Telefonaktiebolaget LM Ericsson "
+    "none was ever due: the list covers digitally submitted aktiebolag annual reports "
+    "under K2 or K3 from 2020 onwards (see the scope note above), and a newly filed "
+    "report can take time to appear. Observed live: Telefonaktiebolaget LM Ericsson "
     "(organisationsnummer 5560160680) — Sweden's largest listed company — returns this "
     "same empty answer, against six listed annual reports for organisationsnummer "
-    "5561890038. Bolagsverket's documentation does not explain the difference; as an "
-    "observation rather than a confirmed rule, this list may omit annual reports for "
-    "companies that do not file them through Bolagsverket's own digital channel."
+    "5561890038. The reason is not that Ericsson files on paper: it reports under IFRS, "
+    "which this digital channel does not accept at all, so an IFRS preparer has no "
+    "digitally filed annual report here regardless of what it files with Bolagsverket by "
+    "any other route."
 )
 
 _BROKEN_YEAR_NOTE = (

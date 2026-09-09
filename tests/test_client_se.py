@@ -14,12 +14,15 @@ were made with them; see `tests/fixtures/README.md`.
 
 from __future__ import annotations
 
+import ast
 import copy
+import io
 import json
 import logging
 import time
 import uuid
 import warnings
+import zipfile
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -29,10 +32,11 @@ import httpx
 import pytest
 import respx
 
-from registry_mcp.core.models import CompanyStatus, ErrorCode, RegistryError
-from registry_mcp.core.registry import get_registry
+from registry_mcp.core.models import CompanyStatus, ErrorCode, FinancialPeriod, RegistryError
+from registry_mcp.core.registry import DEADLINE_INCLUDES, get_registry
 from registry_mcp.registries.se import client as client_module
-from registry_mcp.registries.se import filings, mapping
+from registry_mcp.registries.se import filings, ixbrl, mapping
+from registry_mcp.registries.se import financials as financials_module
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -1275,17 +1279,18 @@ def test_133_empty_list_and_absent_key_are_a_present_block_never_not_found() -> 
 
 
 def test_empty_note_names_the_ericsson_observation_t44() -> None:
-    """T44's orchestrator addendum: production serves a **present** block
-    with `documents: []` for Telefonaktiebolaget LM Ericsson (5560160680)
-    against six listed reports for 5561890038, and Bolagsverket's own
-    documentation does not explain why. `_EMPTY_NOTE` states the observation
-    — hedged as one, not asserted as a documented mechanism — rather than
-    guessing in silence; this pins that it keeps doing so."""
+    """T44's orchestrator addendum asked why production serves a **present**
+    block with `documents: []` for Telefonaktiebolaget LM Ericsson
+    (5560160680) against six listed reports for 5561890038.
+    `tasks/T52-recon.md` answered it: Ericsson reports under IFRS, which
+    Bolagsverket's digital-submission channel does not accept at all — T55
+    §E rewrites `_EMPTY_NOTE` to state that as the reason rather than as a
+    hedged observation, which this pins."""
     empty = filings.map_dokumentlista(DOKUMENTLISTA_EMPTY, cached=False, fetched_at=FETCHED_AT)
     (empty_note,) = [n for n in empty.notes if "holds no filed annual report" in n]
     assert "5560160680" in empty_note
     assert "5561890038" in empty_note
-    assert "may omit" in empty_note or "may also not" in empty_note
+    assert "IFRS" in empty_note
     assert "digital channel" in empty_note
 
 
@@ -1613,3 +1618,544 @@ async def test_145_live_dokumentlista_allowlist_is_disjoint_from_organisationer(
     with pytest.raises(RegistryError) as excinfo:
         await client_module.fetch_filings("5560021361")
     assert excinfo.value.code is ErrorCode.INVALID_ID
+
+
+# ---------------------------------------------------------------------------
+# J. `financials` (D-043, D-047(f),(g), `tasks/T55.md` Part F). All fixtures
+# under `tests/fixtures/se_ixbrl_*.xhtml` are hand-built from measured
+# figures rather than a stripped copy of the real filing -- see the header
+# comment on each file and `tasks/T55-recon.md`: stripping only the *tagged*
+# `ix:nonNumeric` content was not enough on the real document, which repeats
+# a signing director's name as bare, untagged HTML text elsewhere. The
+# figures themselves (5561890038's 2020 and 2025 periods) are the real,
+# measured ones -- published anyway in `tasks/T52-recon.md` and this brief's
+# own done-check -- and every value was cross-checked against the real
+# document through this exact code before being hand-copied into the
+# fixture (see the final report).
+#
+# `se_dokumentlista_5561890038.json` is the real, live, production
+# `/dokumentlista` body for `5561890038` (six annual reports, no personal
+# data in this shape at all). `se_dokumentlista_empty.json` is not
+# re-fetched live (D-047(f)'s continuation authorized exactly one
+# supplementary `/dokumentlista` call, already spent) -- its header names
+# the real, previously observed production fact it stands in for.
+# ---------------------------------------------------------------------------
+
+SE_FIXTURES = Path(__file__).parent / "fixtures"
+SE_SRC = Path(client_module.__file__).parent  # src/registry_mcp/registries/se/
+
+DOKUMENTLISTA_5561890038 = _load("se_dokumentlista_5561890038.json")
+DOKUMENTLISTA_SE_EMPTY = _load("se_dokumentlista_empty.json")
+
+DOKUMENT_ID_2020 = "7c9e96b6-bcef-488c-9d68-eae350547fbf_paket"
+DOKUMENT_ID_2025 = "64caa943-a04b-4dda-8be6-26b8ba728adf_paket"
+
+
+def _xhtml_bytes(name: str) -> bytes:
+    return (SE_FIXTURES / name).read_bytes()
+
+
+def _zip_of(*entries: tuple[str, bytes]) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, content in entries:
+            zf.writestr(name, content)
+    return buf.getvalue()
+
+
+def _mock_dokument(dokument_id: str, xhtml: bytes, base_url: str = PRODUCTION_BASE) -> respx.Route:
+    return respx.get(f"{base_url}/dokument/{dokument_id}").mock(
+        return_value=httpx.Response(200, content=_zip_of(("document.xhtml", xhtml)))
+    )
+
+
+# --- F1/F2 — the done-check, offline, straight through ixbrl.py + financials.py ---
+
+
+def test_d047_f1_done_check_2025_offline_exact() -> None:
+    """The brief's done-check, verbatim, against the committed fixture
+    (`tasks/T55.md`, `tasks/T52-recon.md`): total_assets ==
+    total_equity_and_liabilities == 515409.0, equity == 508409.0,
+    profit_for_period == -10536.0, currency == 'SEK'."""
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+    summary = financials_module.map_financials(
+        doc,
+        document_id=DOKUMENT_ID_2025,
+        total_annual_reports=6,
+        source_url=f"{PRODUCTION_BASE}/dokument/{DOKUMENT_ID_2025}",
+        cached=False,
+        fetched_at=FETCHED_AT,
+    )
+    assert len(summary.periods) == 1
+    period = summary.periods[0]
+    bs = period.balance_sheet
+    assert bs is not None and period.income_statement is not None
+    assert bs.total_assets == bs.total_equity_and_liabilities == 515409.0
+    assert bs.equity == 508409.0
+    assert period.income_statement.profit_for_period == -10536.0
+    assert period.currency == "SEK"
+    assert period.accounting_framework == "K2"
+    assert period.document_id == DOKUMENT_ID_2025
+    assert period.period_start == date(2025, 1, 1)
+    assert period.period_end == date(2025, 12, 31)
+    # 18/18 identities reconcile on every real K2 document sampled
+    # (tasks/T52-recon.md) — this fixture's figures do too, so the one
+    # permitted comparison (D-043(e)) must not fire here.
+    assert not any("differ by" in n for n in summary.notes)
+
+
+def test_d047_f2_2020_currency_via_unit_and_redovisningsvaluta_never_read() -> None:
+    """The 2020 fixture (2017-09-30 taxonomy, `Redovisningsvaluta` present as
+    the plain string `"SEK"`) also yields `currency == "SEK"` — through the
+    unit, exactly as the 2025 fixture (enum-member currency) does. A static
+    check proves the extractor never reads `se-cd-base:Redovisningsvaluta`
+    under either name as a lookup key: with each module's own top docstring
+    removed (where the concept is named *as the thing to avoid*), the string
+    does not appear anywhere else in `registries/se/`."""
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2020.xhtml"))
+    summary = financials_module.map_financials(
+        doc,
+        document_id=DOKUMENT_ID_2020,
+        total_annual_reports=6,
+        source_url=f"{PRODUCTION_BASE}/dokument/{DOKUMENT_ID_2020}",
+        cached=False,
+        fetched_at=FETCHED_AT,
+    )
+    period = summary.periods[0]
+    assert period.currency == "SEK"
+    assert period.accounting_framework == "K2"
+    assert "Redovisningsvaluta" in _xhtml_bytes("se_ixbrl_5561890038_2020.xhtml").decode()
+
+    found_in_code = False
+    for py_file in sorted(SE_SRC.glob("*.py")):
+        source = py_file.read_text(encoding="utf-8")
+        if "Redovisningsvaluta" not in source:
+            continue
+        tree = ast.parse(source)
+        docstring = ast.get_docstring(tree, clean=False) or ""
+        remainder = source.replace(docstring, "") if docstring else source
+        if "Redovisningsvaluta" in remainder:
+            found_in_code = True
+    assert not found_in_code, "Redovisningsvaluta must appear only in a module's own top docstring"
+
+
+# --- F3 — the extractor never touches ix:nonNumeric ---
+
+
+def test_d047_f3_extractor_element_filter_is_static_and_nonnumeric_never_leaks() -> None:
+    """Static half: `ixbrl.parse`'s fact loop matches `nonFraction` only —
+    there is no code path anywhere in `ixbrl.py` that compares an element's
+    local name against `"nonNumeric"`, so the rule is not a per-concept
+    blocklist that could go stale, it is a filter that structurally never
+    engages with that element type (module docstring).
+
+    Runtime half: `se_ixbrl_nonnumeric_leak_check.xhtml` *does* contain an
+    `ix:nonNumeric` "signature block" — three facts, each carrying the
+    obviously-fake token below — verifying the filter holds even when the
+    element it must ignore is genuinely present with content, not merely
+    absent from the fixture."""
+    source = (SE_SRC / "ixbrl.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    compared_literals: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare):
+            for side in (node.left, *node.comparators):
+                if isinstance(side, ast.Constant) and isinstance(side.value, str):
+                    compared_literals.add(side.value)
+    assert "nonFraction" in compared_literals
+    assert "nonNumeric" not in compared_literals
+
+    token = "ZZZ-NOT-A-REAL-NAME-LEAK-CHECK-ZZZ"
+    xhtml = _xhtml_bytes("se_ixbrl_nonnumeric_leak_check.xhtml")
+    assert token in xhtml.decode()  # the fixture really does carry it
+
+    doc = ixbrl.parse(xhtml)
+    summary = financials_module.map_financials(
+        doc,
+        document_id="leak-check",
+        total_annual_reports=1,
+        source_url="https://example.invalid/leak-check",
+        cached=False,
+        fetched_at=FETCHED_AT,
+    )
+    dumped = json.dumps(summary.model_dump(mode="json"))
+    assert token not in dumped
+    assert "UnderskriftHandling" not in dumped
+    # And the fixture's ordinary figures were still read correctly —
+    # proving the token's *absence* from the output is because it was never
+    # a candidate, not because parsing failed outright.
+    leak_check_sheet = summary.periods[0].balance_sheet
+    assert leak_check_sheet is not None
+    assert leak_check_sheet.total_assets == 100000.0
+
+
+# --- F4 — Soliditet never read ---
+
+
+def test_d047_f4_soliditet_never_read_as_a_lookup_key() -> None:
+    found_in_code = False
+    for py_file in sorted(SE_SRC.glob("*.py")):
+        source = py_file.read_text(encoding="utf-8")
+        if "Soliditet" not in source:
+            continue
+        tree = ast.parse(source)
+        docstring = ast.get_docstring(tree, clean=False) or ""
+        remainder = source.replace(docstring, "") if docstring else source
+        # Strip `#:`/`#` line comments too — financials.py names it once in
+        # one of those, not only in the module docstring.
+        remainder = "\n".join(
+            line for line in remainder.splitlines() if not line.strip().startswith("#")
+        )
+        if "Soliditet" in remainder:
+            found_in_code = True
+    assert not found_in_code, "Soliditet must appear only in a comment or docstring"
+    assert "Soliditet" not in financials_module._INCOME_STATEMENT_CONCEPTS.values()
+    assert "Soliditet" not in financials_module._BALANCE_SHEET_CONCEPTS.values()
+
+
+# --- F5 — an absent line stays None ---
+
+
+def test_d047_f5_absent_line_stays_none_never_zero() -> None:
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+    period = financials_module.build_period(doc, document_id=DOKUMENT_ID_2025)
+    assert period is not None
+    sheet = period.balance_sheet
+    assert sheet is not None
+    # No K2 filing for this company ever tags fixed assets (tasks/T52-recon.md).
+    assert sheet.fixed_assets is None
+    assert sheet.non_current_liabilities is None
+    # 2025 files no long-term liabilities; 2020 does — same company, same
+    # concept, different years, proving absence is read per period.
+    doc_2020 = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2020.xhtml"))
+    period_2020 = financials_module.build_period(doc_2020, document_id=DOKUMENT_ID_2020)
+    assert period_2020 is not None
+    sheet_2020 = period_2020.balance_sheet
+    assert sheet_2020 is not None
+    assert sheet_2020.non_current_liabilities == 935948.0
+
+
+# --- F6 — the latest context is selected when two years are tagged ---
+
+
+def test_d047_f6_latest_period_selected_over_the_comparison_year() -> None:
+    """Both fixtures tag a comparison year (period1/balans1) with different
+    figures from the current year (period0/balans0) — `ixbrl.py` must pick
+    the latter. `Rorelseresultat` differs between the two years in both
+    fixtures, which is what makes this a real test rather than a
+    coincidence."""
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+    assert doc.latest_period_end == date(2025, 12, 31)
+    rorelseresultat = doc.latest("Rorelseresultat")
+    tillgangar = doc.latest("Tillgangar")
+    assert rorelseresultat is not None and tillgangar is not None
+    assert rorelseresultat.value == -4656.0  # not 2024's -12515.0
+    assert tillgangar.value == 515409.0  # not 2024's 555857.0
+
+
+# --- F7 — @sign and @scale both applied ---
+
+
+def test_d047_f7_sign_applied_on_real_figures_and_scale_on_a_handbuilt_fixture() -> None:
+    """`@sign="-"` is genuinely exercised by the real 2020/2025 figures
+    (a loss, a negative net-financial-items line). No real or specimen
+    document measured carries a non-zero `@scale` on a wanted concept
+    (`ixbrl.py`'s docstring), so `se_ixbrl_scale_handbuilt.xhtml` is
+    hand-built to exercise it, and says so in its own header comment."""
+    doc_2025 = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+    rorelseresultat = doc_2025.latest("Rorelseresultat")
+    finansiella_poster = doc_2025.latest("FinansiellaPoster")
+    assert rorelseresultat is not None and finansiella_poster is not None
+    assert rorelseresultat.value == -4656.0
+    assert finansiella_poster.value == -5880.0
+
+    scale_doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_scale_handbuilt.xhtml"))
+    fact = scale_doc.latest("Tillgangar")
+    assert fact is not None
+    assert fact.value == 500_000.0  # tagged "500" at scale="3" -> 500 * 10**3
+
+
+# --- F8 — one /dokumentlista request for filings + financials together ---
+
+
+@respx.mock
+async def test_d047_f8_one_dokumentlista_request_serves_filings_and_financials() -> None:
+    """D-043(h)(1)/(3), D-047(f): `fetch_filings` and `fetch_financials`
+    share one `_fetch_dokumentlista_payload` — called concurrently on a cold
+    cache, they must make exactly one upstream `/dokumentlista` request, not
+    two. This is the same race D-043(h)(3) named for Norway, reproduced for
+    Sweden's second-fetch shape."""
+    import asyncio
+
+    _mock_token()
+    list_route = _mock_dokumentlista(DOKUMENTLISTA_5561890038)
+    _mock_dokument(DOKUMENT_ID_2025, _xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+
+    filings_block, financials_block = await asyncio.gather(
+        client_module.fetch_filings("5561890038"),
+        client_module.fetch_financials("5561890038"),
+    )
+    assert list_route.call_count == 1
+    assert len(filings_block.documents) == 6
+    f8_sheet = financials_block.periods[0].balance_sheet
+    assert f8_sheet is not None
+    assert f8_sheet.total_assets == 515409.0
+
+
+# --- F9 — exactly one /dokument request for a company with six reports ---
+
+
+@respx.mock
+async def test_d047_f9_exactly_one_dokument_request_for_six_listed_reports() -> None:
+    _mock_token()
+    _mock_dokumentlista(DOKUMENTLISTA_5561890038)
+    dokument_route = _mock_dokument(
+        DOKUMENT_ID_2025, _xhtml_bytes("se_ixbrl_5561890038_2025.xhtml")
+    )
+    # The 2020 document is listed but must never be fetched — no route is
+    # mocked for it, so respx raises if the client tries.
+
+    block = await client_module.fetch_financials("5561890038")
+
+    assert dokument_route.call_count == 1
+    assert any("6 annual report" in n for n in block.notes)
+    assert any("2025-12-31" in n for n in block.notes)
+    assert any('include=["filings"]' in n for n in block.notes)
+
+
+# --- F10 — empty /dokumentlista -> absent block, not empty, lookup succeeds ---
+
+
+@respx.mock
+async def test_d047_f10_empty_dokumentlista_is_absent_not_empty_and_lookup_succeeds() -> None:
+    _mock_token()
+    _mock_dokumentlista(DOKUMENTLISTA_SE_EMPTY)
+
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_financials("5560160680")
+    assert excinfo.value.code is ErrorCode.NOT_FOUND
+
+    registry = get_registry("SE")
+    respx.post(f"{PRODUCTION_BASE}/organisationer").mock(
+        return_value=httpx.Response(200, json=AB_ACTIVE)
+    )
+    report = await registry.lookup_with("5560160680", ["financials"])
+    assert report.financials is None
+    assert any("'financials' attachment" in n for n in report.notes)
+
+
+# --- F11 — GB stays bad_request; list_countries shows financials for NO/SE only ---
+
+
+async def test_d047_f11_financials_on_gb_bad_request_and_list_countries_shows_se() -> None:
+    gb = get_registry("GB")
+    with pytest.raises(RegistryError) as excinfo:
+        await gb.lookup_with(gb.id_example, ["financials"])
+    assert excinfo.value.code is ErrorCode.BAD_REQUEST
+    assert "financials" not in excinfo.value.details["allowed"]
+
+    se = get_registry("SE")
+    assert "financials" in se.country_info().supported_includes
+    no = get_registry("NO")
+    assert "financials" in no.country_info().supported_includes
+    assert "financials" not in gb.country_info().supported_includes
+
+
+# --- F12 — cache TTL and no personal-data leak into the cache payload ---
+
+
+def test_d047_f12_cache_kind_gets_thirty_days_one_hour_unmoved_by_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from registry_mcp.core import cache as cache_module
+
+    ok_ttl, empty_ttl = cache_module._TTL_BY_KIND["financials"]
+    assert ok_ttl == 30 * 24 * 60 * 60
+    assert empty_ttl == 60 * 60
+
+    monkeypatch.setenv("REGISTRY_MCP_CACHE_TTL_SECONDS", "5")
+    key = "SE:bolagsverket:financials:prod:some-dokument-id"
+    assert cache_module._ttl_seconds("ok", key) == ok_ttl
+    assert cache_module._ttl_seconds("not_found", key) == empty_ttl
+
+
+@respx.mock
+async def test_d047_f12_cached_payload_carries_no_document_and_no_nonnumeric() -> None:
+    from registry_mcp.core import cache as cache_module
+
+    _mock_token()
+    _mock_dokumentlista(DOKUMENTLISTA_5561890038)
+    _mock_dokument(DOKUMENT_ID_2025, _xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+
+    await client_module.fetch_financials("5561890038")
+
+    fin_key = client_module._financials_cache_key("production", DOKUMENT_ID_2025)
+    entry = cache_module.get(fin_key)
+    assert entry is not None
+    payload_text = json.dumps(entry.payload)
+    assert "nonNumeric" not in payload_text
+    assert "<html" not in payload_text  # the document's own root element
+    assert "UnderskriftHandling" not in payload_text
+    # Only the parsed period, not the raw figures dict either -- confirm the
+    # payload really is FinancialPeriod-shaped and nothing wider.
+    assert set(entry.payload) == {"period", "source_url"}
+    assert FinancialPeriod.model_validate(entry.payload["period"]).currency == "SEK"
+
+
+# --- F13 — DEADLINE_INCLUDES does not gain financials ---
+
+
+def test_d047_f13_deadline_includes_excludes_financials() -> None:
+    assert "financials" not in DEADLINE_INCLUDES
+    se = get_registry("SE")
+    assert se.supported_includes & DEADLINE_INCLUDES == {"filings"}
+
+
+# --- F14 — the Swedish FinancialPeriod is field-identical to Norway's ---
+
+
+def test_d047_f14_financial_period_is_field_identical_to_norways() -> None:
+    """A static comparison of the model's own field set, as both country
+    modules actually use it — both import `core.models.FinancialPeriod`
+    directly (D-042(g), D-044(a)); this pins that nobody has quietly
+    subclassed or shadowed it for one country, which is the only way a
+    future Swedish-only field could ever pass this test unnoticed."""
+    from registry_mcp.registries.no import accounts as no_accounts
+
+    assert financials_module.build_period is not None  # module actually loaded
+    se_field_source = FinancialPeriod  # what registries/se/financials.py builds
+    no_field_source = no_accounts.FinancialPeriod  # what registries/no/accounts.py builds
+    assert se_field_source is no_field_source
+    assert se_field_source.model_fields.keys() == no_field_source.model_fields.keys()
+
+
+# --- F15 — REST ≡ MCP parity: intentionally not duplicated here ---
+#
+# tests/test_mcp.py::test_d043_invariant8_rest_and_mcp_lookup_company_include_financials_are_identical
+# already proves the *generic* include=["financials"]/?include=financials
+# mechanism is REST≡MCP-identical (api/main.py and mcp/server.py both call
+# the same country-blind Registry.lookup_with — neither surface branches on
+# country), and
+# tests/test_mcp.py::test_rest_and_mcp_lookup_company_are_identical_se
+# already proves Sweden's own base lookup is byte-identical across both
+# surfaces. Together they cover the same guarantee a bespoke
+# SE-plus-financials parity test would, without re-testing plumbing that
+# does not know Sweden exists. Not duplicated here per the brief's own F15.
+
+
+# --- K3: accounting_framework, scope/consolidated, and the validation caveat ---
+
+
+def test_d047_k3_framework_detected_scope_left_none_with_caveat_note() -> None:
+    """K3 detection is from the schemaRef path (A/B), never a concept.
+    `scope`/`consolidated` stay `None` for K3 — nobody has read a live K3
+    filing (`tasks/T55-recon.md`) — and the block's own `notes` says the
+    parser was validated on K2 filings and K3 taxonomy specimens only,
+    per the orchestrator's continuation rule 1."""
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_k3_specimen.xhtml"))
+    assert ixbrl.schema_ref_says(doc.schema_refs, "k3")
+    assert not ixbrl.schema_ref_says(doc.schema_refs, "k2")
+
+    period = financials_module.build_period(doc, document_id="k3-specimen")
+    assert period is not None
+    assert period.accounting_framework == "K3"
+    assert period.scope is None
+    assert period.consolidated is None
+
+    notes = financials_module.summary_notes(period, total_annual_reports=1)
+    (caveat,) = [n for n in notes if "validated against filed K2" in n]
+    assert "K3 taxonomy specimens" in caveat
+    assert "no live K3" in caveat
+
+
+def test_d047_k2_scope_is_entity_accounts_consolidated_false() -> None:
+    """The K2 channel excludes koncernredovisning structurally
+    (`tasks/T52-recon.md` Fact 2), so this is a channel fact, not an
+    inference about the company — `financials.py`'s docstring and A/B."""
+    doc = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+    period = financials_module.build_period(doc, document_id=DOKUMENT_ID_2025)
+    assert period is not None
+    assert period.accounting_framework == "K2"
+    assert period.scope == "entity accounts"
+    assert period.consolidated is False
+
+
+# --- Zip handling: report a multi-entry zip, never guess (A1) ---
+
+
+def test_d047_multi_entry_zip_is_reported_not_guessed() -> None:
+    zip_bytes = _zip_of(("a.xhtml", b"<html/>"), ("b.xhtml", b"<html/>"))
+    with pytest.raises(ixbrl.MultiEntryZipError) as excinfo:
+        ixbrl.unzip_single_xhtml(zip_bytes)
+    assert excinfo.value.entry_count == 2
+
+
+@respx.mock
+async def test_d047_multi_entry_zip_from_dokument_is_upstream_error() -> None:
+    _mock_token()
+    _mock_dokumentlista(DOKUMENTLISTA_5561890038)
+    respx.get(f"{PRODUCTION_BASE}/dokument/{DOKUMENT_ID_2025}").mock(
+        return_value=httpx.Response(
+            200, content=_zip_of(("a.xhtml", b"<html/>"), ("b.xhtml", b"<html/>"))
+        )
+    )
+    with pytest.raises(RegistryError) as excinfo:
+        await client_module.fetch_financials("5561890038")
+    assert excinfo.value.code is ErrorCode.UPSTREAM_ERROR
+    assert "2 entries" in excinfo.value.message
+
+
+# --- The one permitted comparison (D-043(e)): total_assets vs total_equity_and_liabilities ---
+
+
+def test_d047_reconciliation_note_fires_when_the_two_totals_disagree() -> None:
+    """Neither 5561890038 fixture triggers this (18/18 identities reconcile
+    on every real K2 document sampled, tasks/T52-recon.md) — say so, per the
+    brief. This test proves the note *would* fire, on a hand-built,
+    deliberately unbalanced document, without editing, reconciling or
+    dropping either figure."""
+    xhtml = (
+        _xhtml_bytes("se_ixbrl_scale_handbuilt.xhtml")
+        .decode()
+        .replace(
+            '<ix:nonFraction name="se-gen-base:EgetKapitalSkulder" contextRef="balans0" '
+            'unitRef="SEK" decimals="INF" scale="3" format="ixt:numspacecomma">500'
+            "</ix:nonFraction>",
+            '<ix:nonFraction name="se-gen-base:EgetKapitalSkulder" contextRef="balans0" '
+            'unitRef="SEK" decimals="INF" scale="3" format="ixt:numspacecomma">400'
+            "</ix:nonFraction>",
+        )
+        .encode()
+    )
+    doc = ixbrl.parse(xhtml)
+    period = financials_module.build_period(doc, document_id="mismatch-test")
+    assert period is not None
+    mismatch_sheet = period.balance_sheet
+    assert mismatch_sheet is not None
+    assert mismatch_sheet.total_assets == 500_000.0
+    assert mismatch_sheet.total_equity_and_liabilities == 400_000.0
+    notes = financials_module.summary_notes(period, total_annual_reports=1)
+    (gap_note,) = [n for n in notes if "differ by" in n]
+    assert "500,000" in gap_note
+    assert "400,000" in gap_note
+    assert "100,000" in gap_note
+
+
+# --- Live done-check (F1's live half) ---
+
+
+@pytest.mark.live
+async def test_d047_live_done_check_5561890038_2025() -> None:
+    """The brief's done-check against production, unmocked. Run with
+    ``pytest -m live`` and real `BOLAGSVERKET_CLIENT_ID`/
+    `BOLAGSVERKET_CLIENT_SECRET` in the environment. Deselected by
+    `-m "not live"`, so it never runs in CI and needs no credential there."""
+    block = await client_module.fetch_financials("5561890038")
+    period = block.periods[0]
+    live_sheet = period.balance_sheet
+    live_income = period.income_statement
+    assert live_sheet is not None and live_income is not None
+    assert live_sheet.total_assets == live_sheet.total_equity_and_liabilities == 515409.0
+    assert live_sheet.equity == 508409.0
+    assert live_income.profit_for_period == -10536.0
+    assert period.currency == "SEK"
