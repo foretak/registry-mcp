@@ -111,6 +111,20 @@ _TTL_BY_KIND: dict[str, tuple[int, int]] = {
     # companies points the harm the wrong way (DECISIONS.md D-026(c),
     # D-045(e)).
     "lei": (7 * 24 * 60 * 60, 24 * 60 * 60),
+    # 24 h on a hit, 1 h empty -- D-006's default pair, restated deliberately
+    # rather than left to fall through, because the asymmetry cuts the
+    # opposite way here from every other negative in this codebase
+    # (DECISIONS.md D-029(e), confirmed unamended by D-046(d)). Both
+    # upstreams send `no-store` and the SML's own NAPTR TTL is 60 seconds --
+    # this pair is registry-mcp's own policy for its own composed answer,
+    # not a value either upstream publishes or endorses. From 1 January 2027
+    # a stale *negative* here makes a sender skip a statutory duty and issue
+    # a non-compliant invoice, while a stale *positive* only makes it send an
+    # e-invoice that bounces -- one is a breach, the other is recoverable, so
+    # the negative gets the shorter TTL. A `registered: null` answer is never
+    # written to this cache at all (registries/no/peppol.py), so no TTL for
+    # it belongs in this table.
+    "peppol": (24 * 60 * 60, 60 * 60),
 }
 
 
