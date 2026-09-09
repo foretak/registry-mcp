@@ -872,6 +872,15 @@ Two separate Glama products, easy to conflate:
 
 ---
 
+## 7.12 Railway: config-as-code is deprecated — migrate before 2026-12-01 (5 minutes)
+
+`railway up` on 2026-09-09 warned: *"Config as Code (railway.json / railway.toml) is deprecated. Prefer
+Infrastructure as Code (.railway/railway.ts) … Existing files keep working until 2026-12-01."* The repo's
+`railway.toml` (build/start/health settings) keeps working until then. Before December, from the main
+checkout: `railway config migrate`, read the generated `.railway/railway.ts`, commit it, and delete
+`railway.toml` only once a deploy has succeeded with the new file. Docs:
+<https://docs.railway.com/infrastructure-as-code#migrating-from-config-as-code>. Not urgent; a calendar item.
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in

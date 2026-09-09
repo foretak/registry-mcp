@@ -9,6 +9,19 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-09
+
+Depth per country. Seven `include=[...]` attachments on `lookup_company` — `filings`
+(all three countries), `charges` and `insolvency` (United Kingdom), `financials`
+(Norway from Regnskapsregisteret's key figures, Sweden from the filed K2 iXBRL),
+`lei` and `parents` (Norway and the United Kingdom, from GLEIF) and `peppol`
+(Norway, the SML/SMP walk ahead of the 2027 e-invoicing duty) — plus
+`include=["filings"]` on `company_deadlines`, and the privacy policy and terms
+naming all three countries. Reviewed under mutation before shipping (`REVIEW.md`
+§ "Depth track"). **Deployed to the hosted service at `api.foretak.dev` on
+2026-09-09** (Railway deployment `846084c1`, smoked against the live registers)
+and published to PyPI, npm and the MCP registry with the `v0.4.0` tag.
+
 ### Added
 
 - **`SourceRef` and `include=[...]`** on `lookup_company` (MCP) and `GET
