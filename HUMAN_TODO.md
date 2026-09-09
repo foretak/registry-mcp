@@ -650,6 +650,141 @@ plugin, on the marketplace, on the commands and on the skills.
 
 ---
 
+## 7.10 Two registrations and one lawyer (T51 / D-047) — the FCA key, HMRC's VAT credentials, and D-028's legal review
+
+Three things only you can do, prepared 2026-09-09 by T51. **Items 1 and 2 are registrations an agent
+cannot make**; item 3 is not a registration at all and is on this list because it has blocked the
+product's biggest gap since 2026-09-05 and nothing else will move it.
+
+**If you do one thing, do item 1 — it is twenty minutes and it unblocks a written task the same day.
+If you do two, start item 2 in the same sitting**, because its clock is roughly two weeks and it runs
+while you do nothing. `DECISIONS.md` **D-047(b)** and **D-047(e)** are the rulings behind them; both
+are written so that when the credentials arrive, the design is already decided.
+
+**One rule over all three: every credential is stored under `~/secrets/registry-mcp/`, never in the
+repo, and no agent on this project writes a key anywhere.** `.env.example` carries empty placeholders
+and comments only.
+
+---
+
+### 1. FCA Financial Services Register API — self-serve key (~20 minutes) — **unblocks `tasks/T54.md`**
+
+Why: `include=["regulator"]` — is this counterparty authorised by its financial regulator, for what
+activities, and who are its appointed representatives (firms only; **no individuals, ever**, D-028).
+Companies House's own `partial_data_available` enum carries
+`'full-data-available-from-financial-conduct-authority'` — the register naming its own successor.
+
+**The task is written and gated on this key.** `tasks/T54.md` cannot start without it for a reason
+worth knowing before you register: the FCA publishes its endpoint list, its request headers and its
+terms of use **only inside the developer portal**. *Register Extract Service Subscribers' Handbook*,
+FCA, April 2026, §1.15: *"Registering as an API user will give you access to the API portal which
+provides more detail on what is available via the API, and the available endpoints."* Nobody outside
+can read them, so nobody outside can brief against them.
+
+What the FCA says publicly, all of it primary-sourced 2026-09-09:
+
+- §1.13: *"The FCA offers a free API (**currently in BETA**) to access data from the FS Register
+  programmatically. **This is a separate service to the RES**."*
+- §1.16–1.18: *"designed for individual look-ups rather than bulk data access … supports queries for
+  one entity at a time"*; *"The current rate limit is **50 requests per 10 seconds**"*; *"We do not
+  offer any 'premium' versions of the API, nor the ability to raise the limits."*
+- The FS Register page: *"currently free of charge, allows users to generate a unique key"*, and
+  *"As the API is a free service, we do not offer any service-level agreements (SLAs) or guarantees
+  for uptime or issue resolution."*
+
+- [ ] **Register** at <https://register.fca.org.uk/Developer/s/> — the *"Register to be a New User"*
+      link (FCA's own instruction, RES handbook §1.14). It is a Salesforce Experience Cloud site and
+      needs a browser; an agent cannot do it.
+- [ ] **Generate the key** in the portal and store it as
+      **`~/secrets/registry-mcp/fca-api-key.txt`** — one line, no trailing newline fuss, `chmod 600`.
+      The env var the code will read is **`FCA_API_KEY`** (fixed by D-047(d) so it cannot drift).
+- [ ] **While you are logged in, copy two things out for the implementer** — this is the part only you
+      can do and it is what makes T54's Part 0 a morning rather than a redesign:
+      **(a) the terms of use**, in full, pasted into `~/secrets/registry-mcp/fca-terms.txt` or handed
+      to the orchestrator; and **(b) the endpoint list and the required header names**. If the terms
+      forbid relaying the data to a third party, **say so immediately** — T54 stops, and one paragraph
+      in `DECISIONS.md` closes the source, exactly as VIES was closed (D-045(b)).
+- [ ] **Do not use the RES licence text for this.** The handbook's *"You are not permitted to share or
+      re-sell the data under this licence"* (§2.12, §2.15) belongs to the **paid Register Extract
+      Service**, which §1.13 says in terms is a different service, delivered by a third party under a
+      subscriber agreement. It does not govern the API and must not be quoted as though it did.
+- [ ] Tell the orchestrator, so **T54 can be dispatched**.
+
+---
+
+### 2. HMRC "Check a UK VAT number" v2 — developer hub, application, ~2 weeks — **start it, then forget it**
+
+Why: it is the one source that turns `CompanyReport.vat_registered` from `null` into an answer for
+Britain, and D-045(b) established that VIES cannot do it (its own terms forbid retransmission). There
+is **no brief yet and none is owed until the credentials exist** — D-047(e) rules the block's shape in
+advance so that nobody improvises it under time pressure when they arrive.
+
+What HMRC says, read 2026-09-09 on the developer hub and in the API's own OpenAPI description:
+
+- *"Version 2 moved the Check a UK VAT Number API behind authentication. We moved the API behind
+  authentication so we can fully understand our users."* Version 1 was removed on 17 February 2025.
+- *"**Registering should take around 2 weeks.** It may take longer if we need more information. You
+  will get production credentials once you have **tested in the Sandbox environment and accepted the
+  Terms of Use 2.0**."*
+- Version `2.0 - beta`, last updated 1 April 2026. Production `https://api.service.hmrc.gov.uk`,
+  sandbox `https://test-api.service.hmrc.gov.uk`.
+- Security is **OAuth 2.0 client credentials** (application-restricted): token URL
+  `https://api.service.hmrc.gov.uk/oauth/token`, scope `read:vat`, header
+  `Accept: application/vnd.hmrc.2.0+json`. **Two secrets, not one.**
+
+- [ ] **Create the developer-hub account and the application** at
+      <https://developer.service.hmrc.gov.uk/> (*Register*), subscribe the application to
+      **Check a UK VAT number 2.0**, and work through the sandbox test HMRC requires before it issues
+      production credentials. Mock VAT numbers for the sandbox are linked from the API's own page.
+- [ ] **Accept Terms of Use 2.0** — and **keep a copy**. It is the document that decides whether the
+      block can be relayed at all, and it is accepted inside the flow, so nobody else will ever see it.
+      Store it beside the credentials.
+- [ ] **Store the credentials** as **`~/secrets/registry-mcp/hmrc-vat.txt`**, two lines, `chmod 600`.
+      The env vars the code will read are **`HMRC_VAT_CLIENT_ID`** and **`HMRC_VAT_CLIENT_SECRET`**
+      (fixed by D-047(d)). Per D-047(e)(2) only the first is named in `include_api_key_env`; the hint
+      names both, which is D-037's answer to two-secrets-one-slot, reused rather than reinvented.
+- [ ] Tell the orchestrator when production credentials land, **and pass on the Terms of Use text**.
+
+**What was already decided, so you know what you are registering for** (D-047(e)): the **unverified**
+route only — the *verified* route needs your own VAT number and returns a consultation number
+asserting that **you** performed the check, which a proxy cannot honestly generate on a caller's
+behalf. And the block relays the registrant's **name** but **not their street address**: HMRC's schema
+makes `line1` and `postcode` mandatory, HMRC registers sole traders under their own names, and for a
+sole trader that address is frequently residential — so only the **outward postcode** (`SW97 5CK` →
+`SW97`) is carried, truncated in the client before it reaches a model. That is a decision, not a
+suggestion, and it is why this item has a ruling behind it before it has a brief.
+
+---
+
+### 3. The lawyer-reviewed lawful basis D-028 needs before officers or PSC — **not a registration, but yours**
+
+`~/research/registry-mcp/07-product-improvements/11-coverage-gap-people-owners-groups-screening.md`
+ranks officers and beneficial owners as **the highest-demand real gap** in the product, free and open
+at `GET /api/enheter/{orgnr}/roller` and `/company/{n}/officers`, and shipped by three of four active
+competitors. **D-028 has blocked it since 2026-09-05 on four preconditions, and the fourth is the only
+one an agent cannot satisfy**: *"A documented lawful basis, written before the first line of code …
+**This is a page of text that a lawyer reviews, not an architect's ruling.**"*
+
+- [ ] **Decide whether you want officers at all.** If the answer is no, say so and D-028 can be closed
+      as declined rather than left standing as a permanent block — that is a real option and it costs
+      nothing.
+- [ ] If yes: **commission the review.** What it has to cover is already itemised in **D-028(4)** —
+      the categories of personal data relayed and from which register; the lawful basis (legitimate
+      interests, Art. 6(1)(f), with the register's own publication decision doing most of the
+      balancing) and the balancing itself; retention, which is D-028(2)'s cache TTL stated as a
+      number; the controller/processor split; and the rectification/erasure route. **D-028(1) — company
+      → officers only, never person → companies — is the control that keeps this out of profiling
+      territory and must be presented to the lawyer as such**, not as an implementation detail.
+- [ ] **Background reading for whoever you brief**, and it is good:
+      `~/research/registry-mcp/07-product-improvements/10-personal-data-and-gdpr-in-registers.md`.
+      **None of it is legal advice and neither is `DECISIONS.md`.**
+- [ ] The other three preconditions are engineering and are **already half-done**: D-028(2)'s per-kind
+      cache TTL table exists (built by T42, `core/cache.py`), D-028(3)'s `suppressed` tri-state is
+      specified, and D-028(5)'s shape is the `include=[…]` mechanism that now has six users. **Only
+      the legal basis is missing**, which is why this is on your list and not on an agent's.
+
+---
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in
