@@ -31,6 +31,34 @@ jobs:
       - name: Validate server.json
         run: ./mcp-publisher validate server.json
 
+      - name: Wait for the packages server.json names to be queryable
+        # The registry validates every package in server.json against PyPI and npm
+        # before it accepts the listing. On a v* tag this workflow and
+        # publish-npm.yml start together, so on 2026-09-07 (v0.3.0) and again on
+        # 2026-09-09 (v0.4.0) it ran before npm had the version and failed with
+        # "version '0.4.0' was not found (status: 404)", needing a manual re-run.
+        # Poll both indexes for the version server.json declares, up to 5 minutes,
+        # the way publish-npm.yml already polls after its own publish.
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('server.json'))['version'])")
+          echo "server.json version: $VERSION"
+          deadline=$((SECONDS + 300))
+          ok_npm=0; ok_pypi=0
+          while [ $SECONDS -lt $deadline ]; do
+            if [ $ok_npm -eq 0 ] && [ "$(npm view "registry-mcp@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then
+              echo "npm registry-mcp@$VERSION is queryable"; ok_npm=1
+            fi
+            if [ $ok_pypi -eq 0 ] && curl -sSf -o /dev/null "https://pypi.org/pypi/registry-mcp/$VERSION/json"; then
+              echo "PyPI registry-mcp $VERSION is queryable"; ok_pypi=1
+            fi
+            if [ $ok_npm -eq 1 ] && [ $ok_pypi -eq 1 ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::registry-mcp $VERSION is not queryable on npm ($ok_npm) and PyPI ($ok_pypi) after 300s — publish the packages first, then re-run this workflow"
+          exit 1
+
       - name: Authenticate (GitHub OIDC)
         run: ./mcp-publisher login github-oidc
 
