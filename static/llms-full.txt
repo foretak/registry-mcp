@@ -465,6 +465,24 @@ this argument existed. Call `GET /v1/countries` (§3.1) / MCP
 a name that country does not declare is a `400 bad_request` naming what it
 does support, never a silently empty result.
 
+**What a call costs you.** Measured 2026-09-09 with `count_tokens` on
+`claude-opus-5` (other tokenizers differ by about 1%); approximate, and the
+fixed figure below is the number
+`tests/test_mcp.py::test_fixed_context_cost_stays_within_budget` pins.
+
+- Loading this server: ~7,400 tokens once per conversation (7 tools +
+  `instructions`), about a tenth of that on later turns once the client
+  prompt-caches it.
+- A base `lookup_company`: ~930 (`GB`) / ~1,430 (`NO`) / ~1,300 (`SE`).
+- `+filings` ~3,500 for a 25-document page (~116 per document); `+charges`
+  ~3,000 for 9 charges (~317 each — the register's own free text is the
+  answer, D-045(a)); `+financials` ~900 (`NO`) / ~400 (`SE`).
+- `+lei` ~220; `+parents` ~610; `+insolvency` ~220; every block at once,
+  ~8,500.
+- `company_deadlines` ~1,860 (`NO`); `list_countries` ~780;
+  `validate_company_id` ~144 — which is why validating a spreadsheet column
+  before looking a company up is 10× cheaper than looking it up.
+
 **Two-level nullability, the same shape on every attachment.** The
 attachment key on the response — `charges`, `filings`, `insolvency`,
 `financials`, `lei`, `parents`, `peppol` — is `null` for one of two reasons:
