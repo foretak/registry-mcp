@@ -2140,7 +2140,7 @@ with `uv sync --locked --all-extras`.
 | M18 | D-047(g): `Soliditet` is never read | added `Soliditet` to the balance-sheet concept table | **RED** — `test_d047_f4_soliditet_never_read_as_a_lookup_key` |
 | M19 | D-042(e)(2): no practitioner particular is relayed or cached | made `strip_practitioners` a no-op | **RED** ×2 — `test_insolvency_strip_practitioners_removes_the_key_and_nothing_else`, `test_fetch_insolvency_never_writes_a_practitioner_to_the_cache` |
 
-**19 mutations, 15 caught, 4 not.** Every mutation was reverted and the export re-verified byte-identical
+**23 mutations, 19 caught, 4 not.** Every mutation was reverted and the export re-verified byte-identical
 to `HEAD` afterwards (`diff` against `git show HEAD:<path>` on every touched file); the suite is back at
 1030 passed. The four misses are findings 2, 3 and 4.
 
