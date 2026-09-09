@@ -1450,15 +1450,24 @@ def test_se_and_no_declare_filings_and_nothing_else() -> None:
     silence, so this test's name stays literally true for Sweden only; it is
     kept, not renamed, because "filings and nothing else" is still exactly
     Sweden's story and half of Norway's.
+
+    **Norway also declares `peppol`** (D-029(b), D-046, T43): Peppol
+    e-invoicing network reachability, from a second organisation entirely
+    (Digdir, not Brønnøysundregistrene) — see `tests/test_no_peppol.py` for
+    the attachment's own tests. Sweden does not and cannot: D-046(h) is a
+    different reason from the `financials` one above — Sweden's identifier
+    can be a sole trader's personnummer, and the SMP GET this attachment
+    makes puts the identifier in a URL path to a third-party host.
     """
     se_registry = get_registry("SE")
     assert se_registry.supported_includes == frozenset({"filings"})
     assert callable(getattr(se_registry, "filings", None))
 
     no_registry = get_registry("NO")
-    assert no_registry.supported_includes == frozenset({"filings", "financials"})
+    assert no_registry.supported_includes == frozenset({"filings", "financials", "peppol"})
     assert callable(getattr(no_registry, "filings", None))
     assert callable(getattr(no_registry, "financials", None))
+    assert callable(getattr(no_registry, "peppol", None))
 
 
 # --- Live done-check --------------------------------------------------------

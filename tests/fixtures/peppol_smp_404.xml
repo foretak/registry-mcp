@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+timestamp : 2026-09-09T08:42:27.623
+
+status : 404
+
+error : Not Found
+
+exception : network.oxalis.vefa.peppol.publisher.lang.NotFoundException
+
+message : Could not find participant 'iso6523-actorid-upis::0192:999999999'
+
+path : /iso6523-actorid-upis%3A%3A0192%3A999999999
+-->

@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "total-result-count": 1,
+  "used-result-count": 1,
+  "result-page-index": 0,
+  "result-page-count": 20,
+  "first-result-index": 0,
+  "last-result-index": 0,
+  "query-terms": "participant=iso6523-actorid-upis::0192:923609016",
+  "creation-dt": "2026-09-09T06:42:41.837143677Z",
+  "matches": [
+    {
+      "participantID": {
+        "scheme": "iso6523-actorid-upis",
+        "value": "0192:923609016"
+      },
+      "docTypes": [
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderResponse-2::OrderResponse##urn:fdc:peppol.eu:poacc:trns:order_response_advanced:3::2.3"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderResponse-2::OrderResponse##urn:fdc:peppol.eu:poacc:trns:order_response:3:extended:urn:fdc:anskaffelser.no:2019:ehf:spec:3.0::2.2"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:DespatchAdvice-2::DespatchAdvice##urn:fdc:peppol.eu:poacc:trns:despatch_advice:3::2.1"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderCancellation-2::OrderCancellation##urn:fdc:anskaffelser.no:2019:ehf:spec:adv-order-cancellation:3.0::2.2"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderChange-2::OrderChange##urn:fdc:anskaffelser.no:2019:ehf:spec:adv-order-change:3.0::2.2"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2::CreditNote##urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0::2.1"
+        },
+        {
+          "scheme": "peppol-doctype-wildcard",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2::CreditNote##urn:peppol:pint:billing-1::2.1"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderResponse-2::OrderResponse##urn:fdc:peppol.eu:poacc:trns:order_agreement:3:extended:urn:fdc:anskaffelser.no:2019:ehf:spec:3.0::2.2"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderResponse-2::OrderResponse##urn:fdc:peppol.eu:poacc:trns:order_response:3::2.1"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0::2.1"
+        },
+        {
+          "scheme": "busdox-docid-qns",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:OrderResponse-2::OrderResponse##urn:fdc:peppol.eu:poacc:trns:order_agreement:3::2.1"
+        },
+        {
+          "scheme": "peppol-doctype-wildcard",
+          "value": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##urn:peppol:pint:billing-1::2.1"
+        }
+      ],
+      "entities": [
+        {
+          "name": [
+            {
+              "name": "EQUINOR ASA"
+            }
+          ],
+          "countryCode": "NO",
+          "websites": [
+            "www.equinor.com"
+          ],
+          "regDate": "2019-03-18"
+        }
+      ]
+    }
+  ]
+}

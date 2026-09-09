@@ -1,0 +1,13 @@
+{
+  "_comment": "The SML U-NAPTR answer for Equinor ASA (0192:923609016) — the ELMA case (42 of 43 sampled Norwegian participants). Fetched live and keyless: first recorded in tasks/T48-recon.md (Fact 1) on 2026-09-08T21:05Z, and independently re-confirmed by the orchestrator on 2026-09-09 at 06:20Z with dnspython 2.8 through this machine's own system resolver in 0.2s. Not re-fetched by this task (T43) — reused verbatim per its own instruction to prefer the recon's recorded evidence. `smp_base_url` is the substring between the second and third '!' of `regexp`.",
+  "query": "XQK4T3FMTEZDUY5BOVJMTNAQ45N7E4TIBYHWFPGOT75BSP7UYG2A.iso6523-actorid-upis.participant.sml.prod.tech.peppol.org",
+  "type": "NAPTR",
+  "ttl": 60,
+  "order": 100,
+  "preference": 10,
+  "flags": "U",
+  "service": "Meta:SMP",
+  "regexp": "!.*!https://smp.elma-smp.no/!",
+  "replacement": ".",
+  "smp_base_url": "https://smp.elma-smp.no/"
+}

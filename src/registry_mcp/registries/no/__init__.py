@@ -24,6 +24,7 @@ from registry_mcp.core.models import (
     Deadline,
     FilingHistory,
     FinancialSummary,
+    PeppolParticipant,
     SearchResult,
 )
 from registry_mcp.core.registry import Registry, register
@@ -35,7 +36,7 @@ class BrregRegistry(Registry):
     """The Norwegian Central Coordinating Register for Legal Entities."""
 
     country: ClassVar[str] = "NO"
-    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings", "financials"})
+    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings", "financials", "peppol"})
     registry: ClassVar[str] = "brreg"
     name: ClassVar[str] = "Enhetsregisteret (Brønnøysundregistrene)"
     id_scheme: ClassVar[str] = "organisasjonsnummer"
@@ -134,6 +135,51 @@ class BrregRegistry(Registry):
 
         return await client.fetch_financials(id)
 
+    async def peppol(self, id: str) -> PeppolParticipant:
+        """Whether this entity can be reached over the Peppol e-invoicing
+        network (``registries/no/peppol.py``).
+
+        The ``include=["peppol"]`` attachment (``DECISIONS.md`` D-029(b),
+        amended by D-046): :meth:`Registry.lookup_with` calls this by name,
+        so it must stay named exactly ``peppol``, matching both
+        :attr:`supported_includes` and :class:`~registry_mcp.core.models.
+        CompanyReport`'s ``peppol`` field (D-042(b),(g)).
+
+        **This is Norway's own declaration, not a**
+        :attr:`Registry.universal_includes` **attachment** — unlike ``lei``,
+        which every non-personal-identifier country gets for free from the
+        base class. D-046(h) gives three reasons none of which generalise
+        yet: the participant identifier needs a country's own ISO 6523 ICD
+        (``0192`` is Norway's), the answer's provenance is a *different SMP
+        per participant* rather than one endpoint GLEIF-style, and the
+        licence sentence this block carries was earned by reading a
+        Norwegian catalogue page. A future country that has read its own ICD
+        and terms declares this the same way, independently.
+
+        Two network reads behind one answer: a DNS walk through the Peppol
+        SML locates the SMP that speaks for this participant (never ELMA
+        assumed — the SML names a different SMP for a measured 1-in-43
+        Norwegian participants), then that SMP is asked directly; the Peppol
+        Directory is consulted only as a repair when neither step above
+        produced an answer, and only ever raises a ``null`` to a ``true``,
+        never to a ``false`` (D-046(a)). ``PeppolParticipant.registered`` is
+        always populated as one of three states and
+        ``PeppolParticipant.participant_id`` is always populated even when
+        every network read failed, because that identifier is derivable
+        offline and is the key a caller needs to ask elsewhere (D-029(c)).
+
+        A failed fetch raises only when *both* routes failed outright, with
+        nothing at all to build even a ``null`` block from;
+        :meth:`Registry.lookup_with` turns that into an absent block plus one
+        ``notes`` sentence on the report, the same as any other attachment
+        (D-042(b)). The far more common "we could not get an authoritative
+        answer" case is not this: it is a **present** block with
+        ``registered: null``.
+        """
+        from registry_mcp.registries.no import peppol as peppol_module
+
+        return await peppol_module.fetch_peppol(id)
+
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """Norwegian filing deadlines for this entity (``registries/no/rules.py``, T02)."""
         from registry_mcp.registries.no import rules
@@ -149,17 +195,23 @@ class BrregRegistry(Registry):
         return result
 
     async def aclose(self) -> None:
-        """Close the shared ``httpx.AsyncClient`` (``registries/no/client.py``, T03).
+        """Close the shared ``httpx.AsyncClient``\\ s (``registries/no/client.py``,
+        T03; ``registries/no/peppol.py``, this task).
 
         Overrides the ``Registry`` no-op (``DECISIONS.md`` D-014): this module
-        keeps one module-level client across every request, so something has
-        to close it on shutdown or the sockets leak. Delegates to
-        ``client.aclose()`` in the same lazy-import style as the other
-        delegates above.
+        keeps one module-level client per upstream family across every
+        request, so something has to close each on shutdown or the sockets
+        leak. ``registries/no/peppol.py`` owns its own client, separate from
+        ``client.py``'s — it talks to a different SMP host per participant
+        plus the Peppol Directory, never Enhetsregisteret/Regnskapsregisteret
+        — so it needs its own close call here too, in the same lazy-import
+        style as the other delegates above.
         """
         from registry_mcp.registries.no import client
+        from registry_mcp.registries.no import peppol as peppol_module
 
         await client.aclose()
+        await peppol_module.aclose()
 
     def rules_markdown(self) -> str:
         """Served as the MCP resource ``registry://rules/NO``. Filled in by T02."""
