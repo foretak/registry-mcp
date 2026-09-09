@@ -1798,7 +1798,16 @@ def test_d047_f3_extractor_element_filter_is_static_and_nonnumeric_never_leaks()
     `ix:nonNumeric` "signature block" — three facts, each carrying the
     obviously-fake token below — verifying the filter holds even when the
     element it must ignore is genuinely present with content, not merely
-    absent from the fixture."""
+    absent from the fixture.
+
+    This runtime half cannot actually catch a breach of the filter: an
+    `ix:nonNumeric` element carries no `@format`, so even if `ixbrl.py`'s
+    filter were loosened to admit it, `_parse_number` would drop the
+    resulting fact silently for lacking a recognised `@format` — the token
+    would still not appear in the output, for the wrong reason. The static
+    assertion above (`"nonFraction" in compared_literals` and `"nonNumeric"
+    not in compared_literals`) is the whole guard; this runtime check is
+    corroborating, not load-bearing (REVIEW.md T58, finding 5)."""
     source = (SE_SRC / "ixbrl.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     compared_literals: set[str] = set()
