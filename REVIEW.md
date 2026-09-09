@@ -2071,7 +2071,46 @@ with `uv sync --locked --all-extras`.
   1 warning** — exactly the count `db20fd5`/T46b claims. `uv run mypy .` → clean, **77 source files**.
   `uv run ruff check .` → clean. **CI is green at HEAD.**
 
-### Mutation results (partial — the battery is still running)
+### Checklist
+
+| # | Claim under test | Method | Result |
+|---|---|---|---|
+| 1 | 1030 tests pass at committed HEAD | pristine `git archive` export + `uv sync --locked --all-extras` | **PASS** — 1030 passed, 26 deselected |
+| 2 | `mypy .` clean (77 files), `ruff check .` clean | executed on the export | **PASS** |
+| 3 | The seven attachments answer on both surfaces, filled | 12 country×include cases through the real REST app and an in-process MCP client | **PASS** |
+| 4 | REST ≡ MCP for every one | field-for-field comparison of each block | **PASS** |
+| 5 | Each `bad_request` names the right allowed set | 9 non-declaring combinations, both surfaces | **PASS** |
+| 6 | Each failed fetch leaves the block absent with a `notes` sentence | 500 injected on each attachment's own upstream | **PASS** ×8 |
+| 7 | Present-and-empty is a real answer, not an absence | GB `filing-history-available` + 0 items; SE empty `dokumentlista` | **PASS** |
+| 8 | D-043(h): `filings`+`financials` on NO cost one request, one `SourceRef` | mutation M1 | **PASS** |
+| 9 | D-045(e): `lei` absent for SE; `effective_includes` everywhere | mutation M2 + the 9 `bad_request` hints | **PASS** |
+| 10 | D-047(a): `lei`+`parents` share one GLEIF search | mutation M3 | **PASS** |
+| 11 | D-046: the SMP host comes from the NAPTR | mutation M4 (hardcoded ELMA) | **PASS** — the Conta fixture makes the hardcode fail |
+| 12 | D-046: `false` only on NXDOMAIN / SMP 404 | mutation M5 | **PASS** |
+| 13 | D-046: `null` is never cached | mutation M6 | **PASS** |
+| 14 | D-045(a): the three charge flags are never `False` | mutation M7 | **PASS** |
+| 15 | D-044(b): the scope note is first on every `filings` block, all three countries | mutations M8a–M8d | **PARTIAL** — SE and GB pinned; **NO not pinned at all**, finding 3 |
+| 16 | D-047(f): `/dokumentlista` shared in flight with `filings` | mutation M9 | **PASS** |
+| 17 | D-047(f): exactly one `/dokument` per lookup | mutation M10 | **PASS** |
+| 18 | D-047(g): the element filter admits `ix:nonFraction` only | mutation M11 + a direct runtime check | **PASS with a caveat** — finding 5 |
+| 19 | D-047(g): `Soliditet` never read | mutation M18 | **PASS** |
+| 20 | D-043(d): `currency` from the unit, never from a concept | mutations M12a / M12b | **PARTIAL** — "never from a concept" is pinned; "from the unit or not at all" is not, finding 4 |
+| 21 | D-047(g): `liabilities` and `total_comprehensive_income` are `None` unconditionally | mutation M13 | **FAIL** — finding 2 |
+| 22 | D-047(f): figures cached on `dokumentId`; the document never stored | mutations M14, M15 | **PASS** |
+| 23 | D-042(e)(2): no practitioner particular relayed or cached | mutation M19 | **PASS** |
+| 24 | D-042(e)(1): `description_values` allow-list is one key with one reader | grep + read | **PASS** |
+| 25 | D-028/D-040: no natural person's name or real personnummer in any committed Swedish fixture | read every `bv_*.json` and `se_ixbrl_*.xhtml` | **PASS** |
+| 26 | The T31a sentence is gone from every shipped surface | `grep -rn "does not publish the financial year" src/ static/ README.md content/ legal/ mcpb/ plugins/ packages/` | **PASS** — hits only in `tasks/`, `DECISIONS.md`, `PROGRESS.md`, the CHANGELOG's own *Fixed* line and the test that asserts its absence |
+| 27 | The privacy policy and terms name three countries and carry no "Draft" | read `legal/*.md` at HEAD | **PASS at HEAD**, **FAIL on the wire** — see the deploy delta |
+| 28 | `_INCLUDE_DESCRIPTION`, both docstrings, `instructions`, README, `llms-full.txt`, the card: every claimed capability exists | rendered each and checked every clause against the code | **FAIL** — finding 1 (five surfaces) |
+| 29 | Every manifest at 0.4.0, `uv.lock` included | grep across 13 manifests + `uv.lock:1560` | **PASS** — except `README.md:63`, finding 6 |
+| 30 | `dnspython`'s licence is recorded where a distributor can find it | grep | **PASS** — `CHANGELOG.md:160`, *"`dnspython>=2.7` (ISC licence) is a new runtime dependency"*; the licence is also derivable from `uv.lock`'s pin |
+| 31 | Description B names exactly what 0.4.0 serves, within the cap | re-derived by substituting B's sentence into A | **PASS** — A 1,837 and B **1,992** characters, exactly as claimed; the seven attachments and their countries are correct |
+| 32 | `[Unreleased]` covers every wire-visible change since `v0.3.0` | 52 wire-touching commits vs the section's 31 cited shas + prose | **PASS** — see the deploy-delta note |
+| 33 | S-series findings 4, 5, 6, 9, 10 are closed | grep + read | **PASS** — all five |
+| 34 | The card matches the live server | `test_server_card_*` ×2 + `scripts/regen_server_card.py` run mentally over the card | **PARTIAL** — tools and prompts match; `resources` does not, finding 7 |
+
+### Mutation results
 
 | # | Claim under test | Mutation | Test that went red |
 |---|---|---|---|
@@ -2095,6 +2134,13 @@ with `uv sync --locked --all-extras`.
 | M14 | D-047(f): the figures are cached on `dokumentId`, not the company | keyed `_financials_cache_key` on the organisationsnummer | **RED** — `test_d047_f12_cached_payload_carries_no_document_and_no_nonnumeric` |
 | M15 | D-047(f): the document itself is never stored | wrote the XHTML into the cache payload | **RED** — `test_d047_f12_cached_payload_carries_no_document_and_no_nonnumeric` |
 | M16 | T46b: `/health` and the card are pinned to `pyproject.toml` | `__version__` → `9.9.9` | **RED** ×2 — `test_version_matches_pyproject`, `test_well_known_server_card_version_matches_package` |
+| M17 | D-042(j): the truncation note states how many reports the list held | `total=total_annual_reports` → `total=1` | **RED** — `test_d047_f9_exactly_one_dokument_request_for_six_listed_reports` |
+| M18 | D-047(g): `Soliditet` is never read | added `Soliditet` to the balance-sheet concept table | **RED** — `test_d047_f4_soliditet_never_read_as_a_lookup_key` |
+| M19 | D-042(e)(2): no practitioner particular is relayed or cached | made `strip_practitioners` a no-op | **RED** ×2 — `test_insolvency_strip_practitioners_removes_the_key_and_nothing_else`, `test_fetch_insolvency_never_writes_a_practitioner_to_the_cache` |
+
+**19 mutations, 15 caught, 4 not.** Every mutation was reverted and the export re-verified byte-identical
+to `HEAD` afterwards (`diff` against `git show HEAD:<path>` on every touched file); the suite is back at
+1030 passed. The four misses are findings 2, 3 and 4.
 
 ### The seven attachments end to end, both surfaces
 
