@@ -785,6 +785,92 @@ one an agent cannot satisfy**: *"A documented lawful basis, written before the f
 
 ---
 
+## 7.11 Three answers this round, and what they leave for you (T56)
+
+T56 went to list the hosted server on `punkpeye/awesome-remote-mcp-servers` and, along the way,
+closed out three open threads: one bot question only you can answer, one editor's reply, and one
+directory pointer that turned into a real blocker on the new PR. `SUBMISSIONS.md` §7, §13 and §14
+carry the full record; this is the short version with exactly what to do.
+
+### (a) The awesome-mcp-servers Discord question — yours, not ours
+
+PR #13631 (the merged UK+Norway entry, `SUBMISSIONS.md` §7) got its post-merge bot comment:
+
+> "Are you in the MCP [Discord](https://glama.ai/mcp/discord)? Let me know your Discord username and
+> I will give you a **server-author** flair."
+
+**Standing rule: agents do not post to Discord, forums, social media or e-mail — this one is yours.**
+Nothing breaks if it goes unanswered; it only costs a flair badge on the PR thread.
+
+- [ ] If you want the flair: reply on <https://github.com/punkpeye/awesome-mcp-servers/pull/13631>
+      with your Discord username. Otherwise, ignore it — no downstream task depends on this.
+
+### (b) kode24 — declined; a rewrite is your call, not an agent's
+
+The pitch (`FEEDBACK.md`'s outbound log, `HUMAN_TODO.md` §6): sent 2026-09-05 from your Gmail to
+`ole@kode24.no` (cc `hei@kode24.no`), the VAT article inline. **The editor replied 2026-09-08:
+declined** — the piece read "more like documentation for a tool than a reader's post." No
+counter-offer.
+
+- [ ] **Decide whether it's worth a second pitch.** The editor's own words are the brief for one: a
+      reader's-problem-first opinion piece, not a product writeup — lead with what a Norwegian
+      business owner or developer actually ran into, and let the tool show up as how it got solved,
+      not as the subject.
+- [ ] **If you want that rewrite, it needs to come from you (or with your explicit steer on the
+      angle) — not a blind second draft from an agent.** The four other article drafts in
+      `content/` (`01-vat-check` through `07-company-number-is-a-person`) are raw material, not a
+      finished pitch; none of them is written in reader-first voice yet.
+- [ ] Otherwise: leave it declined. Nothing else depends on kode24.
+
+### (c) Glama connectors — list us there, then two things get unstuck
+
+Two separate Glama products, easy to conflate:
+
+- **`glama.ai/mcp/servers`** — where `foretak/registry-mcp` already lives, claimed, 0.2.0, badge
+  live (`SUBMISSIONS.md` §3). **This is stale and also needs your attention — see step 3 below.**
+- **`glama.ai/mcp/connectors`** — a separate product for **hosted** endpoints, and we are not
+  listed there at all yet (`SUBMISSIONS.md` §14). Two different bot comments pointed at it
+  independently: the original Glama check on PR #13631 ("if your server already has a hosted
+  endpoint, you can also list it under https://glama.ai/mcp/connectors") and now
+  `awesome-remote-mcp-servers`'s own CI on PR #146, which **requires** the badge this listing
+  produces and will not merge without it (`SUBMISSIONS.md` §13).
+
+**Do this:**
+
+- [ ] **1. Sign in to Glama** (<https://glama.ai>, GitHub OAuth — the same login family as the
+      existing servers claim in §3, but confirm which account: see the namespace note below).
+- [ ] **2. Add a connector** for `https://api.foretak.dev/mcp` — **Streamable HTTP, no
+      authentication**. That's the whole form; no key, no other field the way §3's servers listing
+      needed a Dockerfile.
+- [ ] **3. While you're there, also refresh the stale servers listing** (`SUBMISSIONS.md` §3): it
+      still shows **0.2.0** and a Norway+UK-only description as of the last check, three versions
+      and a whole country behind production (0.3.0, GB+NO+SE). Same admin/claim mechanism, different
+      page — <https://glama.ai/mcp/servers/foretak/registry-mcp/admin>, re-run the claim/re-scan
+      flow. Two separate fixes, one sitting.
+- [ ] **4. Note exactly what Glama assigns as the namespace and name** — the badge URL is
+      `glama.ai/mcp/connectors/NAMESPACE/NAME/badges/score.svg`. **Don't assume which pattern it
+      is; write down what the page actually shows.** Two things could plausibly happen, and the
+      three services this project already uses don't agree with each other: Glama's *servers*
+      listing keys on the GitHub owner/repo (`foretak/registry-mcp`, §3), while Smithery's listing
+      is keyed to the personal account instead (`fargerod/registry-mcp`). But looking at how
+      *other* entries in `awesome-remote-mcp-servers`' own README are actually slugged
+      (`io.tseha/tseha`, `dev.fruitstand/fund-returns`, `com.aave.mcp/aave`, `ai.stackeasy/credit-cards`),
+      the namespace looks like it's a **reverse-DNS of the connector's own domain**
+      (`api.foretak.dev`), not of either GitHub identity — which would land somewhere like
+      `dev.foretak/<slug>`, slug probably `registry-mcp` or `company-check`. This is a pattern read
+      from examples, not documentation; nothing here is confirmed. Whatever the form actually
+      assigns, write down the real `NAMESPACE/NAME` pair.
+- [ ] **5. Tell the orchestrator once it's listed**, with the namespace/name from step 4. The
+      follow-up is a one-line commit — adding
+      `[![Company Check MCP connector](https://glama.ai/mcp/connectors/NAMESPACE/NAME/badges/score.svg)](https://glama.ai/mcp/connectors/NAMESPACE/NAME)`
+      as the second line of the `Company Check` entry — pushed to branch `add-company-check` on the
+      `foretak/awesome-remote-mcp-servers` fork, which is what PR **#146**
+      (<https://github.com/punkpeye/awesome-remote-mcp-servers/pull/146>) is already open against.
+      No new PR needed; that one just needs the extra line and its `missing-connector` label clears
+      on its own once CI re-runs.
+
+---
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in

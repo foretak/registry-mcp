@@ -22,12 +22,14 @@ corrections appended rather than erased):
 | 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1. Re-confirmed 2026-09-07, identical wording. |
 | 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending, unchanged, and stale** — chatmcp/mcpso#3927, no reply after 3 days; issue text is still Norway-only. Backing repo looks largely inactive (3,170 open issues, code not pushed since 2025-03-26) — see the judgement-call note in [§5](#5-mcpso) on why this was flagged rather than edited. |
 | 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** (per the 2026-09-05 "already listed" resubmission answer) — auto-indexed as https://mcpmarket.com/server/registry-10. Still unverifiable directly: 429 on every attempt again 2026-09-07. |
-| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **UK+Norway entry MERGED** 2026-09-07T13:14:35Z (PR [#13631](https://github.com/punkpeye/awesome-mcp-servers/pull/13631), live in `README.md` today, badge renders). Sweden follow-up **PR [#13893](https://github.com/punkpeye/awesome-mcp-servers/pull/13893) already open**, correctly scoped (single-line diff, badge/emoji/position unchanged) — **not duplicated**, per instructions. Two bot comments on it are false positives, already rebutted; just needs a maintainer. |
+| 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **UK+Norway entry MERGED** 2026-09-07T13:14:35Z (PR [#13631](https://github.com/punkpeye/awesome-mcp-servers/pull/13631), live in `README.md` today, badge renders) — **the local/stdio listing; it stands unchanged.** Sweden follow-up **PR [#13893](https://github.com/punkpeye/awesome-mcp-servers/pull/13893) closed by the maintainer 2026-09-08** (not merged, not by us) — hosted/remote servers belong on a sister list instead; see [§13](#13-awesome-remote-mcp-servers--punkpeye). |
 | 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo still archived (re-checked 2026-09-07: `archived: true`, last push 2026-05-06). |
 | 9 | [mcpservers.org (wong2's list)](#9-mcpserversorg--wong2s-awesome-mcp-servers) | — | No login; web form | **LIVE — approved 2026-09-05 22:02Z** (https://mcpservers.org/servers/foretak/registry-mcp; badge offered; approval mail to hello@foretak.dev). **Freshness unverified 2026-09-07** — the page now sits behind a Cloudflare bot challenge for automated fetches (curl and WebFetch both got the "Just a moment…" interstitial, not the real page). Needs a human with a real browser; no PR path and no documented API either way. |
 | 10 | [Cline MCP Marketplace](#10-cline-mcp-marketplace-bonus) | 400×400 PNG icon (**now present**) | **Yes** — GitHub | **Icon blocker cleared** (`static/icon.png`, confirmed 400×400 PNG, shipped 2026-09-05). Still blocked on Cline's own requirement to *confirm you tested* a README-only install in Cline — no Cline runtime available to an agent here, and claiming a test that didn't happen would break the "keep it factual" rule. Ready block in [§10](#10-cline-mcp-marketplace-bonus). |
 | 11 | [Anthropic Connectors Directory](#11-anthropic-connectors-directory) | `content/anthropic-connectors-submission.md` (every portal field pre-filled) | **Yes** — Claude.ai **Team/Enterprise** org (not yet bought) | **PENDING — package ready 2026-09-09 (T50), Kim submits.** The only surface in the ecosystem that proactively suggests a connector to a user who never went looking (Suggested Connectors; same catalog serves Claude.ai, Cowork, Desktop, mobile **and Claude Code**). Peers in this exact category are listed — Pappers, Firmenbuch, D&B — and **no Nordic or UK register is**. Blockers: Team plan ≈$50/mo (Kim's purchase), and **the served privacy policy is stale** (says NO+UK, Sweden live since 09-07) which is an *immediate-rejection* criterion — fix `legal/privacy.md` first. Ranking is usage-based, so book this as a position, not traffic. `HUMAN_TODO.md` §7.9. |
 | 12 | [Claude plugin directory](#12-claude-plugin-directory) | `plugins/registry-mcp/` (rebuilt as a job by T50) + `.claude-plugin/marketplace.json` | **Yes** — individual **Console** login (free) | **PENDING — plugin ready 2026-09-09 (T50), Kim submits.** Free, no Team plan needed, ~5 minutes at <https://platform.claude.com/plugins/submit>; takes a public GitHub link. Plugin is no longer a bare `.mcp.json`: skill + `/check-supplier` + `/filing-deadlines` + `/enrich-company-list`; `claude plugin validate --strict` passes on all four targets. Expect the **community** marketplace, which users add by hand — a catalog, not a channel. `HUMAN_TODO.md` §7.9. |
+| 13 | [awesome-remote-mcp-servers (punkpeye)](#13-awesome-remote-mcp-servers--punkpeye) | — | **Yes** — GitHub (star + fork + PR) | **Open, blocked on the Glama connector badge (Kim).** PR [#146](https://github.com/punkpeye/awesome-remote-mcp-servers/pull/146), opened 2026-09-09 — `Company Check` in Finance. CI's own checks: `endpoint-ok` (the live MCP `initialize` handshake passed), **`missing-connector`** (this list requires a Glama *connector* badge — a different product from §3 — and we don't have one yet; see [§14](#14-glama-connectors)). Steps for Kim in `HUMAN_TODO.md` §7.11(c); once the connector exists, pushing the badge line to branch `add-company-check` on the `foretak/awesome-remote-mcp-servers` fork is a one-commit follow-up. |
+| 14 | [Glama connectors](#14-glama-connectors) | — | **Yes** — GitHub OAuth, Glama's claim flow | **PENDING — not yet listed, not yet attempted.** Surfaced by §13's bot, not chased before that. A separate product from §3's `glama.ai/mcp/servers` listing (itself still stale at 0.2.0 — unchanged from the last check). Kim's admin page. `HUMAN_TODO.md` §7.11(c). |
 | — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Topics done** — 20/20 slots, re-verified 2026-09-07 (includes `bolagsverket`, `sweden`, `united-kingdom`). The repo **description** this section tells you to set was still the Norway-only sentence verbatim from this file — fixed 2026-09-07 via `gh repo edit`; this file's own suggested command below is now updated to match so nobody re-pastes the stale one. |
 
 **Order matters.** Do #1 first: PulseMCP ingests from it automatically, and
@@ -1046,6 +1048,121 @@ and likely accepted, so do it; do not book it as distribution.
 
 ---
 
+## 13. awesome-remote-mcp-servers — punkpeye
+
+- **Repo:** <https://github.com/punkpeye/awesome-remote-mcp-servers> — punkpeye's sister list to §7,
+  **hosted/remote servers only** (§7's `awesome-mcp-servers` is local/stdio; its own README says so:
+  *"Looking for servers you run yourself? See awesome-mcp-servers."*).
+- **Rules:** its own `CONTRIBUTING.md`, a different format from §7 — one entry is three lines (name
+  linked to the **homepage**, not the repo, plus the endpoint in backticks; a required Glama
+  *connector* badge on line two; an auth marker + one-sentence description on line three); starring
+  the repo is a stated precondition for merge; CI (`.github/workflows/check-submission.yml`) probes
+  the endpoint with a real MCP `initialize` request and checks the badge slug resolves on Glama.
+- **Process:** star → fork → branch → edit `README.md` → PR.
+- **Status:** PR opened 2026-09-09 — <https://github.com/punkpeye/awesome-remote-mcp-servers/pull/146>
+  — **open, blocked on the Glama connector badge (Kim).** CI ran automatically and labelled it
+  `endpoint-ok` (the live handshake against `https://api.foretak.dev/mcp` passed) and
+  **`missing-connector`**, with an automated comment quoting the rule verbatim: *"PRs without a badge
+  are not merged... List your server at glama.ai/mcp/connectors."* Starred
+  `punkpeye/awesome-remote-mcp-servers` from `fargerod-dotcom` first, as required. Fork:
+  `foretak/awesome-remote-mcp-servers`, branch `add-company-check` — the exact steps Kim needs are in
+  `HUMAN_TODO.md` §7.11(c); once the connector exists, tell the orchestrator so the badge line can be
+  pushed to that branch.
+
+### Why this PR exists
+
+`awesome-mcp-servers` PR #13893 — the Sweden edit to §7's merged entry — was **closed by the
+maintainer 2026-09-08**: remote/hosted servers now belong on this sister list instead, per that
+list's own scope. §7's original entry (#13631, merged, UK+Norway, since generalised in prose) is
+unaffected and correctly stands — it lists the **local/stdio** install (`uvx registry-mcp`), still in
+scope there. This PR is the hosted equivalent: `https://api.foretak.dev/mcp`, Streamable HTTP, no
+auth — a different capability, not a duplicate.
+
+### Category and entry
+
+**Finance** — no existing company-registry entry in the list (checked the full README). Alphabetical
+position: between `AlphaPipeline` and `Fruit Stand`.
+
+```markdown
+- [Company Check](https://api.foretak.dev) `https://api.foretak.dev/mcp`
+  🔓 - Look up a company at the UK's Companies House, Norway's Brønnøysundregistrene or Sweden's Bolagsverket, with what it has filed, plus UK charges and insolvency records.
+```
+
+Names only what is **live on production today** (`PROGRESS.md`'s Deploy row, checked 2026-09-09):
+`filings` for all three countries, `charges` and `insolvency` for the UK only. `financials`, `lei`
+and the rest are merged on `main` but not deployed — not mentioned, per the hard rule against listing
+undeployed capability.
+
+**Name field kept short** (`Company Check`, not T50's full cross-surface name from §4/§11) — every
+other multi-word entry in this list does the same and carries the fuller description in the sentence
+below, not the name. Checked against `Evlek` (PR #111): the PR *title* used the long descriptive
+form, but the merged README entry's Name field is just `Evlek`. The list's `CONTRIBUTING.md` states
+no character cap on the name either way; this follows actual practice over the letter of a silent
+rule, and keeps the door open to using the full cross-surface name later if that reading turns out
+wrong — it is a one-word diff.
+
+### The Glama-connector-badge blocker
+
+This list's `CONTRIBUTING.md` is explicit, and its CI enforces it, not just documents it: *"The badge
+is required. PRs that add an entry without one are not merged."* `glama.ai/mcp/connectors` is a
+**different Glama product** from §3's `glama.ai/mcp/servers` (where `foretak/registry-mcp` already
+carries a score badge) — checked live 2026-09-09 by fetching `glama.ai/mcp/connectors`, no
+`foretak`/`registry-mcp`/`Company Check` entry exists there. Getting listed needs a human on Glama's
+own claim flow — [§14](#14-glama-connectors). Once it exists, the follow-up here is one commit: add
+
+```markdown
+[![Company Check MCP connector](https://glama.ai/mcp/connectors/NAMESPACE/NAME/badges/score.svg)](https://glama.ai/mcp/connectors/NAMESPACE/NAME)
+```
+
+as the entry's second line, on `add-company-check` (branch already pushed to the `foretak` fork) or
+against PR #146 directly.
+
+**Needs a human login: yes** — GitHub (star + fork + PR, done, `fargerod-dotcom`); a maintainer still
+merges once the badge lands, same as §7.
+
+---
+
+## 14. Glama connectors
+
+**Status 2026-09-09: PENDING — not yet listed, not yet attempted.** Surfaced by
+[§13](#13-awesome-remote-mcp-servers--punkpeye)'s bot comment, not chased before that; not part of
+T56's brief beyond recording it here and in `HUMAN_TODO.md` as a pending row, per instructions.
+
+`https://glama.ai/mcp/connectors` is a distinct Glama product from the server directory in §3
+(`https://glama.ai/mcp/servers`, where `foretak/registry-mcp` is live and claimed but **still shows
+0.2.0** as of the last check — its own refresh is a separate open item, unrelated to this one, see
+§3). Connectors carry their own score badge
+(`glama.ai/mcp/connectors/NAMESPACE/NAME/badges/score.svg`) under a reverse-DNS `NAMESPACE/NAME`
+slug, and at least one directory found so far (`awesome-remote-mcp-servers`, §13) treats that badge
+as a hard, CI-enforced requirement — worth assuming other hosted-server directories do too, and
+checking each one's rules before relying on this being optional.
+
+No documented API was found for this product (same gap §3 already recorded for the servers
+directory, and did not re-check here). Listing it is very likely the same admin-page, GitHub-OAuth
+claim flow as §3, on the connectors side of the site rather than the servers side — **unconfirmed**,
+needs a human browser session to actually open the page and do it.
+
+**Needs a human login: yes** — GitHub OAuth, Glama's claim flow (a browser session, not something a
+fetch tool can complete). `HUMAN_TODO.md` §7.11(c).
+
+---
+
+## Press pitch — kode24 (outbound record, not a directory)
+
+Not a listing target — everything else in this file is. Kept here anyway because T56 was asked to
+record it alongside §13/§14, and because `SUBMISSIONS.md` is where every outbound submission's
+*outcome* lands regardless of channel. The pitch itself and the rest of the outbound trail are
+`FEEDBACK.md`'s log and `HUMAN_TODO.md` §6.
+
+**Status 2026-09-08: declined.** Pitch sent 2026-09-05 (Kim, from `fargerod@gmail.com`, to
+`ole@kode24.no` cc `hei@kode24.no`, the VAT article inline, 677 words). The editor's reply,
+2026-09-08: the piece read **"more like documentation for a tool than a reader's post."** No
+counter-offer attached. A rewrite in an opinion-piece voice — the reader's problem stated first, the
+tool second, not the reverse — is a real option, but it is an editorial call only Kim can make; an
+agent should not draft a second pitch on spec. `HUMAN_TODO.md` §7.11(b).
+
+---
+
 ## What changed since the build plan
 
 Two of the build plan's assumptions (§3.3) are out of date. Both were verified
@@ -1071,7 +1188,7 @@ One thing the build plan did not know about at all:
 |---|---|
 | **PyPI** (+ API token) | Prerequisite: publish `registry-mcp` and `brreg-mcp` — **done, 0.3.0, all four package targets live** (2026-09-07) |
 | **npm** (`npm login`) | Prerequisite: publish `registry-mcp` and `brreg-mcp` — **done**, same release |
-| **GitHub**, member of the `foretak` org | #1 (`mcp-publisher login github`, **done, 0.3.0 live**), #3 (claim, **done**; a re-scan to pick up 0.3.0 is what's still open — see §3's ready block), #5 (issue filed and open; the *update* comment in §5 is a judgement call recorded there, not executed), #7 (**#13631 merged**; #13893 open, no action needed beyond waiting), #8 (skip, archived), #10 (issue **not yet filed** — needs the Cline install test first, see §10's ready block), topics (**done, 20/20**), labels, seeded issues |
+| **GitHub**, member of the `foretak` org | #1 (`mcp-publisher login github`, **done, 0.3.0 live**), #3 (claim, **done**; a re-scan to pick up 0.3.0 is what's still open — see §3's ready block), #5 (issue filed and open; the *update* comment in §5 is a judgement call recorded there, not executed), #7 (**#13631 merged**; #13893 closed by the maintainer 2026-09-08, see §13), #8 (skip, archived), #10 (issue **not yet filed** — needs the Cline install test first, see §10's ready block), #13 (star + fork done, **PR #146 open**, blocked on §14), topics (**done, 20/20**), labels, seeded issues |
 | **Smithery** (GitHub sign-in) | #2 — published and **kept current tonight** without a fresh login, via the stored API key (see below) |
 | **MCPmarket** | #6 — account already used per the 2026-09-05 record; nothing new needed, just unverifiable right now (429) |
 | A **real inbox** at `hello@<domain>` | #9's confirmation, the JSON-LD, and the upstream `User-Agent` — inbox exists, listing approved 2026-09-05 |
