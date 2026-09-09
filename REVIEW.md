@@ -2096,4 +2096,21 @@ with `uv sync --locked --all-extras`.
 | M15 | D-047(f): the document itself is never stored | wrote the XHTML into the cache payload | **RED** — `test_d047_f12_cached_payload_carries_no_document_and_no_nonnumeric` |
 | M16 | T46b: `/health` and the card are pinned to `pyproject.toml` | `__version__` → `9.9.9` | **RED** ×2 — `test_version_matches_pyproject`, `test_well_known_server_card_version_matches_package` |
 
+### The seven attachments end to end, both surfaces
+
+Built a throwaway harness in the scratch export (`tests/test_t58_e2e.py`, never committed) that drives the
+**real** `api.main:app` through `TestClient` and the **real** `mcp.server:mcp` through an in-process
+`fastmcp.Client`, against committed fixtures only — no Companies House, no Bolagsverket, no network.
+**34 assertions, all pass.**
+
+| State | Result |
+|---|---|
+| Present-and-filled ×12 (`filings` GB/NO/SE, `charges` GB, `insolvency` GB, `financials` NO/SE, `lei` GB/NO, `parents` GB/NO, `peppol` NO) | **PASS** — REST ≡ MCP field-for-field on every block (provenance timestamps normalised out) |
+| `bad_request` for a non-declaring country ×9 | **PASS** — hints are exactly `GB: charges, filings, insolvency, lei, parents` / `NO: filings, financials, lei, parents, peppol` / `SE: filings, financials`. SE is `bad_request` for `lei` **and** `parents` (D-045(e), D-047(a)); GB and SE are `bad_request` for `financials`/`peppol` respectively, never a silently empty block |
+| Failed fetch ×8 | **PASS** — block absent, one report-level `notes` sentence naming the attachment and the upstream, in every country |
+| Present-and-empty | **PASS** — GB `filings` (`filing-history-available`, 0 items) and SE `filings` (empty `dokumentlista`) both return a **present** block with `documents: []` and the scope note first |
+| SE `financials` vs `filings` on the identical wire state | **PASS** — `filings` present-and-empty, `financials` **absent** plus *"Bolagsverket's digital annual-report channel holds no filed annual report for 5561890038"* (D-042(d)(3), the deliberate asymmetry) |
+| `peppol` when the SMP 500s and the Directory 500s | **PASS** — present block, `registered: null`, two notes; **not** absent, because `participant_id` is still worth returning (D-029(c)) |
+| `peppol` when the resolver *and* the Directory both fail | **PASS** — absent block plus the report-level note (the only total-failure path) |
+
 *(Findings, deploy delta and verdict follow; this section is committed partial so it survives a lost session.)*
