@@ -1691,10 +1691,12 @@ class PeppolParticipant(_Base):
     a *different SMP per participant* rather than one endpoint, and the
     licence sentence below was earned by reading a Norwegian catalogue page.
 
-    The Peppol network is not Enhetsregisteret: ELMA is a Peppol SMP operated
-    by Digitaliseringsdirektoratet, a second organisation entirely, so this
-    is a second round trip with its own :class:`SourceRef` rather than a
-    field on :class:`CompanyReport` itself (D-026(c)).
+    The Peppol network is not Enhetsregisteret: the answering SMP is operated
+    by a second organisation entirely (for Norway, Digitaliseringsdirektoratet
+    — named in ``registries/no/peppol.py``, where national vocabulary belongs
+    per D-004, never here), so this is a second round trip with its own
+    :class:`SourceRef` rather than a field on :class:`CompanyReport` itself
+    (D-026(c)).
     """
 
     participant_id: str = Field(
@@ -1767,17 +1769,18 @@ class PeppolParticipant(_Base):
         description=(
             "The SMP base URL the Peppol SML named for **this participant**, "
             "verbatim. This varies per participant and is **never assumed**: "
-            "ELMA (`smp.elma-smp.no`) is not the only Norwegian SMP — a "
-            "measured 1-in-43 Norwegian participants resolve to a different "
-            "one entirely (D-046(b)). `null` when the SML never named a host "
-            "for this participant (NXDOMAIN, or no usable `Meta:SMP` record)."
+            "the default national SMP a country's participants mostly resolve "
+            "to is not the only one — a measured 1-in-43 Norwegian "
+            "participants resolve to a different one entirely (D-046(b)). "
+            "`null` when the SML never named a host for this participant "
+            "(NXDOMAIN, or no usable `Meta:SMP` record)."
         ),
     )
     provenance: SourceRef = Field(
         description=(
             "Where, when and under what licence this block's answer was "
             "produced. `source` names the SMP host and route that answered "
-            "(e.g. 'smp.elma-smp.no (Peppol SMP, via the Peppol SML)'), or the "
+            "(e.g. '<host> (Peppol SMP, via the Peppol SML)'), or the "
             "Peppol Directory named as an index that may lag — **derived at "
             "request time from what actually answered, never a constant** "
             "(D-046(b)). `license` carries D-046(g)'s stated absence: nobody "

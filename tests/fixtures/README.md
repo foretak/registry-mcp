@@ -476,3 +476,58 @@ with urllib.request.urlopen(url) as resp:
 print(json.dumps(body, indent=2, ensure_ascii=False))
 PY
 ```
+
+## NO — Peppol (`peppol_*`)
+
+Seven fixtures for `include=["peppol"]` (`DECISIONS.md` D-029(b), D-046, `registries/no/peppol.py`,
+T43). All keyless, no Peppol certificate, no account, no key. Five are new live recordings from this
+session (2026-09-09); two reuse `tasks/T48-recon.md`'s own recorded evidence verbatim rather than
+re-fetching it, per that task's own instruction to prefer recorded evidence where it exists.
+
+| Fixture | What it pins | How it was obtained |
+|---|---|---|
+| `peppol_naptr_923609016.json` | Equinor ASA's `Meta:SMP` NAPTR answer — order 100, preference 10, flag `U`, regexp `!.*!https://smp.elma-smp.no/!`, TTL 60 | **Not a new call.** Copied verbatim from `tasks/T48-recon.md` Fact 1 (fetched 2026-09-08T21:05Z) and independently re-confirmed by the orchestrator the same morning this task ran, 06:20Z, with dnspython 2.8 |
+| `peppol_naptr_837056942.json` | The same, for `0192:837056942` (Hornnes Håndverkstjenester, the 1-in-43 non-ELMA participant) — resolves to `smp.conta.no`, **no trailing slash** | New live call, this session: `dns.resolver.resolve(..., "NAPTR")`, dnspython 2.8.0, this machine's own system resolver. `tasks/T48-recon.md` recorded only the resulting URL for this one, not the raw NAPTR fields |
+| `peppol_smp_923609016.xml` | Equinor's ServiceGroup — 17 `ServiceMetadataReference` hrefs, 5913 bytes (byte-identical in size to `tasks/T48-recon.md`'s own recording) | New live `GET https://smp.elma-smp.no/iso6523-actorid-upis%3A%3A0192%3A923609016` |
+| `peppol_smp_837056942.xml` | Conta's ServiceGroup for the same participant as above — 2 hrefs (Invoice + CreditNote, the modal shape). Uses the XML namespace prefix `smp:`, not ELMA's `ns2:`, for the identical element — the mapper matches by local name only | New live `GET https://smp.conta.no/iso6523-actorid-upis%3A%3A0192%3A837056942` |
+| `peppol_smp_404.xml` | The SMP's 404 body for a synthetic MOD11-valid, never-issued orgnr (`999999999`) — an XML comment naming `network.oxalis.vefa.peppol.publisher.lang.NotFoundException` | New live `GET https://smp.elma-smp.no/iso6523-actorid-upis%3A%3A0192%3A999999999` |
+| `peppol_directory_923609016.json` | The Peppol Directory's match for Equinor — **12** `docTypes` (the measured lag against the SMP's 17; the five missing are all logistics profiles) | New live `GET https://directory.peppol.eu/search/1.0/json?participant=iso6523-actorid-upis::0192:923609016` |
+| `peppol_directory_empty.json` | The Directory's empty answer for the same synthetic orgnr as the 404 above — **HTTP 200**, `"total-result-count": 0`, never a 404 | New live `GET .../json?participant=iso6523-actorid-upis::0192:999999999` |
+
+**Why a synthetic orgnr for every negative fixture.** `999999999` is MOD11-valid (weights
+3,2,7,6,5,4,3,2 on `99999999` give check digit 9) but was never issued, so the negative path is
+exercised without looking up any real company — the same discipline `tasks/T48-recon.md` used.
+
+**Rate limits respected.** Two Peppol Directory queries total this session (ceiling: 2/second);
+one NAPTR resolution; three SMP GETs against two different SMPs. No call to `api.foretak.dev`,
+Companies House or Bolagsverket; `833286602`/`833285602` never queried.
+
+**One live finding worth recording here because it is not obvious from the spec:** the ELMA SMP
+(`smp.elma-smp.no`) answers `406 Not Acceptable` to `Accept: application/xml` and wants
+`Accept: text/xml` instead — `registries/no/peppol.py::_get_service_group` sends the latter.
+
+Recording recipe (no credential needed):
+
+```bash
+UA="registry-mcp/0.3.0 (+https://github.com/foretak/registry-mcp; \$REGISTRY_MCP_CONTACT_EMAIL)"
+
+# Step 1 -- the SML (DNS, not HTTP): base32(sha256(lower("0192:837056942")))
+python3 -c "
+import base64, hashlib
+pid = '0192:837056942'
+print(base64.b32encode(hashlib.sha256(pid.lower().encode()).digest()).decode().rstrip('='))
+"
+# -> query that label + '.iso6523-actorid-upis.participant.sml.prod.tech.peppol.org' for NAPTR,
+#    e.g. with dnspython: dns.resolver.resolve(fqdn, "NAPTR")
+
+# Step 2 -- the SMP (the base URL the NAPTR named)
+curl -sS -H 'Accept: text/xml' -H "User-Agent: $UA" \
+  'https://smp.conta.no/iso6523-actorid-upis%3A%3A0192%3A837056942' \
+  > tests/fixtures/peppol_smp_837056942.xml
+
+# Step 3 -- the Directory fallback (positive answers only; 2 req/s ceiling)
+curl -sS -H 'Accept: application/json' -H "User-Agent: $UA" \
+  'https://directory.peppol.eu/search/1.0/json?participant=iso6523-actorid-upis::0192:923609016' \
+  | python3 -c 'import json, sys; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))' \
+  > tests/fixtures/peppol_directory_923609016.json
+```
