@@ -1854,6 +1854,43 @@ def test_d047_f5_absent_line_stays_none_never_zero() -> None:
     assert sheet_2020.non_current_liabilities == 935948.0
 
 
+# --- T60 finding 2 — liabilities / total_comprehensive_income pinned None, never derived (D-043(e),(f)) ---
+
+
+def test_liabilities_and_total_comprehensive_income_are_none_not_derived() -> None:
+    """D-043(e),(f): `liabilities` and `total_comprehensive_income` are never
+    read and never derived for Sweden — K2 has no concept for either, and
+    `current_liabilities + non_current_liabilities` is refused by name
+    (`registries/se/financials.py`'s module docstring). Both real K2
+    fixtures carry the summands `liabilities` could wrongly be built from —
+    2025 has `current_liabilities` only, 2020 has both — which is what
+    makes this a test of the guard rather than of an absent input. REVIEW.md
+    mutation M13 added exactly
+    `values["liabilities"] = (current or 0.0) + (non_current or 0.0)` to
+    `_map_balance_sheet` and 1030 tests still passed; this test is the fix."""
+    doc_2025 = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2025.xhtml"))
+    period_2025 = financials_module.build_period(doc_2025, document_id=DOKUMENT_ID_2025)
+    assert period_2025 is not None
+    sheet_2025 = period_2025.balance_sheet
+    assert sheet_2025 is not None
+    assert sheet_2025.current_liabilities is not None
+    assert sheet_2025.non_current_liabilities is None
+    assert sheet_2025.liabilities is None
+    assert period_2025.income_statement is not None
+    assert period_2025.income_statement.total_comprehensive_income is None
+
+    doc_2020 = ixbrl.parse(_xhtml_bytes("se_ixbrl_5561890038_2020.xhtml"))
+    period_2020 = financials_module.build_period(doc_2020, document_id=DOKUMENT_ID_2020)
+    assert period_2020 is not None
+    sheet_2020 = period_2020.balance_sheet
+    assert sheet_2020 is not None
+    assert sheet_2020.current_liabilities is not None
+    assert sheet_2020.non_current_liabilities is not None
+    assert sheet_2020.liabilities is None
+    assert period_2020.income_statement is not None
+    assert period_2020.income_statement.total_comprehensive_income is None
+
+
 # --- F6 — the latest context is selected when two years are tagged ---
 
 
