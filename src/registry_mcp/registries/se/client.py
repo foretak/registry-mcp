@@ -39,6 +39,22 @@ then applies to entries already cached. **One Sweden-specific rule**: a
 partially failed 200 (§1.6 — some field's ``fel.typ`` blocked it) is never
 written to the cache (§9) — serving a company with no name or dates for 24
 hours because Bolagsverket had a bad moment would be worse than a cache miss.
+
+**`financials` (D-043, D-047(f),(g)) is the one deliberate exception to that
+rule, and the exception runs the other way.** ``/dokument/{id}`` returns a
+zip holding one inline-XBRL XHTML — a filed annual report, which names its
+signatories (``registries/se/ixbrl.py``'s docstring). **Nothing about that
+document is ever cached, logged or written to disk**: the zip is fetched,
+unzipped and parsed inside :func:`fetch_financials`, and only the resulting
+:class:`~registry_mcp.core.models.FinancialPeriod` — the parsed figures,
+never a byte of the source — is stored, under its own key
+(:func:`_financials_cache_key`, keyed on the immutable ``dokumentId`` rather
+than on the company) with its own thirty-day TTL (``core/cache.py``'s
+``_TTL_BY_KIND["financials"]``). ``/dokumentlista`` is shared with
+:func:`fetch_filings` exactly as D-043(h) requires for Norway — one upstream
+call, one in-flight fetch, one cache entry — because the two attachments
+read the same list to decide which document to fetch and to disclose how
+many exist; see :func:`_fetch_dokumentlista_payload`.
 """
 
 from __future__ import annotations
@@ -48,9 +64,11 @@ import logging
 import os
 import time
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from xml.etree import ElementTree as ET
 
 import httpx
 
@@ -60,12 +78,15 @@ from registry_mcp.core.models import (
     CompanyReport,
     ErrorCode,
     FilingHistory,
+    FinancialPeriod,
+    FinancialSummary,
     RegistryError,
     SearchResult,
+    SourceRef,
 )
-from registry_mcp.registries.se import filings, mapping
+from registry_mcp.registries.se import filings, financials, ixbrl, mapping
 
-__all__ = ["aclose", "fetch_filings", "lookup", "search"]
+__all__ = ["aclose", "fetch_filings", "fetch_financials", "lookup", "search"]
 
 logger = logging.getLogger(__name__)
 
@@ -619,16 +640,13 @@ async def search(name: str, limit: int = 10) -> SearchResult:
 
 
 # ---------------------------------------------------------------------------
-# R-5b / T31 Part B — the second call, `POST /dokumentlista`, behind the seam
+# R-5b / T31 Part B, extended by D-043(h)/D-047(f),(g) — `POST /dokumentlista`,
+# shared by `fetch_filings` and `fetch_financials`.
 #
-# `DECISIONS.md` D-041, D-042(b); `tasks/T31.md` Part B §2. Self-contained:
-# nothing above this line changes, `lookup` still makes exactly one upstream
-# request, and no `core/` model is imported for it (`registries/se/filings.py`
-# carries local stand-ins for R-5's `SourceRef`/`FiledDocument`/
-# `FilingHistory`, exactly as `registries/gb/charges.py` does for `Charge`).
-# `fetch_filings` is the whole seam — validate the id, fetch or serve from
-# cache, return a fully-mapped `filings.FilingHistory`, ready for a follow-up
-# to call from a real `filings()` method on `BolagsverketRegistry`.
+# `DECISIONS.md` D-041, D-042(b). `filings.py` builds the canonical
+# `FilingHistory` directly (D-044(a)); `financials.py` builds
+# `FinancialSummary` from an already-parsed `ixbrl.IXBRLDocument`. This
+# module owns the wire and both caches; neither of the other two does I/O.
 #
 # **Response handling here is deliberately NOT `/organisationer`'s**
 # (D-041(h), confirmed live 2026-09-08): `DokumentlistaSvar` is
@@ -636,8 +654,9 @@ async def search(name: str, limit: int = 10) -> SearchResult:
 # `dataproducent`/`fel` wrapper — so `mapping.is_not_found` and
 # `mapping.is_partial_failure` are never called on it. On this endpoint a 200
 # means the answer arrived, and `/organisationer` alone decides whether an
-# entity exists: an empty or absent `dokument` is a present block with
-# `documents: []`, never `not_found` (D-041(c)).
+# entity exists: an empty or absent `dokument` is a **present** block with
+# `documents: []` for `filings` (D-041(c)) but an **absent** `financials`
+# block with a report-level note (D-042(d)(3)) — see `fetch_financials`.
 # ---------------------------------------------------------------------------
 
 
@@ -703,9 +722,110 @@ def _filings_cache_key(environment: str, identitetsbeteckning: str) -> str:
     """The block's **own** cache key, on :func:`_cache_key`'s convention with
     ``filings`` in the kind slot (D-041(h)). Its own key and its own TTL are
     what let a 20-hour-old company record travel beside a fresh document
-    list, which is D-041(c)'s whole point."""
+    list, which is D-041(c)'s whole point.
+
+    **Shared by `fetch_filings` and `fetch_financials`** (D-043(h)(1),
+    D-047(f)): both attachments need this same list to decide what to do
+    next, so this is one upstream call and one cache entry for the two of
+    them, never two."""
     short_env = "test" if environment == _TEST else "prod"
     return f"SE:bolagsverket:filings:{short_env}:{identitetsbeteckning}"
+
+
+#: One upstream `/dokumentlista` fetch in flight per cold cache key, so that
+#: `fetch_filings` and `fetch_financials` called concurrently for the same
+#: identifier share it rather than racing to make two (D-043(h)(3),
+#: D-047(f)) — the identical hazard and the identical fix
+#: ``registries/no/client.py::_inflight_accounts_fetch`` uses, for the same
+#: reason: between checking the cache and registering the task here there is
+#: no ``await``, so the check-then-register step is uninterruptible from the
+#: event loop's point of view and the second coroutine always finds the
+#: first one's task already here on a cold cache.
+_inflight_dokumentlista_fetch: dict[str, asyncio.Task[tuple[dict[str, Any], bool, datetime]]] = {}
+
+
+async def _do_fetch_dokumentlista_payload(
+    environment: str, identitetsbeteckning: str, cache_key: str
+) -> tuple[dict[str, Any], bool, datetime]:
+    """The upstream call itself — everything :func:`fetch_filings` did
+    before D-047(f), unchanged, including the credential check and the
+    cache write. Run at most once per cold cache key:
+    :func:`_fetch_dokumentlista_payload` is the only caller, and it never
+    starts a second one while this one is in flight.
+
+    Returns ``(data, cached=False, fetched_at)`` — a fresh fetch is never
+    itself a cache hit, whichever of :func:`fetch_filings` /
+    :func:`fetch_financials` happened to trigger it.
+    """
+    client_id, client_secret = _read_credentials()
+    if not client_id or not client_secret:
+        raise _no_credentials_error()
+
+    response = await _fetch_dokumentlista(environment, identitetsbeteckning)
+
+    if response.status_code == 200:
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise _malformed_response_error("the document-list request") from exc
+        if not isinstance(data, dict):
+            # A 200 whose body is valid JSON but not an object — the same
+            # one-type-further-out failure `lookup` guards against (§6.3).
+            raise _malformed_response_error("the document-list request")
+    elif response.status_code == 400:
+        raise _invalid_id_error(identitetsbeteckning)
+    elif response.status_code in (401, 403):
+        raise _unauthorized_error(response.status_code)
+    elif response.status_code == 429:
+        raise _rate_limited_error()
+    else:
+        raise _upstream_error(response.status_code)
+
+    fetched_at = datetime.now(UTC)
+    # `dokument` is not in `DokumentlistaSvar`'s `required` list, so an absent
+    # key and an empty array are the same answer — and both take the 1 h TTL.
+    status = "ok" if data.get("dokument") else "not_found"
+    cache.set(cache_key, data, status=status, fetched_at=fetched_at)
+    return data, False, fetched_at
+
+
+async def _fetch_dokumentlista_payload(
+    environment: str, identitetsbeteckning: str
+) -> tuple[dict[str, Any], bool, datetime]:
+    """The parsed `DokumentlistaSvar` body behind **both** :func:`fetch_filings`
+    and :func:`fetch_financials` — one cache entry, one in-flight upstream
+    call, shared regardless of which of the two callers arrives first
+    (D-043(h), D-047(f)).
+
+    Returns ``(data, cached, fetched_at)``: ``data`` is the parsed JSON body
+    (never re-shaped — D-026(a)), and ``cached``/``fetched_at`` are what
+    :class:`~registry_mcp.core.models.FilingHistory.provenance` is built
+    from. ``fetch_financials`` builds its **own** `SourceRef` from its own
+    `/dokument` fetch instead — D-047(f)'s ruling, extending D-046(d)'s "a
+    discovery step is disclosed as a field, not as provenance": this list is
+    what tells `financials` which document to fetch, but the fetch that
+    *produced* the figures is `/dokument`, so that is the one `SourceRef`
+    describes, and the list's own facts (how many reports, which period)
+    reach the block as a `notes` sentence instead.
+    """
+    cache_key = _filings_cache_key(environment, identitetsbeteckning)
+
+    entry = cache.get(cache_key)
+    if entry is not None:
+        return entry.payload, True, entry.fetched_at
+
+    existing = _inflight_dokumentlista_fetch.get(cache_key)
+    if existing is not None:
+        return await existing
+
+    task = asyncio.ensure_future(
+        _do_fetch_dokumentlista_payload(environment, identitetsbeteckning, cache_key)
+    )
+    _inflight_dokumentlista_fetch[cache_key] = task
+    try:
+        return await task
+    finally:
+        _inflight_dokumentlista_fetch.pop(cache_key, None)
 
 
 def _apply_environment_notes_to_filings(
@@ -716,6 +836,27 @@ def _apply_environment_notes_to_filings(
     applied here rather than in the mapper so the mapper stays pure and
     environment-blind, exactly as :func:`_apply_environment_notes` does for
     the report."""
+    if environment != _TEST:
+        return block
+    source = (
+        f"{block.provenance.source} — test environment"
+        if block.provenance.source
+        else "Bolagsverket — test environment"
+    )
+    return block.model_copy(
+        update={
+            "provenance": block.provenance.model_copy(update={"source": source}),
+            "notes": [*block.notes, _N10_TEST_ENVIRONMENT_NOTE],
+        }
+    )
+
+
+def _apply_environment_notes_to_financials(
+    block: FinancialSummary, environment: str
+) -> FinancialSummary:
+    """N10 for `financials`' own provenance, mirroring
+    :func:`_apply_environment_notes_to_filings` exactly — the two blocks'
+    provenance differ (D-047(f)), so each needs its own application."""
     if environment != _TEST:
         return block
     source = (
@@ -761,52 +902,283 @@ async def fetch_filings(id: str) -> FilingHistory:
     own: an empty list is the answer that goes stale the instant the company
     files, and during filing season a day-old "nothing filed" about a
     company that filed on Tuesday is wrong in the direction that harms a
-    counterparty check. ``core/cache.py`` has no per-kind TTL table yet
-    (D-041(h) and D-042(j) both name one, to be built "by whichever lands
-    first"); that table is out of this task's footprint, so this is the
-    stand-in until it exists.
+    counterparty check.
+
+    **D-047(f):** the fetch behind this function is shared with
+    :func:`fetch_financials` — see :func:`_fetch_dokumentlista_payload`.
+    This function's own contract (cache key, TTL, status handling) is
+    otherwise exactly what it was before that task.
     """
     from registry_mcp.registries.se import rules
 
     identitetsbeteckning = rules.validate_id(id)
     environment = _read_environment()
-    cache_key = _filings_cache_key(environment, identitetsbeteckning)
+    data, cached, fetched_at = await _fetch_dokumentlista_payload(environment, identitetsbeteckning)
+    block = filings.map_dokumentlista(data, cached=cached, fetched_at=fetched_at)
+    return _apply_environment_notes_to_filings(block, environment)
 
-    entry = cache.get(cache_key)
-    if entry is not None:
-        block = filings.map_dokumentlista(
-            entry.payload, cached=True, fetched_at=entry.fetched_at
-        )
-        return _apply_environment_notes_to_filings(block, environment)
 
-    client_id, client_secret = _read_credentials()
-    if not client_id or not client_secret:
-        raise _no_credentials_error()
+# ---------------------------------------------------------------------------
+# D-043 / D-047(f),(g) — `GET /dokument/{dokumentId}`, added for
+# `fetch_financials` alone. `fetch_filings` never calls this: the document
+# itself stays out of scope for the filing-history use case D-041(g) ruled
+# on, and is opened only for the figures it alone can carry.
+# ---------------------------------------------------------------------------
 
-    response = await _fetch_dokumentlista(environment, identitetsbeteckning)
+_DOKUMENT_URL = "{base}/dokument/{dokument_id}"
 
-    if response.status_code == 200:
+
+def _no_annual_reports_error(identitetsbeteckning: str) -> RegistryError:
+    """D-042(d)(3): an empty `/dokumentlista` makes `financials` **absent**,
+    not an empty block — unlike `filings`, which is a present block with
+    `documents: []` for the identical wire state. Raised so
+    `core/registry.py::lookup_with` performs the absent-plus-note conversion
+    in the one place that already does it for every attachment (D-042(b))."""
+    return RegistryError(
+        ErrorCode.NOT_FOUND,
+        "Bolagsverket's digital annual-report channel holds no filed annual report for "
+        f"{identitetsbeteckning}.",
+        hint=(
+            "This is a real, present answer about the channel, not a failed lookup: a "
+            "paper filer, an IFRS preparer, a handelsbolag, an ekonomisk förening or a "
+            "bostadsrättsförening has no digitally filed annual report to parse. Call "
+            'lookup_company with include=["filings"] to see the same empty list with its '
+            "own note."
+        ),
+        country="SE",
+        registry="bolagsverket",
+    )
+
+
+def _multi_entry_zip_error(dokument_id: str, entry_count: int) -> RegistryError:
+    """A1: report, never guess. Every zip this project has read (six K2
+    filings, two K3 taxonomy specimens, `tasks/T55-recon.md`) holds exactly
+    one entry."""
+    return RegistryError(
+        ErrorCode.UPSTREAM_ERROR,
+        f"Bolagsverket's document {dokument_id} is a zip with {entry_count} entries, not "
+        "the single inline-XBRL XHTML every document this project has read carries.",
+        hint="This is an upstream shape this client does not understand. Report it rather than retry.",
+        country="SE",
+        registry="bolagsverket",
+    )
+
+
+def _unparseable_document_error(dokument_id: str) -> RegistryError:
+    """The zip did not hold a valid iXBRL XHTML — malformed XML, or not a
+    zip at all despite a 200. Never a bare ``ET.ParseError``/``zipfile.BadZipFile``
+    reaching the caller (the same discipline :func:`_malformed_response_error`
+    applies to a bad JSON body)."""
+    return RegistryError(
+        ErrorCode.UPSTREAM_ERROR,
+        f"Bolagsverket's document {dokument_id} could not be read as a zip containing one "
+        "well-formed iXBRL XHTML file.",
+        hint="This is an upstream problem, not a bad request. Retry the call in a moment.",
+        country="SE",
+        registry="bolagsverket",
+    )
+
+
+async def _post_dokument(base_url: str, token: str, dokument_id: str) -> httpx.Response:
+    """``GET {base}/dokument/{dokumentId}``, mirroring
+    :func:`_post_dokumentlista`'s retry shape: one retry on a timeout or a
+    5xx, never on a 4xx, a fresh ``X-Request-Id`` per attempt logged at
+    DEBUG (the request id only — never the response body, which is the
+    filing itself), one token-bucket token per attempt."""
+    http_client = _get_client()
+    attempt = 0
+    response: httpx.Response | None = None
+    while True:
+        attempt += 1
+        await _bucket.acquire()
+        request_id = str(uuid.uuid4())
+        logger.debug("Bolagsverket request %s for /dokument", request_id)
         try:
-            data = response.json()
-        except ValueError as exc:
-            raise _malformed_response_error("the document-list request") from exc
-        if not isinstance(data, dict):
-            # A 200 whose body is valid JSON but not an object — the same
-            # one-type-further-out failure `lookup` guards against (§6.3).
-            raise _malformed_response_error("the document-list request")
-    elif response.status_code == 400:
-        raise _invalid_id_error(identitetsbeteckning)
+            response = await http_client.get(
+                _DOKUMENT_URL.format(base=base_url, dokument_id=dokument_id),
+                headers={
+                    "Accept": "application/zip",
+                    "Authorization": f"Bearer {token}",
+                    "X-Request-Id": request_id,
+                },
+            )
+        except httpx.TimeoutException as exc:
+            if attempt >= _MAX_ATTEMPTS:
+                raise _timeout_error() from exc
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+            continue
+
+        if response.status_code >= 500:
+            if attempt >= _MAX_ATTEMPTS:
+                return response
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS)
+            continue
+
+        return response
+
+
+async def _fetch_dokument(environment: str, dokument_id: str) -> httpx.Response:
+    """One document fetch, with the same §6.1 one-time
+    token-refresh-and-retry on a 401/403 every other data call here has."""
+    base_url = _BASE_URLS[environment]
+    token = await _get_token(environment)
+    response = await _post_dokument(base_url, token, dokument_id)
+    if response.status_code in (401, 403):
+        token = await _get_token(environment, force_refresh=True)
+        response = await _post_dokument(base_url, token, dokument_id)
+    return response
+
+
+def _financials_cache_key(environment: str, dokument_id: str) -> str:
+    """``SE:bolagsverket:financials:{env}:{dokumentId}`` (D-047(f)) — keyed
+    on the **document**, never the company: an annual report is immutable
+    once filed, so a stale hit here can only be superseded by a *newer*
+    document with a different id, which is what `/dokumentlista`'s own,
+    separately cached, shorter-TTL answer decides. ``core/cache.py``'s
+    ``_TTL_BY_KIND["financials"]`` gives this kind 30 days on a hit."""
+    short_env = "test" if environment == _TEST else "prod"
+    return f"SE:bolagsverket:financials:{short_env}:{dokument_id}"
+
+
+def _select_latest_annual_report(
+    data: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """The same newest-first sort `filings.map_dokumentlista` uses
+    (`period_end` descending, then `filed_at` descending), returning the
+    full sorted list — its length is the truncation-disclosure note's
+    ``total`` — and the newest entry, or `None` for an empty list."""
+    items = [item for item in (data.get("dokument") or []) if isinstance(item, dict)]
+    items.sort(
+        key=lambda d: (
+            d.get("rapporteringsperiodTom") or "",
+            d.get("registreringstidpunkt") or "",
+        ),
+        reverse=True,
+    )
+    return items, (items[0] if items else None)
+
+
+async def fetch_financials(id: str) -> FinancialSummary:
+    """Fetch this entity's key figures from its most recently filed annual
+    report, consulting two caches: the `/dokumentlista` list (shared with
+    :func:`fetch_filings`, see :func:`_fetch_dokumentlista_payload`) and
+    this block's own, document-keyed one (:func:`_financials_cache_key`).
+
+    **Absent, not empty, for a company with no digitally filed annual
+    report** (D-042(d)(3)): raises :func:`_no_annual_reports_error`, which
+    ``core/registry.py::lookup_with`` turns into an absent block plus a
+    report-level note — a deliberate difference from :func:`fetch_filings`,
+    which returns a *present* block with ``documents: []`` for the
+    identical wire state. A fetch or parse failure (a 5xx after retry, a
+    multi-entry zip, unparseable XML) is likewise absent-plus-note: this
+    function raises and never swallows an error into a plausible-looking
+    empty block (D-011, mirroring :func:`fetch_filings`'s own discipline).
+
+    **Exactly one `/dokument` request**, for the most recent annual report
+    only (D-047(f)); older periods are never fetched, even though
+    `/dokumentlista` lists them — ``notes`` says how many exist and points
+    at ``include=["filings"]`` for the rest (D-042(j)).
+
+    **Hard rule (`tasks/T55.md` §D): the zip and the XHTML are parsed and
+    discarded in this coroutine.** Nothing about the document — not the
+    bytes, not the XHTML, not any ``ix:nonNumeric`` value — reaches the
+    cache, a log or disk. Only
+    :func:`registries.se.financials.build_period`'s return value, a
+    :class:`~registry_mcp.core.models.FinancialPeriod`, is stored, under
+    :func:`_financials_cache_key`.
+    """
+    from registry_mcp.registries.se import rules
+
+    identitetsbeteckning = rules.validate_id(id)
+    environment = _read_environment()
+
+    data, _list_cached, _list_fetched_at = await _fetch_dokumentlista_payload(
+        environment, identitetsbeteckning
+    )
+    documents, latest = _select_latest_annual_report(data)
+    if latest is None:
+        raise _no_annual_reports_error(identitetsbeteckning)
+
+    raw_dokument_id = latest.get("dokumentId")
+    if not raw_dokument_id:
+        raise _malformed_response_error("the document-list request (missing dokumentId)")
+    dokument_id = str(raw_dokument_id)
+    total_annual_reports = len(documents)
+    base_url = _BASE_URLS[environment]
+    source_url = _DOKUMENT_URL.format(base=base_url, dokument_id=dokument_id)
+
+    fin_cache_key = _financials_cache_key(environment, dokument_id)
+    entry = cache.get(fin_cache_key)
+    if entry is not None:
+        stored_period = entry.payload.get("period")
+        period = (
+            FinancialPeriod.model_validate(stored_period) if stored_period is not None else None
+        )
+        notes = financials.summary_notes(period, total_annual_reports=total_annual_reports)
+        block = FinancialSummary(
+            periods=[period] if period is not None else [],
+            provenance=SourceRef(
+                source=financials.SOURCE_NAME,
+                source_url=entry.payload.get("source_url") or source_url,
+                license=financials.LICENSE,
+                fetched_at=entry.fetched_at,
+                cached=True,
+            ),
+            notes=notes,
+        )
+        return _apply_environment_notes_to_financials(block, environment)
+
+    response = await _fetch_dokument(environment, dokument_id)
+    if response.status_code == 200:
+        zip_bytes = response.content
     elif response.status_code in (401, 403):
         raise _unauthorized_error(response.status_code)
     elif response.status_code == 429:
         raise _rate_limited_error()
     else:
+        # 400 on this endpoint is Bolagsverket's own documentation bug (its
+        # shared `ApiError-felbegaran` example is a check-digit complaint
+        # about an identifier this endpoint does not take) and 404/5xx are
+        # ordinary upstream trouble — D-041(h): never `invalid_id` here,
+        # the identifier was already accepted by `/dokumentlista`.
         raise _upstream_error(response.status_code)
 
+    try:
+        xhtml_bytes = ixbrl.unzip_single_xhtml(zip_bytes)
+    except ixbrl.MultiEntryZipError as exc:
+        raise _multi_entry_zip_error(dokument_id, exc.entry_count) from exc
+    except zipfile.BadZipFile as exc:
+        raise _unparseable_document_error(dokument_id) from exc
+
+    try:
+        doc = ixbrl.parse(xhtml_bytes)
+    except ET.ParseError as exc:
+        raise _unparseable_document_error(dokument_id) from exc
+    del xhtml_bytes, zip_bytes  # never cached, never logged — see the docstring's hard rule
+
     fetched_at = datetime.now(UTC)
-    # `dokument` is not in `DokumentlistaSvar`'s `required` list, so an absent
-    # key and an empty array are the same answer — and both take the 1 h TTL.
-    status = "ok" if data.get("dokument") else "not_found"
-    cache.set(cache_key, data, status=status, fetched_at=fetched_at)
-    block = filings.map_dokumentlista(data, cached=False, fetched_at=fetched_at)
-    return _apply_environment_notes_to_filings(block, environment)
+    period = financials.build_period(doc, document_id=dokument_id)
+    notes = financials.summary_notes(period, total_annual_reports=total_annual_reports)
+
+    cache.set(
+        fin_cache_key,
+        {
+            "period": period.model_dump(mode="json") if period is not None else None,
+            "source_url": source_url,
+        },
+        status="ok",
+        fetched_at=fetched_at,
+    )
+
+    block = FinancialSummary(
+        periods=[period] if period is not None else [],
+        provenance=SourceRef(
+            source=financials.SOURCE_NAME,
+            source_url=source_url,
+            license=financials.LICENSE,
+            fetched_at=fetched_at,
+            cached=False,
+        ),
+        notes=notes,
+    )
+    return _apply_environment_notes_to_financials(block, environment)

@@ -31,6 +31,7 @@ from registry_mcp.core.models import (
     CompanyReport,
     Deadline,
     FilingHistory,
+    FinancialSummary,
     SearchResult,
 )
 from registry_mcp.core.registry import Registry, register
@@ -44,7 +45,7 @@ class BolagsverketRegistry(Registry):
     because ``registry`` is a routing key, not a provenance record."""
 
     country: ClassVar[str] = "SE"
-    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings"})
+    supported_includes: ClassVar[frozenset[str]] = frozenset({"filings", "financials"})
     registry: ClassVar[str] = "bolagsverket"
     name: ClassVar[str] = "Bolagsverket (Sweden)"
     id_scheme: ClassVar[str] = "organisationsnummer"
@@ -128,6 +129,52 @@ class BolagsverketRegistry(Registry):
         from registry_mcp.registries.se import client
 
         return await client.fetch_filings(id)
+
+    async def financials(self, id: str) -> FinancialSummary:
+        """Key figures from this entity's most recently filed annual report,
+        parsed out of the filed K2/K3 inline-XBRL (``registries/se/ixbrl.py``,
+        ``registries/se/financials.py``).
+
+        The ``include=["financials"]`` attachment (``DECISIONS.md`` D-043,
+        D-047(f),(g)): :meth:`Registry.lookup_with` calls this by name, so it
+        must stay named exactly ``financials``, matching both
+        :attr:`supported_includes` and :class:`~registry_mcp.core.models.
+        CompanyReport`'s ``financials`` field (D-042(b),(g)).
+
+        **Shares `/dokumentlista` with :meth:`filings`, then adds one
+        `/dokument` request** for the most recent annual report only — never
+        a second `/dokumentlista` call on a cold cache and never more than
+        one document fetched, however many the list carries (D-043(h),
+        D-042(j)); the rest of the list, with every period and document id,
+        is in ``include=["filings"]``.
+
+        **Absent, not empty, when Bolagsverket's digital channel holds no
+        filed annual report for this entity** (paper filer, IFRS preparer,
+        handelsbolag, ekonomisk förening, bostadsrättsförening) — a
+        deliberate difference from :meth:`filings`, which returns a present
+        block with ``documents: []`` for the identical wire state
+        (D-042(d)(3)). Revenue, costs, operating result, profit and the
+        balance sheet are carried; no ratio, indicator or verdict is ever
+        derived from them (D-043(e)) — the register's own taxonomy tags an
+        equity ratio that the same company has filed under two different,
+        undisambiguated scales, which is the strongest evidence in this
+        project for refusing to compute one.
+
+        Every numeric field is individually nullable, and `None` never means
+        zero: an absent line is a line this filing did not report, not a
+        reported nothing (D-043(f)). **Validated against filed K2 annual
+        reports and against Bolagsverket's own published K3 taxonomy
+        specimens — against no live K3 filing**, because none was reachable
+        within this task's live-call budget (`tasks/T55-recon.md`); a K3
+        block's own ``notes`` say so.
+
+        A failed fetch raises; :meth:`Registry.lookup_with` turns that into
+        an absent block plus one ``notes`` sentence on the report, the same
+        as any other attachment.
+        """
+        from registry_mcp.registries.se import client
+
+        return await client.fetch_financials(id)
 
     def deadlines(self, report: CompanyReport, today: date) -> list[Deadline]:
         """Swedish filing deadlines for this entity (``registries/se/rules.py``, §5.4).

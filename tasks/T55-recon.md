@@ -1,13 +1,17 @@
-# T55-recon — Part 0: one K3 document, and why the task stops here
+# T55-recon — Part 0: one K3 document was not found, and the orchestrator's decision on what follows
 
-Owner: a Sonnet, dispatched by the orchestrator. Brief: `tasks/T55.md`. Obtained **2026-09-09**.
+Owner: a Sonnet, dispatched by the orchestrator. Brief: `tasks/T55.md`. Obtained **2026-09-09**. See
+**"Orchestrator decision and continuation"** below for what happened after Part 0's own verdict — Parts
+A, B, C, E and F were built on K2 alone, per that decision, not on this recon's own recommendation.
+
 Tags: **[fetched]** read off the wire this session · **[search]** from a search result · **[repo]** read
 in this repository. No document, name or value below is a natural person's — see the last section.
 
-**Verdict up front: Part 0 stops the task.** Not because K3 uses different concept names or introduces
-dimensions — the opposite: everything I *could* measure says K2's premises hold. It stops because the
-literal ask — one real company's live-filed K3 document via one `POST /dokumentlista` and one
-`GET /dokument/{id}` — was not met, and the reason is that **every `POST /dokumentlista` call this task's
+**Part 0's own verdict, unedited from when it was written: no live K3 document was obtained.** Not
+because K3 uses different concept names or introduces dimensions — the opposite: everything I *could*
+measure says K2's premises hold. It stops because the literal ask — one real company's live-filed K3
+document via one `POST /dokumentlista` and one `GET /dokument/{id}` — was not met, and the reason is that
+**every `POST /dokumentlista` call this task's
 4-call budget allowed came back empty**, on companies chosen for exactly the reason K3 requires (they are
 too large to lawfully use K2). The budget is now at 0 of 4; Parts A–C, E and F do not start. Part D (the
 `core/cache.py` row) is unblocked by Part 0 per the brief's own table and is done separately.
@@ -228,6 +232,61 @@ Whichever is chosen, the two specimen files are on the wire and free to re-fetch
 `se_k3_recon.py` analysis script (scratchpad only, not committed) is reusable as-is against a real
 document once one is found — it already implements the schemaRef/context/unit/nonFraction/nonNumeric
 walk Part A's extractor would need, and nothing in it reads or prints a person-bearing value.
+
+---
+
+## Orchestrator decision and continuation (recorded after Part 0, same session)
+
+**The orchestrator chose recommendation-adjacent option 3, sharpened**: proceed with Parts A, B, C, E and
+F on K2 alone, shipping K3 support on the specimen evidence above rather than waiting on a live filing.
+Three reasons given, all traceable to measurements already in this file: `tasks/T52-recon.md` proved the
+K2 concept names byte-identical across five years and two taxonomy versions on **real filings**; the K3
+specimens above show 16 of 17 D-043(c) concepts identical under `se-gen-base` with zero dimensions; and
+the four K3-sized companies tried above all have empty `/dokumentlista` results, which is itself evidence
+that **the population this channel actually serves is the small aktiebolag filing under K2** — the
+supplier long tail `include=["financials"]` exists for in the first place, not the large companies this
+recon went looking for. That third reason reframes rather than dismisses the "what remains unverified"
+section above: if K3 filers are genuinely rare in this channel, the risk a shipped K3 parser is carrying
+is smaller in *practice* than the abstract gap made it look, even though nothing has closed the gap
+itself.
+
+**Two rules from the orchestrator shape everything built after this point, and both are enforced in code,
+not only in prose:**
+
+1. `accounting_framework` is read from the `link:schemaRef` path (`/k2/` or `/k3/`) exactly as this brief
+   always specified. **When it reads K3, the block's own `notes` carries one sentence saying the
+   extractor was validated on K2 filings and K3 taxonomy specimens only, no K3 filing having been observed
+   live** — `registries/se/financials.py`'s `_K3_VALIDATION_CAVEAT`, appended by `summary_notes()`
+   whenever `accounting_framework == "K3"`. The same sentence appears exactly once in
+   `registries/se/ixbrl.py`'s module docstring, under "On the K3 taxonomy specifically".
+2. **Supplementary live budget, spent exactly as authorized and nowhere else**: one more
+   `POST /dokumentlista` and two `GET /dokument/{id}`, all on `5561890038` — the 2025 report (the
+   done-check) and 2020 (for the cross-taxonomy / string-currency test, matching the brief's original
+   fixture table). No other live call was made after this point. Accounting, added to the table this
+   file opened with:
+
+| Call | Count this continuation | Running total this task |
+|---|---|---|
+| `POST /oauth2/token` (production) | 1 | 3 |
+| `POST /dokumentlista` (production) | **1 of 1 authorized** | **5** (4 spent finding no K3 filer, 1 authorized supplement) |
+| `GET /dokument/{id}` (production) | **2 of 2 authorized** | **2** |
+
+`5561890038`'s `/dokumentlista` on production lists **six** annual reports, 2020-12-31 through
+2025-12-31, matching D-047(f)'s stated fact exactly; the two documents fetched (2025: 47,497 zipped B /
+157,013 unzipped B; 2020: 45,258 zipped B / 126,846 unzipped B) are byte-identical in size to
+`tasks/T52-recon.md`'s own measurements of the same two filings, which is the strongest evidence available
+that this session read the same documents rather than a different pair. Both were parsed through the
+shipped `registries/se/ixbrl.py` + `registries/se/financials.py` code (not a throwaway script) and
+reproduce the brief's done-check exactly: `total_assets == total_equity_and_liabilities == 515409.0`,
+`equity == 508409.0`, `profit_for_period == -10536.0`, `currency == "SEK"` for 2025; and 2020's own figures
+match `tasks/T52-recon.md`'s SE-2020 column exactly (`total_assets == total_equity_and_liabilities ==
+992027.0`, `equity == -174721.0`, `non_current_liabilities == 935948.0`, `profit_for_period == -50497.0`).
+Neither document's currency concept (`Redovisningsvaluta`/`RedovisningsvalutaHandlingList`) was read; both
+resolved `currency` through the unit alone, exactly as A3 requires.
+
+What Parts A–F actually built, fixtures included, is reported in full in the implementer's final report to
+the orchestrator (not restated here) — this section exists so a reader of this recon file alone, without
+that report, is not left believing the task stopped at Part 0.
 
 ---
 

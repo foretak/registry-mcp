@@ -200,7 +200,9 @@ async def test_sweden_include_lei_is_bad_request_not_an_empty_block() -> None:
     with pytest.raises(RegistryError) as excinfo:
         await registry.lookup_with("5560160680", ["lei"])
     assert excinfo.value.code is ErrorCode.BAD_REQUEST
-    assert excinfo.value.details["allowed"] == ["filings"]
+    # `tasks/T55.md` (D-047(f),(g)) adds `financials` to Sweden's declared
+    # set; `lei` stays excluded by `id_may_be_personal` regardless.
+    assert excinfo.value.details["allowed"] == ["filings", "financials"]
     assert excinfo.value.details["unknown"] == ["lei"]
     assert "lei" in excinfo.value.hint or "filings" in excinfo.value.hint
 

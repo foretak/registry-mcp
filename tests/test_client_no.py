@@ -1455,19 +1455,27 @@ async def test_d043_invariant5_financials_on_gb_is_bad_request_naming_gb_allowed
     assert excinfo.value.details["allowed"] == sorted(gb.effective_includes)
 
 
-async def test_d043_invariant5_financials_on_se_is_bad_request_naming_se_allowed_set() -> None:
-    se = get_registry("SE")
-    with pytest.raises(RegistryError) as excinfo:
-        await se.lookup_with(se.id_example, ["financials"])
-    assert excinfo.value.code is ErrorCode.BAD_REQUEST
-    assert "financials" not in excinfo.value.hint
-    assert excinfo.value.details["allowed"] == sorted(se.effective_includes)
+# `test_d043_invariant5_financials_on_se_is_bad_request_naming_se_allowed_set`
+# pinned SE's *absence* of `financials` shut, per D-043(i)'s "the reason is
+# ours, not theirs". D-047(f) reversed exactly that scope decision on
+# measurement (`tasks/T55-recon.md`, `tasks/T55.md`), so the invariant it
+# checked is retired, not merely renamed: GB's sibling test above is
+# unaffected (D-047(f) closes GB `financials` until after 1 April 2028, on
+# the register's population), and Sweden's *positive* path — a real
+# `lookup_with("...", ["financials"])` succeeding — is exercised in
+# `tests/test_client_se.py`'s `test_d047_*` tests instead.
 
 
-def test_d043_invariant6_country_info_shows_financials_only_for_norway() -> None:
+def test_d043_invariant6_country_info_shows_financials_for_norway_and_sweden() -> None:
+    """Amended by D-047(f),(g): Norway still fills this block (D-043, T38)
+    and Sweden now does too (`tasks/T55.md`), out of the filed K2/K3 iXBRL
+    rather than a second-round-trip JSON body — a different mechanism, the
+    same `include` name and the same discoverability contract
+    (`CountryInfo.supported_includes`, D-042(d)). GB stays excluded, on the
+    register's population rather than on parsing (D-047(f))."""
     assert "financials" in get_registry("NO").country_info().supported_includes
+    assert "financials" in get_registry("SE").country_info().supported_includes
     assert "financials" not in get_registry("GB").country_info().supported_includes
-    assert "financials" not in get_registry("SE").country_info().supported_includes
 
 
 @respx.mock
