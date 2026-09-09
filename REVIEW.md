@@ -2336,4 +2336,148 @@ and `"SE"` to `_COUNTRY_EXAMPLES`, then re-run `scripts/regen_server_card.py`.
 6. `README.md:63`: **"Status: `0.3.0`, live."** `pyproject.toml` says 0.4.0. (Finding 6.)
 7. `static/well-known/mcp/server-card.json`: **`"resources": []`.** Three are served. (Finding 7.)
 
-*(Deploy delta, orchestrator commits and verdict follow.)*
+### The deploy delta — what production serves today vs `HEAD`
+
+Six unlogged static reads against `api.foretak.dev`, no register touched. (One more than the brief's five:
+I also fetched `/llms-full.txt`, the same class of static discovery file; noted rather than hidden.)
+
+| Route | Served | `HEAD` | Delta |
+|---|---|---|---|
+| `/health` | `{"status":"ok","version":"0.3.0","countries":["GB","NO","SE"]}` | `0.4.0` | **Stale.** Production is `bf1f37f` (deployment `3798e727`); nothing from rounds 1–3, T46, T46b, T55 or T57 is live |
+| `/.well-known/mcp/server-card.json` | 132,758 bytes | differs | `serverInfo.version` 0.3.0 vs 0.4.0; `lookup_company` **description, inputSchema and outputSchema** all differ; `company_deadlines` description and inputSchema differ. `title`, top-level `description`, `authentication`, `prompts` and `resources` are byte-identical (the last because both are `[]` — finding 7) |
+| `/legal/privacy` | **"*Draft written 2026-09-05 for Kim's review; effective once published at a public URL*"**, one mention of Sweden | "*Effective 2026-09-09*", four mentions of Sweden/Bolagsverket, no "Draft" | **The T50 finding is still live.** A labelled draft is the immediate-rejection material T50 identified for the Connectors Directory, and it is what a reviewer opening the listing's privacy-policy URL sees right now |
+| `/legal/terms` | **Norway only** — Enhetsregisteret / Brønnøysundregistrene / NLOD 2.0, and no mention of Companies House or Bolagsverket anywhere in 6,054 characters | names all three registers with their own licence regimes (`legal/terms.md:24-58`) | **The terms page on the wire attributes two of three registers to nobody.** Companies House's Crown-copyright credit and Bolagsverket's stated-absence licence are both obligations we tell callers pass to *them* |
+| `/llms.txt` | — | — | **Byte-identical.** No delta |
+| `/llms-full.txt` | 70,929 bytes | differs, 241 changed lines | Stale: 15 `financials`, 14 `LEI`, 8 `Peppol`, 8 `parents`, 6 `Sweden` insertions missing on the wire |
+
+**Two consequences worth stating plainly.** (a) Everything in finding 1 is *not yet live* — it ships with
+this deploy, which is exactly why it belongs on the "before" list rather than in a follow-up. (b) The two
+legal pages are the strongest argument *for* deploying promptly: the wire is worse than `HEAD` on both, and
+the fix is already committed.
+
+**`CHANGELOG.md` `[Unreleased]` completeness.** 52 commits since `v0.3.0` touch `src/`, `static/` or
+`legal/`; the section cites 31 shas and covers the rest by prose. I checked what it does *not* cite and
+found no wire-visible gap: `411e50a`, `9288390`, `0595052`, `dd8643b`, `48cb6ab` all built behind the seam
+and reached the wire through `e03a518`/`3ecc369`, which are cited; `680d92c` (the stand-in fold) changed no
+response shape; `96b434e` (the `peppol` TTL row) is covered by the TTL-table bullet; `98a34d1` is a
+docstring fix; `b95e1ae`, `355dcdb`, `8e3af45`, `fa1a870`, `bb4ef25` are merges and card regenerations;
+`9778f29` and `ee1c636` are the commits that wrote the section. The two genuinely uncited wire-visible
+edits are `a3091fe` (three countries in the plugin-marketplace entry, link preview) and `6efb883`
+(homepage lead) — static marketing surfaces, not response shapes, and the file's own header scopes it to
+response shapes. **The section is complete**, and the one thing in it that is *wrong* is finding 1's
+CHANGELOG line, not an omission.
+
+### The orchestrator's own commits
+
+The standing rule is that the orchestrator does not write production code. Five commits are the
+orchestrator's own work rather than a merge of an agent's branch:
+
+| Commit | What it is | Production code? | Correct? |
+|---|---|---|---|
+| `c854e9e` | two assertions in `tests/test_client_no.py`: `sorted(gb.supported_includes)` → `sorted(gb.effective_includes)` | **No** — tests only | **Yes, and necessary.** T42 put `lei` on `universal_includes`, so the `bad_request` `details["allowed"]` for GB and SE is now `effective_includes`; the round-2 merge left the test comparing against the narrower set. Reconciling a test the merge falsified is squarely the merge's job |
+| `69b79da` | new `scripts/regen_server_card.py` (56 lines) | **Borderline — say it plainly: yes, it is code.** It is a dev script, not shipped in the wheel (`pyproject.toml` packages `src/registry_mcp` only), and it is a tool for the orchestrator's own merge step | **Yes, and it closes D-044-wiring finding 5.** It regenerates exactly what the two drift tests compare, so a synced card passes and an out-of-date one is fixed by running it rather than by hand. Its one gap is `resources` (finding 7) — and that gap is the drift test's too, so the script is faithful to its stated contract |
+| `b95e1ae` | `static/well-known/mcp/server-card.json` regenerated after the peppol field | **No** — generated artefact | **Yes** — the card is green against both drift tests at HEAD, verified on the pristine export |
+| `fcde62f` | `CHANGELOG.md` `[Unreleased]` +43 lines, committed because T46's agent session ended with the file unstaged | **No** — release notes | **Yes**, and honestly labelled in its own message. (One of its lines is finding 1's fifth surface — but that sentence came from T55's own commits, not from this one) |
+| `ba7d5bb` | a one-word heading in `content/06-what-active-means/devto.md` | **No** | Yes |
+
+Plus `5c71bc8` (T44) and the T43/T55 keep-both conflict resolutions, which are the agent's code committed
+or merged by the orchestrator rather than written by it — the commit messages say so, and the diffs match
+the agents' reports.
+
+**Verdict on the rule: not crossed.** The one item with any claim to being production code —
+`scripts/regen_server_card.py` — is an unshipped maintenance tool that automates a step the orchestrator
+was doing by hand and getting wrong (the D-044-wiring review's finding 5 exists because of exactly that).
+Writing it was the right call, and it is correct.
+
+### Must land before `railway up`
+
+1. **Finding 1** — the `financials` absent-vs-empty sentence, on five surfaces. ~25 minutes;
+   `src/registry_mcp/core/models.py:2299-2302`, `src/registry_mcp/mcp/server.py:404-406`,
+   `src/registry_mcp/api/main.py:821-823`, `static/llms-full.txt:517-519`, `CHANGELOG.md:61-63`; then
+   `uv run python scripts/regen_server_card.py` and the suite. Exact replacement text is in the finding.
+   **This is the only item that must land before the deploy** — it is a false statement about a
+   wire-visible state, in the card's `outputSchema` and in `/openapi.json`, and it ships *with* this deploy
+   rather than being already live, so fixing it now costs one edit and fixing it later costs a second
+   deploy plus whatever a caller built on it.
+2. **Finding 6** — `README.md:63`, both `0.3.0` → `0.4.0`. ~2 minutes, one line. Not wire-visible, but it is
+   the PyPI long description and it will be published by the same release, so it is cheaper here than after.
+
+Everything else below is a follow-up task, not a deploy gate.
+
+### Not on the "before" list — a Sonnet follow-up, sized
+
+| Finding | Work | Size |
+|---|---|---|
+| 2 — `liabilities` / `total_comprehensive_income` unpinned | one test in `tests/test_client_se.py` asserting both are `None` on both real K2 fixtures *while* the summands are present | 10 min, 1 file |
+| 3 — Norway's scope note unpinned | `test_scope_note_is_present_first_on_every_block_d044b` for NO, both the filled and the empty branch, in `tests/test_client_no.py` | 10 min, 1 file |
+| 4 — the currency-unresolved branch is untested | one hand-built fixture with a non-ISO-4217 unit + one test asserting `periods == []` and the `_CURRENCY_UNRESOLVED_NOTE` | 15 min, 2 files |
+| 5 — which half of F3 is load-bearing | one sentence in `test_d047_f3_...`'s docstring | 5 min, 1 file |
+| 7 — the card's empty `resources` | four lines in `scripts/regen_server_card.py`, three in `test_server_card_tools_and_prompts_match_the_live_server`, run the script | 15 min, 3 files |
+| 8 — `_COUNTRY_DESCRIPTION` / `_ID_DESCRIPTION` name two of three countries | add the Swedish clause and `"SE"` to `_COUNTRY_EXAMPLES`, regenerate the card | 5 min, 2 files |
+
+### What is worth keeping
+
+**The Swedish extractor is the best thing in this scope, and the reason is its shape rather than its
+output.** `registries/se/ixbrl.py` does not defend the privacy rule with a blocklist of the concept names
+that carry a director's name — it defends it by never iterating the element type those names live on, and
+it says in its own first paragraph *why* a blocklist would have been the wrong answer (Sweden renamed both
+signature concepts between the two taxonomy generations, and the failure would have been silent). Then it
+proves the claim with an AST assertion over its own source rather than a comment. That is a rule enforced by
+the shape of the code, tested at the level the shape lives at, and it survived the one mutation that
+matters. The same module declines to guess an unrecognised `@format` — degrading one field to absent
+rather than to a wrong number — and refuses a dimensioned context as the reporting period *structurally*,
+so a note-level breakdown cannot be mistaken for a whole-entity total. Three separate "make the bad state
+unrepresentable" moves in one 423-line file.
+
+**The `bad_request` hints are the quiet win.** Nine combinations, both surfaces, and every one names that
+country's real allowed set — `SE: filings, financials` with no `lei` and no `parents`, `GB` with no
+`financials`, `NO` with no `charges`. `effective_includes` subtracting `universal_includes` for a country
+whose identifier can be a person's is one line, and mutation M2 turns five tests red the moment it is
+removed. A privacy rule that is also the discoverability answer is a rule that will not rot.
+
+**And the asymmetry Sweden's `financials` chose is right, which is why finding 1 is a prose defect and not
+a code one.** A present block with `periods: []` for a company that files on paper would mean *Bolagsverket
+holds no figures for this company* and *we could not look* at once — D-011's collapse. Returning nothing,
+plus a note that names the channel, keeps them apart. The code got this right, `tasks/T55.md` argued it
+before the code was written, and five sentences written around it say the opposite. That is a much better
+failure than the reverse.
+
+**On T57.** The board said "nine `_VERIFY` fixtures"; T57 measured that eight had already been relabelled
+and that the real number was four untried identifiers. It then found that one of them (`5560986878`) is a
+genuine single-procedure bankruptcy, replaced an assembled fixture with a live recording, and — this is
+the part worth copying — left `bv_ab_avregistrerad.json` **synthetic**, with the reason written down,
+because the real deregistered company had the wrong status combination. Recording what the wire actually
+said instead of the fixture you wanted is the whole discipline.
+
+### Verdict
+
+**APPROVED WITH FIXES.** The machinery is correct end to end: twelve country×attachment combinations answer
+on both surfaces with REST ≡ MCP, every ruled invariant I could mutate held, the person-bearing line is
+clean in code and in fixtures, and 1030 tests, mypy and ruff are green on a pristine export of `HEAD`.
+
+One finding must land before `railway up` (finding 1, ~25 minutes, five files) plus one two-minute README
+line (finding 6). Both are prose. Nothing in `src/` behaves wrongly.
+
+### What I could not verify
+
+* **No live K3 Swedish filing exists anywhere in this project's evidence.** `registries/se/ixbrl.py` is
+  validated against filed K2 documents and against Bolagsverket's own K3 taxonomy *specimens*. The module
+  and the block's `notes` both say so, which is the right disclosure — but the recon's own Fact 6 (a
+  well-formed British fact that is wrong by twice its value with its sign inverted, corroborated by two
+  other tagged facts) is the reason a specimen cannot stand in for a filing. I did not call Bolagsverket, so
+  I confirmed the caveat is present and correctly worded; I could not confirm the parser is right on a real
+  K3 document, and neither could T55.
+* **The five Swedish iXBRL fixtures are hand-built**, not recordings. I verified they are internally
+  consistent, carry the `FIXTURE NOTICE`, reproduce T55's done-check exactly and contain no personal data —
+  but the extractor's agreement with them is agreement with figures a previous agent transcribed, not with a
+  document Bolagsverket served. `tests/fixtures/README.md` states this plainly.
+* **Whether the register ever emits `contains_fixed_charge: false`.** D-045(a) rests on 0 explicit `False`
+  values across 110 committed items, and the mapper relays whatever the payload holds; a literal `false` on
+  the wire would be relayed as `False` despite three field descriptions saying it must never be. I called no
+  Companies House endpoint, so this stays where D-045(a) left it — an observation about 110 items, honestly
+  labelled as one.
+* **The deployed behaviour of any attachment.** I read only the five unlogged static routes (plus
+  `/llms-full.txt`), so every statement above about how a block behaves is about `HEAD` on my machine.
+  Production is `bf1f37f` and has none of it.
+* **`packages/npm/*` and `mcpb/` beyond their version strings.** I checked the manifests carry 0.4.0; I did
+  not build or install either.
