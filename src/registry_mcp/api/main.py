@@ -44,7 +44,7 @@ from registry_mcp.api.errors import install_error_handlers
 from registry_mcp.api.ratelimit import RateLimitMiddleware
 from registry_mcp.api.stats import stats_router
 from registry_mcp.api.status import status_router
-from registry_mcp.core import log
+from registry_mcp.core import gleif, log
 from registry_mcp.core.models import (
     CompanyReport,
     CountriesResponse,
@@ -422,6 +422,9 @@ _DESCRIPTION = (
     "norway company lookup, Companies House, company number, uk company lookup, "
     "uk company search, confirmation statement, Bolagsverket, organisationsnummer, "
     "sweden company lookup, svenskt företag, business registry, company registry, MCP.\n\n"
+    "`GET /v1/{country}/company/{id}` also takes `?include=` for seven attachments "
+    "beyond the base report — filings, charges, insolvency, financials, lei, parents "
+    "and peppol — each a second fetch with its own provenance, null unless asked for.\n\n"
     "`GET /llms-full.txt` is the complete reference for an LLM caller: every endpoint, "
     "every error code and what to do about it, and the full `CompanyReport` field list."
 )
@@ -512,6 +515,9 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
         # that raises out of the MCP session manager's own `__aexit__` must
         # still release registry clients (`DECISIONS.md` D-014, REVIEW.md B3).
         await _close_registry_clients()
+        # GLEIF is not a registered country, so the loop above never reaches its
+        # shared client (`core/gleif.py::aclose`, T46).
+        await gleif.aclose()
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -800,13 +806,31 @@ async def get_company(
         description=(
             "Optional attachment names to fetch alongside the base report. Each is a "
             "second, independent fetch attached at that same key on the result, with "
-            "its own provenance, and null unless you ask for it. Three exist today: "
+            "its own provenance, and null unless you ask for it. Seven exist today: "
             "`filings` (what the entity has actually filed, and when — every country: "
             "Companies House returns the whole filing history, Bolagsverket the filed "
             "annual reports, Regnskapsregisteret the filed annual accounts, and the "
             "block's own `notes` says which), `charges` (mortgages and other security "
-            "interests, United Kingdom only) and `insolvency` (winding-up and "
-            "administration proceedings, United Kingdom only). Repeat the parameter "
+            "interests, United Kingdom only), `insolvency` (winding-up and "
+            "administration proceedings, United Kingdom only), `financials` (Norway "
+            "only: the register's own financial figures — turnover, operating result, "
+            "profit, balance sheet totals, equity and liabilities — for the latest "
+            "filed accounting period, each beside its own currency, answering whether "
+            "a supplier looks solvent; a `null` figure inside a present block means "
+            "the company did not report that line, an absent block means the country "
+            "does not publish figures at all), `lei` (every country except Sweden: "
+            "the Legal Entity Identifier GLEIF, the Global LEI Foundation, publishes "
+            "for the entity — CC0-licensed, keyless; a `null` `lei` inside a present "
+            "block means GLEIF holds none; Sweden is excluded because its identifier "
+            "can be a natural person's own and would otherwise leave for a "
+            "third-party host in a URL), `parents` (the same countries as `lei`: the "
+            "direct and ultimate corporate parent GLEIF's Level 2 data discloses, or "
+            "the entity's own stated reason — a category word such as "
+            "`NATURAL_PERSONS`, never a name — when it discloses none) and `peppol` "
+            "(Norway only: whether the entity can receive an e-invoice over the "
+            "Peppol network, read live from the SML/SMP walk ahead of the "
+            "1 January 2027 e-invoicing duty; `registered: null` means this could "
+            "not be asked, never \"no\"). Repeat the parameter "
             "for more than one, e.g. `?include=filings&include=charges`. Empty by "
             "default, which costs exactly one upstream request. A value the resolved "
             "country does not declare is a `bad_request` (400) naming what it does "
