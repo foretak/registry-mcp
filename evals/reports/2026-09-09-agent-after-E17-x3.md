@@ -1,0 +1,5 @@
+| Case | Group | Mode | Status | Notes |
+|---|---|---|---|---|
+| E17 | D | agent | FAIL | pass rate 2/3; trial 1: first-try today format valid=True; trial 1: pass - tools=['search_company', 'company_deadlines'], answer="Here's what **Equinor ASA** (orgnr 923609016) faces from 15 January 2026:\n\n\| Deadline \| Local name \| Due date \| Days out \| Basis \|\n\|---\|---\|---\|---\|---\|\n\| Share"; trial 2: first-try today format valid=True; trial 2: FAIL - final answer missing expected phrase (any of) ['2026-07-31'] \| tools=['search_company', 'company_deadlines'], answer='## Equinor ASA (orgnr 923609016) — Statutory Deadlines as of 15 January 2026\n\n\| Filing \| Local name \| Period \| Statutory date \| Due date \| Days until \|\n\|---\|---\|---\|---\|---\|---\|\n\| Shareholder register'; trial 3: first-try today format valid=True; trial 3: pass - tools=['search_company', 'company_deadlines'], answer='## Equinor ASA (org.nr 923609016) — statutory deadlines as of 15 January 2026\n\n\| Deadline \| Local name \| Due date \| Days until \| Basis \|\n\|---\|---\|---\|---\|---\|\n\|' |
+
+**0 passed, 1 failed, 0 skipped** out of 1.
