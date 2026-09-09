@@ -9,6 +9,21 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-09
+
+The token diet (`DECISIONS.md` D-048).
+
+### Changed
+
+- **The tool surface's fixed context cost** (`DECISIONS.md` D-048): 10,124 →
+  ~7,400 tokens of fixed context (7 tools + `instructions`, measured with
+  `count_tokens` on `claude-opus-5`), −26%. Attachments are now explained
+  once, in the `include` argument, not twice; the D-007 error contract is
+  written once, in `instructions`, not in four places; country prose is
+  written once per fact rather than repeated across four tools' docstrings;
+  `search`/`fetch` are unchanged in behaviour and stay visible to every
+  client; no response byte changed.
+
 ## [0.4.0] — 2026-09-09
 
 Depth per country. Seven `include=[...]` attachments on `lookup_company` — `filings`
