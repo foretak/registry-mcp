@@ -3,7 +3,7 @@
   "name": "io.github.foretak/registry-mcp",
   "title": "registry-mcp — national company registries",
   "description": "The company registry MCP: brreg orgnr, Companies House, Bolagsverket organisationsnummer.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "websiteUrl": "https://api.foretak.dev",
   "icons": [
     {
@@ -23,7 +23,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "registry-mcp",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
@@ -79,7 +79,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "registry-mcp",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

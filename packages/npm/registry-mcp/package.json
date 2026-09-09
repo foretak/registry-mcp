@@ -1,6 +1,6 @@
 {
   "name": "registry-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "mcpName": "io.github.foretak/registry-mcp",
   "description": "The company registry MCP: company data for AI agents, any country. MCP server and REST API over national business registries — Norway (brreg / Brønnøysundregistrene / Enhetsregisteret, by organisasjonsnummer, orgnr or org.nr), the United Kingdom (Companies House, by company number / CRN) and Sweden (Bolagsverket, by organisationsnummer).",
   "keywords": [
