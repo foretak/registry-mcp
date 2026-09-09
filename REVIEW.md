@@ -2058,3 +2058,17 @@ one note code, the Norwegian licence gloss, and three more — plus one canonica
 and restored there. Correction to this review's own finding 4: the drift test D-044(e) added would not have
 caught any of this, because a *description* is not a field — the copy was faithful in shape and lossy in
 substance. T40's report, not the tests, found it.
+
+---
+
+## Depth track `e03a518..81c91e7` — 2026-09-09 — IN PROGRESS (partial section, committed as it is written)
+
+Reviewer: Opus reviewer (T58). Scope: every commit since `e03a518` — rounds 1–3, T46, T46b, T55, T57.
+Executed against a pristine export of `HEAD` (`git archive HEAD | tar -x`), never the working tree,
+with `uv sync --locked --all-extras`.
+
+* `uv run pytest -m "not live" -o addopts="" -p no:cacheprovider` → **1030 passed, 26 deselected,
+  1 warning** — exactly the count `db20fd5`/T46b claims. `uv run mypy .` → clean, **77 source files**.
+  `uv run ruff check .` → clean. **CI is green at HEAD.**
+
+*(Sections below are filled in as the work proceeds; this line is replaced by the verdict.)*
