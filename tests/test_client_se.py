@@ -77,6 +77,15 @@ EK_ACTIVE = _load("bv_ek_active.json")
 ENSKILD_AVREGISTRERAD = _load("bv_enskild_avregistrerad.json")
 ENSKILD_THREE = _load("bv_enskild_three.json")
 
+# T57 (2026-09-09): every name `bv_enskild_two.json`, `bv_enskild_avregistrerad.json`,
+# `bv_enskild_three.json` and `bv_finns_ej.json` carry — real TEST recordings and
+# Bolagsverket's own OpenAPI example alike — has been replaced in the fixture with a
+# marked placeholder (`[REDACTED TEST NAME]`, or `1`/`2` where a fixture's test logic
+# needs two distinguishable values) per D-039/D-040: "no fixture may be committed
+# that carries a natural person's name ... keep the shape, replace the name with a
+# marked placeholder." See `tests/fixtures/README.md` "Redaction". Identifiers,
+# dates, addresses and every other field are untouched.
+
 
 @pytest.fixture(autouse=True)
 def _isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
@@ -229,9 +238,17 @@ def test_87_dormant_active_with_n3() -> None:
 
 
 def test_88_konkurs() -> None:
-    report = mapping.map_entity(AB_KONKURS, "5299999994")
+    """Amended 2026-09-09 (T57): `bv_ab_konkurs.json` is now the real recording
+    of `5560986878` ("Testdata 1 AB") — found live by trying, against the TEST
+    environment, the `tasks/T26-recon.md` "also permitted" identifiers T26g had
+    not yet queried (5562820745, 5560986878, 5560004755, 198101012386).
+    `bankruptcy_date` is the real 2025-06-12, not the assembled example's
+    2024-01-26 (`SWEDEN_SPEC.md` §1.8/§17 updated to match)."""
+    report = mapping.map_entity(AB_KONKURS, "5560986878")
     assert report.status is CompanyStatus.BANKRUPT
-    assert report.bankruptcy_date == date(2024, 1, 26)
+    assert report.bankruptcy_date == date(2025, 6, 12)
+    assert report.id == "5560986878"
+    assert report.name == "Testdata 1 AB"
 
 
 def test_89_fusion_overtagande_active_plus_note() -> None:
@@ -250,7 +267,7 @@ def test_91_enskild_two_one_report_from_first_element() -> None:
     report = mapping.map_entity(ENSKILD_TWO, "194009272719")
     assert report.id == "194009272719"
     assert report.id_scheme == "personnummer"
-    assert report.name == "CITY SKOR THOMAS CARLSON"
+    assert report.name == "[REDACTED TEST NAME 1]"
     assert report.legal_form_code == "E"
     assert report.activity == "HANDEL MED SKOR."
     assert report.postal_address is not None
@@ -260,8 +277,8 @@ def test_91_enskild_two_one_report_from_first_element() -> None:
 def test_92_enskild_two_n7_and_n8() -> None:
     report = mapping.map_entity(ENSKILD_TWO, "194009272719")
     assert any(
-        "CITY SKOR THOMAS CARLSON" in n
-        and "SKO-STALLET, THOMAS CARLSSON" in n
+        "[REDACTED TEST NAME 1]" in n
+        and "[REDACTED TEST NAME 2]" in n
         and "namnskyddslöpnummer 1" in n
         and "namnskyddslöpnummer 2" in n
         for n in report.notes
@@ -600,8 +617,8 @@ def test_enskild_avregistrerad_fixture_is_deleted() -> None:
     assert report.status_detail is not None and "OVERK" in report.status_detail
     assert any(
         "This identifier carries 2 registered businesses" in n
-        and "Blekinge Mäklarbyrå Birgitta Andersson Karlshamn" in n
-        and "Blekinge Mäklarbyrå Birgitta Andersson, Ronneby" in n
+        and "[REDACTED TEST NAME 1]" in n
+        and "[REDACTED TEST NAME 2]" in n
         for n in report.notes
     )
     assert any("sole trader" in n and "personal data" in n for n in report.notes)
@@ -644,11 +661,11 @@ def test_enskild_three_fixture_three_not_two_and_id_scheme_personnummer() -> Non
     report = mapping.map_entity(ENSKILD_THREE, "198101052382")
     assert report.legal_form_code == "E"
     assert report.status is CompanyStatus.ACTIVE
-    assert report.name == "Snö i april"
+    assert report.name == "[REDACTED TEST NAME 1]"
     assert any(
         "This identifier carries 3 registered businesses" in n
-        and "Snö i april" in n
-        and n.count("Sol i maj") == 2
+        and "[REDACTED TEST NAME 1]" in n
+        and n.count("[REDACTED TEST NAME 2]") == 2
         for n in report.notes
     )
     assert any("sole trader" in n and "personal data" in n for n in report.notes)

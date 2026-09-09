@@ -39,7 +39,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "CITY SKOR THOMAS CARLSON",
+            "namn": "[REDACTED TEST NAME 1]",
             "organisationsnamntyp": {
               "klartext": "n/a",
               "kod": "FORETAGSNAMN"
@@ -112,7 +112,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "SKO-STALLET, THOMAS CARLSSON",
+            "namn": "[REDACTED TEST NAME 2]",
             "organisationsnamntyp": {
               "klartext": "n/a",
               "kod": "FORETAGSNAMN"

@@ -69,7 +69,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Blekinge Mäklarbyrå Birgitta Andersson Karlshamn",
+            "namn": "[REDACTED TEST NAME 1]",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"
@@ -180,7 +180,7 @@
         "fel": null,
         "organisationsnamnLista": [
           {
-            "namn": "Blekinge Mäklarbyrå Birgitta Andersson, Ronneby",
+            "namn": "[REDACTED TEST NAME 2]",
             "organisationsnamntyp": {
               "kod": "FORETAGSNAMN",
               "klartext": "Företagsnamn"

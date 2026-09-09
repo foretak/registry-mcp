@@ -333,7 +333,7 @@ carry the result.
 |---|---|---|---|
 | `bv_ab_active.json` | live `5560021361` | Healthy `AB`. Every happy-path mapping test | **Yes — T26g, 2026-09-07** |
 | `bv_ab_dormant.json` | `organisationer-aktiebolag-svar`, reduced, `verksamOrganisation: NEJ` | §8's "on the register, not winding down, not economically active" branch. **No other country in this repo has it** | No — `_SYNTHETIC_COMBINATION`; no TEST company is a dormant AB |
-| `bv_ab_konkurs.json` | same, `pagaende…Lista: [KK 2024-01-26]` | `KK` → `BANKRUPT` + `bankruptcy_date`, and no deadlines (ÅRL 8 kap. 7 §) | No — `_SYNTHETIC_COMBINATION`; no TEST company is bankrupt |
+| `bv_ab_konkurs.json` | live `5560986878` | `KK` → `BANKRUPT` + `bankruptcy_date`, and no deadlines (ÅRL 8 kap. 7 §) | **Yes — T57, 2026-09-09**; found among the "also permitted" identifiers, not the workbook's named-scenario table (`tests/fixtures/README.md`) |
 | `bv_ab_kk_and_li.json` | same, `[KK, LI]` **both** | The list is plural and its precedence is `KK` > `LI` (§8). Straight from Bolagsverket's own example | No — `_SYNTHETIC_COMBINATION`; no TEST company has either |
 | `bv_ab_rekonstruktion.json` | same, `[FR 2026-02-01]` | `FR` is distress but **not** bankruptcy (§8 bucket 1) | No — `_SYNTHETIC_COMBINATION`; no TEST company is in reconstruction |
 | `bv_ab_fusion_overtagande.json` | same, `[FUOT]` | The acquiring company in a merger: an ongoing procedure that must **not** make a healthy company non-active (§8 bucket 2). The false-alarm test | No — `_SYNTHETIC_COMBINATION`; no TEST company is mid-fusion |
@@ -381,11 +381,14 @@ carry the result.
 > assumes Rung 3 decided `status`; it was never written to also cover a record where a different rung
 > did. Also **fixed 2026-09-07 in T33**, in the same test.
 
-`bv_ab_dormant.json`, `bv_ab_konkurs.json`, `bv_ab_kk_and_li.json`, `bv_ab_rekonstruktion.json`,
-`bv_ab_fusion_overtagande.json` and `bv_ab_avregistrerad.json` are the six fixtures that stayed
-assembled after T26g — every field name and nesting level in them also appears in one of the eight
-live recordings above or in Bolagsverket's OpenAPI document, but no TEST-register company is
-currently in the specific *combination* of states each one models. They carry a header key:
+`bv_ab_dormant.json`, `bv_ab_kk_and_li.json`, `bv_ab_rekonstruktion.json`,
+`bv_ab_fusion_overtagande.json` and `bv_ab_avregistrerad.json` are the five fixtures that stayed
+assembled after T26g **and after T57** (2026-09-09, which also tried four more allowed identifiers
+live and turned one of them, `5560986878`, into `bv_ab_konkurs.json`'s real recording above — see
+`tests/fixtures/README.md`) — every field name and nesting level in them also appears in one of the
+eleven live recordings now on file or in Bolagsverket's OpenAPI document, but no TEST-register
+company is currently in the specific *combination* of states each one models. They carry a header
+key:
 
 ```json
 {"_SYNTHETIC_COMBINATION": "SHAPE CONFIRMED, COMBINATION SYNTHETIC — every field name and nesting
@@ -2052,7 +2055,8 @@ Subject is an active `AB` unless stated. `today` is given per test.
     `published_deadlines == []`, `sector_code is None`.
 86. Same fixture: `notes` contains N4, because `reklamsparr.kod == "JA"` (D-036).
 87. `bv_ab_dormant.json` → `status == ACTIVE`, `is_active is True`, and `notes` contains N3.
-88. `bv_ab_konkurs.json` → `status == BANKRUPT`, `bankruptcy_date == date(2024, 1, 26)`.
+88. `bv_ab_konkurs.json` → `status == BANKRUPT`, `bankruptcy_date == date(2025, 6, 12)` (T57,
+    2026-09-09: now the live `5560986878` recording; the assembled example's date was `2024-01-26`).
 89. `bv_ab_fusion_overtagande.json` → `status == ACTIVE` plus a note (§8 bucket 2).
 90. `bv_ab_avregistrerad.json` → `status == DELETED`, `deregistered_at == date(2023, 5, 5)` from the
     **datetime-shaped** string.
@@ -2310,8 +2314,12 @@ against the live TEST environment and corrected here 2026-09-07 (T26g):
 They are the four §5.1.1 counter-examples; `5560000002` has a job of its own (§14 test 116) and the
 others should be left alone until that experiment resolves.
 
-The test environment only accepts numbers on its allowlist; another number returns a response
-listing the permitted ones, which is itself worth saving the first time it happens.
+The test environment only accepts numbers on its allowlist. **Corrected 2026-09-08 (R-5b) for
+`/dokumentlista` and 2026-09-09 (T57) for `/organisationer` too:** an unlisted-but-well-formed
+number does *not* return a response listing the permitted ones on either operation — it returns a
+bare RFC 7807 400 pointing at the workbook (`tests/fixtures/README.md`). T57 confirmed this for
+`/organisationer` live with `5560160680` (Ericsson's real production organisationsnummer, tried
+against the TEST host only). The permitted numbers are only in the workbook.
 
 Redaction: the recorded bodies contain **no credential**, but `bv_enskild_two.json` and any
 sole-trader recording contain a **personnummer, a name and a home address of a real natural person**
