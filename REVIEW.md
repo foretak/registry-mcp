@@ -2071,4 +2071,29 @@ with `uv sync --locked --all-extras`.
   1 warning** — exactly the count `db20fd5`/T46b claims. `uv run mypy .` → clean, **77 source files**.
   `uv run ruff check .` → clean. **CI is green at HEAD.**
 
-*(Sections below are filled in as the work proceeds; this line is replaced by the verdict.)*
+### Mutation results (partial — the battery is still running)
+
+| # | Claim under test | Mutation | Test that went red |
+|---|---|---|---|
+| M1 | D-043(h)(2,3): `filings`+`financials` on NO cost one upstream request | deleted the `_inflight_accounts_fetch` rendezvous in `no/client.py` | **RED** — `test_d043_invariant1_concurrent_fetch_accounts_and_fetch_financials_share_one_request`, `…_lookup_with_both_includes_makes_exactly_one_upstream_request`, `…invariant2_provenance_equal_in_all_five_fields` |
+| M2 | D-045(e): `lei`/`parents` absent for SE, `effective_includes` everywhere | removed the `id_may_be_personal` subtraction in `core/registry.py::effective_includes` | **RED** ×5 — `test_effective_includes_drops_universal_when_id_may_be_personal`, `test_sweden_include_lei_is_bad_request_not_an_empty_block`, `test_list_countries_shows_lei_for_no_and_gb_but_not_se`, and the two `parents` twins |
+| M3 | D-047(a): `lei`+`parents` share one GLEIF search | deleted the `_inflight_search` rendezvous in `core/gleif.py` | **RED** — `test_lei_and_parents_together_make_exactly_one_search_request` (2 ≠ 1) |
+| M4 | D-046(d): the SMP host comes from the NAPTR, a hardcoded one is a defect | forced `smp_base = "https://smp.elma-smp.no/"` after a successful resolve | **RED** — `test_non_elma_host_is_read_from_the_naptr_not_hardcoded`, `test_26_document_types_survive_the_full_fetch_uncapped` |
+| M5 | D-046(a): `false` only on NXDOMAIN / SMP 404, a Directory miss is `null` | Directory miss returns `registered=False` | **RED** ×3 — `test_noerror_no_meta_smp_record_is_null_not_false`, `test_resolver_timeout_then_directory_empty_is_null_but_present`, `test_null_is_never_written_to_the_cache` |
+| M6 | D-046(d): `registered: null` is never cached | added an `else: cache.set(...)` branch | **RED** ×2 — `test_null_is_never_written_to_the_cache`, `test_naptr_to_smp_binding_is_never_cached_under_any_key` |
+| M7 | D-045(a): the three `contains_*` flags are `True`-or-absent, never `False` | `particulars.get(k)` → `bool(particulars.get(k))` | **RED** ×4 — incl. `test_charges_contains_flags_absence_maps_to_none_never_false` |
+| M8a | D-044(b): the scope note is first on every SE `filings` block | `notes = [_SCOPE_NOTE]` → `notes = []` | **RED** ×2 — `test_scope_note_is_present_first_on_every_block_d044b` (SE) |
+| M8b | …on every GB `filings` block | same, `gb/filing_history.py` | **RED** ×2 — `test_scope_note_is_present_first_on_every_block_d044b` (GB) |
+| M8c | …first on every NO `filings` block | `notes.insert(0, _ONE_PERIOD_NOTE…)` → `notes.append(…)` | **not caught** — 1030 pass |
+| M8d | …present at all on every NO `filings` block | deleted the `_ONE_PERIOD_NOTE` line outright | **not caught** — 1030 pass (finding 3) |
+| M9 | D-047(f): `/dokumentlista` is shared in flight with `filings` | deleted the `_inflight_dokumentlista_fetch` rendezvous | **RED** — `test_d047_f8_one_dokumentlista_request_serves_filings_and_financials` (2 ≠ 1) |
+| M10 | D-047(f): exactly one `/dokument` per lookup | fetched every listed document, not only the newest | **RED** ×4 — `test_d047_f9_exactly_one_dokument_request_for_six_listed_reports` and three others |
+| M11 | D-047(g): the element filter admits `ix:nonFraction` only | `!= "nonFraction"` → `not in ("nonFraction", "nonNumeric")` | **RED** — `test_d047_f3_extractor_element_filter_is_static_and_nonnumeric_never_leaks`, on its **static** half only (see finding 5) |
+| M12a | D-043(d): `currency` comes from the unit, no default | unresolved currency falls back to `"SEK"` | **not caught** — 1030 pass (finding 4) |
+| M12b | …and never from a concept | read `Redovisningsvaluta` as a fallback lookup key | **RED** — `test_d047_f2_2020_currency_via_unit_and_redovisningsvaluta_never_read` |
+| M13 | D-047(g)/D-043(e): SE `liabilities` is `None` unconditionally | derived `liabilities = current + non_current` | **not caught** — 1030 pass (finding 2) |
+| M14 | D-047(f): the figures are cached on `dokumentId`, not the company | keyed `_financials_cache_key` on the organisationsnummer | **RED** — `test_d047_f12_cached_payload_carries_no_document_and_no_nonnumeric` |
+| M15 | D-047(f): the document itself is never stored | wrote the XHTML into the cache payload | **RED** — `test_d047_f12_cached_payload_carries_no_document_and_no_nonnumeric` |
+| M16 | T46b: `/health` and the card are pinned to `pyproject.toml` | `__version__` → `9.9.9` | **RED** ×2 — `test_version_matches_pyproject`, `test_well_known_server_card_version_matches_package` |
+
+*(Findings, deploy delta and verdict follow; this section is committed partial so it survives a lost session.)*
