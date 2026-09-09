@@ -36,6 +36,49 @@ frozen as of `0.2.0`.
 - Prompts **`counterparty_check`** and **`register_coverage`** — each names
   the job an agent actually has rather than the architecture behind it, and
   states this service's honest limits in its own output (`cf5f13f`).
+- **`include=["financials"]` for `NO`** — the register's own key figures
+  (turnover, operating result, profit, balance sheet totals, equity,
+  liabilities) for the latest filed accounting period, each figure beside
+  its own `currency`; a `None` figure inside a present block means the
+  company did not report that line, an absent block means the country does
+  not publish figures. One fetch serves both this and `filings` for Norway
+  — one `SourceRef`, not two. No derived ratio, indicator or verdict exists
+  on this block (D-043, `067a1cc`).
+- **`include=["lei"]` for `GB` and `NO`** — the Legal Entity Identifier
+  GLEIF, the Global LEI Foundation, publishes for the entity, CC0-licensed
+  and keyless, on a new `Registry.universal_includes` mechanism every
+  country declares by default; `SE` is excluded and `include=["lei"]` for
+  `SE` is `bad_request`, because the identifier would leave for a
+  third-party host in a URL and a Swedish identifier can be a natural
+  person's own. A present block with `lei: null` means GLEIF holds none
+  for this entity (D-045(e), `e6e7ad1`).
+- **A per-kind cache TTL table** in `core/cache.py`, keyed on the existing
+  cache key's own kind segment so no existing caller migrates; `lei` is the
+  first row, `(7 days, 24 hours)` (D-045(e), `e6e7ad1`).
+- **`include=["parents"]` for `GB` and `NO`** (the same countries as `lei`,
+  for the same reason; `SE` is `bad_request`) — the direct and ultimate
+  corporate parent GLEIF's Level 2 "who owns whom" data discloses, or the
+  entity's own stated reason from a closed vocabulary such as
+  `NATURAL_PERSONS` when it discloses none. Read that reason as a category
+  word, never a name: it is the filer's own unverified claim, and it is
+  applied inconsistently between filers for materially identical situations
+  (D-047(a), `6905db3`).
+- **`include=["peppol"]` for `NO` only** — whether the entity can receive an
+  e-invoice over the Peppol network, resolved live through the Peppol
+  SML/SMP walk with the Peppol Directory as a positive-only fallback, ahead
+  of Norway's 1 January 2027 e-invoicing duty. `registered` earns `false`
+  only from an authoritative NXDOMAIN or SMP 404; everything else — a
+  resolver failure, an SMP error, or a Directory miss, which both Peppol
+  operators say in writing does not mean the entity is unreachable — is
+  `null`, never `false` (D-046, `0748bfa`, `f5372c5`, `64b5366`).
+- **`include=["filings"]` on `company_deadlines`** (MCP and REST), and
+  Sweden's second deadline rung: when the caller asks for it, Bolagsverket's
+  own filed-report year end replaces the 31 December assumption behind both
+  Swedish deadlines. `company_deadlines` accepts a narrower `include` set
+  than `lookup_company` — only a value that can change a computed date,
+  `filings` alone today — and a value outside it (`financials` included) is
+  `bad_request` naming this operation's own allowed set (D-041, D-045(g),
+  `5c71bc8`).
 
 ### Changed
 
