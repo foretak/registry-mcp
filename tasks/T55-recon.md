@@ -26,6 +26,11 @@ too large to lawfully use K2). The budget is now at 0 of 4; Parts A–C, E and F
 | `POST /dokumentlista` (production) | **4 of 4** | Four candidate aktiebolag, below. **Budget now exhausted.** |
 | `GET /dokument/{id}` (production) | **0 of 6** | Never reached: every candidate's document list was empty, so there was nothing to fetch. |
 
+**This table is Part 0's own snapshot, at the point Part 0 concluded and before the orchestrator's
+continuation decision below.** The task did not stop there — see "Orchestrator decision and
+continuation" for the supplementary calls actually spent (one more `/dokumentlista`, two `/dokument`,
+both on `5561890038`) and the final tally.
+
 Credentials were read from `~/secrets/registry-mcp/bolagsverket-prod.txt` into shell variables by the
 invoking shell (`set -a; source …; set +a`) immediately before each `uv run python …` invocation, never
 echoed, never written to a file, never passed as a script argument, and not present in this repository.
@@ -298,10 +303,34 @@ inspected for its **element name and count only**; no value was read, printed, s
 four production `/dokumentlista` responses carried no document (nothing to inspect) and no personnummer
 (all four identifiers are ten-digit organisationsnummer for aktiebolag, never a personal identifier).
 
+## Fixtures — one more finding, discovered while building them
+
+Part F's plan, following the brief, was to commit the real 2020 and 2025 `5561890038` documents with
+every `ix:nonNumeric` element's *tagged* content stripped. **That was not enough.** Stripping and
+re-serialising both documents (`xml.etree.ElementTree`, attributes kept, text cleared) still left a
+signing director's full name in the output — as **bare, untagged HTML text**, rendered outside any
+`ix:` element entirely, evidently a layout convention (a table cell showing the signatory's name for
+human readers) that duplicates a tagged fact rather than deriving from it. `ix:nonNumeric`-stripping
+assumes a name only ever appears *inside* a tagged fact; on this document that assumption is false.
+
+**Consequence: none of the committed `se_ixbrl_*.xhtml` fixtures are copies of the real filing, stripped
+or otherwise.** Every one is hand-built from real `schemaRef` URLs, real `se-gen-base` concept names and
+the real, measured figures — detailed in `tests/fixtures/README.md`'s new section, which is the
+authoritative account. This is recorded here too because it is a finding about the *document*, not only
+a fixture-engineering decision: any future task that wants to relay or display more of a Bolagsverket
+filing than its tagged figures — a rendered excerpt, a PDF-style view, anything beyond the seventeen
+`ix:nonFraction` concepts this task reads — must budget for this. The one-line rule ("read
+`ix:nonFraction`, never `ix:nonNumeric`") is unaffected and remains correct **for what it claims**: it
+guarantees the *extractor* never reads a name. It says nothing about what the source document contains
+outside any `ix:` tag, and nobody should read it as a stripping recipe for the whole document.
+
 ## Sources
 
-**Fetched live this session (2026-09-09).** `https://portal.api.bolagsverket.se/oauth2/token` (×2) ·
-`https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/dokumentlista` (×4, production) ·
+**Fetched live this session (2026-09-09).** `https://portal.api.bolagsverket.se/oauth2/token` (×3) ·
+`https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/dokumentlista` (×5, production — four on the
+candidate search, one supplementary on `5561890038`) ·
+`https://gw.api.bolagsverket.se/vardefulla-datamangder/v1/dokument/{id}` (×2, production, both on
+`5561890038` — the 2020 and 2025 annual reports) ·
 `https://xbrl.taxonomier.se/se/exempel/faststalld-k3-arsredovisning/exempel-3-2021/faststalld-arsredovisning-k3-exempel-3-2021-rev20240214.xhtml` ·
 `https://xbrl.taxonomier.se/se/exempel/arsredovisning/k3k-exempel-2-2021/tillampningsexempel-k3-koncern-exempel-2-2021-rev20240916.xhtml`.
 
