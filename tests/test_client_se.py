@@ -1275,17 +1275,18 @@ def test_133_empty_list_and_absent_key_are_a_present_block_never_not_found() -> 
 
 
 def test_empty_note_names_the_ericsson_observation_t44() -> None:
-    """T44's orchestrator addendum: production serves a **present** block
-    with `documents: []` for Telefonaktiebolaget LM Ericsson (5560160680)
-    against six listed reports for 5561890038, and Bolagsverket's own
-    documentation does not explain why. `_EMPTY_NOTE` states the observation
-    — hedged as one, not asserted as a documented mechanism — rather than
-    guessing in silence; this pins that it keeps doing so."""
+    """T44's orchestrator addendum asked why production serves a **present**
+    block with `documents: []` for Telefonaktiebolaget LM Ericsson
+    (5560160680) against six listed reports for 5561890038.
+    `tasks/T52-recon.md` answered it: Ericsson reports under IFRS, which
+    Bolagsverket's digital-submission channel does not accept at all — T55
+    §E rewrites `_EMPTY_NOTE` to state that as the reason rather than as a
+    hedged observation, which this pins."""
     empty = filings.map_dokumentlista(DOKUMENTLISTA_EMPTY, cached=False, fetched_at=FETCHED_AT)
     (empty_note,) = [n for n in empty.notes if "holds no filed annual report" in n]
     assert "5560160680" in empty_note
     assert "5561890038" in empty_note
-    assert "may omit" in empty_note or "may also not" in empty_note
+    assert "IFRS" in empty_note
     assert "digital channel" in empty_note
 
 

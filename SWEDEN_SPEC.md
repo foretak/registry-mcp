@@ -1302,14 +1302,21 @@ caveat that survives," and conflating them would overstate what this module curr
   kr two months after a notice, then 15 000 / 30 000 kr two months after that, to a maximum of
   30 000 kr for a private and 60 000 kr for a public aktiebolag — belongs in `rules_markdown()`
   prose, not in a `Deadline`.
-- **`/dokumentlista` and `/dokument`.** True as of T26b; no longer the shipped state. `/dokumentlista`
-  (filed annual reports) is exposed as `include=["filings"]` (T31, D-044) — a second request, opt
-  in, against the 60/min budget, exactly as this bullet anticipated. `/dokument` (the zip) is not,
-  and now permanently rather than merely deferred: D-041(g) rules it out as a third request and an
-  XBRL package to parse. **`last_annual_accounts_year` is not filled from either, and never will
-  be** — D-041(c) rules that a second-round-trip value never lands on a first-round-trip field; the
-  year end lives in the `filings` block instead, where its own provenance travels with it. §2's
-  mapping table still marks the field `DEFERRED`, by a later, explicit ruling (D-041(c), T44's own
+- **`/dokumentlista` and `/dokument`.** True as of T26b; no longer the shipped state, and this bullet
+  itself was corrected twice since. `/dokumentlista` (filed annual reports) is exposed as
+  `include=["filings"]` (T31, D-044) — a second request, opt in, against the 60/min budget, exactly
+  as this bullet anticipated. `/dokument` (the zip) was ruled out as **permanently** deferred by
+  D-041(g) — "a third request, an XBRL package to parse" — and that ruling has since been
+  **reversed for Sweden**: `tasks/T52-recon.md` measured it as a *second* request (not a third — the
+  list is already fetched for `filings`), a 45 KB zip holding one iXBRL XHTML (not the iXBRL+XBRL+PDF
+  triple the ruling assumed), parsing in 2–4 ms with the standard library. D-047(f) reversed D-041(g)
+  on that measurement and `tasks/T55.md` ships it as `include=["financials"]`
+  (`registries/se/ixbrl.py`, `registries/se/financials.py`): one `/dokument` fetch, for the most
+  recent annual report only, its figures cached and the document itself never stored. This still does
+  **not** touch `last_annual_accounts_year` or `published_deadlines` — D-041(c) rules that a
+  second-round-trip value never lands on a first-round-trip field, so `financials`' own figures live
+  only in its own block, exactly as `filings`' year end does. §2's mapping table still marks
+  `last_annual_accounts_year` `DEFERRED`, by the same later, explicit ruling (D-041(c), T44's own
   scope) that leaves that one line as it stands rather than correcting it to "permanently `None`" —
   recorded here so the two are not read as disagreeing by accident.
 - **Beneficial owners.** A separate `VerkligaHuvudmän v1` API exists on the same portal and is
