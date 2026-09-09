@@ -13,6 +13,7 @@ fixture.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any
@@ -226,6 +227,128 @@ async def test_tool_annotations() -> None:
         assert annotations.idempotent_hint is True
         assert annotations.open_world_hint is (name in open_world)
         assert annotations.title  # explicit, non-empty — not the auto-derived default
+
+
+#: Every term `KEYWORDS.md` §1/§GB/§SE and the rulings that wrote this surface
+#: (D-042(d)(2), D-043(b), D-045(e), D-046, D-047, T58) require to be findable on
+#: it. Measured present on `main` at `10b5712` and pinned by `DECISIONS.md`
+#: D-048(h) so the token diet cannot quietly drop one. **This list may grow and
+#: may never shrink.**
+_LOOKUP_COMPANY_WORDS = (
+    "brreg", "Brønnøysund", "Brønnøysundregistrene", "Enhetsregisteret",
+    "organisasjonsnummer", "orgnr", "org.nr", "norway company lookup",
+    "norwegian business registry", "Companies House", "company number",
+    "company registration number", "CRN", "uk company lookup",
+    "organisationsnummer", "Bolagsverket", "swedish company lookup", "personnummer",
+    "filings", "filing history", "charges", "mortgage", "security interest",
+    "insolvency", "winding-up", "administration", "financials", "annual accounts",
+    "turnover", "operating result", "profit", "balance sheet", "solvent", "solvency",
+    "lei", "Legal Entity Identifier", "Global LEI Foundation", "GLEIF", "CC0",
+    "parents", "ultimate", "group", "Level 2", "K2", "peppol", "e-invoice", "EHF",
+    "2027", "SML", "SMP", "ELMA", "NATURAL_PERSONS", "supported_includes",
+    "bad_request",
+)
+#: The four that live elsewhere on the surface, and where.
+_ELSEWHERE_WORDS = {
+    "company registry": "instructions",
+    "uk company search": "search_company",
+    "confirmation statement": "company_deadlines",
+    "årsredovisning": "company_deadlines",
+}
+
+
+async def test_tool_surface_pins_every_keyword_and_ruled_word() -> None:
+    """`DECISIONS.md` D-048(h). The token diet (D-048(a)-(c)) rewrites every
+    description on this surface; this is what makes "no fact was traded for
+    tokens" checkable rather than asserted. 54 terms must be on
+    `lookup_company` -- its description *plus its three argument descriptions*,
+    which is what a model actually reads -- and four more elsewhere.
+
+    Whitespace is normalised first, deliberately: `uk company search` was broken
+    across a line in `search_company`'s docstring before T59 and so was not a
+    contiguous string on the wire at all, which a naive substring assertion
+    would have reported as missing. Normalising also lets the Sonnet re-wrap a
+    paragraph without breaking the pin."""
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in await client.list_tools()}
+
+    def flat(text: str) -> str:
+        return re.sub(r"\s+", " ", text).lower()
+
+    def surface(tool: Any) -> str:
+        return flat(
+            (tool.description or "")
+            + json.dumps(tool.input_schema, ensure_ascii=False)
+        )
+
+    lookup = surface(tools["lookup_company"])
+    missing = [w for w in _LOOKUP_COMPANY_WORDS if flat(w) not in lookup]
+    assert not missing, f"gone from lookup_company's description/arguments: {missing}"
+
+    whole = " ".join(surface(t) for t in tools.values()) + " " + flat(mcp.instructions or "")
+    for word, where in _ELSEWHERE_WORDS.items():
+        assert flat(word) in whole, f"{word!r} (expected on {where}) is gone from the surface"
+
+    # D-048(b)/(c): the pointer E26's `--agent` check depends on -- every tool
+    # that takes a `country` must still send an unsure model to `list_countries`.
+    for name in ("lookup_company", "search_company", "company_deadlines", "validate_company_id"):
+        assert "list_countries" in surface(tools[name]), f"{name} no longer names list_countries"
+
+
+#: `DECISIONS.md` D-048(h). CI has no Anthropic API key, so the fixed context
+#: cost is estimated locally as characters / this ratio. Measured twice with
+#: `POST /v1/messages/count_tokens` on `claude-opus-5`, 2026-09-09, over exactly
+#: the blob `_fixed_context_blob` builds: **2.612** before the T59 diet
+#: (26,439 chars / 10,124 tokens) and **2.606** after (19,292 / 7,402). The two
+#: bracket the constant. `claude-sonnet-5` counts ~0.7% higher, i.e. cheaper by
+#: this proxy, so the Opus ratio is the conservative one.
+_CHARS_PER_TOKEN = 2.60
+
+#: Post-diet measurement (7,402) plus 10%, per D-048(h). Raising this number
+#: requires an amendment to D-048 in `DECISIONS.md`, not an edit here.
+_FIXED_TOKEN_BUDGET = 8_100
+
+#: A second gate on the raw bytes, so that re-measuring `_CHARS_PER_TOKEN`
+#: upward can never silently buy room: budget x ratio, rounded up.
+_FIXED_CHAR_BUDGET = 21_060
+
+
+async def _fixed_context_blob() -> str:
+    """Exactly what every MCP client loads before the first call: each tool's
+    name, description and input schema, plus the server `instructions`. Output
+    schemas are excluded on purpose -- FastMCP advertises them (~47,000 tokens)
+    and no Claude client forwards them to the model, so they are not a caller
+    cost today (`DECISIONS.md` D-048)."""
+    async with Client(mcp) as client:
+        tools = await client.list_tools()
+    payload = [
+        {"name": t.name, "description": t.description or "", "inputSchema": t.input_schema}
+        for t in sorted(tools, key=lambda t: t.name)
+    ]
+    return json.dumps(payload, ensure_ascii=False) + (mcp.instructions or "")
+
+
+async def test_fixed_context_cost_stays_within_budget() -> None:
+    """`DECISIONS.md` D-048(h): the tool surface is a document the caller pays
+    for on every conversation, and the T59 diet cut it from 10,124 tokens to
+    7,402. Nothing stops it growing back one well-meant sentence at a time
+    except a number, so this is that number.
+
+    A failure here is not a licence to raise the constant. It means a new
+    sentence needs a home: the `include` argument for anything about an
+    attachment, `instructions` for anything about an error code,
+    `registry://rules/{country}` for anything about a country's rules."""
+    blob = await _fixed_context_blob()
+    estimate = len(blob) / _CHARS_PER_TOKEN
+    assert estimate <= _FIXED_TOKEN_BUDGET, (
+        f"fixed context cost is ~{estimate:,.0f} tokens "
+        f"({len(blob):,} chars / {_CHARS_PER_TOKEN}), over the {_FIXED_TOKEN_BUDGET:,} "
+        f"budget D-048(h) set. Do not raise the budget -- move the sentence."
+    )
+    assert len(blob) <= _FIXED_CHAR_BUDGET, (
+        f"fixed context blob is {len(blob):,} characters, over the "
+        f"{_FIXED_CHAR_BUDGET:,} raw ceiling"
+    )
 
 
 # ---------------------------------------------------------------------------
