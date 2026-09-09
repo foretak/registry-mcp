@@ -220,12 +220,18 @@ def test_list_countries_shows_lei_for_no_and_gb_but_not_se() -> None:
 
 @respx.mock
 async def test_default_lookup_makes_exactly_one_upstream_request_and_lei_is_none() -> None:
+    """Extended by `tasks/T53.md` §E.13 to cover `parents` too: a default
+    lookup (no `include`) fetches neither attachment, so this one assertion
+    covers both GLEIF-backed universal includes at once."""
     from registry_mcp.registries.no import client as no_client_module
 
     company_route = respx.get(f"{no_client_module.BASE_URL}/enheter/923609016").mock(
         return_value=httpx.Response(200, json=EQUINOR)
     )
-    # No `params=` constraint: *any* call to GLEIF at all must not happen.
+    # No `params=` constraint: *any* call to the search endpoint must not
+    # happen. `include=()` never calls `parents()` either, so no
+    # `direct-parent`/`ultimate-parent` leg URL is attempted at all — respx's
+    # default `assert_all_mocked` would fail this test loudly if one were.
     gleif_route = respx.get(gleif.BASE_URL).mock(return_value=httpx.Response(200, json=EQUINOR_LEI))
 
     registry = get_registry("NO")
@@ -234,6 +240,7 @@ async def test_default_lookup_makes_exactly_one_upstream_request_and_lei_is_none
     assert company_route.call_count == 1
     assert gleif_route.call_count == 0
     assert report.lei is None
+    assert report.parents is None
 
 
 # ---------------------------------------------------------------------------

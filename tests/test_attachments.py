@@ -161,19 +161,22 @@ def test_supported_includes_defaults_to_empty(example_registry: Registry) -> Non
     assert example_registry.supported_includes == frozenset()
 
 
-def test_universal_includes_is_lei(example_registry: Registry) -> None:
+def test_universal_includes_is_lei_and_parents(example_registry: Registry) -> None:
     """The base class's own declaration, inherited unedited by every country
-    module (D-045(e)) — `example_registry` here stands in for that, exactly
-    as it does for `supported_includes` defaulting to empty."""
-    assert type(example_registry).universal_includes == frozenset({"lei"})
+    module (D-045(e), D-047(a)) — `example_registry` here stands in for
+    that, exactly as it does for `supported_includes` defaulting to empty.
+    Both members are GLEIF: the LEI and its corporate parents."""
+    assert type(example_registry).universal_includes == frozenset({"lei", "parents"})
 
 
 def test_effective_includes_unions_universal_with_supported(attach_registry: Registry) -> None:
     """`effective_includes` = `universal_includes` | `supported_includes`
     (D-045(e)) — the one helper every call site reads instead of inlining
     the union three times. `attach_registry` declares `{"gadget", "widget"}`
-    and never mentions `lei`, yet gains it."""
-    assert attach_registry.effective_includes == frozenset({"gadget", "lei", "widget"})
+    and never mentions `lei` or `parents`, yet gains both."""
+    assert attach_registry.effective_includes == frozenset(
+        {"gadget", "lei", "parents", "widget"}
+    )
 
 
 def test_effective_includes_drops_universal_when_id_may_be_personal(
@@ -195,6 +198,7 @@ def test_effective_includes_drops_universal_when_id_may_be_personal(
     registry = _PersonalRegistry()
     assert registry.effective_includes == frozenset({"widget"})
     assert "lei" not in registry.effective_includes
+    assert "parents" not in registry.effective_includes
 
 
 def test_country_info_carries_only_the_universal_include_by_default(
@@ -202,19 +206,19 @@ def test_country_info_carries_only_the_universal_include_by_default(
 ) -> None:
     """`supported_includes` (the country's own declarations) is empty, but
     `country_info().supported_includes` reads `effective_includes`
-    (D-045(e)), which is never empty: `lei` reaches every registry by
-    default via `universal_includes`, XX included."""
+    (D-045(e)), which is never empty: `lei` and `parents` reach every
+    registry by default via `universal_includes`, XX included."""
     info = example_registry.country_info()
     assert isinstance(info, CountryInfo)
-    assert info.supported_includes == ["lei"]
+    assert info.supported_includes == ["lei", "parents"]
 
 
 def test_country_info_carries_effective_includes_sorted(attach_registry: Registry) -> None:
     """Sorted, for a stable wire (D-042(d)(1)) — declared as
-    `{"gadget", "widget"}` plus the universal `lei` (D-045(e)), a set with no
-    guaranteed iteration order."""
+    `{"gadget", "widget"}` plus the universal `lei`/`parents` (D-045(e),
+    D-047(a)), a set with no guaranteed iteration order."""
     info = attach_registry.country_info()
-    assert info.supported_includes == ["gadget", "lei", "widget"]
+    assert info.supported_includes == ["gadget", "lei", "parents", "widget"]
 
 
 # ---------------------------------------------------------------------------
@@ -276,8 +280,9 @@ async def test_unknown_include_value_raises_bad_request_naming_allowed_set(
     assert "bogus" in err.message
     assert "gadget" in err.hint and "widget" in err.hint
     # `effective_includes` (D-045(e)): the country's own two attachments
-    # plus the universal `lei`, which no fake here ever had to declare.
-    assert err.details["allowed"] == ["gadget", "lei", "widget"]
+    # plus the universal `lei`/`parents`, which no fake here ever had to
+    # declare.
+    assert err.details["allowed"] == ["gadget", "lei", "parents", "widget"]
     assert err.details["unknown"] == ["bogus"]
     assert err.country == "XW"
     assert err.registry == "example-attach"
@@ -297,14 +302,15 @@ async def test_a_country_that_declares_none_rejects_every_other_include_value(
     example_registry: Registry,
 ) -> None:
     """The real `XX` stub: `supported_includes` (its own declarations) is the
-    default empty set, so `effective_includes` is just the universal `lei`
-    (D-045(e)) — any *other* `include` value is unknown, and the caller is
-    told so rather than silently getting an empty block back."""
+    default empty set, so `effective_includes` is just the universal
+    `lei`/`parents` (D-045(e), D-047(a)) — any *other* `include` value is
+    unknown, and the caller is told so rather than silently getting an empty
+    block back."""
     with pytest.raises(RegistryError) as excinfo:
         await example_registry.lookup_with("12345678", ["bogus"])
     err = excinfo.value
     assert err.code is ErrorCode.BAD_REQUEST
-    assert err.details["allowed"] == ["lei"]
+    assert err.details["allowed"] == ["lei", "parents"]
     assert "bogus" in err.message
     assert "lei" in err.hint
 
@@ -722,9 +728,11 @@ async def test_lookup_with_routes_each_block_to_the_field_of_the_same_name(
 def test_deadline_includes_is_filings_only_and_never_peppol() -> None:
     """The module constant itself: today's only deadline-changing attachment
     is `filings`, and Peppol participant status must never join it — a
-    counterparty's e-invoicing reachability cannot move a filing deadline."""
+    counterparty's e-invoicing reachability cannot move a filing deadline.
+    Neither can a corporate parent (D-047(a)): a parent link is not a date."""
     assert frozenset({"filings"}) == DEADLINE_INCLUDES
     assert "peppol" not in DEADLINE_INCLUDES
+    assert "parents" not in DEADLINE_INCLUDES
 
 
 async def test_deadline_report_with_default_include_costs_exactly_one_lookup_call(
@@ -802,6 +810,27 @@ async def test_lei_is_rejected_as_a_deadline_include(monkeypatch: pytest.MonkeyP
     assert exc.details["allowed"] == ["filings"]
     assert exc.details["unknown"] == ["lei"]
     assert "lei" in registry.country_info().supported_includes  # unaffected elsewhere
+
+
+async def test_parents_is_rejected_as_a_deadline_include(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A corporate parent cannot change a filing date, so it is rejected here
+    exactly like `lei` is — even though GB and NO get it for free via
+    `universal_includes` on `lookup_company` (D-047(a))."""
+    registry = get_registry("GB")
+
+    async def _boom(_id: str) -> CompanyReport:
+        raise AssertionError("lookup must not be attempted")
+
+    monkeypatch.setattr(type(registry), "lookup", staticmethod(_boom))
+
+    with pytest.raises(RegistryError) as excinfo:
+        await registry.deadline_report_with("00445790", ["parents"], date(2026, 3, 1))
+    exc = excinfo.value
+    assert exc.code is ErrorCode.BAD_REQUEST
+    assert exc.details is not None
+    assert exc.details["allowed"] == ["filings"]
+    assert exc.details["unknown"] == ["parents"]
+    assert "parents" in registry.country_info().supported_includes  # unaffected elsewhere
 
 
 @pytest.mark.parametrize("country", ["GB", "NO"])

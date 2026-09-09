@@ -111,6 +111,12 @@ _TTL_BY_KIND: dict[str, tuple[int, int]] = {
     # companies points the harm the wrong way (DECISIONS.md D-026(c),
     # D-045(e)).
     "lei": (7 * 24 * 60 * 60, 24 * 60 * 60),
+    # Same pair as `lei`, for the same reasons (DECISIONS.md D-047(a)): a
+    # GLEIF relationship record renews annually (an observed record last
+    # updated 2026-07-26 carried nextRenewalDate: 2027-08-18), nothing
+    # statutory, time-critical or credit-bearing turns on a parent link, and
+    # the harm from re-asking a free service points at the free service.
+    "parents": (7 * 24 * 60 * 60, 24 * 60 * 60),
 }
 
 

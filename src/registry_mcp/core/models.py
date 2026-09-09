@@ -683,6 +683,203 @@ class LeiRecord(_Base):
     )
 
 
+class ParentLink(_Base):
+    """One side (`direct` or `ultimate`) of a `ParentBlock` — either GLEIF
+    discloses a corporate parent for this side, or the entity's own filer
+    explained why it did not (``include=["parents"]``, D-047(a)).
+
+    **Exactly one of `lei` and `reporting_exception` is populated — never
+    both, never neither** (enforced below, D-011: a link that discloses a
+    parent's LEI and a link that records why no parent was disclosed are two
+    different facts and must not collapse into one).
+
+    GLEIF Level 2 reports the *accounting consolidating* parent — the wire
+    word is `IS_DIRECTLY_CONSOLIDATED_BY` / `IS_ULTIMATELY_CONSOLIDATED_BY` —
+    which is **not** the same as the majority shareholder, and neither
+    implies the other.
+    """
+
+    lei: str | None = Field(
+        default=None,
+        description=(
+            "The parent's own 20-character LEI, when GLEIF discloses a parent for this "
+            "side. This is a lookup key **for GLEIF**, not for `lookup_company` — the "
+            "caller cannot feed it a national identifier this project does not carry. "
+            "To walk up a group from here, call `lookup_company` on the parent's own "
+            "national identifier where the caller already has it. Norway additionally "
+            "publishes `CompanyReport.parent_id` on the *first* round trip from "
+            "Enhetsregisteret — a different register's answer to a neighbouring "
+            "question, and it is not reconciled against this one (D-018)."
+        ),
+    )
+    legal_name: str | None = Field(
+        default=None,
+        description=(
+            "The parent's legal name exactly as GLEIF publishes it, verbatim and never "
+            "reconciled against `CompanyReport.name` or anything else. **Bound by "
+            "D-028(1)**: never a lookup key, never an index, never searchable, never "
+            "written to a log (D-040). The binding exists because GLEIF issues LEIs to "
+            "sole proprietors too — 126,936 records carry an entity-level classification "
+            "of `SOLE_PROPRIETOR`, whose legal name is routinely a natural person's name "
+            "— and although no sole-proprietor *parent* was observed in a 30-record "
+            "sample, nothing in GLEIF's Level 2 format forbids one."
+        ),
+    )
+    jurisdiction: str | None = Field(
+        default=None,
+        description=(
+            "The parent's own registered jurisdiction, ISO-3166-1 alpha-2, as GLEIF "
+            "publishes it. May differ from this entity's own `CompanyReport.country`."
+        ),
+    )
+    registration_status: str | None = Field(
+        default=None,
+        description=(
+            "The *parent's* own LEI registration status (`ISSUED`, `LAPSED`, …), "
+            "carrying the same warning as `LeiRecord.registration_status`: a `LAPSED` "
+            "LEI means the parent stopped renewing its own registration and is **not** "
+            "evidence of insolvency — see that field's own description rather than "
+            "restating it here."
+        ),
+    )
+    corroboration_level: str | None = Field(
+        default=None,
+        description=(
+            "GLEIF's own corroboration level for the *relationship* record, verbatim: "
+            "`FULLY_CORROBORATED`, `PARTIALLY_CORROBORATED`, `ENTITY_SUPPLIED_ONLY`. "
+            "Measured over 31 disclosed relationships: 10 / 11 / 10 — roughly a third "
+            "of all disclosed parent links are the filer's own assertion that nobody "
+            "has checked, which is the reason this field costs a second request. "
+            "`None` on the exception side, where there is no relationship record."
+        ),
+    )
+    reporting_exception: str | None = Field(
+        default=None,
+        description=(
+            "Why the entity did not report a parent on this side, from GLEIF's closed "
+            "exception-reason vocabulary, relayed verbatim: `NO_LEI`, `NATURAL_PERSONS` "
+            "('the entity is controlled by a natural person(s) without any intermediate "
+            "legal entity'), `NON_CONSOLIDATING` ('controlled by legal entities not "
+            "subject to consolidation'), `NO_KNOWN_PERSON` ('no known person(s) "
+            "controlling the entity, e.g. the entity is controlled by diverse "
+            "shareholders'), `NON_PUBLIC`, and five values deprecated since 2022-03-01 "
+            "and retained only for compatibility (`BINDING_LEGAL_COMMITMENTS`, "
+            "`LEGAL_OBSTACLES`, `DISCLOSURE_DETRIMENTAL`, `DETRIMENT_NOT_EXCLUDED`, "
+            "`CONSENT_NOT_OBTAINED`). Three things to hold onto reading it, all load-"
+            "bearing: it is a **category word and never a name** — nothing beyond the "
+            "word is available and nothing beyond it would be relayed if it were "
+            "(D-028); it is the entity's **own stated reason**, verified by neither "
+            "GLEIF nor us; and it is **not applied consistently between filers** — of "
+            "117 ultimate-parent exceptions sampled, `NATURAL_PERSONS` is 49 of 57 "
+            "(86%) of Norwegian ones and 28 of 60 (47%) of British ones, and EQUINOR "
+            "ASA (`OW6OFBNCKXC4US5C7523`), 67% owned by the Norwegian State, reads "
+            "`NATURAL_PERSONS` while DNB, Telenor and Tesco — in the same position at "
+            "the top of their own groups — read `NON_CONSOLIDATING`, and BP, Ericsson "
+            "and Carillion read `NO_KNOWN_PERSON`. Treat `NATURAL_PERSONS` on a company "
+            "with a known institutional owner as a filing artefact, not a fact about "
+            "its owners."
+        ),
+    )
+    source_url: str | None = Field(
+        default=None,
+        description=(
+            "The exact GLEIF URL that returned this side's own record — the parent's "
+            "Level 1 record when disclosed, or the reporting-exception record when "
+            "excepted. `ParentBlock.provenance` describes the fetch as a whole; this "
+            "names the one leg that filled this side (D-046(d))."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _lei_xor_reporting_exception(self) -> Self:
+        """D-011's invariant, enforced rather than assumed: a link that
+        discloses a parent's LEI and a link that records why no parent was
+        disclosed are two different facts about the same side, so this model
+        must not be constructible as both at once or as neither
+        (DECISIONS.md D-047(a))."""
+        if (self.lei is None) == (self.reporting_exception is None):
+            raise ValueError(
+                "ParentLink requires exactly one of `lei` or `reporting_exception` to "
+                "be set — both or neither collapses two different facts into one field "
+                "(DECISIONS.md D-011, D-047(a))."
+            )
+        return self
+
+
+class ParentBlock(_Base):
+    """Corporate parents from GLEIF Level 2 — the `include=["parents"]`
+    attachment (D-047(a)).
+
+    **Three-level nullability**, restated for this block: an **absent**
+    `CompanyReport.parents` means `parents` was not requested, or the fetch
+    failed (`notes` on the report says which). A **present** block whose
+    `direct` and `ultimate` are both `None` means GLEIF holds **no LEI at
+    all** for this entity — there is no Level 2 to hold either, and that is
+    itself the answer, not an absence. A **present** block with `direct`
+    and/or `ultimate` populated is the ordinary case, whether populated side
+    discloses a parent or records why it did not.
+
+    `direct` and `ultimate` are two independent sides that can disagree in
+    kind — one disclosed, the other excepted, or two different parents.
+    **Never collapse them and never derive one from the other**: in a
+    600-record Swedish sample, 9 records disclosed a direct parent and 10
+    disclosed an ultimate one, so at least one record took different paths
+    on its two sides.
+
+    The sentence the whole block hangs on: **GLEIF Level 2 reports the
+    *accounting consolidating* parent — the entity that consolidates this
+    entity's accounts (wire word `IS_DIRECTLY_CONSOLIDATED_BY` /
+    `IS_ULTIMATELY_CONSOLIDATED_BY`) — which is not the same as the majority
+    shareholder, and neither implies the other.**
+    """
+
+    direct: ParentLink | None = Field(
+        default=None,
+        description=(
+            "The entity that directly consolidates this entity's accounts, or the "
+            "reporting exception recorded for this side. `None` when GLEIF's "
+            "relationships name neither a disclosed parent nor a reporting exception "
+            "for this side (0 of 1,800 records sampled) or when a failed fetch degraded "
+            "just this side (`notes` names the leg); see `ParentBlock`'s own docstring "
+            "for the two other reasons this can be `None`."
+        ),
+    )
+    ultimate: ParentLink | None = Field(
+        default=None,
+        description=(
+            "The entity at the top of the chain that ultimately consolidates this "
+            "entity's accounts, or the reporting exception recorded for this side. "
+            "Independent of `direct` — never derived from it, never reconciled "
+            "against it."
+        ),
+    )
+    provenance: SourceRef = Field(
+        description=(
+            "One `SourceRef` for the whole fan-out (D-046(d)), not one per side: "
+            "`source` names GLEIF, `license` is 'CC0 1.0', `source_url` is "
+            "'https://api.gleif.org/api/v1/lei-records/{lei}' — the record every leg "
+            "hangs off — and `fetched_at` is the moment the fan-out completed. The "
+            "discovery search that finds this entity's LEI fills no field on this "
+            "block; it is shared with `include=[\"lei\"]` and never repeated for a "
+            "lookup that asks for both. Each side's own `source_url` names the exact "
+            "leg that filled it. Never implies endorsement and never describes "
+            "registry-mcp as a GLEIF service (D-026(c))."
+        )
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Plain-English caveats, always naming the URL(s) actually fetched — "
+            "including, when GLEIF holds no LEI at all, a sentence saying so. Whenever "
+            "either side carries a `reporting_exception`, also carries the 'this word "
+            "is the filer's own, unverified and inconsistently applied' sentence, "
+            "because a caveat that lives only in a schema description does not travel "
+            "into a rendered answer. Also names the one thing lost by not modelling the "
+            "disclosed relationship's own period history: its start date."
+        ),
+    )
+
+
 class Charge(_Base):
     """One registered charge (a mortgage or other security interest) against
     an entity — one row of a `ChargeBlock`.
@@ -1887,6 +2084,22 @@ class CompanyReport(_Base):
             "natural person's (`Registry.universal_includes`) — Sweden does not "
             "declare it, because GLEIF is a third-party host queried by identifier in "
             "a URL query string."
+        ),
+    )
+    parents: ParentBlock | None = Field(
+        default=None,
+        description=(
+            "Corporate parents from GLEIF Level 2 — accounting consolidation, not "
+            "shareholding (see `ParentBlock`'s own docstring). `None` unless `parents` "
+            "was passed in `include=[...]` — and, even then, `None` if that fetch "
+            "failed (see `notes` for why). A country that declares this attachment "
+            "returns a *present* block even for an entity GLEIF holds no LEI for at "
+            "all, with `direct` and `ultimate` both `None`: GLEIF cannot hold Level 2 "
+            "for an entity it has no Level 1 for, and that is the answer, not an "
+            "absence (D-011). Declared by default by every country whose identifiers "
+            "cannot be a natural person's (`Registry.universal_includes`, alongside "
+            "`lei`) — Sweden does not declare it, for the same reason it does not "
+            "declare `lei`."
         ),
     )
     charges: ChargeBlock | None = Field(
