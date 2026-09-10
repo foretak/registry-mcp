@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from registry_mcp.api.stats import stats_router
 from registry_mcp.core import log, stats
 from registry_mcp.core.models import Surface
+from registry_mcp.core.ua_classify import classify
 
 
 @pytest.fixture(autouse=True)
@@ -128,6 +129,14 @@ def test_summary_on_empty_database_is_zeroed(tmp_path: Path) -> None:
     assert result["days_since_last_call"] is None
     assert result["last_non_connect_call_at"] is None
     assert result["days_since_last_non_connect_call"] is None
+    assert result["real_asks"] == {
+        "calls": {"all_time": 0, "last_7_days": 0},
+        "distinct_user_agents": {"all_time": 0, "last_7_days": 0},
+        "mcp_sessions_non_bot": 0,
+        "by_source_named": [],
+        "last": None,
+        "ceiling_hitters": [],
+    }
 
 
 def test_summary_aggregates_ten_calls(tmp_path: Path) -> None:
@@ -594,3 +603,660 @@ def test_stats_endpoint_200_with_correct_key(
     body = resp.json()
     assert body["total_calls"] == 10
     assert body["by_surface"] == {"rest": 6, "mcp": 4}
+    # T65: `/v1/stats` is a thin wrapper around `summary()` (module docstring)
+    # and must carry the same `real_asks` block, not a REST-only extra.
+    assert "real_asks" in body
+    assert "calls" in body["real_asks"]
+
+
+# ---------------------------------------------------------------------------
+# T65 — `real_asks`: the day-45-gate-flavoured subset of `calls`
+# (`~/mcp-growth/DECISION-GATE.md`). `core/stats.py::_is_real_ask` is the
+# definition under test; see its module-level constants
+# (`_DOCUMENTED_EXAMPLE_QUERIES`, `_OWN_AND_BOT_USER_AGENTS`,
+# `_DISQUALIFYING_UA_LABELS`) for exactly what it excludes.
+# ---------------------------------------------------------------------------
+
+
+def test_summary_real_asks_scanner_ua_with_example_query_counts_zero(tmp_path: Path) -> None:
+    """A documented-example query (README.md's `equinor`) from the exact
+    directory-monitor user agent `~/mcp-growth/DECISION-GATE.md` §8.1 names
+    must contribute nothing to `real_asks` — disqualified twice over, by
+    query and by user agent."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="search_company",
+        country="NO",
+        query="equinor",
+        user_agent="Mozilla/5.0 (compatible)",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 1
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["distinct_user_agents"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+
+
+def test_summary_real_asks_chrome_ua_with_new_uk_number_counts_one(tmp_path: Path) -> None:
+    """A real browser asking about a UK company number that is neither of
+    our documented examples (`00445790`/`445790`) is exactly what "real ask"
+    means to count."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="GB",
+        query="01234567",
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    assert result["real_asks"]["distinct_user_agents"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["query"] == "01234567"
+    assert last["country"] == "GB"
+    assert last["operation"] == "lookup_company"
+
+
+def test_summary_real_asks_documented_example_from_a_real_browser_still_counts_zero(
+    tmp_path: Path,
+) -> None:
+    """(1) applies regardless of user agent: even a real-looking browser
+    asking our own flagship example (923609016) teaches us nothing about
+    demand and must not count."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+
+
+def test_summary_real_asks_documented_example_matching_is_case_insensitive(
+    tmp_path: Path,
+) -> None:
+    """"TESCO", "Tesco" and "tesco" are all the one documented example —
+    capitalisation must not be a loophole out of the exclusion."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="search_company",
+        country="GB",
+        query="TESCO",
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+
+
+def test_summary_real_asks_sasame_mcp_audit_is_never_real(tmp_path: Path) -> None:
+    """`SaSame-MCP-Audit/0.1` contains "MCP", so `ua_classify.classify` labels
+    it `coding_agent` (checked before any bot rule) and it arrives over the
+    MCP surface — both would otherwise satisfy `_is_real_ask`. Only the
+    exact-name exclusion in `_OWN_AND_BOT_USER_AGENTS` catches it, which is
+    the whole reason that set exists rather than relying on labels alone."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="NO",
+        query="999999999",
+        user_agent="SaSame-MCP-Audit/0.1",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert classify("SaSame-MCP-Audit/0.1") == "coding_agent"
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["mcp_sessions_non_bot"] == 0
+
+
+def test_summary_real_asks_swedish_real_ask_shows_no_identifier_in_last(tmp_path: Path) -> None:
+    """D-040 stores `query=NULL` for Sweden regardless of surface, so a
+    Swedish `lookup_company` real ask is counted via `_is_real_ask`'s Swedish
+    carve-out (`_QUERY_WITHHELD_COUNTRY`/`_WITHHELD_QUERY_OPERATIONS`), and
+    its `last` entry must never show an identifier."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator review, round 1: two definition refinements to `_is_real_ask`.
+#
+# (1) A Swedish REST row with `query=NULL` is the one case where "no query"
+#     means "the query was withheld" (D-040), not "nothing was asked" — it
+#     must count as a real ask for a real user agent, on lookup_company,
+#     company_deadlines and validate_company_id alike (search_company too,
+#     though it 501s for Sweden today).
+# (2) `list_countries` (the bare connect probe every client and every
+#     scanner makes) is never a real ask, on either surface. `validate_company_id`
+#     is excluded only when its query is a documented example or NULL — a
+#     validate of a genuinely new number from a real user agent is a real ask.
+# ---------------------------------------------------------------------------
+
+
+def test_summary_real_asks_swedish_rest_lookup_with_null_query_counts_one_for_real_ua(
+    tmp_path: Path,
+) -> None:
+    """The exact case flagged in review: a Chrome UA, Sweden, `lookup_company`,
+    `query=NULL`, over REST — must count as one real ask, not zero."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+def test_summary_real_asks_swedish_rest_lookup_with_null_query_counts_zero_for_own_ua(
+    tmp_path: Path,
+) -> None:
+    """The same Swedish REST/`lookup_company`/`query=NULL` shape, but from
+    `curl/8.5.0` — one of our own frozen smoke-test user agents
+    (`_OWN_AND_BOT_USER_AGENTS`) — must still count zero: the Swedish
+    carve-out only waives the query test, never the user-agent test."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent="curl/8.5.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+
+
+def test_summary_real_asks_swedish_rest_company_deadlines_and_validate_null_query_count(
+    tmp_path: Path,
+) -> None:
+    """The same carve-out extends to `company_deadlines` and
+    `validate_company_id`, per the orchestrator's operation list —
+    not just `lookup_company`."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="company_deadlines",
+        country="SE",
+        query=None,
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="validate_company_id",
+        country="SE",
+        query=None,
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 2, "last_7_days": 2}
+
+
+def test_summary_real_asks_list_countries_never_real_on_either_surface(
+    tmp_path: Path,
+) -> None:
+    """`list_countries` is the bare capability probe every client — and
+    every scanner — makes on connect. A real, non-bot user agent calling it
+    must still not count as a real ask, on REST or MCP."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.MCP,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 2
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+
+
+def test_summary_real_asks_validate_company_id_new_number_from_real_ua_counts_one(
+    tmp_path: Path,
+) -> None:
+    """A `validate_company_id` call on a genuinely new number, from a real
+    (non-bot, non-own) user agent, is a real ask — `validate_company_id` is
+    excluded only for a documented-example or NULL query, never blanket."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="validate_company_id",
+        country="GB",
+        query="12345678",  # not 00445790/445790, and not OC303675 (evals/cases.json's Deloitte LLP example)
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["operation"] == "validate_company_id"
+    assert last["query"] == "12345678"
+
+
+def test_summary_real_asks_validate_company_id_excluded_for_example_or_null_query(
+    tmp_path: Path,
+) -> None:
+    """`validate_company_id` is excluded when its query is a documented
+    example (445790, the GB validate example) or NULL for a non-Swedish
+    reason — the same real user agent counts zero either way, unlike the
+    Swedish case above."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="validate_company_id",
+        country="GB",
+        query="445790",
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.MCP,
+        operation="validate_company_id",
+        country=None,
+        query=None,
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+
+
+def test_summary_real_asks_last_re_redacts_a_legacy_unredacted_swedish_row(
+    tmp_path: Path,
+) -> None:
+    """Defense in depth: even a historical row that somehow stored a Swedish
+    query unredacted must never surface it through `real_asks.last` —
+    `core.registry.loggable_query` is re-applied here rather than trusted
+    from the write path."""
+    db = tmp_path / "calls.sqlite3"
+    _insert_historical_call(
+        db,
+        ts=datetime.now(UTC).isoformat(),
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="SE",
+        query="5566778899",  # deliberately NOT one of the documented examples
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+def test_summary_real_asks_ceiling_hitter_fires_at_50_not_49(tmp_path: Path) -> None:
+    """M4 (`~/mcp-growth/DECISION-GATE.md` amendment A2): >=50 calls from one
+    user agent within a single UTC minute must appear in `ceiling_hitters`;
+    49 must not."""
+    db = tmp_path / "calls.sqlite3"
+    minute = datetime.now(UTC).replace(second=0, microsecond=0)
+    for i in range(50):
+        _insert_historical_call(
+            db,
+            ts=(minute + timedelta(seconds=i % 59)).isoformat(),
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="GB",
+            query=f"AT{i:06d}",
+            user_agent="ceiling-tester/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+    for i in range(49):
+        _insert_historical_call(
+            db,
+            ts=(minute + timedelta(seconds=i % 59)).isoformat(),
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="GB",
+            query=f"BT{i:06d}",
+            user_agent="sub-ceiling-tester/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+
+    result = stats.summary(db)
+
+    hitters = {
+        row["user_agent"]: row["calls_in_minute"] for row in result["real_asks"]["ceiling_hitters"]
+    }
+    assert hitters == {"ceiling-tester/1.0": 50}
+    assert "sub-ceiling-tester/1.0" not in hitters
+
+
+def test_summary_real_asks_ceiling_hitter_only_within_last_7_days(tmp_path: Path) -> None:
+    """A 50-call-in-one-minute burst older than 7 days must not appear in
+    `ceiling_hitters` (scoped reading) even though it still counts toward
+    the all-time real-ask total."""
+    db = tmp_path / "calls.sqlite3"
+    old_minute = (datetime.now(UTC) - timedelta(days=8)).replace(second=0, microsecond=0)
+    for i in range(50):
+        _insert_historical_call(
+            db,
+            ts=(old_minute + timedelta(seconds=i % 59)).isoformat(),
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="GB",
+            query=f"OLD{i:06d}",
+            user_agent="stale-burst/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["ceiling_hitters"] == []
+    assert result["real_asks"]["calls"]["all_time"] == 50
+    assert result["real_asks"]["calls"]["last_7_days"] == 0
+
+
+def test_summary_real_asks_by_source_named_excludes_no_source_bucket(tmp_path: Path) -> None:
+    """`real_asks.by_source_named` is `by_source` (T64) minus the
+    `NO_SOURCE_KEY` bucket — named channels only."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="GB",
+        query="01234567",
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+        source="readme",
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="GB",
+        query="09876543",
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["by_source_named"] == [{"source": "readme", "count": 1}]
+    assert all(row["source"] != stats.NO_SOURCE_KEY for row in result["real_asks"]["by_source_named"])
+
+
+def test_summary_real_asks_mcp_sessions_non_bot_counts_distinct_recent_mcp_user_agents(
+    tmp_path: Path,
+) -> None:
+    """`mcp_sessions_non_bot` is distinct MCP user agents, excluding
+    known own/bot ones, in the last 7 days — independent of query content
+    and of REST traffic on the same user agent string."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="NO",
+        query="111111111",
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="NO",
+        query="222222222",
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.MCP,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="SaSame-MCP-Audit/0.1",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="333333333",
+        user_agent="claude-code/2.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["mcp_sessions_non_bot"] == 1
+
+
+def test_summary_real_asks_full_scenario(tmp_path: Path) -> None:
+    """One deterministic scenario exercising every `real_asks` field
+    together — the fixture quoted in T65's task report.
+
+    Six groups of calls, oldest to newest: (F) a 50-call-in-one-minute burst
+    from one user agent (ceiling hitter, all real), (A) a scanner asking a
+    documented example (not real), (B) a real browser asking a new GB number
+    (real), (D) `SaSame-MCP-Audit` asking a documented example over MCP (not
+    real, twice over), (E) `curl` asking a new GB number with a named source
+    (real), (C) a Swedish real ask over MCP, most recent of all (real,
+    redacted in `last`).
+    """
+    db = tmp_path / "calls.sqlite3"
+    now = datetime.now(UTC)
+    minute_f = (now - timedelta(minutes=10)).replace(second=0, microsecond=0)
+
+    for i in range(50):
+        _insert_historical_call(
+            db,
+            ts=(minute_f + timedelta(seconds=i % 59)).isoformat(),
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="NO",
+            query=f"F{i:08d}",
+            user_agent="ceiling-tester/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+    _insert_historical_call(
+        db,
+        ts=(now - timedelta(minutes=9)).isoformat(),
+        surface=Surface.REST,
+        operation="search_company",
+        country="NO",
+        query="equinor",
+        user_agent="Mozilla/5.0 (compatible)",
+        latency_ms=5,
+        ok=True,
+    )
+    _insert_historical_call(
+        db,
+        ts=(now - timedelta(minutes=8)).isoformat(),
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="GB",
+        query="01234567",
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+    _insert_historical_call(
+        db,
+        ts=(now - timedelta(minutes=7)).isoformat(),
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="SaSame-MCP-Audit/0.1",
+        latency_ms=5,
+        ok=True,
+    )
+    conn = log.connect(db)
+    try:
+        conn.execute(
+            "INSERT INTO calls "
+            "(ts, surface, operation, country, query, user_agent, latency_ms, ok, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                (now - timedelta(minutes=6)).isoformat(),
+                Surface.REST.value,
+                "lookup_company",
+                "GB",
+                "07654321",
+                "curl/9.9.9",
+                5,
+                1,
+                "readme",
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _insert_historical_call(
+        db,
+        ts=now.isoformat(),
+        surface=Surface.MCP,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 55  # 50 (F) + A + B + D + E + C
+    real_asks = result["real_asks"]
+    assert real_asks["calls"] == {"all_time": 53, "last_7_days": 53}
+    assert real_asks["distinct_user_agents"] == {"all_time": 4, "last_7_days": 4}
+    assert real_asks["mcp_sessions_non_bot"] == 1
+    assert real_asks["by_source_named"] == [{"source": "readme", "count": 1}]
+    assert real_asks["last"] == {
+        "ts": now.isoformat(),
+        "operation": "lookup_company",
+        "country": "SE",
+        "query": None,
+    }
+    assert real_asks["ceiling_hitters"] == [
+        {"user_agent": "ceiling-tester/1.0", "calls_in_minute": 50}
+    ]

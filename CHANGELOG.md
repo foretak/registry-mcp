@@ -11,6 +11,40 @@ frozen as of `0.2.0`.
 
 ### Added
 
+- **`real_asks` in `GET /v1/stats` and a new "Real asks (what the gate
+  counts)" row atop the dashboard, above "Total calls"** (`tasks/T65.md`,
+  `~/mcp-growth/DECISION-GATE.md`'s day-45 gate). Raw call counts include
+  directory scanners, crawlers, our own smoke tests and playground clicks
+  against our own documented examples — none of that is evidence anyone
+  asked this service anything. `core/stats.py::summary()` now also reports,
+  from the same `calls` table: `calls` and `distinct_user_agents` (each
+  all-time and last-7-days), `mcp_sessions_non_bot` (distinct non-bot MCP
+  user agents, last 7 days), `by_source_named` (T64's `by_source` minus the
+  "no src" bucket), `last` (the single most recent real ask, its query
+  re-redacted through `core.registry.loggable_query` so a Swedish
+  identifier is never shown), and `ceiling_hitters` (the new M4 reading,
+  amendment A2: user agents at or above 50 calls in any one minute in the
+  last 7 days — near the 60/minute REST limit). A "real ask" excludes (1)
+  a fixed set of our own documented example queries collected from
+  `README.md`, `static/llms-full.txt` and `evals/cases.json`
+  (`923609016`, `00445790`, `445790`, `5560160680`, `equinor`, `tesco`,
+  `833285602`, `833286602`, `test` — matched case-insensitively) and (2)
+  a fixed list of known own/bot user agents (`SaSame-MCP-Audit/0.1` and
+  `~/mcp-growth/BASELINE-2026-09-07.md`'s untruncated own-traffic
+  strings) plus `core/ua_classify.py`'s new `bot` label. `ua_classify.py`
+  gains that label — crawlers/monitors such as Googlebot or the bare
+  `Mozilla/5.0 (compatible)` directory monitor, checked before `browser` —
+  because before this there was no way to tell one from a real browser by
+  label alone. Two operation-shaped refinements from review: `list_countries`
+  (the bare connect probe every client, and every scanner, makes) is never a
+  real ask on either surface; and, since D-040 stores `query=NULL` for every
+  Swedish call regardless of surface, a Swedish `lookup_company` /
+  `company_deadlines` / `validate_company_id` (`search_company` too, if it
+  ever logs — currently `not_implemented` for Sweden) row with `query=NULL`
+  now counts as a real ask for a real user agent, on REST as much as MCP —
+  "no query" there means "withheld", not "nothing was asked". A non-Swedish
+  `validate_company_id` with `query=NULL`, or a documented-example query on
+  any country, still counts zero.
 - **`?src=` on the REST routes and on `/mcp`, logged as a new `source`
   column on the `calls` table — "calls by channel"** (`tasks/T64.md`).
   Free text, sanitised to `[a-z0-9_-]` and truncated to 32 characters
