@@ -380,6 +380,7 @@ _DEADLINES_EXAMPLE = {
         "regulation (§ 8-3(1)). Verify against Regnskapsregisteret before relying "
         "on an annual date."
     ],
+    "rules_last_reviewed": "2026-09-05",
 }
 
 _VALIDATE_EXAMPLE = {
@@ -918,7 +919,10 @@ async def search_companies(
         "holidays; `applies_because` states the legal form or flag (and any assumption) "
         "behind each date, quote it rather than presenting a date as unconditional fact. An "
         "empty list is a real answer for a bankrupt, deleted or compulsorily-liquidated "
-        "entity, or a branch/sub-unit — `notes` explains why. On `bad_request` (400), "
+        "entity, or a branch/sub-unit — `notes` explains why. `rules_last_reviewed` names "
+        "the date this country's statutes and day-count arithmetic were last checked "
+        "against the law — a deadline computed long after that date should be re-verified "
+        "before anyone acts on it. On `bad_request` (400), "
         "either `today` was not `YYYY-MM-DD` or `include` named a value this route does "
         "not accept for the resolved country — fix whichever the error names and retry."
     ),

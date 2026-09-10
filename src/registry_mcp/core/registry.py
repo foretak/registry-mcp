@@ -135,6 +135,19 @@ class Registry(ABC):
     license: ClassVar[str] = ""
     """Licence of the upstream data, e.g. ``"NLOD 2.0"``."""
 
+    rules_last_reviewed: ClassVar[date | None] = None
+    """The date this country's deadline rules — the statutes and their day-count
+    arithmetic — were last checked against the law.
+
+    ``None`` by default, like :attr:`requires_api_key` (``DECISIONS.md`` D-017): a
+    module (e.g. the XX example) that computes no deadlines never overrides it. A
+    country that implements :meth:`deadlines` sets this from its own
+    ``registries/<cc>/rules.py``'s ``RULES_LAST_REVIEWED`` constant — the one
+    place the date is written — so :meth:`deadline_report` and ``rules_markdown()``
+    can never disagree about it. :meth:`deadline_report` raises ``not_implemented``
+    if a country that reaches it left this ``None``.
+    """
+
     is_stub: ClassVar[bool] = False
     """True for example/skeleton modules that must stay out of the public country list."""
 
@@ -306,7 +319,23 @@ class Registry(ABC):
         Args:
             report: A report produced by this same registry.
             today: The date to compute "next occurrence" from, inclusive.
+
+        Raises:
+            RegistryError: ``not_implemented`` if this registry computes deadlines
+                but never set :attr:`rules_last_reviewed` — every shipped country does.
         """
+        rules_last_reviewed = self.rules_last_reviewed
+        if rules_last_reviewed is None:
+            raise RegistryError(
+                ErrorCode.NOT_IMPLEMENTED,
+                f"{self.country} has not set Registry.rules_last_reviewed.",
+                hint=(
+                    "This registry module computes deadlines but never overrode "
+                    "rules_last_reviewed from its own rules.py's RULES_LAST_REVIEWED."
+                ),
+                country=self.country,
+                registry=self.registry,
+            )
         return DeadlineReport(
             country=self.country,
             registry=self.registry,
@@ -315,6 +344,7 @@ class Registry(ABC):
             today=today,
             deadlines=self.deadlines(report, today),
             notes=list(report.notes),
+            rules_last_reviewed=rules_last_reviewed,
         )
 
     def validate(self, id: str) -> ValidationResult:

@@ -195,6 +195,7 @@ def test_deadlines(client: TestClient, ip: str) -> None:
     assert len(body["deadlines"]) > 0
     assert body["deadlines"][0]["kind"] == "shareholder_register_statement"
     assert any("calendar-year" in n for n in body["notes"])
+    assert body["rules_last_reviewed"] == "2026-09-05"
 
 
 @respx.mock

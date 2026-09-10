@@ -9,6 +9,14 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+### Added
+
+- **`rules_last_reviewed` on `DeadlineReport`, and atop every
+  `registry://rules/{country}` resource** — the date each country's deadline
+  statutes and day-count arithmetic were last checked against the law, so an
+  agent can tell a deadline computed long after that date from a fresh one
+  (`tasks/T62.md`, `~/mcp-growth/products/00-SYNTHESIS.md` §4.1 S1).
+
 ## [0.4.1] — 2026-09-09
 
 The token diet (`DECISIONS.md` D-048).

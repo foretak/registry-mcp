@@ -497,6 +497,13 @@ class DeadlineReport(_Base):
             "list is empty, an unclassified legal form, a status that suspends filing."
         ),
     )
+    rules_last_reviewed: date = Field(
+        description=(
+            "The date this country's deadline rules — the statutes and their day-count "
+            "arithmetic — were last checked against the law; a deadline computed long "
+            "after this date should be re-verified before anyone acts on it."
+        ),
+    )
 
     @field_validator("country")
     @classmethod

@@ -3251,7 +3251,7 @@
     },
     {
       "name": "company_deadlines",
-      "description": "Give the next occurrence of each statutory filing deadline a company faces.\n\n`country=\"NO\"` covers the Norwegian calendar (Regnskapsregisteret, Skatteetaten) for a\ncompany looked up by organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene /\nEnhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,\naksjonærregisteroppgaven, mva-melding, a-melding. `country=\"GB\"` covers the two\nCompanies House obligations for a company number (CRN): the annual accounts filing and\nthe confirmation statement (CS01). `country=\"SE\"` covers the two Swedish obligations of\nan aktiebolag (AB) or ekonomisk förening (EK) looked up by organisationsnummer at\nBolagsverket: the ordinary general meeting (ordinarie bolagsstämma / årsstämma) at six\nmonths from the financial year end, and the annual report (årsredovisning) at seven,\nwhere the late-filing fee (förseningsavgift) begins.\n\nPass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's\ncurrent UTC date. Quote `due_date`, not `statutory_date`, and quote each deadline's\n`applies_because` rather than presenting a date as unconditional fact — that sentence\ncarries the legal form or flag the date rests on, its statute, any assumption still in\nit, and for the UK whether it is Companies House's own figure or one computed here.\n`days_until` goes negative for a filing Companies House still shows as overdue. Swedish\ndates assume a financial year ending 31 December unless you pass `include=[\"filings\"]`,\nwhich substitutes the year end of the last filed annual report where Bolagsverket's\ndocument list holds one; the filing date is an outer limit regardless, since a company\nwhose general meeting was earlier must file earlier. An empty `deadlines` list is a real\nanswer — a bankrupt, deleted or compulsorily-liquidated entity, a branch/sub-unit, or\nany company whose status is not active — and `notes` explains why.\n`registry://rules/{country}` carries each country's full deadline rules, roll-forward\ntreatment and legal sources.\n\nErrors are the `{\"error\": {\"code\", \"message\", \"hint\"}}` envelope this server's\ninstructions set out code by code; `hint` names the next call. This tool looks the\nentity up first, so any `lookup_company` error code can surface here too.",
+      "description": "Give the next occurrence of each statutory filing deadline a company faces.\n\n`country=\"NO\"` covers the Norwegian calendar (Regnskapsregisteret, Skatteetaten) for a\ncompany looked up by organisasjonsnummer (orgnr, org.nr) in Brønnøysundregistrene /\nEnhetsregisteret (brreg): årsregnskap, generalforsamling, skattemelding,\naksjonærregisteroppgaven, mva-melding, a-melding. `country=\"GB\"` covers the two\nCompanies House obligations for a company number (CRN): the annual accounts filing and\nthe confirmation statement (CS01). `country=\"SE\"` covers the two Swedish obligations of\nan aktiebolag (AB) or ekonomisk förening (EK) looked up by organisationsnummer at\nBolagsverket: the ordinary general meeting (ordinarie bolagsstämma / årsstämma) at six\nmonths from the financial year end, and the annual report (årsredovisning) at seven,\nwhere the late-filing fee (förseningsavgift) begins.\n\nPass `today` (`YYYY-MM-DD`) for a reproducible answer; it defaults to the server's\ncurrent UTC date. Quote `due_date`, not `statutory_date`, and quote each deadline's\n`applies_because` rather than presenting a date as unconditional fact — that sentence\ncarries the legal form or flag the date rests on, its statute, any assumption still in\nit, and for the UK whether it is Companies House's own figure or one computed here.\n`days_until` goes negative for a filing Companies House still shows as overdue. Swedish\ndates assume a financial year ending 31 December unless you pass `include=[\"filings\"]`,\nwhich substitutes the year end of the last filed annual report where Bolagsverket's\ndocument list holds one; the filing date is an outer limit regardless, since a company\nwhose general meeting was earlier must file earlier. An empty `deadlines` list is a real\nanswer — a bankrupt, deleted or compulsorily-liquidated entity, a branch/sub-unit, or\nany company whose status is not active — and `notes` explains why.\n`registry://rules/{country}` carries each country's full deadline rules, roll-forward\ntreatment and legal sources. `rules_last_reviewed` names the date this country's\nstatutes and day-count arithmetic were last checked against the law — a deadline\ncomputed long after that date should be re-verified before anyone acts on it.\n\nErrors are the `{\"error\": {\"code\", \"message\", \"hint\"}}` envelope this server's\ninstructions set out code by code; `hint` names the next call. This tool looks the\nentity up first, so any `lookup_company` error code can surface here too.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -3304,6 +3304,8 @@
         ]
       },
       "outputSchema": {
+        "additionalProperties": false,
+        "description": "The answer to \"what must this company file, and by when?\".\n\nThis is the **only** shape the deadlines operation returns, on both\nsurfaces (``DECISIONS.md`` D-010): REST\n``GET /v1/{country}/company/{id}/deadlines`` and the MCP tool\n``company_deadlines`` each emit ``model_dump(mode=\"json\")`` of this model,\nunchanged. Neither surface may return a bare ``list[Deadline]``, because a\nlist has nowhere to put ``today`` or ``notes`` — and an empty list without\na note is indistinguishable from a bug.\n\nBuild it with ``Registry.deadline_report(report, today)``; do not construct\nit in a surface.",
         "properties": {
           "country": {
             "description": "ISO-3166-1 alpha-2, upper-case.",
@@ -3516,18 +3518,23 @@
             },
             "title": "Notes",
             "type": "array"
+          },
+          "rules_last_reviewed": {
+            "description": "The date this country's deadline rules — the statutes and their day-count arithmetic — were last checked against the law; a deadline computed long after this date should be re-verified before anyone acts on it.",
+            "format": "date",
+            "title": "Rules Last Reviewed",
+            "type": "string"
           }
         },
         "required": [
           "country",
           "registry",
           "company_id",
-          "today"
+          "today",
+          "rules_last_reviewed"
         ],
-        "type": "object",
-        "additionalProperties": false,
-        "description": "The answer to \"what must this company file, and by when?\".\n\nThis is the **only** shape the deadlines operation returns, on both\nsurfaces (``DECISIONS.md`` D-010): REST\n``GET /v1/{country}/company/{id}/deadlines`` and the MCP tool\n``company_deadlines`` each emit ``model_dump(mode=\"json\")`` of this model,\nunchanged. Neither surface may return a bare ``list[Deadline]``, because a\nlist has nowhere to put ``today`` or ``notes`` — and an empty list without\na note is indistinguishable from a bug.\n\nBuild it with ``Registry.deadline_report(report, today)``; do not construct\nit in a surface.",
-        "title": "DeadlineReport"
+        "title": "DeadlineReport",
+        "type": "object"
       },
       "annotations": {
         "destructiveHint": false,

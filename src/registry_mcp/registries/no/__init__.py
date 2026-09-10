@@ -29,6 +29,12 @@ from registry_mcp.core.models import (
 )
 from registry_mcp.core.registry import Registry, register
 
+# Eager, unlike the lazy `rules`/`client` imports inside the methods below: this
+# submodule has no import back on this package (checked — it depends only on
+# `core/`), so there is no parallel-construction risk to guard against, and
+# `RULES_LAST_REVIEWED` must be the one place the date is written (T62).
+from registry_mcp.registries.no.rules import RULES_LAST_REVIEWED
+
 __all__ = ["BrregRegistry"]
 
 
@@ -47,6 +53,7 @@ class BrregRegistry(Registry):
     )
     source_url: ClassVar[str] = "https://data.brreg.no/enhetsregisteret/api"
     license: ClassVar[str] = "NLOD 2.0"
+    rules_last_reviewed: ClassVar[date | None] = RULES_LAST_REVIEWED
     is_stub: ClassVar[bool] = False
 
     def validate_id(self, id: str) -> str:

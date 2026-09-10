@@ -156,6 +156,19 @@ def test_server_card_lookup_company_output_schema_matches_model() -> None:
     assert entry["outputSchema"] == dereference_refs(CompanyReport.model_json_schema())
 
 
+def test_server_card_company_deadlines_output_schema_matches_model() -> None:
+    """T62's sibling of the ``lookup_company`` pin above: nothing previously
+    pinned the card's ``company_deadlines`` ``outputSchema`` to
+    ``DeadlineReport`` either — ``scripts/regen_server_card.py`` only ever
+    rewrote ``lookup_company``'s, so adding ``rules_last_reviewed`` would
+    have desynchronised this entry with nothing to catch it. Fixed by this
+    task alongside the field: the regen script now rewrites both."""
+    card_path = Path(__file__).parent.parent / "static" / "well-known" / "mcp" / "server-card.json"
+    card = json.loads(card_path.read_text(encoding="utf-8"))
+    (entry,) = [tool for tool in card["tools"] if tool["name"] == "company_deadlines"]
+    assert entry["outputSchema"] == dereference_refs(DeadlineReport.model_json_schema())
+
+
 async def test_server_card_tools_and_prompts_match_the_live_server() -> None:
     """The general-purpose sibling of the test above: that one pins one tool's
     ``outputSchema`` alone. `static/well-known/mcp/server-card.json` is hand-maintained end
@@ -422,6 +435,7 @@ async def test_company_deadlines_returns_deadline_report_shape() -> None:
     assert isinstance(body["deadlines"], list)
     assert len(body["deadlines"]) > 0
     assert isinstance(body["notes"], list)
+    assert body["rules_last_reviewed"] == "2026-09-05"
 
 
 async def test_company_deadlines_bad_today_is_json_error() -> None:
@@ -567,6 +581,23 @@ async def test_concrete_rules_resources_read_non_empty_and_name_the_country() ->
             assert isinstance(text, str)
             assert len(text.strip()) > 0
             assert _LIVE_COUNTRY_NAMES[registry.country] in text
+
+
+async def test_rules_resources_open_with_rules_last_reviewed_line() -> None:
+    """T62: every live ``registry://rules/{country}`` opens with a
+    ``Rules last reviewed: YYYY-MM-DD`` line, so a caller can tell a stale
+    answer from a fresh one before reading any further — checked generically
+    here across all three live countries; each country's own test file pins
+    the exact date against that module's ``RULES_LAST_REVIEWED`` constant."""
+    async with Client(mcp) as client:
+        for registry in list_registries():
+            contents = await client.read_resource(f"registry://rules/{registry.country}")
+            text = contents[0].text
+            assert isinstance(text, str)
+            first_line = text.split("\n", 1)[0]
+            assert re.fullmatch(r"Rules last reviewed: \d{4}-\d{2}-\d{2}", first_line), (
+                f"{registry.country}: {first_line!r}"
+            )
 
 
 async def test_rules_resource_unsupported_country_is_json_error() -> None:

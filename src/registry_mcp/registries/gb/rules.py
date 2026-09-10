@@ -42,6 +42,7 @@ __all__ = [
     "CONFIRMATION_KIND",
     "CONFIRMATION_NEXT_DUE_SOURCE",
     "PREFIX_TABLE_AS_OF",
+    "RULES_LAST_REVIEWED",
     "LegalFormEntry",
     "LegalFormInfo",
     "StatusResult",
@@ -53,6 +54,12 @@ __all__ = [
     "rules_markdown",
     "validate_crn",
 ]
+
+#: The date this module's statutes and day-count arithmetic were last checked
+#: against the law — verified live by T15 (`DECISIONS.md` D-022, D-023, D-041).
+#: Surfaced at the top of `rules_markdown()` and, via `CompaniesHouseRegistry.
+#: rules_last_reviewed`, on every `DeadlineReport` (T62).
+RULES_LAST_REVIEWED = date(2026, 9, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -715,9 +722,12 @@ def rules_markdown() -> str:
 
     Served as the MCP resource ``registry://rules/GB`` via
     ``CompaniesHouseRegistry.rules_markdown``. ``UK_SPEC.md`` is the
-    authoritative, detailed version.
+    authoritative, detailed version. Opens with ``RULES_LAST_REVIEWED`` (T62)
+    so a caller can tell a stale answer from a fresh one before reading any
+    further.
     """
     return (
+        f"Rules last reviewed: {RULES_LAST_REVIEWED.isoformat()}\n\n"
         "# United Kingdom — Companies House\n\n"
         "Companies House is the United Kingdom's registrar of companies, an executive "
         "agency of the Department for Business and Trade. Register data is not published "

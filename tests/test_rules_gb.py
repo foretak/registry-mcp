@@ -21,10 +21,12 @@ from registry_mcp.core.models import (
     ErrorCode,
     RegistryError,
 )
+from registry_mcp.core.registry import get_registry
 from registry_mcp.core.rules import common as rules_common
 from registry_mcp.registries.gb import mapping
 from registry_mcp.registries.gb.rules import (
     COMPANY_TYPES,
+    RULES_LAST_REVIEWED,
     deadline_exemption_note,
     deadlines_for,
     derive_status,
@@ -603,6 +605,25 @@ def test_rules_markdown_covers_required_points() -> None:
     assert "confirmation_statement" in text
     assert "corporation tax" in text.lower()
     assert "employee" in text.lower()
+
+
+def test_rules_markdown_opens_with_rules_last_reviewed() -> None:
+    """T62: a caller can tell a stale answer from a fresh one before reading
+    any further into `registry://rules/GB`."""
+    first_line, blank, rest = rules_markdown().partition("\n\n")
+    assert first_line == f"Rules last reviewed: {RULES_LAST_REVIEWED.isoformat()}"
+    assert blank == "\n\n"
+    assert rest.startswith("# United Kingdom — Companies House\n\n")
+
+
+def test_deadline_report_rules_last_reviewed_matches_module_constant() -> None:
+    """T62: `DeadlineReport.rules_last_reviewed` is filled by
+    `Registry.deadline_report` from this module's own `RULES_LAST_REVIEWED`,
+    not a copy that can drift from it."""
+    registry = get_registry("GB")
+    report = _report()
+    document = registry.deadline_report(report, date(2026, 9, 4))
+    assert document.rules_last_reviewed == RULES_LAST_REVIEWED
 
 
 def test_deadline_exemption_note_status_names_raw_value() -> None:
