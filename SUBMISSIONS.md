@@ -38,6 +38,7 @@ corrections appended rather than erased):
 | 20 | [TensorBlock/awesome-mcp-servers](#20-tensorblockawesome-mcp-servers) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [TensorBlock/awesome-mcp-servers#2280](https://github.com/TensorBlock/awesome-mcp-servers/pull/2280). Fork `foretak/awesome-mcp-servers-2` (suffixed — `foretak/awesome-mcp-servers` and `-1` are already §7's and §8's forks of *different* upstreams; `parent` verified for all three before touching any of them). Appended one paragraph to `docs/finance--crypto.md` in that file's own house style. Active repo, pushed the same day. |
 | 21 | [BlockRunAI/awesome-finance-mcp](#21-blockrunaiawesome-finance-mcp) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [BlockRunAI/awesome-finance-mcp#68](https://github.com/BlockRunAI/awesome-finance-mcp/pull/68), fork `foretak/awesome-finance-mcp`. One row added to Community Contributions → Financial Intelligence (the closest existing subsection — no company-registry/KYB category exists there yet). |
 | 22 | [MobinX/awesome-mcp-list](#22-mobinxawesome-mcp-list) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [MobinX/awesome-mcp-list#429](https://github.com/MobinX/awesome-mcp-list/pull/429), fork `foretak/awesome-mcp-list`. One line appended to the existing `💰 Finance & Fintech` section (no CONTRIBUTING.md found; format matched from the section's own existing entries). |
+| 23 | [llms.txt directories](#23-llmstxt-directories) | — | No login, but a browser is needed anyway | **Surveyed, not submitted.** `directory.llmstxt.cloud/submit` and `llmstxt.site/submit` are both no-login web forms — but `llmstxt.site`'s is a checkout flow (free-vs-$29 tiers selected at checkout) and neither exposed a plain POST endpoint this agent could safely replicate with `curl` without risking a malformed or half-filled listing. Needs a real browser, not a login. See [§23](#23-llmstxt-directories) for the exact field values, ready to paste. |
 | — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Topics done** — 20/20 slots, re-verified 2026-09-07 (includes `bolagsverket`, `sweden`, `united-kingdom`). The repo **description** this section tells you to set was still the Norway-only sentence verbatim from this file — fixed 2026-09-07 via `gh repo edit`; this file's own suggested command below is now updated to match so nobody re-pastes the stale one. |
 
 **Order matters.** Do #1 first: PulseMCP ingests from it automatically, and
@@ -1471,6 +1472,42 @@ Forked to `foretak/awesome-mcp-list` (no name collision), branch `add-registry-m
 to `README.md`. PR opened: **<https://github.com/MobinX/awesome-mcp-list/pull/429>**.
 
 **Needs a human login: yes** — GitHub (fork + PR, done).
+
+---
+
+## 23. llms.txt directories
+
+`registry-mcp` ships `static/llms.txt` and `static/llms-full.txt` already; these two directories index
+files in that shape (`DISCOVERY.md` §3.12).
+
+- **`directory.llmstxt.cloud`** — submit page: <https://directory.llmstxt.cloud/submit>. Fields (per the
+  live page, 2026-09-10): Website / product name, Website URL (the form appends `/llms.txt` itself),
+  Category (`AI`, `Developer tools`, `Finance`, `Products`, `Websites`), Email (notification only, not a
+  login), optional social link. No account needed — but it offers a **free standard review (1–3 months)
+  or a $29 fast-track (48h)** choice at submission, which reads as a checkout step, not a bare form POST.
+- **`llmstxt.site`** — submit page: <https://llmstxt.site/submit>. Fields: Product Name, Website URL,
+  Your Name, Email Address, llms.txt URL, llms-full.txt URL, Additional Notes. No account needed either.
+
+**Why this wasn't submitted today.** Both are genuinely no-login forms, which is why they're in this
+file at all — but neither exposes a plain, inspectable POST target simple enough to replicate safely
+with `curl` from what a page fetch shows (llmstxt.site's checkout step in particular implies client-side
+JS/payment-provider plumbing, not a bare `<form action=...>`). Guessing at the request risked either
+failing silently or creating a malformed listing that's harder to fix later than to submit correctly the
+first time. This is a browser-needed gap, not a login-needed one — the same class of blocker as Cursor
+(§17) and mcpservers.org's Cloudflare wall (§9), just a gentler vendor.
+
+**Ready to paste**, if a human or a browser-equipped agent picks this up:
+
+- Product/Website name: `registry-mcp`
+- Website URL: `https://api.foretak.dev`
+- llms.txt: `https://api.foretak.dev/llms.txt` · llms-full.txt: `https://api.foretak.dev/llms-full.txt`
+- Category: `Developer tools` (closest fit on `directory.llmstxt.cloud`'s fixed list)
+- Notes: "MCP server + REST API over three national business registries — Norway (brreg /
+  Enhetsregisteret), the United Kingdom (Companies House), Sweden (Bolagsverket). Look up a company by
+  its national identifier; no UBO, sanctions or fraud screening. MIT."
+
+**Needs a human login: no — needs a human browser** (or a browser-automation tool this agent doesn't
+have). Free either way; do not pay the $29 tier.
 
 ---
 
