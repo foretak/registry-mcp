@@ -167,7 +167,9 @@ _NON_CONNECT_TITLE = (
 _REAL_ASKS_TITLE = "Real asks (what the gate counts)"
 _REAL_ASKS_CAPTION = (
     "Excludes our own documented example queries (923609016, equinor, "
-    "tesco, ...), known bot/monitor/scanner and our-own traffic, and "
+    "tesco, ...), known bot/monitor/scanner and our-own traffic, this "
+    "homepage's playground clicks (tagged src=playground), and any "
+    "calendar minute with 8+ distinct user agents (a crawler burst); "
     "separately flags anyone near the 60-req/min limit (M4)."
 )
 _REAL_ASKS_LAST_TITLE = (

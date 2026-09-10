@@ -91,6 +91,16 @@ _CONNECT_ONLY_OPERATION = "list_countries"
 # anything. The three definitions below are the whole of what "real" means
 # here, written once as constants so `summary()` and its tests share exactly
 # one copy each.
+#
+# T66, 2026-09-10 07:53Z: the homepage playground fires validate -> lookup ->
+# deadlines for its default (Swedish) example, so the Swedish query-withheld
+# carve-out below counted every playground click as a real ask — a live
+# reading of 59 "real asks" from 19 user agents, almost all one crawler
+# replaying the playground under 16 different user agents inside two
+# minutes. Two more definitions fix it: `_PLAYGROUND_SOURCE` (every
+# playground request is now tagged and excluded here, reported separately as
+# `real_asks.playground`) and `_CRAWLER_BURST_MIN_DISTINCT_UAS` (a calendar
+# minute with too many distinct user agents is a burst, excluded whole).
 # ---------------------------------------------------------------------------
 
 #: (1) A query in this set is never a real ask, regardless of surface or user
@@ -165,6 +175,21 @@ _DISQUALIFYING_UA_LABELS: frozenset[str] = frozenset({"bot"})
 #: caller starts drawing 429s, not after.
 _CEILING_HITTER_CALLS_PER_MINUTE = 50
 
+#: (3) T66 — the `source` value `static/index.html`'s playground appends to
+#: every request it makes (`withPlaygroundSrc`, T64's `?src=` column). Never
+#: a real ask regardless of anything else; reported instead as
+#: `real_asks.playground` — fixes the 2026-09-10 07:53Z reading.
+_PLAYGROUND_SOURCE = "playground"
+
+#: (4) T66, M5 "crawler burst": the 2026-09-10 07:53Z incident, where one
+#: crawler replayed the playground under 16 distinct user agents inside two
+#: minutes — none individually own, bot-classified, or a documented example.
+#: A calendar minute with at least this many distinct non-own user agents
+#: (`_is_own_or_bot_user_agent`) is a burst; every row logged in it is
+#: excluded from `real_asks`, counted instead in
+#: `real_asks.crawler_burst_minutes`.
+_CRAWLER_BURST_MIN_DISTINCT_UAS = 8
+
 #: The rolling window `real_asks` reads alongside its all-time counts — short
 #: enough to answer "is anyone asking *this week*", long enough that one quiet
 #: day does not read as zero.
@@ -219,22 +244,35 @@ def _is_real_ask(
     country: str | None,
     query: str | None,
     user_agent: str | None,
+    source: str | None,
+    is_crawler_burst_minute: bool,
 ) -> bool:
     """The full "real ask" test for one `calls` row: (1) and (2) combined,
-    plus the two operation-shaped refinements below (both from the
-    orchestrator's review of this file's first draft).
+    the two operation-shaped refinements from the orchestrator's review of
+    this file's first draft, and T66's two further exclusions (3) and (4).
 
     In order:
 
     1. A known non-asker user agent (2) is never a real ask, regardless of
        anything else.
-    2. `_CONNECT_ONLY_OPERATION` ("list_countries") is never a real ask, on
+    2. `source == _PLAYGROUND_SOURCE` (3, T66) is never a real ask, regardless
+       of anything else — `static/index.html`'s playground tags every fetch
+       it makes, and its default example is Swedish, so without this
+       exclusion the Swedish query-withheld carve-out below (5) would count
+       every playground click. Reported separately as `real_asks.playground`,
+       never silently dropped.
+    3. `is_crawler_burst_minute` (4, T66) is never a real ask, regardless of
+       anything else — precomputed by `summary()` before this function is
+       ever called (`_CRAWLER_BURST_MIN_DISTINCT_UAS`), since a row cannot be
+       judged part of a burst until every row sharing its calendar minute has
+       been seen.
+    4. `_CONNECT_ONLY_OPERATION` ("list_countries") is never a real ask, on
        either surface — it is the bare capability probe every client, and
        every scanner, makes on connect, before asking about a company.
-    3. A non-NULL query is a real ask exactly when it is not one of our own
+    5. A non-NULL query is a real ask exactly when it is not one of our own
        documented examples (1) — the query itself is the strongest signal
        there is, and neither surface nor country changes that.
-    4. From here, `query` is NULL. For `"validate_company_id"`: a real ask
+    6. From here, `query` is NULL. For `"validate_company_id"`: a real ask
        only for the one case NULL there ever means "withheld" rather than
        "excluded" — Sweden (`_QUERY_WITHHELD_COUNTRY`), D-040. Every other
        NULL `validate_company_id` (no country flag in play) is excluded,
@@ -242,14 +280,18 @@ def _is_real_ask(
        "arrived over MCP", because a validate call always receives an
        identifier argument from its caller, so a NULL query outside the
        Swedish case is unexplained rather than merely unlogged.
-    5. For the remaining "asks about a company" operations
+    7. For the remaining "asks about a company" operations
        (`_WITHHELD_QUERY_OPERATIONS`): a real ask when the country is Sweden
-       (same D-040 reasoning as (4)), or, failing that, when the call arrived
+       (same D-040 reasoning as (6)), or, failing that, when the call arrived
        over the MCP surface at all — the weaker fallback this file shipped
        with, kept for every NULL-query case D-040 does not explain (a D-031
        connector alias before country resolution, for instance).
     """
     if _is_own_or_bot_user_agent(user_agent):
+        return False
+    if source == _PLAYGROUND_SOURCE:
+        return False
+    if is_crawler_burst_minute:
         return False
     if operation == _CONNECT_ONLY_OPERATION:
         return False
@@ -274,6 +316,8 @@ def _empty_real_asks() -> dict[str, Any]:
         "by_source_named": [],
         "last": None,
         "ceiling_hitters": [],
+        "playground": {"calls_last_7_days": 0, "distinct_user_agents_last_7_days": 0},
+        "crawler_burst_minutes": 0,
     }
 
 
@@ -319,6 +363,52 @@ def _percentile(sorted_values: list[int], pct: int) -> int:
     rank = ceil(pct / 100 * len(sorted_values))
     index = min(max(rank, 1), len(sorted_values)) - 1
     return sorted_values[index]
+
+
+def _crawler_burst_minutes(rows: list[Any], recent_cutoff: datetime) -> tuple[set[str], int]:
+    """T66, M5 (`_CRAWLER_BURST_MIN_DISTINCT_UAS`): which calendar minutes
+    (``"%Y-%m-%dT%H:%M"``, UTC) saw at least that many distinct *non-own*
+    user agents (`_is_own_or_bot_user_agent`) — the crawler that replayed the
+    homepage playground under 16 different user agents inside two minutes on
+    2026-09-10 07:53Z, and whatever comes next like it.
+
+    Runs over every row in ``rows`` with a parseable ``ts``, regardless of
+    recency — a burst permanently disqualifies the rows in it from
+    `_is_real_ask`'s ``is_crawler_burst_minute`` parameter, all-time, the
+    same way `_is_documented_example`/`_is_own_or_bot_user_agent` are
+    unconditional exclusions. Must run to completion before `summary()`'s
+    main loop calls `_is_real_ask`, since a row cannot be judged part of a
+    burst until every row sharing its calendar minute has been seen.
+
+    Returns the full set of burst-minute keys, plus how many of them fall in
+    the last `_REAL_ASKS_RECENT_DAYS` days — the ``real_asks.
+    crawler_burst_minutes`` count `summary()` reports (the set itself is
+    all-time and not otherwise exposed).
+    """
+    minute_user_agents: dict[str, set[str]] = {}
+    for row in rows:
+        ts, user_agent = row[0], row[5]
+        try:
+            call_dt = datetime.fromisoformat(ts)
+        except (TypeError, ValueError):
+            continue
+        user_agent_str = str(user_agent) if user_agent else None
+        if not user_agent_str or _is_own_or_bot_user_agent(user_agent_str):
+            continue
+        minute_key = call_dt.strftime("%Y-%m-%dT%H:%M")
+        minute_user_agents.setdefault(minute_key, set()).add(user_agent_str)
+
+    burst_minutes = {
+        minute
+        for minute, agents_in_minute in minute_user_agents.items()
+        if len(agents_in_minute) >= _CRAWLER_BURST_MIN_DISTINCT_UAS
+    }
+    recent_count = sum(
+        1
+        for minute in burst_minutes
+        if datetime.strptime(minute, "%Y-%m-%dT%H:%M").replace(tzinfo=UTC) >= recent_cutoff
+    )
+    return burst_minutes, recent_count
 
 
 def summary(db_path: str | Path | None = None) -> dict[str, Any]:
@@ -382,6 +472,18 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
         agents that made at least ``_CEILING_HITTER_CALLS_PER_MINUTE`` calls
         within any single minute in the last 7 days, ``{"user_agent",
         "calls_in_minute"}``, highest first).
+
+        T66 adds two more exclusions to ``real_asks`` (see ``_is_real_ask``)
+        and reports each: ``playground`` (``{"calls_last_7_days",
+        "distinct_user_agents_last_7_days"}`` — rows tagged
+        ``source == "playground"`` by ``static/index.html``'s own fetches,
+        never counted in ``calls``/``distinct_user_agents`` above but shown
+        here, since human use of the playground is still worth seeing) and
+        ``crawler_burst_minutes`` (an int: how many distinct calendar minutes
+        in the last 7 days saw at least ``_CRAWLER_BURST_MIN_DISTINCT_UAS``
+        distinct non-own user agents — see ``_crawler_burst_minutes``; every
+        row logged in such a minute is excluded from ``real_asks`` entirely,
+        all-time, not just from this count).
     """
     now_dt = datetime.now(UTC)
     today = now_dt.date()
@@ -433,6 +535,19 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
     last_real_ask_country: str | None = None
     last_real_ask_query: str | None = None
 
+    # T66 — playground calls, reported separately from `real_asks.calls`
+    # (`_PLAYGROUND_SOURCE`): never a real ask, but still worth seeing.
+    playground_calls_recent = 0
+    playground_uas_recent: set[str] = set()
+
+    # T66 — crawler-burst detection (`_crawler_burst_minutes`) must run to
+    # completion before the main loop below, since a row cannot be judged
+    # part of a burst until every row sharing its calendar minute has been
+    # seen.
+    crawler_burst_minutes, crawler_burst_minutes_recent = _crawler_burst_minutes(
+        rows, recent_cutoff
+    )
+
     for (
         ts,
         surface,
@@ -477,16 +592,30 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
             if cached:
                 cache_hits += 1
 
-        # T65 — "real asks". Computed regardless of whether `ts` parsed (an
-        # all-time real-ask count needs no date, exactly like `total_calls`
-        # above), except the pieces that are inherently date-scoped: the
-        # "last 7 days" counters, `last`, and the per-minute ceiling check
-        # all require a valid `call_dt`.
+        # T65/T66 — "real asks". Computed regardless of whether `ts` parsed
+        # (an all-time real-ask count needs no date, exactly like
+        # `total_calls` above), except the pieces that are inherently
+        # date-scoped: the "last 7 days" counters, `last`, and the
+        # per-minute ceiling check all require a valid `call_dt`.
+        # `crawler_burst_minutes` (T66) was fully computed before this loop
+        # started, so membership can be checked per row here.
         surface_str = str(surface)
         operation_str = str(operation)
         country_str = str(country) if country else None
         user_agent_str = str(user_agent) if user_agent else None
-        if _is_real_ask(surface_str, operation_str, country_str, query, user_agent_str):
+        source_str = str(source) if source else None
+        in_crawler_burst_minute = (
+            call_dt is not None and call_dt.strftime("%Y-%m-%dT%H:%M") in crawler_burst_minutes
+        )
+        if _is_real_ask(
+            surface_str,
+            operation_str,
+            country_str,
+            query,
+            user_agent_str,
+            source_str,
+            in_crawler_burst_minute,
+        ):
             real_ask_calls_all_time += 1
             if user_agent_str:
                 real_ask_uas_all_time.add(user_agent_str)
@@ -500,6 +629,13 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
                     real_ask_calls_recent += 1
                     if user_agent_str:
                         real_ask_uas_recent.add(user_agent_str)
+        # T66 — playground calls, reported as `real_asks.playground` instead
+        # of ever counting toward `real_asks.calls` above (see
+        # `_PLAYGROUND_SOURCE` in `_is_real_ask`).
+        if source_str == _PLAYGROUND_SOURCE and call_dt is not None and call_dt >= recent_cutoff:
+            playground_calls_recent += 1
+            if user_agent_str:
+                playground_uas_recent.add(user_agent_str)
         if (
             call_dt is not None
             and call_dt >= recent_cutoff
@@ -624,5 +760,10 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
             "by_source_named": by_source_named,
             "last": real_asks_last,
             "ceiling_hitters": ceiling_hitters,
+            "playground": {
+                "calls_last_7_days": playground_calls_recent,
+                "distinct_user_agents_last_7_days": len(playground_uas_recent),
+            },
+            "crawler_burst_minutes": crawler_burst_minutes_recent,
         },
     }

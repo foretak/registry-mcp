@@ -44,7 +44,19 @@ frozen as of `0.2.0`.
   now counts as a real ask for a real user agent, on REST as much as MCP —
   "no query" there means "withheld", not "nothing was asked". A non-Swedish
   `validate_company_id` with `query=NULL`, or a documented-example query on
-  any country, still counts zero.
+  any country, still counts zero. **Amended 2026-09-10 (`tasks/T66.md`):**
+  the homepage playground (`static/index.html`) fires validate -> lookup ->
+  deadlines against its default example, which is Swedish, so the Swedish
+  carve-out above was counting every playground click as a real ask — a
+  live reading of 59 "real asks" from 19 user agents in one morning, almost
+  all one crawler replaying the playground under 16 different user agents
+  inside two minutes (07:53Z). Fixed two ways: every request
+  `static/index.html` makes now carries `?src=playground` (T64's `source`
+  column), and `real_asks` excludes any row so tagged — reported instead as
+  `real_asks.playground` (`{calls_last_7_days, distinct_user_agents_last_7_days}`);
+  and a calendar minute with 8 or more distinct non-own user agents is now a
+  "crawler burst", excluding every row logged in it, reported as
+  `real_asks.crawler_burst_minutes` (last 7 days).
 - **`?src=` on the REST routes and on `/mcp`, logged as a new `source`
   column on the `calls` table — "calls by channel"** (`tasks/T64.md`).
   Free text, sanitised to `[a-z0-9_-]` and truncated to 32 characters

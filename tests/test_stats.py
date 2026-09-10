@@ -136,6 +136,8 @@ def test_summary_on_empty_database_is_zeroed(tmp_path: Path) -> None:
         "by_source_named": [],
         "last": None,
         "ceiling_hitters": [],
+        "playground": {"calls_last_7_days": 0, "distinct_user_agents_last_7_days": 0},
+        "crawler_burst_minutes": 0,
     }
 
 
@@ -1260,3 +1262,164 @@ def test_summary_real_asks_full_scenario(tmp_path: Path) -> None:
     assert real_asks["ceiling_hitters"] == [
         {"user_agent": "ceiling-tester/1.0", "calls_in_minute": 50}
     ]
+
+
+# ---------------------------------------------------------------------------
+# T66 — the homepage playground (`static/index.html`) tags every request it
+# makes `?src=playground`, so `real_asks` can exclude those rows instead of
+# counting every click via D-040's Swedish query-withheld carve-out (the
+# playground's default example is Swedish): live reading was 59 "real asks"
+# from 19 user agents on 2026-09-10, almost all one crawler replaying the
+# playground under 16 different user agents inside two minutes (07:53Z).
+# Fixed two ways below: (1) `source == "playground"` is always excluded and
+# reported separately (`real_asks.playground`); (2) a calendar minute with
+# `_CRAWLER_BURST_MIN_DISTINCT_UAS` (8) or more distinct non-own user agents
+# is a "crawler burst" and excludes every row in it.
+# ---------------------------------------------------------------------------
+
+
+def test_summary_real_asks_playground_source_excluded_and_reported(tmp_path: Path) -> None:
+    """A row tagged `source="playground"` must never count as a real ask,
+    even though every other criterion here would otherwise count it (a
+    non-example GB number from a real browser) — and it must show up
+    instead in `real_asks.playground`."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="GB",
+        query="01234567",  # not a documented example
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+        source="playground",
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 1
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+    assert result["real_asks"]["playground"] == {
+        "calls_last_7_days": 1,
+        "distinct_user_agents_last_7_days": 1,
+    }
+
+
+def test_summary_real_asks_swedish_playground_click_excluded_but_untagged_browser_call_counts(
+    tmp_path: Path,
+) -> None:
+    """The homepage playground's default example is Swedish, so before T66
+    every playground click counted as a real ask via the Swedish
+    query-withheld carve-out (D-040, `_QUERY_WITHHELD_COUNTRY`). The
+    identical call tagged `?src=playground` must now count zero and appear
+    in `real_asks.playground`; the same call from a real browser with no
+    `?src=` at all must still count one, exactly as it did before T66."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    chrome_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent=chrome_ua,
+        latency_ms=5,
+        ok=True,
+        source="playground",
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent=chrome_ua,
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 2
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["country"] == "SE"
+    assert last["query"] is None
+    assert result["real_asks"]["playground"] == {
+        "calls_last_7_days": 1,
+        "distinct_user_agents_last_7_days": 1,
+    }
+
+
+def test_summary_real_asks_crawler_burst_at_eight_not_seven(tmp_path: Path) -> None:
+    """`_CRAWLER_BURST_MIN_DISTINCT_UAS`: a calendar minute with 8 distinct
+    non-own user agents is a crawler burst and excludes every row logged in
+    it from `real_asks`, even though none of those rows is individually a
+    documented example, own, or bot-classified user agent. A minute with
+    only 7 distinct user agents is not a burst, and those rows count
+    normally."""
+    db = tmp_path / "calls.sqlite3"
+    burst_minute = datetime.now(UTC).replace(second=0, microsecond=0)
+    for i in range(8):
+        _insert_historical_call(
+            db,
+            ts=(burst_minute + timedelta(seconds=i)).isoformat(),
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="GB",
+            query=f"BURST{i:03d}",
+            user_agent=f"visitor-{i}/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+    quiet_minute = burst_minute + timedelta(minutes=5)
+    for i in range(7):
+        _insert_historical_call(
+            db,
+            ts=(quiet_minute + timedelta(seconds=i)).isoformat(),
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="GB",
+            query=f"QUIET{i:03d}",
+            user_agent=f"visitor-{i}/1.0",
+            latency_ms=1,
+            ok=True,
+        )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 15
+    # Only the 7 rows in the non-burst minute count; all 8 burst-minute rows
+    # are excluded.
+    assert result["real_asks"]["calls"] == {"all_time": 7, "last_7_days": 7}
+    assert result["real_asks"]["crawler_burst_minutes"] == 1
+
+
+def test_index_html_tags_both_fetch_sites_with_playground_source() -> None:
+    """T66: every request `static/index.html` makes must carry
+    `?src=playground` (`core/stats.py`'s `_PLAYGROUND_SOURCE`), so the
+    homepage playground's own traffic — Swedish by default, which used to
+    slip through D-040's query-withheld carve-out — is never counted as a
+    real ask. A static read of the file rather than a browser test: this
+    project has no JS test runner. Both `fetch(` call sites (the
+    `/v1/countries` read at load, and the playground's own request helper)
+    must route through the same tagging helper, which must itself append
+    `src=playground`. Grouped here rather than in a dedicated static-assets
+    test module per this task's footprint."""
+    html = (Path(__file__).resolve().parents[1] / "static" / "index.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert html.count("fetch(") == 2, "expected exactly two fetch( call sites"
+    assert html.count("fetch(withPlaygroundSrc(") == 2, (
+        "both fetch( call sites must route through the src=playground tagging helper"
+    )
+    assert '"src=playground"' in html

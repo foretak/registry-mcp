@@ -676,6 +676,9 @@ def test_dashboard_real_asks_caption_names_the_definitions(
     assert "documented example queries" in html
     assert "bot/monitor/scanner" in html
     assert "60-req/min" in html
+    # T66: the caption also names the two new exclusions.
+    assert "playground" in html
+    assert "crawler burst" in html
 
 
 def test_dashboard_real_asks_numbers_match_summary(
