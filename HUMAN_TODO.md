@@ -881,6 +881,20 @@ checkout: `railway config migrate`, read the generated `.railway/railway.ts`, co
 `railway.toml` only once a deploy has succeeded with the new file. Docs:
 <https://docs.railway.com/infrastructure-as-code#migrating-from-config-as-code>. Not urgent; a calendar item.
 
+## 7.13 Two listings only a human can submit, and the posts from the calls sprint (T64, 2026-09-10)
+
+- [ ] **VS Code MCP gallery / GitHub MCP Registry** (`github.com/mcp`, 252 servers — one of the few surfaces where being
+      listed means being seen): the only documented route is an e-mail to `partnerships@github.com`. Send the served
+      card's facts (name `io.github.foretak/registry-mcp`, endpoint `https://api.foretak.dev/mcp`, three countries,
+      seven attachments, MIT, repo URL). Agents do not send e-mail.
+- [ ] **llms.txt directories** (`directory.llmstxt.cloud`, `llmstxt.site`): browser forms; the exact field values are
+      in `SUBMISSIONS.md` (T64 A's addendum). Low expected value, near-zero cost.
+- [ ] **Post the calls-sprint drafts**, each carrying its own `?src=`: `content/08-how-wrong-without-a-register/`
+      `show-hn.md`, `linkedin.md` (NO + EN), `reddit.md`; and the four older Reddit drafts in `content/`.
+- [ ] **Watch the five PRs** T64 A opened (URLs in `SUBMISSIONS.md`): Docker MCP Catalog #5043, jaw9c/awesome-remote-mcp-servers
+      #753, TensorBlock/awesome-mcp-servers #2280, BlockRunAI/awesome-finance-mcp #68, MobinX/awesome-mcp-list #429 —
+      a maintainer's question lands in your GitHub notifications; an agent can answer it if you forward it.
+
 ## 8. Go-to-market outreach — PLACEHOLDER (T14)
 
 `BRREG_MCP_FIRST_KRONE.md` (the go-to-market companion named in
