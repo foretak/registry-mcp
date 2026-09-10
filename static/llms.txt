@@ -15,7 +15,7 @@ up by their twelve-digit personnummer, which is that trader's company number).
 
 ## Add it as an MCP server
 
-    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=llms
     uvx registry-mcp      # local stdio server (Python)
     npx registry-mcp      # local stdio server (Node)
 

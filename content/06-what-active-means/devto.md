@@ -59,7 +59,7 @@ The enum is shared; the derivation is not. Each country folder derives its own s
 Which is the argument for putting a register behind an MCP tool rather than a scraper. A scraper hands your agent the word. A tool can hand it the sentence.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # or locally, over stdio: uvx registry-mcp
 ```
 

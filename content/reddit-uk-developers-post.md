@@ -8,7 +8,7 @@ Companies House behind one MCP tool, with the filing dates the register publishe
 
 I wanted UK filing dates in Claude Code without writing another Companies House client, so I put the register behind an MCP server. One line:
 
-    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 
 Deloitte LLP, asked on 2026-09-05:
 

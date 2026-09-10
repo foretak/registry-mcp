@@ -6,7 +6,7 @@ description: This skill should be used when the user asks to check, verify, look
 # Company Check — reading a national business register properly
 
 This plugin connects Claude to three national business registers through one hosted MCP
-server (`https://api.foretak.dev/mcp`, no account, no key, read-only):
+server (`https://api.foretak.dev/mcp?src=plugin`, no account, no key, read-only):
 
 | Country | Register | Identifier | Example |
 |---|---|---|---|

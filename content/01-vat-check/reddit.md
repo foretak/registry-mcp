@@ -20,4 +20,4 @@ It does not stop invoice fraud, where only the bank account is wrong. It stops t
 
 `validate_company_id` never throws: a bad check digit comes back as `valid: false` with a `hint`.
 
-`claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp`, or `uvx registry-mcp`. Source: NLOD 2.0. MIT: github.com/foretak/registry-mcp
+`claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article`, or `uvx registry-mcp`. Source: NLOD 2.0. MIT: github.com/foretak/registry-mcp

@@ -63,7 +63,7 @@ Norway's MOD11 is enforced, so a bad orgnr never reaches brreg. A UK company num
 Writing "we could not source this rule" into a user-visible field is uncomfortable. It still beats a false rejection.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # or locally, over stdio: uvx registry-mcp
 ```
 

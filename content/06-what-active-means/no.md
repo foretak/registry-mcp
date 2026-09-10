@@ -59,7 +59,7 @@ Enumen er delt; utledningen er det ikke. Hver landmappe utleder sin egen status 
 Det er argumentet for å legge et register bak et MCP-verktøy i stedet for en skraper. En skraper gir agenten ordet. Et verktøy kan gi den setningen.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # eller lokalt, over stdio: uvx registry-mcp
 ```
 

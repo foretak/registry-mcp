@@ -3,7 +3,7 @@
 Alle økonomiavdelinger har denne fila: en leverandørkolonne med organisasjonsnummer (orgnr, org.nr) tastet inn for hånd. Noen av dem er feil. `registry-mcp` kontrollerer dem mot Brønnøysundregistrene / Enhetsregisteret (brreg) og fyller ut resten.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # eller lokalt, over stdio: uvx registry-mcp
 ```
 

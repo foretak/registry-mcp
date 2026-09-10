@@ -16,4 +16,4 @@
 
 So for `SE`, `is_active` means *on the register and not winding down* — **not** trading. A dormant Swedish company is `active` here, with a note saying SCB does not mark it economically active.
 
-Shared enum, per-country derivation, no `core/` change. `uvx registry-mcp`, or the hosted `https://api.foretak.dev/mcp`. MIT: github.com/foretak/registry-mcp
+Shared enum, per-country derivation, no `core/` change. `uvx registry-mcp`, or the hosted `https://api.foretak.dev/mcp?src=article`. MIT: github.com/foretak/registry-mcp

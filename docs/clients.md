@@ -1,13 +1,13 @@
 # Client setup
 
-Hosted server: `https://api.foretak.dev/mcp` (Streamable HTTP, no authentication). Local: `uvx registry-mcp` (stdio). Full tool/response reference: [`../README.md`](../README.md), [`../static/llms-full.txt`](../static/llms-full.txt).
+Hosted server: `https://api.foretak.dev/mcp?src=docs` (Streamable HTTP, no authentication). Local: `uvx registry-mcp` (stdio). Full tool/response reference: [`../README.md`](../README.md), [`../static/llms-full.txt`](../static/llms-full.txt).
 
 Three countries answer as of 0.3.0 — the United Kingdom (`GB`, Companies House, by company number), Norway (`NO`, brreg / Enhetsregisteret, by organisasjonsnummer) and Sweden (`SE`, Bolagsverket, by organisationsnummer). Every client below reaches all three through the same five tools; nothing on this page changes per country. Two things do: `search_company` returns `not_implemented` for `SE`, because Bolagsverket's free API has no name index, and a self-hosted install needs a credential for `GB` and for `SE` (see the last section).
 
 ## Claude Code
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=docs
 ```
 
 Or install as a plugin, from this repo's self-hosted marketplace:
@@ -24,7 +24,7 @@ The marketplace is [`.claude-plugin/marketplace.json`](../.claude-plugin/marketp
 Settings → Connectors → Add custom connector:
 
 ```
-https://api.foretak.dev/mcp
+https://api.foretak.dev/mcp?src=docs
 ```
 
 No authentication.
@@ -33,21 +33,21 @@ Or install the desktop extension bundle (works offline once built, no `uv` requi
 
 ## Cursor
 
-[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=registry-mcp&config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D)
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=registry-mcp&config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3A%2Fc3JjPWRvY3MifQ%3D%3D)
 
 `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
 
 ```json
 {
   "mcpServers": {
-    "registry-mcp": { "url": "https://api.foretak.dev/mcp" }
+    "registry-mcp": { "url": "https://api.foretak.dev/mcp?src=docs" }
   }
 }
 ```
 
 ## VS Code
 
-[<img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D)
+[<img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%253Fsrc%253Ddocs%2522%257D)
 
 `.vscode/mcp.json`:
 
@@ -56,7 +56,7 @@ Or install the desktop extension bundle (works offline once built, no `uv` requi
   "servers": {
     "registry-mcp": {
       "type": "http",
-      "url": "https://api.foretak.dev/mcp"
+      "url": "https://api.foretak.dev/mcp?src=docs"
     }
   }
 }
@@ -74,7 +74,7 @@ five registry tools; `search`/`fetch` have no REST twin. Settings → Connectors
 connector:
 
 ```
-https://api.foretak.dev/mcp
+https://api.foretak.dev/mcp?src=docs
 ```
 
 No authentication, no key, no account. If your plan does not show custom connectors under

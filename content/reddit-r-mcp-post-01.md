@@ -49,7 +49,7 @@ Things it cannot do, so you do not find out the hard way:
 
 Adding a country is a subclass with four methods plus one import line. Nothing in `core/` changed for the UK except one field for register-published dates. Denmark's CVR access application went in this morning.
 
-Hosted: `claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp`. Local: `uvx registry-mcp`. MIT, Python, `github.com/foretak/registry-mcp`.
+Hosted: `claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article`. Local: `uvx registry-mcp`. MIT, Python, `github.com/foretak/registry-mcp`.
 
 Question for the room: if you are building agents that touch company data, which register would you want after Denmark, and what field do you keep having to look up by hand?
 

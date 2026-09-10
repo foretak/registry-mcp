@@ -52,7 +52,7 @@ a local server**, and their comments are plain `curl` lines against
 That is deliberate: the `SE` blocks would otherwise need Bolagsverket OAuth 2
 credentials on a local server, and a reader who can reproduce a block is worth
 more than a convention. `content/call.py` reaches the same deployment with
-`REGISTRY_MCP_URL=https://api.foretak.dev/mcp` if you want the MCP-side bytes
+`REGISTRY_MCP_URL=https://api.foretak.dev/mcp?src=article` if you want the MCP-side bytes
 instead of the REST ones — they are identical documents.
 
 Two blocks in those articles are *code*, not output: the `derive_status`

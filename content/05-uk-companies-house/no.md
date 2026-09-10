@@ -3,7 +3,7 @@
 En ny leverandør sender faktura med et britisk organisasjonsnummer — et *company registration number* — øverst. Finnes selskapet, driver det fortsatt, og har det levert det det skal? `registry-mcp` slår det opp i Companies House på company number, og i Brønnøysundregistrene / Enhetsregisteret (brreg) på organisasjonsnummer (orgnr, org.nr), med samme verktøy og samme JSON.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # eller lokalt, over stdio: uvx registry-mcp
 ```
 

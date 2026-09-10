@@ -3,7 +3,7 @@
 "What do we owe Skatteetaten and Regnskapsregisteret next?" is a question your agent should not answer from memory. `registry-mcp` computes it from Brønnøysundregistrene / Enhetsregisteret (brreg) facts, by organisasjonsnummer (orgnr, org.nr).
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # or locally, over stdio: uvx registry-mcp
 ```
 
