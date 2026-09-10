@@ -24,6 +24,9 @@ from pathlib import Path
 from typing import Any
 
 from registry_mcp.core import log
+from registry_mcp.core.models import Surface
+from registry_mcp.core.registry import loggable_query
+from registry_mcp.core.ua_classify import classify
 
 __all__ = ["NO_COUNTRY_KEY", "NO_SOURCE_KEY", "summary"]
 
@@ -76,6 +79,152 @@ NO_SOURCE_KEY = "none"
 #: reveal in the aggregate and this pair exists to reveal in time.
 _CONNECT_ONLY_OPERATION = "list_countries"
 
+# ---------------------------------------------------------------------------
+# T65 — "real asks", not raw calls (`~/mcp-growth/DECISION-GATE.md`, the
+# day-45 gate and its 2026-09-10 amendments). The gate's own M1/M2 readings
+# (§3.1, §3.2) are computed by hand from the database on 19 October and are
+# stricter than what follows (they also filter by `operation`); this block is
+# the rough, always-on dashboard preview of the same idea: today's raw
+# `total_calls` was 138 and every one of them was a directory scanner, a
+# crawler, one of our own smoke tests, or a playground click against the
+# examples our own docs show — not evidence anyone asked this service
+# anything. The three definitions below are the whole of what "real" means
+# here, written once as constants so `summary()` and its tests share exactly
+# one copy each.
+# ---------------------------------------------------------------------------
+
+#: (1) A query in this set is never a real ask, regardless of surface or user
+#: agent — it is the worked example our own README.md, `static/llms-full.txt`
+#: and `evals/cases.json` all show, so a call carrying it is far more likely a
+#: smoke test, a playground click that copied the docs verbatim, or a scanner
+#: replaying the one query every registry-MCP README on the internet
+#: demonstrates, than a person or agent with a real question. `833285602`
+#: (the operator's own registered company, `legal/privacy.md`) and
+#: `833286602` (its deliberate invalid-MOD11 sibling, `NORBIZ_SPEC.md` §"Resolved
+#: 2026-09-04") are listed here purely as *strings this module compares
+#: against* — this file never looks either one up, per every task's standing
+#: rule. Compared case-insensitively (`_is_documented_example`), so "Equinor"
+#: and "EQUINOR" cannot dodge the exclusion by capitalisation alone.
+_DOCUMENTED_EXAMPLE_QUERIES: frozenset[str] = frozenset(
+    {
+        "923609016",  # NO — Equinor ASA, the flagship lookup/search/deadlines example
+        "00445790",  # GB — Tesco PLC, zero-padded company number
+        "445790",  # GB — the same company number, unpadded (the validate example)
+        "5560160680",  # SE — the SE lookup/deadlines example
+        "equinor",  # NO search_company example query
+        "tesco",  # GB search_company example query
+        "833285602",  # NO — the operator's own registered company (never looked up here)
+        "833286602",  # NO — the invalid-MOD11 example, a typo sibling of the above
+        "test",  # generic placeholder query used across docs and the playground
+    }
+)
+_DOCUMENTED_EXAMPLE_QUERIES_CASEFOLDED: frozenset[str] = frozenset(
+    query.casefold() for query in _DOCUMENTED_EXAMPLE_QUERIES
+)
+
+#: (2, the "our-own" half) Exact user-agent strings known, by name rather than
+#: by rule, to never be a real asker. Two frozen sources, neither ever
+#: silently extended: `~/mcp-growth/BASELINE-2026-09-07.md`'s "first-party or
+#: automated" table — the exact, untruncated entries only; that table's long
+#: tail of low-count `Mozilla/5.0 (Windows/Mac/iPhone/Android ...)` rows is
+#: truncated in the document itself and not safely reproducible as an exact
+#: string here, so it is left to `ua_classify.classify`'s "bot" label and the
+#: documented-example-query test to catch what they can — and the bots
+#: `~/mcp-growth/DECISION-GATE.md` §8.1/§3.3 name explicitly:
+#: `SaSame-MCP-Audit/0.1` (an external MCP audit scanner — it contains "MCP"
+#: and would otherwise be misclassified `coding_agent` by `ua_classify.classify`,
+#: since that label is checked before `bot`; only an exact name catches it)
+#: and the bare `Mozilla/5.0 (compatible)` directory monitor (also caught by
+#: the `bot` label independently — kept here too, for the one call site that
+#: wants an exact-match answer without importing the classifier).
+_OWN_AND_BOT_USER_AGENTS: frozenset[str] = frozenset(
+    {
+        "curl/8.5.0",
+        "python-requests/2.32.5",
+        "python-httpx2/2.12.0",
+        "Mozilla/5.0 (compatible)",
+        "SaSame-MCP-Audit/0.1",
+    }
+)
+
+#: (2, the "bot/monitor/scanner" half) `classify()` labels that disqualify a
+#: user agent from ever being a real asker. Only `"bot"` — `"script"` and
+#: `"unknown"` are deliberately left eligible: a real third-party integration
+#: calling the REST API with `curl` or `python-requests` looks identical, by
+#: label, to our own smoke tests, and only the exact strings in
+#: `_OWN_AND_BOT_USER_AGENTS` above tell them apart; `"coding_agent"` is how
+#: this product is meant to be used (`api/dashboard.py`'s module docstring
+#: makes the same call for the UA-class rollup).
+_DISQUALIFYING_UA_LABELS: frozenset[str] = frozenset({"bot"})
+
+#: M4, "ceiling-hitters" (`~/mcp-growth/DECISION-GATE.md` amendment A2,
+#: 2026-09-10): "any non-own user agent at or near 60 requests/minute" — the
+#: REST rate limit (`api/ratelimit.py::_CAPACITY`) — "routes, it does not
+#: gate": it is the one thing that authorises building a metered API key
+#: (R-4). Set at 50 rather than 60 itself so the reading fires before a
+#: caller starts drawing 429s, not after.
+_CEILING_HITTER_CALLS_PER_MINUTE = 50
+
+#: The rolling window `real_asks` reads alongside its all-time counts — short
+#: enough to answer "is anyone asking *this week*", long enough that one quiet
+#: day does not read as zero.
+_REAL_ASKS_RECENT_DAYS = 7
+
+
+def _is_documented_example(query: str) -> bool:
+    """(1) — see `_DOCUMENTED_EXAMPLE_QUERIES`'s comment for the definition."""
+    return query.strip().casefold() in _DOCUMENTED_EXAMPLE_QUERIES_CASEFOLDED
+
+
+def _is_own_or_bot_user_agent(user_agent: str | None) -> bool:
+    """(2) — true when `user_agent` is a known non-asker, by exact name
+    (`_OWN_AND_BOT_USER_AGENTS`) or by `ua_classify.classify`'s own label
+    (`_DISQUALIFYING_UA_LABELS`).
+
+    A missing/empty user agent is *not* excluded here: `classify(None)` is
+    `"unknown"`, not `"bot"`, and there is no name to match against nothing —
+    an anonymous caller is ambiguous, not automated, so this returns `False`
+    and leaves the call eligible on its query/surface alone.
+    """
+    if not user_agent:
+        return False
+    if user_agent in _OWN_AND_BOT_USER_AGENTS:
+        return True
+    return classify(user_agent) in _DISQUALIFYING_UA_LABELS
+
+
+def _is_real_ask(surface: str, query: str | None, user_agent: str | None) -> bool:
+    """The full "real ask" test for one `calls` row: (1) and (2) combined.
+
+    A real ask is a row whose user agent is not a known non-asker (2), *and*
+    either carries a query that is not one of our own documented examples (1),
+    or arrived over the MCP surface at all — the fallback exists because
+    D-040 stores `query=NULL` for every Sweden call regardless of surface, so
+    a query-only test would silently zero out Swedish demand entirely; MCP
+    surface is the signal used in its place (`real_asks.mcp_sessions_non_bot`
+    and `real_asks.last`'s Swedish-row test both exercise this branch).
+    """
+    if _is_own_or_bot_user_agent(user_agent):
+        return False
+    if query is not None:
+        return not _is_documented_example(str(query))
+    return surface == Surface.MCP.value
+
+
+def _empty_real_asks() -> dict[str, Any]:
+    """The zeroed `real_asks` block — shared by `_empty_summary` (an
+    unreadable/missing database) and nothing else, since `summary()` always
+    builds this block fresh from whatever rows it read, never falling back to
+    this shape for a non-empty result."""
+    return {
+        "calls": {"all_time": 0, "last_7_days": 0},
+        "distinct_user_agents": {"all_time": 0, "last_7_days": 0},
+        "mcp_sessions_non_bot": 0,
+        "by_source_named": [],
+        "last": None,
+        "ceiling_hitters": [],
+    }
+
 
 def _empty_summary(today: date) -> dict[str, Any]:
     calls_per_day = [
@@ -104,6 +253,7 @@ def _empty_summary(today: date) -> dict[str, Any]:
         "days_since_last_call": None,
         "last_non_connect_call_at": None,
         "days_since_last_non_connect_call": None,
+        "real_asks": _empty_real_asks(),
     }
 
 
@@ -164,8 +314,27 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
         ``"list_countries"`` (see ``_CONNECT_ONLY_OPERATION``) — a deployment
         can look freshly used by ``last_call_at`` alone purely from clients
         reconnecting, which this second pair exists to catch.
+
+        T65 adds ``real_asks`` — the same rows, restricted to what
+        ``~/mcp-growth/DECISION-GATE.md``'s day-45 gate counts rather than
+        every logged call (see ``_is_real_ask`` for the exact test): ``calls``
+        and ``distinct_user_agents`` (each ``{"all_time", "last_7_days"}``),
+        ``mcp_sessions_non_bot`` (distinct non-bot/own user agents seen on the
+        MCP surface in the last 7 days), ``by_source_named`` (``by_source``
+        above, minus the ``NO_SOURCE_KEY`` bucket — channel attribution rarely
+        applies to a bot anyway), ``last`` (``{"ts", "operation", "country",
+        "query"}`` for the single most recent real ask, all time; ``query``
+        is re-redacted through ``core.registry.loggable_query`` here as a
+        second line of defence, never trusting that every historical row was
+        already redacted at write time; ``None`` when there has never been
+        one), and ``ceiling_hitters`` (the M4 reading, amendment A2: user
+        agents that made at least ``_CEILING_HITTER_CALLS_PER_MINUTE`` calls
+        within any single minute in the last 7 days, ``{"user_agent",
+        "calls_in_minute"}``, highest first).
     """
-    today = datetime.now(UTC).date()
+    now_dt = datetime.now(UTC)
+    today = now_dt.date()
+    recent_cutoff = now_dt - timedelta(days=_REAL_ASKS_RECENT_DAYS)
     path = Path(db_path) if db_path is not None else log.log_path()
 
     try:
@@ -200,6 +369,18 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
     latencies: list[int] = []
     last_call_dt: datetime | None = None
     last_non_connect_call_dt: datetime | None = None
+
+    # T65 — "real asks" accumulators (`_is_real_ask`).
+    real_ask_calls_all_time = 0
+    real_ask_calls_recent = 0
+    real_ask_uas_all_time: set[str] = set()
+    real_ask_uas_recent: set[str] = set()
+    mcp_non_bot_uas_recent: set[str] = set()
+    per_minute_calls: Counter[tuple[str, str]] = Counter()
+    last_real_ask_dt: datetime | None = None
+    last_real_ask_operation: str | None = None
+    last_real_ask_country: str | None = None
+    last_real_ask_query: str | None = None
 
     for (
         ts,
@@ -245,6 +426,43 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
             if cached:
                 cache_hits += 1
 
+        # T65 — "real asks". Computed regardless of whether `ts` parsed (an
+        # all-time real-ask count needs no date, exactly like `total_calls`
+        # above), except the pieces that are inherently date-scoped: the
+        # "last 7 days" counters, `last`, and the per-minute ceiling check
+        # all require a valid `call_dt`.
+        surface_str = str(surface)
+        user_agent_str = str(user_agent) if user_agent else None
+        if _is_real_ask(surface_str, query, user_agent_str):
+            real_ask_calls_all_time += 1
+            if user_agent_str:
+                real_ask_uas_all_time.add(user_agent_str)
+            if call_dt is not None:
+                if last_real_ask_dt is None or call_dt > last_real_ask_dt:
+                    last_real_ask_dt = call_dt
+                    last_real_ask_operation = str(operation)
+                    last_real_ask_country = str(country) if country else None
+                    last_real_ask_query = str(query) if query else None
+                if call_dt >= recent_cutoff:
+                    real_ask_calls_recent += 1
+                    if user_agent_str:
+                        real_ask_uas_recent.add(user_agent_str)
+        if (
+            call_dt is not None
+            and call_dt >= recent_cutoff
+            and surface_str == Surface.MCP.value
+            and user_agent_str
+            and not _is_own_or_bot_user_agent(user_agent_str)
+        ):
+            mcp_non_bot_uas_recent.add(user_agent_str)
+        if (
+            call_dt is not None
+            and call_dt >= recent_cutoff
+            and user_agent_str
+            and not _is_own_or_bot_user_agent(user_agent_str)
+        ):
+            per_minute_calls[(user_agent_str, call_dt.strftime("%Y-%m-%dT%H:%M"))] += 1
+
     calls_per_day = [
         {
             "date": (today - timedelta(days=i)).isoformat(),
@@ -273,6 +491,30 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
         {"user_agent": ua, "count": c}
         for ua, c in sorted(by_user_agent.items(), key=lambda kv: (-kv[1], kv[0]))
     ]
+
+    # T65 — "real asks" derived shapes.
+    by_source_named = [row for row in by_source_list if row["source"] != NO_SOURCE_KEY]
+
+    max_calls_per_minute: dict[str, int] = {}
+    for (ua, _minute), count in per_minute_calls.items():
+        if count > max_calls_per_minute.get(ua, 0):
+            max_calls_per_minute[ua] = count
+    ceiling_hitters = [
+        {"user_agent": ua, "calls_in_minute": count}
+        for ua, count in sorted(max_calls_per_minute.items(), key=lambda kv: (-kv[1], kv[0]))
+        if count >= _CEILING_HITTER_CALLS_PER_MINUTE
+    ]
+
+    real_asks_last = (
+        {
+            "ts": last_real_ask_dt.isoformat(),
+            "operation": last_real_ask_operation,
+            "country": last_real_ask_country,
+            "query": loggable_query(last_real_ask_country, last_real_ask_query),
+        }
+        if last_real_ask_dt is not None
+        else None
+    )
 
     latencies.sort()
     if latencies:
@@ -316,4 +558,18 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
             if last_non_connect_call_dt is not None
             else None
         ),
+        "real_asks": {
+            "calls": {
+                "all_time": real_ask_calls_all_time,
+                "last_7_days": real_ask_calls_recent,
+            },
+            "distinct_user_agents": {
+                "all_time": len(real_ask_uas_all_time),
+                "last_7_days": len(real_ask_uas_recent),
+            },
+            "mcp_sessions_non_bot": len(mcp_non_bot_uas_recent),
+            "by_source_named": by_source_named,
+            "last": real_asks_last,
+            "ceiling_hitters": ceiling_hitters,
+        },
     }

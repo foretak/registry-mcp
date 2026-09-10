@@ -8,10 +8,21 @@ change.
 
 Order matters. Some coding-agent user agents embed an HTTP client's name
 (e.g. Claude Code's MCP client may report a `python-httpx`-derived string),
-so every `coding_agent` rule is checked before any `script` rule. `browser`
-is checked last among the "real" categories since `Mozilla/5.0` appears as a
-compatibility token in some non-browser user agents too, but nothing we
-special-case here collides with it before that point.
+so every `coding_agent` rule is checked before any `script` rule. `bot` is
+checked before `browser` for the opposite reason: a search-engine or
+directory-monitor crawler's user agent routinely embeds a `Mozilla/5.0`
+compatibility token too (e.g. `Mozilla/5.0 (compatible; Googlebot/2.1; ...)`,
+or the bare `Mozilla/5.0 (compatible)` `~/mcp-growth/DECISION-GATE.md` §8.1
+names as a directory monitor) — without `bot` going first, every one of
+those would be indistinguishable from a real browser. `browser` is checked
+last among the "real" categories since nothing else special-cased here
+collides with its patterns.
+
+Added T65 (`~/mcp-growth/DECISION-GATE.md`'s day-45 gate, §3.1/§3.2, "excluding
+... the bot list"): before this, a crawler/monitor UA had no home except
+`browser` (if it carried a `Mozilla/5.0` token) or `unknown` (if it did not),
+so `core/stats.py::summary()`'s `real_asks` block — which needs to tell a bot
+from a real caller — had no label to exclude it by.
 """
 
 from __future__ import annotations
@@ -21,7 +32,7 @@ from typing import Literal
 
 __all__ = ["RULES", "Label", "classify"]
 
-Label = Literal["coding_agent", "browser", "script", "unknown"]
+Label = Literal["coding_agent", "browser", "script", "bot", "unknown"]
 
 # fmt: off
 RULES: list[tuple[re.Pattern[str], Label]] = [
@@ -57,6 +68,19 @@ RULES: list[tuple[re.Pattern[str], Label]] = [
     (re.compile(r"\bjava\b", re.IGNORECASE), "script"),
     (re.compile(r"postmanruntime", re.IGNORECASE), "script"),
     (re.compile(r"insomnia", re.IGNORECASE), "script"),
+    # --- bots / crawlers / monitors (checked before "browser": see module
+    # docstring — many embed a Mozilla/5.0 compatibility token) ---
+    (re.compile(r"\bcompatible\b", re.IGNORECASE), "bot"),
+    (re.compile(r"bot\b", re.IGNORECASE), "bot"),  # trailing-word only: "Googlebot" matches, "SomeWeirdBotThing" does not
+    (re.compile(r"crawl", re.IGNORECASE), "bot"),
+    (re.compile(r"spider", re.IGNORECASE), "bot"),
+    (re.compile(r"slurp", re.IGNORECASE), "bot"),
+    (re.compile(r"monitor", re.IGNORECASE), "bot"),
+    (re.compile(r"uptime", re.IGNORECASE), "bot"),
+    (re.compile(r"pingdom", re.IGNORECASE), "bot"),
+    (re.compile(r"\baudit\b", re.IGNORECASE), "bot"),
+    (re.compile(r"\bscan(?:ner)?\b", re.IGNORECASE), "bot"),
+    (re.compile(r"facebookexternalhit", re.IGNORECASE), "bot"),
     # --- browsers ---
     (re.compile(r"mozilla", re.IGNORECASE), "browser"),
     (re.compile(r"chrome", re.IGNORECASE), "browser"),
@@ -68,7 +92,7 @@ RULES: list[tuple[re.Pattern[str], Label]] = [
 
 
 def classify(user_agent: str | None) -> Label:
-    """Classify ``user_agent`` into one of `Label`'s four buckets.
+    """Classify ``user_agent`` into one of `Label`'s five buckets.
 
     ``None`` or an empty/whitespace-only string is ``"unknown"``. Otherwise
     the first matching pattern in `RULES` (checked in order) decides; no

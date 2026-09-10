@@ -108,12 +108,17 @@ from registry_mcp.core.ua_classify import Label, classify
 __all__ = ["dashboard_router"]
 
 # Display order + colour for each classifier label (dashboard-only styling;
-# `ua_classify.Label` itself carries no colour).
-_LABEL_ORDER: list[Label] = ["coding_agent", "browser", "script", "unknown"]
+# `ua_classify.Label` itself carries no colour). "bot" (T65) is placed right
+# after "script" and before "unknown" — it is, like "script", traffic that is
+# not how this product is meant to be used, and its own bright colour matters
+# more here than anywhere else on the page: this is the label `real_asks`
+# excludes (`core/stats.py::_DISQUALIFYING_UA_LABELS`).
+_LABEL_ORDER: list[Label] = ["coding_agent", "browser", "script", "bot", "unknown"]
 _LABEL_COLOR: dict[Label, str] = {
     "coding_agent": "#6366f1",
     "browser": "#10b981",
     "script": "#f59e0b",
+    "bot": "#ef4444",
     "unknown": "#94a3b8",
 }
 
@@ -153,6 +158,27 @@ _NON_CONNECT_TITLE = (
     "Excludes list_countries — what an MCP client calls on connect, "
     "before asking about a company. Can lag behind “Last call” "
     "when only reconnects have happened recently."
+)
+
+# T65 — the "real asks" row's heading and one-line caption. `core/stats.py`
+# does the actual excluding (`_is_real_ask`, `_DOCUMENTED_EXAMPLE_QUERIES`,
+# `_OWN_AND_BOT_USER_AGENTS`, `_DISQUALIFYING_UA_LABELS`); this is just the
+# label a human reads, per `~/mcp-growth/DECISION-GATE.md`'s day-45 gate.
+_REAL_ASKS_TITLE = "Real asks (what the gate counts)"
+_REAL_ASKS_CAPTION = (
+    "Excludes our own documented example queries (923609016, equinor, "
+    "tesco, ...), known bot/monitor/scanner and our-own traffic, and "
+    "separately flags anyone near the 60-req/min limit (M4)."
+)
+_REAL_ASKS_LAST_TITLE = (
+    "The single most recent real ask, all time. Query is re-redacted here — "
+    "a Swedish identifier is never shown, for any country flagged "
+    "Registry.id_may_be_personal (core.registry.loggable_query)."
+)
+_CEILING_HITTERS_TITLE = (
+    "M4: user agents that made at least 50 calls within a single minute in "
+    "the last 7 days — near the 60/minute REST rate limit. Routes, does not "
+    "gate: the only thing this authorises is a metered API key (R-4)."
 )
 
 dashboard_router = APIRouter()
@@ -207,6 +233,7 @@ def _render_page(data: dict[str, Any]) -> str:
     days_since_last_call: int | None = data["days_since_last_call"]
     last_non_connect_call_at: str | None = data["last_non_connect_call_at"]
     days_since_last_non_connect_call: int | None = data["days_since_last_non_connect_call"]
+    real_asks: dict[str, Any] = data["real_asks"]
 
     rest_count = by_surface.get("rest", 0)
     mcp_count = by_surface.get("mcp", 0)
@@ -272,6 +299,8 @@ def _render_page(data: dict[str, Any]) -> str:
         last_non_connect_call_at, days_since_last_non_connect_call
     )
 
+    real_asks_row_html = _render_real_asks_row(real_asks)
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -309,6 +338,15 @@ def _render_page(data: dict[str, Any]) -> str:
   }}
   h1 {{ font-size: 1.4rem; margin: 0 0 0.25rem; }}
   .subtitle {{ color: var(--muted); margin: 0 0 1.5rem; font-size: 0.9rem; }}
+  .section-title {{
+    font-size: 1.15rem;
+    font-weight: 600;
+    max-width: 1100px;
+    margin: 0 auto 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 3px solid var(--accent);
+  }}
+  .section-caption {{ color: var(--muted); max-width: 1100px; margin: 0 auto 1rem; font-size: 0.82rem; }}
   .grid {{
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -351,6 +389,7 @@ def _render_page(data: dict[str, Any]) -> str:
   .pill-coding_agent {{ background: {_LABEL_COLOR["coding_agent"]}; }}
   .pill-browser {{ background: {_LABEL_COLOR["browser"]}; }}
   .pill-script {{ background: {_LABEL_COLOR["script"]}; }}
+  .pill-bot {{ background: {_LABEL_COLOR["bot"]}; }}
   .pill-unknown {{ background: {_LABEL_COLOR["unknown"]}; }}
   .pill-nocountry {{ background: {_NO_COUNTRY_COLOR}; }}
   .pill-nosource {{ background: {_NO_SOURCE_COLOR}; }}
@@ -370,6 +409,8 @@ def _render_page(data: dict[str, Any]) -> str:
 <body>
   <h1>registry-mcp — usage dashboard</h1>
   <p class="subtitle">Aggregated from the local usage log. Refresh this page for current numbers.</p>
+
+  {real_asks_row_html}
 
   <div class="grid">
     <div class="card"><h2>Total calls</h2><div class="stat">{total_calls}</div></div>
@@ -544,6 +585,100 @@ def _render_surface_split(rest_count: int, mcp_count: int) -> str:
         "</div>"
     )
     return bar + legend
+
+
+def _render_real_asks_row(real_asks: dict[str, Any]) -> str:
+    """T65 — the "Real asks (what the gate counts)" row: rendered above the
+    existing "Total calls" grid (never replacing it — every existing card
+    stays), straight from `core/stats.py::summary()`'s `real_asks` block. See
+    `_REAL_ASKS_CAPTION` for the one-line summary of what counts and what
+    does not; `core/stats.py::_is_real_ask` is the actual definition.
+    """
+    calls = real_asks["calls"]
+    distinct_user_agents = real_asks["distinct_user_agents"]
+    mcp_sessions_non_bot = int(real_asks["mcp_sessions_non_bot"])
+    by_source_named: list[dict[str, Any]] = real_asks["by_source_named"]
+    last: dict[str, Any] | None = real_asks["last"]
+    ceiling_hitters: list[dict[str, Any]] = real_asks["ceiling_hitters"]
+
+    return f"""
+  <h2 class="section-title">{escape(_REAL_ASKS_TITLE)}</h2>
+  <p class="section-caption">{escape(_REAL_ASKS_CAPTION)}</p>
+  <div class="grid">
+    <div class="card">
+      <h2>Real asks</h2>
+      <div class="stat">{int(calls["last_7_days"])}</div>
+      <div class="stat-sub">last 7 days &middot; {int(calls["all_time"])} all time</div>
+    </div>
+    <div class="card">
+      <h2>Real askers</h2>
+      <div class="stat">{int(distinct_user_agents["last_7_days"])}</div>
+      <div class="stat-sub">distinct user agents, last 7 days &middot; {int(distinct_user_agents["all_time"])} all time</div>
+    </div>
+    <div class="card">
+      <h2>MCP sessions, non-bot</h2>
+      <div class="stat">{mcp_sessions_non_bot}</div>
+      <div class="stat-sub">distinct MCP user agents, last 7 days</div>
+    </div>
+    <div class="card">
+      <h2>Named channels</h2>
+      {_named_sources_html(by_source_named)}
+    </div>
+    <div class="card">
+      <h2 title="{escape(_REAL_ASKS_LAST_TITLE)}">Last real ask</h2>
+      {_real_ask_last_html(last)}
+    </div>
+    <div class="card">
+      <h2 title="{escape(_CEILING_HITTERS_TITLE)}">Ceiling hitters</h2>
+      {_ceiling_hitters_html(ceiling_hitters)}
+    </div>
+  </div>
+"""
+
+
+def _named_sources_html(rows: list[dict[str, Any]]) -> str:
+    """Card body for `real_asks.by_source_named` — `by_source` (T64) with the
+    "no src" bucket dropped, since channel attribution rarely applies to a
+    bot to begin with. A plain count-plus-list rather than another table:
+    there are at most a handful of named channels, one per published install
+    line."""
+    if not rows:
+        return "<div class='stat'>0</div><div class='stat-sub'>no tagged channel yet</div>"
+    parts = ", ".join(f"{escape(str(row['source']))}: {int(row['count'])}" for row in rows)
+    return f"<div class='stat'>{len(rows)}</div><div class='stat-sub'>{parts}</div>"
+
+
+def _real_ask_last_html(last: dict[str, Any] | None) -> str:
+    """Card body for `real_asks.last` — the single most recent real ask, all
+    time. `last["query"]` has already been passed through
+    `core.registry.loggable_query` by `core/stats.py` before it ever reaches
+    this module (never a Swedish identifier); this only decides how to label
+    the redacted case rather than leaving a blank space unexplained."""
+    if last is None:
+        return "<div class='stat'>&mdash;</div><div class='stat-sub'>no real ask yet</div>"
+    operation = escape(str(last["operation"]))
+    country_key = str(last["country"]) if last["country"] else stats_module.NO_COUNTRY_KEY
+    country_html = _country_cell(country_key)
+    query = last["query"]
+    query_html = "<em>redacted</em>" if query is None else escape(str(query))
+    ts = escape(str(last["ts"]))
+    return (
+        f"<div class='stat' style='font-size:1rem'>{operation}</div>"
+        f"<div class='stat-sub'>{country_html} &middot; {query_html}</div>"
+        f"<div class='stat-sub'>{ts}</div>"
+    )
+
+
+def _ceiling_hitters_html(hitters: list[dict[str, Any]]) -> str:
+    """Card body for `real_asks.ceiling_hitters` (M4) — a count plus the
+    first few offending user agents, not another full table: this is meant
+    to be rare, and the count alone is the important number."""
+    if not hitters:
+        return "<div class='stat'>0</div><div class='stat-sub'>none in the last 7 days</div>"
+    shown = ", ".join(escape(str(h["user_agent"])) for h in hitters[:3])
+    remainder = len(hitters) - 3
+    more = f" (+{remainder} more)" if remainder > 0 else ""
+    return f"<div class='stat'>{len(hitters)}</div><div class='stat-sub'>{shown}{more}</div>"
 
 
 def _country_cell(code: str) -> str:
