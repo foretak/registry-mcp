@@ -748,8 +748,9 @@ def test_summary_real_asks_sasame_mcp_audit_is_never_real(tmp_path: Path) -> Non
 
 def test_summary_real_asks_swedish_real_ask_shows_no_identifier_in_last(tmp_path: Path) -> None:
     """D-040 stores `query=NULL` for Sweden regardless of surface, so a
-    Swedish real ask is counted through the MCP-surface branch of
-    `_is_real_ask`, and its `last` entry must never show an identifier."""
+    Swedish `lookup_company` real ask is counted via `_is_real_ask`'s Swedish
+    carve-out (`_QUERY_WITHHELD_COUNTRY`/`_WITHHELD_QUERY_OPERATIONS`), and
+    its `last` entry must never show an identifier."""
     db = tmp_path / "calls.sqlite3"
     log.set_sink(db)
     log.log_call(
@@ -769,6 +770,205 @@ def test_summary_real_asks_swedish_real_ask_shows_no_identifier_in_last(tmp_path
     assert last is not None
     assert last["country"] == "SE"
     assert last["query"] is None
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator review, round 1: two definition refinements to `_is_real_ask`.
+#
+# (1) A Swedish REST row with `query=NULL` is the one case where "no query"
+#     means "the query was withheld" (D-040), not "nothing was asked" — it
+#     must count as a real ask for a real user agent, on lookup_company,
+#     company_deadlines and validate_company_id alike (search_company too,
+#     though it 501s for Sweden today).
+# (2) `list_countries` (the bare connect probe every client and every
+#     scanner makes) is never a real ask, on either surface. `validate_company_id`
+#     is excluded only when its query is a documented example or NULL — a
+#     validate of a genuinely new number from a real user agent is a real ask.
+# ---------------------------------------------------------------------------
+
+
+def test_summary_real_asks_swedish_rest_lookup_with_null_query_counts_one_for_real_ua(
+    tmp_path: Path,
+) -> None:
+    """The exact case flagged in review: a Chrome UA, Sweden, `lookup_company`,
+    `query=NULL`, over REST — must count as one real ask, not zero."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["country"] == "SE"
+    assert last["query"] is None
+
+
+def test_summary_real_asks_swedish_rest_lookup_with_null_query_counts_zero_for_own_ua(
+    tmp_path: Path,
+) -> None:
+    """The same Swedish REST/`lookup_company`/`query=NULL` shape, but from
+    `curl/8.5.0` — one of our own frozen smoke-test user agents
+    (`_OWN_AND_BOT_USER_AGENTS`) — must still count zero: the Swedish
+    carve-out only waives the query test, never the user-agent test."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="SE",
+        query=None,
+        user_agent="curl/8.5.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+
+
+def test_summary_real_asks_swedish_rest_company_deadlines_and_validate_null_query_count(
+    tmp_path: Path,
+) -> None:
+    """The same carve-out extends to `company_deadlines` and
+    `validate_company_id`, per the orchestrator's operation list —
+    not just `lookup_company`."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="company_deadlines",
+        country="SE",
+        query=None,
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="validate_company_id",
+        country="SE",
+        query=None,
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 2, "last_7_days": 2}
+
+
+def test_summary_real_asks_list_countries_never_real_on_either_surface(
+    tmp_path: Path,
+) -> None:
+    """`list_countries` is the bare capability probe every client — and
+    every scanner — makes on connect. A real, non-bot user agent calling it
+    must still not count as a real ask, on REST or MCP."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.MCP,
+        operation="list_countries",
+        country=None,
+        query=None,
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 2
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
+
+
+def test_summary_real_asks_validate_company_id_new_number_from_real_ua_counts_one(
+    tmp_path: Path,
+) -> None:
+    """A `validate_company_id` call on a genuinely new number, from a real
+    (non-bot, non-own) user agent, is a real ask — `validate_company_id` is
+    excluded only for a documented-example or NULL query, never blanket."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="validate_company_id",
+        country="GB",
+        query="12345678",  # not 00445790/445790, and not OC303675 (evals/cases.json's Deloitte LLP example)
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 1, "last_7_days": 1}
+    last = result["real_asks"]["last"]
+    assert last is not None
+    assert last["operation"] == "validate_company_id"
+    assert last["query"] == "12345678"
+
+
+def test_summary_real_asks_validate_company_id_excluded_for_example_or_null_query(
+    tmp_path: Path,
+) -> None:
+    """`validate_company_id` is excluded when its query is a documented
+    example (445790, the GB validate example) or NULL for a non-Swedish
+    reason — the same real user agent counts zero either way, unlike the
+    Swedish case above."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="validate_company_id",
+        country="GB",
+        query="445790",
+        user_agent="curl/9.9.9",
+        latency_ms=5,
+        ok=True,
+    )
+    log.log_call(
+        surface=Surface.MCP,
+        operation="validate_company_id",
+        country=None,
+        query=None,
+        user_agent="claude-code/1.0.0",
+        latency_ms=5,
+        ok=True,
+    )
+
+    result = stats.summary(db)
+
+    assert result["real_asks"]["calls"] == {"all_time": 0, "last_7_days": 0}
+    assert result["real_asks"]["last"] is None
 
 
 def test_summary_real_asks_last_re_redacts_a_legacy_unredacted_swedish_row(

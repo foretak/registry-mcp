@@ -170,6 +170,26 @@ _CEILING_HITTER_CALLS_PER_MINUTE = 50
 #: day does not read as zero.
 _REAL_ASKS_RECENT_DAYS = 7
 
+#: Operations that *ask about a company* and so, for a flagged country
+#: (Sweden), can have `query=NULL` mean "withheld by D-040", not "nothing was
+#: asked" — the orchestrator's fix to this file's first draft. Excludes
+#: `_CONNECT_ONLY_OPERATION` (never asks about a company at all) and
+#: `"validate_company_id"` (handled on its own in `_is_real_ask`: a NULL
+#: query there is excluded everywhere *except* this same Swedish case, so it
+#: cannot share this set's blanket "count it" treatment). `search_company` is
+#: `not_implemented` for Sweden today (Bolagsverket's free API has no name
+#: search, `SWEDEN_SPEC.md`) but is listed anyway per the orchestrator's
+#: instruction, in case that ever changes.
+_WITHHELD_QUERY_OPERATIONS: frozenset[str] = frozenset(
+    {"lookup_company", "company_deadlines", "search_company"}
+)
+
+#: The one country D-040 ever nulls a query for today
+#: (`registries/se/__init__.py`'s `id_may_be_personal = True`) — spelled out
+#: as its own constant rather than repeated as a string literal, since
+#: `_is_real_ask` checks it twice for two different reasons.
+_QUERY_WITHHELD_COUNTRY = "SE"
+
 
 def _is_documented_example(query: str) -> bool:
     """(1) — see `_DOCUMENTED_EXAMPLE_QUERIES`'s comment for the definition."""
@@ -193,21 +213,52 @@ def _is_own_or_bot_user_agent(user_agent: str | None) -> bool:
     return classify(user_agent) in _DISQUALIFYING_UA_LABELS
 
 
-def _is_real_ask(surface: str, query: str | None, user_agent: str | None) -> bool:
-    """The full "real ask" test for one `calls` row: (1) and (2) combined.
+def _is_real_ask(
+    surface: str,
+    operation: str,
+    country: str | None,
+    query: str | None,
+    user_agent: str | None,
+) -> bool:
+    """The full "real ask" test for one `calls` row: (1) and (2) combined,
+    plus the two operation-shaped refinements below (both from the
+    orchestrator's review of this file's first draft).
 
-    A real ask is a row whose user agent is not a known non-asker (2), *and*
-    either carries a query that is not one of our own documented examples (1),
-    or arrived over the MCP surface at all — the fallback exists because
-    D-040 stores `query=NULL` for every Sweden call regardless of surface, so
-    a query-only test would silently zero out Swedish demand entirely; MCP
-    surface is the signal used in its place (`real_asks.mcp_sessions_non_bot`
-    and `real_asks.last`'s Swedish-row test both exercise this branch).
+    In order:
+
+    1. A known non-asker user agent (2) is never a real ask, regardless of
+       anything else.
+    2. `_CONNECT_ONLY_OPERATION` ("list_countries") is never a real ask, on
+       either surface — it is the bare capability probe every client, and
+       every scanner, makes on connect, before asking about a company.
+    3. A non-NULL query is a real ask exactly when it is not one of our own
+       documented examples (1) — the query itself is the strongest signal
+       there is, and neither surface nor country changes that.
+    4. From here, `query` is NULL. For `"validate_company_id"`: a real ask
+       only for the one case NULL there ever means "withheld" rather than
+       "excluded" — Sweden (`_QUERY_WITHHELD_COUNTRY`), D-040. Every other
+       NULL `validate_company_id` (no country flag in play) is excluded,
+       full stop — unlike the other operations below, it never falls back to
+       "arrived over MCP", because a validate call always receives an
+       identifier argument from its caller, so a NULL query outside the
+       Swedish case is unexplained rather than merely unlogged.
+    5. For the remaining "asks about a company" operations
+       (`_WITHHELD_QUERY_OPERATIONS`): a real ask when the country is Sweden
+       (same D-040 reasoning as (4)), or, failing that, when the call arrived
+       over the MCP surface at all — the weaker fallback this file shipped
+       with, kept for every NULL-query case D-040 does not explain (a D-031
+       connector alias before country resolution, for instance).
     """
     if _is_own_or_bot_user_agent(user_agent):
         return False
+    if operation == _CONNECT_ONLY_OPERATION:
+        return False
     if query is not None:
         return not _is_documented_example(str(query))
+    if operation == "validate_company_id":
+        return country == _QUERY_WITHHELD_COUNTRY
+    if country == _QUERY_WITHHELD_COUNTRY and operation in _WITHHELD_QUERY_OPERATIONS:
+        return True
     return surface == Surface.MCP.value
 
 
@@ -432,16 +483,18 @@ def summary(db_path: str | Path | None = None) -> dict[str, Any]:
         # "last 7 days" counters, `last`, and the per-minute ceiling check
         # all require a valid `call_dt`.
         surface_str = str(surface)
+        operation_str = str(operation)
+        country_str = str(country) if country else None
         user_agent_str = str(user_agent) if user_agent else None
-        if _is_real_ask(surface_str, query, user_agent_str):
+        if _is_real_ask(surface_str, operation_str, country_str, query, user_agent_str):
             real_ask_calls_all_time += 1
             if user_agent_str:
                 real_ask_uas_all_time.add(user_agent_str)
             if call_dt is not None:
                 if last_real_ask_dt is None or call_dt > last_real_ask_dt:
                     last_real_ask_dt = call_dt
-                    last_real_ask_operation = str(operation)
-                    last_real_ask_country = str(country) if country else None
+                    last_real_ask_operation = operation_str
+                    last_real_ask_country = country_str
                     last_real_ask_query = str(query) if query else None
                 if call_dt >= recent_cutoff:
                     real_ask_calls_recent += 1

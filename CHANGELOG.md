@@ -35,7 +35,16 @@ frozen as of `0.2.0`.
   gains that label — crawlers/monitors such as Googlebot or the bare
   `Mozilla/5.0 (compatible)` directory monitor, checked before `browser` —
   because before this there was no way to tell one from a real browser by
-  label alone.
+  label alone. Two operation-shaped refinements from review: `list_countries`
+  (the bare connect probe every client, and every scanner, makes) is never a
+  real ask on either surface; and, since D-040 stores `query=NULL` for every
+  Swedish call regardless of surface, a Swedish `lookup_company` /
+  `company_deadlines` / `validate_company_id` (`search_company` too, if it
+  ever logs — currently `not_implemented` for Sweden) row with `query=NULL`
+  now counts as a real ask for a real user agent, on REST as much as MCP —
+  "no query" there means "withheld", not "nothing was asked". A non-Swedish
+  `validate_company_id` with `query=NULL`, or a documented-example query on
+  any country, still counts zero.
 - **`?src=` on the REST routes and on `/mcp`, logged as a new `source`
   column on the `calls` table — "calls by channel"** (`tasks/T64.md`).
   Free text, sanitised to `[a-z0-9_-]` and truncated to 32 characters
