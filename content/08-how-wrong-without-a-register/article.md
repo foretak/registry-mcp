@@ -31,7 +31,7 @@ On two of three trials, asked for a headcount, the model disclaimed access to th
 
 Same model, same day, tools attached. **18 of the 31 cases passed outright (58%)** under the harness's strict rule, which requires all three trials to agree before a case counts as passed at all. Four of the 31 never get scored — two are live-only smoke cases skipped by design, two hit a gap in the mock coverage that has nothing to do with the model — so against the **27 cases actually eligible, that is 18/27 (67%)**.
 
-Before the strict rule is applied, the raw per-trial rates were **19/27 (70%), 23/27 (85%) and 20/27 (74%)**, a mean of **62/81 (77%)**. An eighteen-percentage-point spread between the best and the worst trial, on identical cases with nothing else changed, is why the strict rule exists — and why one trial of anything is not evidence.
+Before the strict rule is applied, the raw per-trial rates were **19/27 (70%), 23/27 (85%) and 20/27 (74%)**, a mean of **62/81 (77%)**. Best trial and worst trial are four cases apart, on identical cases with nothing else changed. That is why the strict rule exists, and why one trial of anything is not evidence.
 
 ## The failure we keep on purpose
 

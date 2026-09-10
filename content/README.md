@@ -1,9 +1,13 @@
 # content/ — worked examples
 
-Seven articles. Every JSON and CSV block in them is real output from a running
+Eight articles. Every JSON and CSV block in them is real output from a running
 server, and the exact command that produced it is in an HTML comment directly
 above the block. Articles 01–05 have three versions each (`devto.md`,
 `reddit.md`, `no.md`); 06 has three; 07 has two — see "Why 07 has no `no.md`"
+below. **08 is the odd one and shows no register output at all** — its subject
+is an eval report rather than a lookup, so it has a canonical `article.md`, a
+`devto.md` with front matter, its own `README.md` recording where it was
+published, and three hand-posted drafts instead of a `no.md`. See "Article 08"
 below.
 
 | Folder | Article | Tools shown |
@@ -15,6 +19,7 @@ below.
 | `05-uk-companies-house/` | Check a UK supplier at Companies House from Claude Code — and the same tool works for Norway | `lookup_company`, `company_deadlines`, `validate_company_id` |
 | `06-what-active-means/` | Three company registers, one word: what "active" actually means in Norway, the UK and Sweden | `lookup_company` across `NO`, `GB`, `SE` |
 | `07-company-number-is-a-person/` | The company number that is also a person's national ID — and what it cost our logs | `validate_company_id`, `lookup_company` (`SE`) |
+| `08-how-wrong-without-a-register/` | How wrong is a model about a company when it has no register to check? | none — the subject is `evals/reports/2026-09-10-accuracy.md` |
 
 Each folder has `devto.md` (≤600 words, the long form), `reddit.md` (≤150
 words, for r/mcp) and `no.md` (Norwegian, for kode24 and Norwegian dev
@@ -127,6 +132,9 @@ in the comment, never the body.
 | `reddit-r-claudeai-post.md` | r/ClaudeAI | "I asked Claude Code to check a supplier before paying an invoice" |
 | `reddit-uk-developers-post.md` | a UK developer sub | Companies House only: the free key, and why `days_until` goes negative |
 | `reddit-sweden-developers-post.md` | a Swedish or Nordic developer community | Bolagsverket only: the two statutory dates with the *förseningsavgift*, and the four things it cannot do |
+| `08-…/show-hn.md` | Hacker News, Show HN | The tool is the submission, the accuracy number is the evidence |
+| `08-…/linkedin.md` | LinkedIn, Kim's profile | Norwegian and English; pick one, the other goes in the first comment |
+| `08-…/reddit.md` | r/LocalLLaMA (first choice) or r/ClaudeAI | Three lines on the eval design; links in the first comment |
 
 `reddit-sweden-developers-post.md` is the Sweden counterpart of the UK draft
 and is written in English. Its header says what to do if the venue is
@@ -147,6 +155,33 @@ Deviations from the caps above, each on purpose:
   register to hit the cap would leave a comparison with two sides. The dev.to
   numbers include their JSON and Python blocks, which is where most of the
   excess sits.
+- `08-how-wrong-without-a-register/` runs to 1,036 words against a cap of 600,
+  under a cap of 1,200 set for it specifically (T64 Part C). It carries two
+  arms of an eval, four rates that are meaningless without the strict-rule
+  caveat attached to each, and the limits paragraph that makes the number
+  quotable at all — none of which shortens without becoming a claim the report
+  does not support.
+
+### Article 08 — the one with no output blocks
+
+08 has no JSON or CSV block, so nothing in it is re-runnable and the
+"reproducing the output blocks" section above does not apply. What replaces
+that check is `content/08-how-wrong-without-a-register/README.md`: a table
+mapping **every number in the article to the line of
+`evals/reports/2026-09-10-accuracy.md` it came from**. Re-check the article
+against that table rather than against a server, and if the report is ever
+superseded, the article is stale even though every command in it still runs.
+
+The one number that is *not* in the article is deliberate: the report's agent
+arm dollar cost is an estimate rather than a measurement (`--agent` never
+reads `response.usage`), so only the measured baseline figure is quoted, with
+"the no-tools half" saying which half it is. Do not fill that gap in a
+copy-edit.
+
+08 is also the first article whose install line carries a `?src=` value
+(`?src=devto`), and its three hand-posted drafts carry `?src=hn`,
+`?src=linkedin` and `?src=reddit` — that is the T64 Part B attribution
+parameter, harmless before Part B lands and useful the moment it does.
 
 ### Why 07 has no `no.md`
 
