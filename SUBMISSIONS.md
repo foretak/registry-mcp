@@ -20,7 +20,7 @@ corrections appended rather than erased):
 | 2 | [Smithery](#2-smithery) | `static/well-known/mcp/server-card.json` (optional) | **Yes** — Smithery account | **Live, was stale, fixed 2026-09-07** — `fargerod/registry-mcp`. Description named only Norway+UK and promised "Denmark (CVR) next" (not shipped); PATCHed via the documented API (credential in `~/secrets/`) to name all three countries and drop the false promise; `iconUrl` set (was `null`). `registry.smithery.ai`'s public search index lags the write host by some minutes–hours, as it did 2026-09-05 — re-check in a day. |
 | 3 | [Glama](#3-glama) | `glama.json` + admin-form build spec (Python 3.12, `uv sync`, mcp-proxy) | **Yes** — GitHub OAuth | **Live and installable, but stale** — still shows **0.2.0** and a Norway+UK-only description as of 2026-09-07 19:15Z; no Sweden. No documented API/credential exists for Glama (unlike Smithery) — fix needs a human on the admin page. See the ready block in [§3](#3-glama). |
 | 4 | [PulseMCP](#4-pulsemcp) | — | No | **Closed to submissions** — auto-ingests from #1. Re-confirmed 2026-09-07, identical wording. |
-| 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending, unchanged, and stale** — chatmcp/mcpso#3927, no reply after 3 days; issue text is still Norway-only. Backing repo looks largely inactive (3,170 open issues, code not pushed since 2025-03-26) — see the judgement-call note in [§5](#5-mcpso) on why this was flagged rather than edited. |
+| 5 | [mcp.so](#5-mcpso) | — | **Yes** — GitHub (to file an issue) | **Pending, still no maintainer reply.** chatmcp/mcpso#3927, open since 2026-09-04. **2026-09-10: nudged once, as T64 explicitly authorises** — a second comment posted correcting the version (0.4.2) and the tool shape; see [§5](#5-mcpso). Per the task's own instruction, leaving it alone from here. |
 | 6 | [MCP Market](#6-mcp-market) | — | No (form takes repo URL + e-mail only) | **Live** (per the 2026-09-05 "already listed" resubmission answer) — auto-indexed as https://mcpmarket.com/server/registry-10. Still unverifiable directly: 429 on every attempt again 2026-09-07. |
 | 7 | [awesome-mcp-servers (punkpeye)](#7-awesome-mcp-servers--punkpeye) | — | **Yes** — GitHub (fork + PR) | **UK+Norway entry MERGED** 2026-09-07T13:14:35Z (PR [#13631](https://github.com/punkpeye/awesome-mcp-servers/pull/13631), live in `README.md` today, badge renders) — **the local/stdio listing; it stands unchanged.** Sweden follow-up **PR [#13893](https://github.com/punkpeye/awesome-mcp-servers/pull/13893) closed by the maintainer 2026-09-08** (not merged, not by us) — hosted/remote servers belong on a sister list instead; see [§13](#13-awesome-remote-mcp-servers--punkpeye). |
 | 8 | [awesome-mcp-servers (appcypher)](#8-awesome-mcp-servers--appcypher) | — | **Yes** — GitHub (fork + PR) | **Skip** — repo still archived (re-checked 2026-09-07: `archived: true`, last push 2026-05-06). |
@@ -30,6 +30,15 @@ corrections appended rather than erased):
 | 12 | [Claude plugin directory](#12-claude-plugin-directory) | `plugins/registry-mcp/` (rebuilt as a job by T50) + `.claude-plugin/marketplace.json` | **Yes** — individual **Console** login (free) | **PENDING — plugin ready 2026-09-09 (T50), Kim submits.** Free, no Team plan needed, ~5 minutes at <https://platform.claude.com/plugins/submit>; takes a public GitHub link. Plugin is no longer a bare `.mcp.json`: skill + `/check-supplier` + `/filing-deadlines` + `/enrich-company-list`; `claude plugin validate --strict` passes on all four targets. Expect the **community** marketplace, which users add by hand — a catalog, not a channel. `HUMAN_TODO.md` §7.9. |
 | 13 | [awesome-remote-mcp-servers (punkpeye)](#13-awesome-remote-mcp-servers--punkpeye) | — | **Yes** — GitHub (star + fork + PR) | **Open, unblocked 2026-09-09 ~22:45 local — badge added (`f8b4a35c9d` on the fork branch), CI now `endpoint-ok` + `has-connector`, mergeable; the maintainer's nudge answered on the PR; waiting for his merge.** Was: Open, blocked on the Glama connector badge (Kim). PR [#146](https://github.com/punkpeye/awesome-remote-mcp-servers/pull/146), opened 2026-09-09 — `Company Check` in Finance. CI's own checks: `endpoint-ok` (the live MCP `initialize` handshake passed), **`missing-connector`** (this list requires a Glama *connector* badge — a different product from §3 — and we don't have one yet; see [§14](#14-glama-connectors)). Steps for Kim in `HUMAN_TODO.md` §7.11(c); once the connector exists, pushing the badge line to branch `add-company-check` on the `foretak/awesome-remote-mcp-servers` fork is a one-commit follow-up. |
 | 14 | [Glama connectors](#14-glama-connectors) | — | **Yes** — GitHub OAuth, Glama's claim flow | **PENDING — not yet listed, not yet attempted.** Surfaced by §13's bot, not chased before that. A separate product from §3's `glama.ai/mcp/servers` listing (itself still stale at 0.2.0 — unchanged from the last check). Kim's admin page. `HUMAN_TODO.md` §7.11(c). |
+| 15 | [Docker MCP Catalog](#15-docker-mcp-catalog) | — (lives on the fork, see below) | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [docker/mcp-registry#5043](https://github.com/docker/mcp-registry/pull/5043), fork `foretak/mcp-registry`, branch `add-registry-mcp`. Local (containerized) entry, Finance category, source pinned to commit `114364b`. Awaits Docker-team review (every PR does); CI builds the image itself from our root `Dockerfile` — not pre-verified locally, no `task`/Go toolchain available here. |
+| 16 | [VS Code MCP gallery / GitHub MCP Registry](#16-vs-code-mcp-gallery--github-mcp-registry) | — | **Yes** — an e-mail, which agents don't send | **Confirmed still absent, no self-serve path exists.** `github.com/mcp/foretak/registry-mcp` → 404 (2026-09-10). `code.visualstudio.com/mcp` and the VS Code docs' own `aka.ms/vscode-mcp-registry-web` link both redirect straight to `github.com/mcp` — **the two are one surface**, not two. The page has no submission form and does not say it ingests the official registry automatically; `DISCOVERY.md` §3.5 already found the only documented route is e-mailing `partnerships@github.com`, which the standing rules put outside what an agent may do. **No action possible.** |
+| 17 | [Cursor's directory](#17-cursors-directory) | — | **Yes** — but the login page cannot be reached | **Still bot-gated, unchanged since 2026-09-07.** `cursor.directory/plugins/new` and `cursor.directory/mcp/registry-mcp` both return **HTTP 429 "Vercel Security Checkpoint"** to `curl` with a full browser `User-Agent` (2026-09-10). `cursor.com/directory/mcp` returns 200 but is a client-rendered shell — no server names, no submit link, in the static HTML. **No action possible without a human browser session.** |
+| 18 | [LobeHub](#18-lobehub) | — | **Yes** — GitHub, to file the rescan issue (already filed) | **Issue open, zero replies; listing still the original 0.1.0 pre-release.** `lobehub/lobehub#19266` asks for a rescan; still open, no comments (2026-09-10). The live page (`market.lobehub.com/s/plugins/foretak-registry-mcp`, fetched directly — `WebFetch` gets a 403 here) still reads **0.1.0** with zero mentions of Sweden, Bolagsverket, the UK or Companies House. The issue is filed correctly; nothing else is authorised for this channel. |
+| 19 | [jaw9c/awesome-remote-mcp-servers](#19-jaw9cawesome-remote-mcp-servers) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [jaw9c/awesome-remote-mcp-servers#753](https://github.com/jaw9c/awesome-remote-mcp-servers/pull/753). Fork `foretak/awesome-remote-mcp-servers-1` (suffixed: `foretak/awesome-remote-mcp-servers` already exists as §13's punkpeye fork — different upstream, `parent` verified before writing anything). One table row: Name `Company Check`, Category `Company Data`, Authentication `Open`. Repo itself last pushed 2026-06-23 — slow-moving, not confirmed dead. |
+| 20 | [TensorBlock/awesome-mcp-servers](#20-tensorblockawesome-mcp-servers) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [TensorBlock/awesome-mcp-servers#2280](https://github.com/TensorBlock/awesome-mcp-servers/pull/2280). Fork `foretak/awesome-mcp-servers-2` (suffixed — `foretak/awesome-mcp-servers` and `-1` are already §7's and §8's forks of *different* upstreams; `parent` verified for all three before touching any of them). Appended one paragraph to `docs/finance--crypto.md` in that file's own house style. Active repo, pushed the same day. |
+| 21 | [BlockRunAI/awesome-finance-mcp](#21-blockrunaiawesome-finance-mcp) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [BlockRunAI/awesome-finance-mcp#68](https://github.com/BlockRunAI/awesome-finance-mcp/pull/68), fork `foretak/awesome-finance-mcp`. One row added to Community Contributions → Financial Intelligence (the closest existing subsection — no company-registry/KYB category exists there yet). |
+| 22 | [MobinX/awesome-mcp-list](#22-mobinxawesome-mcp-list) | — | **Yes** — GitHub (fork + PR) | **PR open 2026-09-10** — [MobinX/awesome-mcp-list#429](https://github.com/MobinX/awesome-mcp-list/pull/429), fork `foretak/awesome-mcp-list`. One line appended to the existing `💰 Finance & Fintech` section (no CONTRIBUTING.md found; format matched from the section's own existing entries). |
+| 23 | [llms.txt directories](#23-llmstxt-directories) | — | No login, but a browser is needed anyway | **Surveyed, not submitted.** `directory.llmstxt.cloud/submit` and `llmstxt.site/submit` are both no-login web forms — but `llmstxt.site`'s is a checkout flow (free-vs-$29 tiers selected at checkout) and neither exposed a plain POST endpoint this agent could safely replicate with `curl` without risking a malformed or half-filled listing. Needs a real browser, not a login. See [§23](#23-llmstxt-directories) for the exact field values, ready to paste. |
 | — | [GitHub repo topics](#github-repo-topics) | — | **Yes** — GitHub | **Topics done** — 20/20 slots, re-verified 2026-09-07 (includes `bolagsverket`, `sweden`, `united-kingdom`). The repo **description** this section tells you to set was still the Norway-only sentence verbatim from this file — fixed 2026-09-07 via `gh repo edit`; this file's own suggested command below is now updated to match so nobody re-pastes the stale one. |
 
 **Order matters.** Do #1 first: PulseMCP ingests from it automatically, and
@@ -634,6 +643,19 @@ no name index). Same repo, same install commands, same 5 tools. Official MCP reg
 Given the repo's own activity level, this may not change the outcome — but it costs one command if you decide
 it's worth sending.
 
+**2026-09-10 (T64) — nudged, exactly once, because the task now explicitly authorises it.** T64 Part A names
+this precisely: "no reply since 2026-09-04 — one polite nudge comment, then leave it." That supersedes the
+judgement call above (which was reasoning about a *different* task's authorisation, not a refusal of this one).
+Re-checked first: issue #3927 is still **open**, and the 2026-09-07 comment above is the only reply it has ever
+had — no maintainer response, ever. Posted one more comment
+([issuecomment-5615548071](https://github.com/chatmcp/mcpso/issues/3927#issuecomment-5615548071)) correcting
+the version to **0.4.2** and describing the current tool shape accurately: one `lookup_company` tool taking a
+country and national identifier, not the five separate tools the 2026-09-07 comment still claims — that comment
+is now itself stale and was left as-is rather than edited, since GitHub comments are a record, not a live
+document. No UBO, sanctions, PEP or fraud screening stated, matching the served card. Per the task's own
+instruction, this channel is now left alone regardless of whether a reply ever comes; the repo's own activity
+level (3,170+ open issues, no code push since 2025-03-26) makes that the realistic expectation.
+
 ---
 
 ## 6. MCP Market
@@ -1163,6 +1185,332 @@ fetch tool can complete). `HUMAN_TODO.md` §7.11(c).
 
 ---
 
+## 15. Docker MCP Catalog
+
+- **Repo:** <https://github.com/docker/mcp-registry> (549 stars, pushed same day as this check —
+  active) → feeds Docker Desktop's MCP Toolkit and <https://hub.docker.com/mcp>.
+- **Rules:** its `CONTRIBUTING.md` and `docs/configuration.md`, read live 2026-09-10, not from memory.
+- **Process:** fork → add `servers/<name>/server.yaml` → PR → Docker-team review (always required,
+  regardless of CI) → merge → live in ~24h.
+
+Two entry types: **Local (containerized)**, which needs a Dockerfile in the source repo, and **Remote
+(hosted)**, no Dockerfile, `streamable-http`/`sse` only. registry-mcp qualifies for both; went with
+**Local**, because the task brief calls out the exact mechanism that makes it work: the root
+`Dockerfile` is dual-mode (`PORT` set → HTTP API, `PORT` unset → the `registry-mcp` stdio entry point),
+and Docker's own local-server convention is to run the built image with no environment and speak MCP on
+stdin/stdout — precisely the `PORT`-unset branch. No `task`/Go/Taskfile tooling exists in this
+environment, so the `task wizard` / `task create` generator could not be run; `servers/registry-mcp/server.yaml`
+was hand-written instead, matching the shape of several fetched examples (`chroma`, `buildkite`, `stripe`)
+and the field reference in `docs/configuration.md`. **Not pre-verified against a real `task build`** —
+say so plainly, since the CONTRIBUTING doc calls a failed build "one of the most common issues that block
+your PR."
+
+MIT license — required ("MIT or Apache 2 are great, GPL is not"). ✅
+
+### The entry
+
+```yaml
+name: registry-mcp
+image: mcp/registry-mcp
+type: server
+meta:
+  category: finance
+  tags:
+    - finance
+    - company-data
+    - kyb
+    - due-diligence
+about:
+  title: registry-mcp
+  description: Look up a company at Norway's Brønnøysundregistrene, the UK's Companies House or Sweden's Bolagsverket by its national identifier. Identity and filing data only — no UBO, sanctions or fraud screening.
+  icon: https://api.foretak.dev/icon.png
+source:
+  project: https://github.com/foretak/registry-mcp
+  commit: 114364bdf13b254848bc3c890c3d8b459da4df03
+config:
+  description: Norway needs no key. Free keys unlock the UK (Companies House) and Sweden (Bolagsverket).
+  secrets:
+    - name: registry-mcp.companies_house_api_key
+      env: COMPANIES_HOUSE_API_KEY
+      example: YOUR_COMPANIES_HOUSE_API_KEY
+    - name: registry-mcp.bolagsverket_client_id
+      env: BOLAGSVERKET_CLIENT_ID
+      example: YOUR_BOLAGSVERKET_CLIENT_ID
+    - name: registry-mcp.bolagsverket_client_secret
+      env: BOLAGSVERKET_CLIENT_SECRET
+      example: YOUR_BOLAGSVERKET_CLIENT_SECRET
+```
+
+`category: finance` matches an existing entry (`servers/stripe/server.yaml`) — confirmed live before
+using it, since the category field isn't documented as an enum anywhere. No `dockerfile:` override
+needed (ours is already named `Dockerfile` and lives at the repo root, the default). No `run.command`
+override needed either — the root Dockerfile's own default `CMD` already runs `registry-mcp` over
+stdio whenever `PORT` is unset, which is exactly what Docker's build does.
+
+### What was actually done
+
+1. `gh repo fork docker/mcp-registry --org foretak` → `foretak/mcp-registry`.
+2. Branch `add-registry-mcp` off the fork's `main` (base commit `8c773729`).
+3. `servers/registry-mcp/server.yaml` created via the Contents API (no `task`/Go available locally, so
+   no local build/lint pass — flagging that honestly rather than claiming a test that didn't happen).
+4. PR opened: **<https://github.com/docker/mcp-registry/pull/5043>**. Body describes the dual-mode
+   Dockerfile *as documented in the Dockerfile's own comments*, not as something verified by running it
+   in this session — an earlier draft of the PR body claimed local verification that never happened;
+   caught and corrected before this was written down, via `gh api --method PATCH .../pulls/5043`.
+
+**Needs a human login: yes** — GitHub (fork + PR, done, `fargerod-dotcom` via the `foretak` org). A
+Docker-team reviewer still has to approve; that's out of our hands, same as every other awesome-list PR
+in this file.
+
+---
+
+## 16. VS Code MCP gallery / GitHub MCP Registry
+
+**These are the same surface, not two.** `https://code.visualstudio.com/mcp` redirects (302) to
+`https://aka.ms/vscode-mcp-registry-web`, which redirects (301) to `https://github.com/mcp` — confirmed
+by following both hops live 2026-09-10. The page there is the "All MCP servers" gallery VS Code's `@mcp`
+extension view reads, currently counting **252** servers.
+
+- **Site:** <https://github.com/mcp>
+- **Does it ingest the official registry automatically?** The page itself says nothing either way — no
+  submission form, no "how servers get here" text of any kind was found on it. `DISCOVERY.md` §3.5
+  (fetched 2026-09-07) already found GitHub's own blog post says the process is to publish to the
+  official registry first, then **e-mail `partnerships@github.com`** asking to be included, and flags
+  a contradictory third-party claim that ingestion might be automatic. Re-checked today: three days
+  after that finding, and six days after `io.github.foretak/registry-mcp` went live on the official
+  registry at 0.3.0, `https://github.com/mcp/foretak/registry-mcp` is still **404**. That is consistent
+  with "not automatic" (though not conclusive on its own — see `DISCOVERY.md` for the full reasoning).
+- **Does it need a submission?** Yes, per the only documented route — and that route is an e-mail. The
+  standing rules for this task bar agents from sending e-mail (Kim's channel, not an agent's). There is
+  no form, no PR path, no API found for this surface.
+
+**Needs a human login: yes, but it isn't a login — it's an e-mail.** Nothing more an agent can do here.
+If Kim wants this one, the draft is: publish confirmation (already live, `io.github.foretak/registry-mcp`
+0.4.2), repo URL, and a one-line ask to include it in the GitHub MCP Registry, sent to
+`partnerships@github.com`.
+
+---
+
+## 17. Cursor's directory
+
+- **Official repo:** `cursor/mcp-servers` — archived, redirects contributors to `cursor.directory`.
+- **Community site:** <https://cursor.directory> · submit: <https://cursor.directory/plugins/new>
+- **Cursor's own site:** <https://cursor.com/directory/mcp> (a different property from the community
+  directory above)
+
+**Still bot-gated, unchanged from `DISCOVERY.md`'s 2026-09-07 finding.** Tried today, 2026-09-10, with a
+full browser `User-Agent` on both `curl` and `WebFetch`:
+
+| URL | Result |
+|---|---|
+| `cursor.directory/plugins/new` | HTTP 429, "Vercel Security Checkpoint" interstitial |
+| `cursor.directory/mcp/registry-mcp` | HTTP 429, same interstitial |
+| `cursor.com/directory/mcp` | HTTP 200, but a client-rendered shell — only `<title>Cursor - The best way to code with AI.</title>` in the static HTML; no server names, no submit link found |
+
+Neither the submission form nor a check of whether we're already listed is reachable by any fetch tool
+available here — this is a Vercel bot-check on the request itself, not a login wall or a rate limit that
+clears with patience (identical result 3 days apart on two separate checks).
+
+**Needs a human login: yes, and a human browser to get past the checkpoint first.** No action possible
+from here; this is one for whoever next has a real browser session, per `DISCOVERY.md` §4.5.
+
+---
+
+## 18. LobeHub
+
+- **Listing:** <https://lobehub.com/mcp/foretak-registry-mcp> → redirects to
+  <https://market.lobehub.com/s/plugins/foretak-registry-mcp>
+- **Rescan issue:** <https://github.com/lobehub/lobehub/issues/19266> (filed before this task, in the
+  shape `DISCOVERY.md` §2.3 documented as working — issue #14528 got a maintainer reply in 6 days)
+
+**Status 2026-09-10: issue open, zero replies; the listing is exactly as wrong as when it was filed.**
+`gh issue view 19266 --repo lobehub/lobehub` shows **state: OPEN, 0 comments** — no maintainer response
+yet, six days after the launch-day scrape this issue is asking to be corrected.
+
+The live page itself was re-checked directly (`curl` with a browser `User-Agent`; `WebFetch` gets a 403
+on this specific path, so `curl` was used instead — HTTP 200, 21,559 bytes):
+
+- Still shows **`0.1.0`** in the page.
+- **Zero** occurrences of "Sweden", "Bolagsverket", "Companies House" or "United Kingdom" anywhere in
+  the page. It has not moved since the 2026-09-04 launch-day scrape `DISCOVERY.md` first found — not
+  even the Companies House module that shipped in 0.2.0 made it in.
+
+**What was done:** re-verified the issue is still open and unanswered, re-verified the live page is
+still on the original scrape. Nothing further is authorised for this channel beyond the one rescan issue
+(unlike mcp.so, T64 does not name LobeHub as a nudge-once target) — it is filed correctly and the
+documented precedent (#14528) says a maintainer reply, when it comes, tends to be a same-day fix.
+
+**Needs a human login: yes** — GitHub, to file the issue (done). No further agent action available.
+
+---
+
+## 19. jaw9c/awesome-remote-mcp-servers
+
+- **Repo:** <https://github.com/jaw9c/awesome-remote-mcp-servers> (1,110 stars; last pushed
+  2026-06-23 — 79 days before this check, slower-moving than most lists here but not confirmed
+  abandoned).
+- **Format:** a single table, "Remote MCP Server List" — `| Name | Category | URL | Authentication |
+  Maintainer |`. Categories are free text (Database, CRM, Payments, Threat Intelligence,
+  "Specialised Dataset" all coexist); authentication values seen: `OAuth2.1`, `OAuth2.1 🔐` (no dynamic
+  client registration), `API Key`, `Open`.
+- **Quality criteria** (its own README, §Quality Criteria) prefer official/production-ready/actively
+  maintained servers — registry-mcp is all three, so this isn't a stretch fit, even though most existing
+  rows are large companies' own hosted servers.
+
+### The row added
+
+```
+| Company Check | Company Data | `https://api.foretak.dev/mcp` | Open | [foretak](https://github.com/foretak/registry-mcp) |
+```
+
+Inserted alphabetically between `Cloudinary` and `Cortex`. `Open` because connecting needs no auth at
+all — `initialize`/`tools/list` work unauthenticated, and Norway resolves fully without a key; the
+optional Companies House / Bolagsverket keys unlock two of three countries but aren't a connection
+requirement, so `Open` reads truer here than `API Key`.
+
+### What was done
+
+Forked to `foretak/awesome-remote-mcp-servers-1` — **suffixed** because `foretak/awesome-remote-mcp-servers`
+(no suffix) already exists as §13's fork of *punkpeye's* sister list; GitHub auto-suffixed the new fork
+rather than erroring, and the `parent` field was checked (`jaw9c/awesome-remote-mcp-servers`) before
+writing anything, precisely to avoid pushing this into the wrong upstream's fork. Branch
+`add-registry-mcp`, one row added to `README.md`. PR opened:
+**<https://github.com/jaw9c/awesome-remote-mcp-servers/pull/753>**.
+
+**Needs a human login: yes** — GitHub (fork + PR, done). Maintainer merge is out of our hands; given the
+79-day gap since the last push, this may sit a while.
+
+---
+
+## 20. TensorBlock/awesome-mcp-servers
+
+- **Repo:** <https://github.com/TensorBlock/awesome-mcp-servers> (837 stars per `DISCOVERY.md`; pushed
+  the same day as this check — actively maintained). Runs a "Community Cleanup Queue" per that file's
+  research.
+- **Target file:** `docs/finance--crypto.md` — a long, actively-added-to bullet list (508 lines before
+  this PR) of finance/crypto MCP servers, each entry running several sentences: tools, transport, auth,
+  registry id, license. No existing `foretak`/`registry-mcp`/`brreg`/`bolagsverket` entry (grepped the
+  full file before writing).
+
+### The entry added (appended at the end of the file)
+
+> [registry-mcp](https://github.com/foretak/registry-mcp): Look up a company at Norway's
+> Brønnøysundregistrene, the UK's Companies House, or Sweden's Bolagsverket by its national identifier
+> — legal form, status, address, VAT registration where published, board/accounts duties, employees,
+> plus filings, charges, insolvency, financials, LEI, parent company and Peppol data on request.
+> Identity and filing data only, no UBO, sanctions or fraud screening. No key needed for Norway; free
+> keys unlock the UK and Sweden. Hosted Streamable HTTP endpoint at `https://api.foretak.dev/mcp`; local
+> stdio install `uvx registry-mcp`. Official MCP Registry id `io.github.foretak/registry-mcp` (v0.4.2). MIT.
+
+### What was done
+
+Forked to `foretak/awesome-mcp-servers-2` — suffixed because `foretak/awesome-mcp-servers` and
+`awesome-mcp-servers-1` already exist as §7's and §8's forks of *different* upstreams (punkpeye's and
+appcypher's respectively); `parent` verified as `TensorBlock/awesome-mcp-servers` before writing. Branch
+`add-registry-mcp`, entry appended to `docs/finance--crypto.md`. PR opened:
+**<https://github.com/TensorBlock/awesome-mcp-servers/pull/2280>**.
+
+**Needs a human login: yes** — GitHub (fork + PR, done). Active repo, so a review is plausible sooner
+than most others in this file.
+
+---
+
+## 21. BlockRunAI/awesome-finance-mcp
+
+- **Repo:** <https://github.com/BlockRunAI/awesome-finance-mcp> (209 stars per `DISCOVERY.md`; pushed
+  2026-09-05). `DISCOVERY.md` flagged this as "the one list on this page whose readers are the target
+  audience" and found no existing registry/KYB entry.
+- **Rules:** `CONTRIBUTING.md`, read live 2026-09-10 — requires the MCP be "finance-related: trading,
+  payments, banking, crypto, DeFi, personal finance, or financial data" and gives a 4-column format
+  (`| [Name](url) | description | pricing | stars badge |`) for its **curated** sections.
+- **What's actually current:** the README has grown a separate `## Community Contributions` area since
+  CONTRIBUTING.md was last updated — three tables (Cryptocurrency & Blockchain, Financial Intelligence,
+  Personal Finance) with a 5th **Contributor** column, explicitly "Thanks to these contributors who
+  submitted their MCP servers." That's the real submission target, not the curated sections
+  CONTRIBUTING.md describes — following actual practice over a slightly-stale doc, the same call
+  `SUBMISSIONS.md` §13 already made once for a different list (the `Evlek` precedent).
+
+### The row added, to Financial Intelligence
+
+(closest existing subsection — its neighbours are SEC filings, 13F holdings and Form-4 insider trades:
+regulatory/company-disclosure data, the same shape as ours)
+
+```
+| [registry-mcp](https://github.com/foretak/registry-mcp) | Company lookups: Norway, UK and Sweden registries — filings, no UBO/fraud screening | Free | ![GitHub stars](https://img.shields.io/github/stars/foretak/registry-mcp?style=flat) | *[@fargerod-dotcom](https://github.com/fargerod-dotcom)* |
+```
+
+`Free` because Norway resolves with zero key and zero cost; the optional UK/Sweden keys are also free
+(registration only, no paid tier), so no other value in that column's enum fit better.
+
+### What was done
+
+Forked to `foretak/awesome-finance-mcp`, branch `add-registry-mcp`, one row added to `README.md`. PR
+opened: **<https://github.com/BlockRunAI/awesome-finance-mcp/pull/68>**.
+
+**Needs a human login: yes** — GitHub (fork + PR, done).
+
+---
+
+## 22. MobinX/awesome-mcp-list
+
+- **Repo:** <https://github.com/MobinX/awesome-mcp-list> (880 stars per `DISCOVERY.md`; pushed
+  2026-08-30). No `CONTRIBUTING.md` found at the repo root — only `README.md` — so the process is
+  inferred from the list's own conventions: a concise, punkpeye-style format, entries appended rather
+  than strictly alphabetised (the existing `💰 Finance & Fintech` section is not in alphabetical order).
+- No existing `foretak`/`registry-mcp`/`brreg`/`bolagsverket`/`companies house` entry (grepped the full
+  README before writing).
+
+### The line added, to `💰 Finance & Fintech` (appended after its last existing entry)
+
+```markdown
+-   **[foretak/registry-mcp](https://github.com/foretak/registry-mcp)** [![GitHub stars](https://img.shields.io/github/stars/foretak/registry-mcp?style=social)](https://github.com/foretak/registry-mcp): Looks up a company at Norway's Brønnøysundregistrene, the UK's Companies House, or Sweden's Bolagsverket by its national identifier — identity, filings and accounts data; no UBO or fraud screening.
+```
+
+### What was done
+
+Forked to `foretak/awesome-mcp-list` (no name collision), branch `add-registry-mcp`, one line appended
+to `README.md`. PR opened: **<https://github.com/MobinX/awesome-mcp-list/pull/429>**.
+
+**Needs a human login: yes** — GitHub (fork + PR, done).
+
+---
+
+## 23. llms.txt directories
+
+`registry-mcp` ships `static/llms.txt` and `static/llms-full.txt` already; these two directories index
+files in that shape (`DISCOVERY.md` §3.12).
+
+- **`directory.llmstxt.cloud`** — submit page: <https://directory.llmstxt.cloud/submit>. Fields (per the
+  live page, 2026-09-10): Website / product name, Website URL (the form appends `/llms.txt` itself),
+  Category (`AI`, `Developer tools`, `Finance`, `Products`, `Websites`), Email (notification only, not a
+  login), optional social link. No account needed — but it offers a **free standard review (1–3 months)
+  or a $29 fast-track (48h)** choice at submission, which reads as a checkout step, not a bare form POST.
+- **`llmstxt.site`** — submit page: <https://llmstxt.site/submit>. Fields: Product Name, Website URL,
+  Your Name, Email Address, llms.txt URL, llms-full.txt URL, Additional Notes. No account needed either.
+
+**Why this wasn't submitted today.** Both are genuinely no-login forms, which is why they're in this
+file at all — but neither exposes a plain, inspectable POST target simple enough to replicate safely
+with `curl` from what a page fetch shows (llmstxt.site's checkout step in particular implies client-side
+JS/payment-provider plumbing, not a bare `<form action=...>`). Guessing at the request risked either
+failing silently or creating a malformed listing that's harder to fix later than to submit correctly the
+first time. This is a browser-needed gap, not a login-needed one — the same class of blocker as Cursor
+(§17) and mcpservers.org's Cloudflare wall (§9), just a gentler vendor.
+
+**Ready to paste**, if a human or a browser-equipped agent picks this up:
+
+- Product/Website name: `registry-mcp`
+- Website URL: `https://api.foretak.dev`
+- llms.txt: `https://api.foretak.dev/llms.txt` · llms-full.txt: `https://api.foretak.dev/llms-full.txt`
+- Category: `Developer tools` (closest fit on `directory.llmstxt.cloud`'s fixed list)
+- Notes: "MCP server + REST API over three national business registries — Norway (brreg /
+  Enhetsregisteret), the United Kingdom (Companies House), Sweden (Bolagsverket). Look up a company by
+  its national identifier; no UBO, sanctions or fraud screening. MIT."
+
+**Needs a human login: no — needs a human browser** (or a browser-automation tool this agent doesn't
+have). Free either way; do not pay the $29 tier.
+
+---
+
 ## Press pitch — kode24 (outbound record, not a directory)
 
 Not a listing target — everything else in this file is. Kept here anyway because T56 was asked to
@@ -1204,7 +1552,9 @@ One thing the build plan did not know about at all:
 |---|---|
 | **PyPI** (+ API token) | Prerequisite: publish `registry-mcp` and `brreg-mcp` — **done, 0.3.0, all four package targets live** (2026-09-07) |
 | **npm** (`npm login`) | Prerequisite: publish `registry-mcp` and `brreg-mcp` — **done**, same release |
-| **GitHub**, member of the `foretak` org | #1 (`mcp-publisher login github`, **done, 0.3.0 live**), #3 (claim, **done**; a re-scan to pick up 0.3.0 is what's still open — see §3's ready block), #5 (issue filed and open; the *update* comment in §5 is a judgement call recorded there, not executed), #7 (**#13631 merged**; #13893 closed by the maintainer 2026-09-08, see §13), #8 (skip, archived), #10 (issue **not yet filed** — needs the Cline install test first, see §10's ready block), #13 (star + fork done, **PR #146 open**, blocked on §14), topics (**done, 20/20**), labels, seeded issues |
+| **GitHub**, member of the `foretak` org | #1 (`mcp-publisher login github`, **done, 0.3.0 live**), #3 (claim, **done**; a re-scan to pick up 0.3.0 is what's still open — see §3's ready block), #5 (issue filed and open; **nudged once more 2026-09-10, per T64's explicit instruction — see §5**), #7 (**#13631 merged**; #13893 closed by the maintainer 2026-09-08, see §13), #8 (skip, archived), #10 (issue **not yet filed** — needs the Cline install test first, see §10's ready block), #13 (star + fork done, **PR #146 open**, blocked on §14), #15 (**PR #5043 open**, fork `foretak/mcp-registry`), #18 (rescan issue #19266 open, unanswered), #19 (**PR #753 open**, fork `foretak/awesome-remote-mcp-servers-1`), #20 (**PR #2280 open**, fork `foretak/awesome-mcp-servers-2`), #21 (**PR #68 open**, fork `foretak/awesome-finance-mcp`), #22 (**PR #429 open**, fork `foretak/awesome-mcp-list`), topics (**done, 20/20**), labels, seeded issues |
+| An **e-mail account**, and willingness to use it | #16 — the GitHub MCP Registry / VS Code gallery's only documented submission route is e-mailing `partnerships@github.com`. Not a login gap; a hard rule gap (agents on this task don't send e-mail). Kim's, if wanted. |
+| **A browser that passes a bot-check** | #17 — Cursor's directory returns HTTP 429 "Vercel Security Checkpoint" to every automated fetch tried, on two checks three days apart. Same shape as #9's Cloudflare wall below, different vendor. |
 | **Smithery** (GitHub sign-in) | #2 — published and **kept current tonight** without a fresh login, via the stored API key (see below) |
 | **MCPmarket** | #6 — account already used per the 2026-09-05 record; nothing new needed, just unverifiable right now (429) |
 | A **real inbox** at `hello@<domain>` | #9's confirmation, the JSON-LD, and the upstream `User-Agent` — inbox exists, listing approved 2026-09-05 |
