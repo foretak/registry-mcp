@@ -536,6 +536,17 @@
     return;
   }
 
+  // T66 — every request this script makes is tagged src=playground (never a
+  // real ask: core/stats.py's real_asks excludes it and reports it
+  // separately as real_asks.playground, since the default example here is
+  // Swedish and would otherwise slip through the Swedish query-withheld
+  // carve-out on every click). Appends correctly whether `path` already
+  // carries a query string (the search step below has `?q=`) or not (every
+  // other step).
+  function withPlaygroundSrc(path) {
+    return path + (path.indexOf("?") === -1 ? "?" : "&") + "src=playground";
+  }
+
   var userEditedId = false;
   idInput.addEventListener("input", function () {
     userEditedId = true;
@@ -554,7 +565,7 @@
   // read-only and cheap). On any failure — network error, non-200, empty
   // list — the NO/GB <option>s already in the markup above keep working, and
   // this is the only call the page ever makes without a user action.
-  fetch("/v1/countries")
+  fetch(withPlaygroundSrc("/v1/countries"))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (data) {
       var rows = data && Array.isArray(data.countries) ? data.countries : [];
@@ -633,14 +644,14 @@
   }
 
   async function getJson(path) {
-    var res = await fetch(path);
+    var res = await fetch(withPlaygroundSrc(path));
     var body = null;
     try {
       body = await res.json();
     } catch (e) {
       body = null;
     }
-    return { url: location.origin + path, body: body };
+    return { url: location.origin + withPlaygroundSrc(path), body: body };
   }
 
   var inFlight = false;
