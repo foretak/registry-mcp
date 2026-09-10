@@ -9,6 +9,10 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-10
+
+The `rules last reviewed` stamp (products round, `~/mcp-growth/products/00-SYNTHESIS.md` §4.1 S1).
+
 ### Added
 
 - **`rules_last_reviewed` on `DeadlineReport`, and atop every

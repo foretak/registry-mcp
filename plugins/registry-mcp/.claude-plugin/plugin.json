@@ -2,7 +2,7 @@
   "name": "registry-mcp",
   "displayName": "Company Check — UK, Sweden & Norway business registers",
   "description": "Check a company before you deal with it. Bundles the hosted Company Check MCP server (Companies House, Bolagsverket, Brønnøysundregistrene — read-only, no key) with a skill that teaches the counterparty, filing-deadline and register-coverage workflows, and three commands: /check-supplier, /filing-deadlines and /enrich-company-list.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": {
     "name": "Kim",
     "email": "hello@foretak.dev",

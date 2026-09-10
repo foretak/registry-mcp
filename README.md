@@ -61,7 +61,7 @@ Claude Desktop takes the same URL as a custom connector: **Settings → Connecto
 connector**, then `https://api.foretak.dev/mcp`. No key. For a local stdio install instead, see
 [Configuration](#configuration).
 
-> Status: `0.4.1`, live — `GET /health` returns `{"version":"0.4.1","countries":["GB","NO","SE"]}`. The five registry tools and their response shapes are frozen; two connector aliases (`search`, `fetch`) wrap them for ChatGPT and add no new shape. The hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: United Kingdom (Companies House), Norway (brreg), Sweden (Bolagsverket) — see [below](#tools) for each country's identifier format and example calls.
+> Status: `0.4.2`, live — `GET /health` returns `{"version":"0.4.2","countries":["GB","NO","SE"]}`. The five registry tools and their response shapes are frozen; two connector aliases (`search`, `fetch`) wrap them for ChatGPT and add no new shape. The hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: United Kingdom (Companies House), Norway (brreg), Sweden (Bolagsverket) — see [below](#tools) for each country's identifier format and example calls.
 
 ## Add to Claude Code
 
