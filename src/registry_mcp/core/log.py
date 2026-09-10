@@ -39,12 +39,23 @@ Design notes (mirrors `core/cache.py`'s style deliberately):
 * ``log_call`` never raises. Any failure (locked file, disk full, bad path)
   is logged at WARNING and swallowed — logging is not allowed to fail a
   request.
+
+**`source` — "calls by channel" (T64).** `calls` gains a nullable `source`
+column: which of our own published install lines (`?src=readme`, `?src=llms`,
+`?src=docs`, `?src=plugin`, `?src=article`, ...) a caller's request carried,
+sanitised by :func:`sanitize_source` before it is ever written. An existing
+database created before this column existed is migrated in place —
+`ensure_schema` adds it with `ALTER TABLE` the first time such a database is
+opened — so nothing here requires a fresh database or a manual migration
+step. `query` (D-040) is completely untouched by this: `source` is a separate
+column with its own sanitiser, never folded into or read from `query`.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -56,6 +67,7 @@ __all__ = [
     "ensure_schema",
     "log_call",
     "log_path",
+    "sanitize_source",
     "set_sink",
 ]
 
@@ -77,11 +89,36 @@ CREATE TABLE IF NOT EXISTS calls (
     latency_ms  INTEGER NOT NULL,
     ok          INTEGER NOT NULL,
     error_code  TEXT,
-    cached      INTEGER
+    cached      INTEGER,
+    source      TEXT
 );
 CREATE INDEX IF NOT EXISTS calls_ts ON calls(ts);
 CREATE INDEX IF NOT EXISTS calls_surface ON calls(surface);
 """
+
+#: `calls.source` (T64, "calls by channel"): which of our own published install
+#: lines a caller arrived through — `?src=` on the REST routes and on `/mcp`
+#: (`api/main.py`, `mcp/server.py::_current_source`), free text, sanitised by
+#: :func:`sanitize_source` before it ever reaches SQL. Added after `cached` in
+#: `_SCHEMA` above so a *fresh* database gets the column from `CREATE TABLE`
+#: directly; `_MIGRATIONS` below is what brings an *existing* database's
+#: `calls` table — created by an older build, before this column existed — up
+#: to the same shape, the same way `cached` itself would have needed one had
+#: this project already been running when it was added. One tuple per column
+#: ever added after the original schema, so a second future column is one more
+#: entry here, not a new function.
+_MIGRATIONS: tuple[tuple[str, str], ...] = (
+    ("source", "ALTER TABLE calls ADD COLUMN source TEXT"),
+)
+
+#: `sanitize_source`: the only characters a stored `source` value may contain.
+#: Lower-case letters, digits, `_` and `-` — enough for `readme`, `llms`,
+#: `docs`, `card`, `plugin`, `article`, `devto` and any ad-hoc tag a channel
+#: needs later, and narrow enough that a `source` value can never carry
+#: anything that would need escaping in `top_queries`-style rendering
+#: (`api/dashboard.py`) or read as SQL/HTML/shell-meaningful.
+_SOURCE_ALLOWED = re.compile(r"[^a-z0-9_-]")
+_SOURCE_MAX_LEN = 32
 
 # Test hook: when set, overrides env-derived path entirely. `None` means
 # "read the environment as normal" (see `log_path()`).
@@ -114,8 +151,24 @@ def log_path() -> Path:
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create the `calls` table (and its indexes) on ``conn`` if missing."""
+    """Create the `calls` table (and its indexes) on ``conn`` if missing, and
+    migrate an existing one created before a later column existed.
+
+    ``CREATE TABLE IF NOT EXISTS`` is a no-op on a database an older build of
+    this project already created, so a column added to ``_SCHEMA`` after that
+    (``source``, T64) would never appear on such a database by itself.
+    ``PRAGMA table_info(calls)`` lists the columns actually present, and
+    ``_MIGRATIONS`` runs the matching ``ALTER TABLE ... ADD COLUMN`` for any
+    column missing from it — skipped when already present, so this is safe to
+    call on every :func:`connect` (fresh database, already-migrated database,
+    or one still on the old shape alike).
+    """
     conn.executescript(_SCHEMA)
+    existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(calls)")}
+    for column, migration_sql in _MIGRATIONS:
+        if column not in existing_columns:
+            conn.execute(migration_sql)
+    conn.commit()
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
@@ -132,6 +185,35 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+def sanitize_source(raw: str | None) -> str | None:
+    """A free-text ``?src=`` value -> a safe attribution tag, or ``None``.
+
+    Lower-cased, then every character outside ``[a-z0-9_-]`` is dropped
+    (filtered, not rejected — punctuation, spaces and case are noise on an
+    attribution tag, not a reason to discard the whole value), then the
+    result is truncated to 32 characters. Filtering before truncating keeps
+    as much of the caller's intent as fits — truncating first could cut into
+    the readable part and leave only trailing punctuation to strip.
+
+    ``None``, ``""`` and a string that is *all* disallowed characters
+    (``"???"``) all become ``None`` here: the column is nullable and a bare
+    ``""`` would just be a second, indistinguishable "no value" beside
+    ``NULL`` — the same reasoning `core/stats.py`'s ``if query:`` guard
+    already applies to an empty ``query`` (D-040(c)).
+
+    Pure and never raises. Called once, here, by :func:`log_call` — neither
+    surface (`api/main.py`, `mcp/server.py`) needs to sanitise its own ``src``
+    value before passing it through, the same centralising instinct as
+    `core/registry.py::loggable_query` for ``query``, minus the country
+    lookup: unlike D-040's redaction, this transform needs no context beyond
+    the string itself, so there is no reason to push it out to the surfaces.
+    """
+    if not raw:
+        return None
+    cleaned = _SOURCE_ALLOWED.sub("", raw.lower())[:_SOURCE_MAX_LEN]
+    return cleaned or None
+
+
 def log_call(
     *,
     surface: Surface,
@@ -143,20 +225,26 @@ def log_call(
     ok: bool,
     error_code: str | None = None,
     cached: bool | None = None,
+    source: str | None = None,
 ) -> None:
     """Record one call to the `calls` table. Never raises.
 
     Signature matches ``api/main.py::record_call``'s call site exactly (see
-    the module docstring) and `NORBIZ_SPEC.md` §11.
+    the module docstring) and `NORBIZ_SPEC.md` §11. ``source`` (T64) is the
+    caller's raw ``?src=`` value, if any — run through :func:`sanitize_source`
+    here rather than by either caller, so a surface can pass its query
+    parameter straight through with no risk of an unsanitised value ever
+    reaching SQL.
     """
     try:
         ts = datetime.now(UTC).isoformat()
         cached_value: int | None = None if cached is None else int(cached)
+        source_value = sanitize_source(source)
         with connect() as conn:
             conn.execute(
                 "INSERT INTO calls "
                 "(ts, surface, operation, country, query, user_agent, latency_ms, ok, "
-                "error_code, cached) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "error_code, cached, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     ts,
                     surface.value,
@@ -168,6 +256,7 @@ def log_call(
                     int(ok),
                     error_code,
                     cached_value,
+                    source_value,
                 ),
             )
             conn.commit()

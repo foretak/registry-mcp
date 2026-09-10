@@ -75,6 +75,7 @@ def test_log_call_creates_calls_table(tmp_path: Path) -> None:
             "ok",
             "error_code",
             "cached",
+            "source",
         }
 
 
@@ -138,3 +139,172 @@ def test_log_call_never_raises_when_parent_is_unwritable(tmp_path: Path) -> None
         )
     finally:
         parent.chmod(0o700)
+
+
+# ---------------------------------------------------------------------------
+# `source` — "calls by channel" (T64)
+# ---------------------------------------------------------------------------
+
+
+def test_log_call_sanitises_and_stores_source(tmp_path: Path) -> None:
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="pytest/1.0",
+        latency_ms=1,
+        ok=True,
+        source="README",
+    )
+
+    with sqlite3.connect(db) as conn:
+        row = conn.execute("SELECT source FROM calls").fetchone()
+    assert row == ("readme",)
+
+
+def test_log_call_source_defaults_to_null(tmp_path: Path) -> None:
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="pytest/1.0",
+        latency_ms=1,
+        ok=True,
+    )
+
+    with sqlite3.connect(db) as conn:
+        row = conn.execute("SELECT source FROM calls").fetchone()
+    assert row == (None,)
+
+
+def test_sanitize_source_none_and_empty_are_none() -> None:
+    assert log.sanitize_source(None) is None
+    assert log.sanitize_source("") is None
+
+
+def test_sanitize_source_lowercases_and_passes_valid_characters() -> None:
+    assert log.sanitize_source("README") == "readme"
+    assert log.sanitize_source("my-source_1") == "my-source_1"
+
+
+def test_sanitize_source_strips_disallowed_characters() -> None:
+    assert log.sanitize_source("Read Me!") == "readme"
+    assert log.sanitize_source("dev.to! 2026") == "devto2026"
+
+
+def test_sanitize_source_all_disallowed_characters_is_none() -> None:
+    assert log.sanitize_source("???") is None
+    assert log.sanitize_source("   ") is None
+
+
+def test_sanitize_source_truncates_to_32_characters() -> None:
+    assert log.sanitize_source("a" * 50) == "a" * 32
+
+
+def test_sanitize_source_filters_before_truncating() -> None:
+    """Order matters. Filtering the five leading `!` out first leaves exactly
+    32 valid `b`s to keep, so the result is the full 32-character cap.
+    Truncating the raw 37-character string to its first 32 characters
+    *before* filtering would instead keep only 27 `b`s (`!!!!!` plus 27
+    `b`s survive the cut, then the `!`s are stripped) — one character short
+    of the cap for a reason no caller could predict from the value they
+    sent."""
+    raw = "!" * 5 + "b" * 32
+    assert len(raw) == 37
+    assert log.sanitize_source(raw) == "b" * 32
+
+
+def _create_pre_t64_calls_table(db: Path) -> None:
+    """A `calls` table exactly as it looked before this task added `source` —
+    built with raw `sqlite3`, never `log.connect`/`log.ensure_schema`, since
+    those two already carry the migration the tests below exist to prove."""
+    conn = sqlite3.connect(db)
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE calls (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts          TEXT NOT NULL,
+                surface     TEXT NOT NULL,
+                operation   TEXT NOT NULL,
+                country     TEXT,
+                query       TEXT,
+                user_agent  TEXT,
+                latency_ms  INTEGER NOT NULL,
+                ok          INTEGER NOT NULL,
+                error_code  TEXT,
+                cached      INTEGER
+            );
+            CREATE INDEX calls_ts ON calls(ts);
+            CREATE INDEX calls_surface ON calls(surface);
+            """
+        )
+        conn.execute(
+            "INSERT INTO calls "
+            "(ts, surface, operation, country, query, user_agent, latency_ms, ok) "
+            "VALUES ('2026-01-01T00:00:00+00:00', 'rest', 'lookup_company', 'NO', "
+            "'923609016', 'old-client/1.0', 5, 1)"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_old_database_migrates_source_column_on_connect(tmp_path: Path) -> None:
+    """The proof an old database migrates: a `calls` table with no `source`
+    column at all (the shape every database predating T64 has on disk) gets
+    the column added by `log.connect` — the `ALTER TABLE ... ADD COLUMN` path
+    in `ensure_schema`, not the `CREATE TABLE IF NOT EXISTS` a brand-new
+    database takes — with the pre-existing row left in place."""
+    db = tmp_path / "old_calls.sqlite3"
+    _create_pre_t64_calls_table(db)
+
+    columns_before = {
+        row[1] for row in sqlite3.connect(db).execute("PRAGMA table_info(calls)")
+    }
+    assert "source" not in columns_before
+
+    log.connect(db).close()
+
+    columns_after = {
+        row[1] for row in sqlite3.connect(db).execute("PRAGMA table_info(calls)")
+    }
+    assert "source" in columns_after
+
+    with sqlite3.connect(db) as conn:
+        old_row = conn.execute(
+            "SELECT query, source FROM calls WHERE query = '923609016'"
+        ).fetchone()
+    assert old_row == ("923609016", None)
+
+
+def test_old_database_migrates_then_logs_a_new_source(tmp_path: Path) -> None:
+    """After the same migration, `log_call` on that now-migrated database
+    writes a real `source` value into the new column, alongside the
+    pre-existing row the migration left untouched."""
+    db = tmp_path / "old_calls.sqlite3"
+    _create_pre_t64_calls_table(db)
+    log.set_sink(db)
+
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609017",
+        user_agent="new-client/1.0",
+        latency_ms=8,
+        ok=True,
+        source="readme",
+    )
+
+    with sqlite3.connect(db) as conn:
+        rows = conn.execute("SELECT query, source FROM calls ORDER BY id").fetchall()
+    assert rows == [("923609016", None), ("923609017", "readme")]

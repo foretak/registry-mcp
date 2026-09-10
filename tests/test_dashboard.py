@@ -335,6 +335,48 @@ def test_dashboard_shows_calls_by_operation(
     assert "lookup_company" in html
 
 
+def test_dashboard_shows_calls_by_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`by_source` (T64, "calls by channel") gets the same small-table
+    treatment as `by_country`/`by_operation`: a tagged call's real `?src=`
+    value renders as plain text, and a call with none at all renders as its
+    own honest "no src" pill (`core.stats.NO_SOURCE_KEY`) — never dropped and
+    never presented as if it were itself a channel tag."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="curl/8.4.0",
+        latency_ms=10,
+        ok=True,
+        source="readme",
+    )
+    log.log_call(
+        surface=Surface.REST,
+        operation="lookup_company",
+        country="NO",
+        query="923609016",
+        user_agent="curl/8.4.0",
+        latency_ms=10,
+        ok=True,
+    )
+    monkeypatch.setenv("REGISTRY_MCP_ADMIN_KEY", "secret-key")
+    client = TestClient(_make_app())
+
+    resp = client.get("/v1/stats/dashboard", params={"key": "secret-key"})
+
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Calls by source" in html
+    assert ">readme<" in html
+    assert "no src" in html
+    assert "pill-nosource" in html
+
+
 def test_dashboard_shows_cache_and_latency_stats(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

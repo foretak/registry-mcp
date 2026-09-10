@@ -52,6 +52,15 @@ in it with no matching rise in the rest means clients are connecting and
 nobody is asking — a different diagnosis from silence that raw totals
 cannot tell apart.
 
+**Source (T64).** `by_source` (`core/stats.py::summary()`) breaks calls down
+by the `?src=` tag (if any) on the REST routes and `/mcp` — which of our own
+published install lines (a README, the llms.txt docs, this project's own
+Claude Code plugin, a content/ article, ...) a caller arrived through. Same
+shape and table treatment as `by_country`: highest count first, and a call
+with no `?src=` at all — most calls, since the parameter is new and optional
+— is its own honest "no src" pill (`core.stats.NO_SOURCE_KEY`) rather than
+being dropped from the table, exactly as an unresolved country is.
+
 **Cache and latency.** `latency_ms` and `cached` were recorded from day one
 and never surfaced. `cached` is only ever non-`NULL` for a successful
 `lookup_company`/`search_company` — every other operation, and any failed
@@ -123,6 +132,20 @@ _NO_COUNTRY_TITLE = (
 )
 _NO_COUNTRY_COLOR = _LABEL_COLOR["unknown"]
 
+# The "no source" bucket (`core.stats.NO_SOURCE_KEY`, T64) — same pill
+# treatment and reasoning as "no country" above, for the same "doesn't fit a
+# normal bucket" grey: most calls carry no `?src=` at all (the column is new
+# and optional), and this bucket exists so that fact is shown rather than
+# silently dropped from `by_source`'s counts.
+_NO_SOURCE_LABEL = "no src"
+_NO_SOURCE_TITLE = (
+    "No ?src= query parameter on this call — most traffic, since the "
+    "parameter is new and optional. Set by one of our own published "
+    "install lines (readme, llms, docs, plugin, article, ...); never "
+    "required to call this API."
+)
+_NO_SOURCE_COLOR = _LABEL_COLOR["unknown"]
+
 # Tooltip for the "Last non-connect call" tile — explains the one operation
 # it excludes (`core.stats._CONNECT_ONLY_OPERATION`) without importing a
 # private name across the module boundary.
@@ -167,6 +190,7 @@ def _render_page(data: dict[str, Any]) -> str:
     by_surface: dict[str, int] = data["by_surface"]
     by_country: list[dict[str, Any]] = data["by_country"]
     by_operation: list[dict[str, Any]] = data["by_operation"]
+    by_source: list[dict[str, Any]] = data["by_source"]
     top_queries: list[dict[str, Any]] = data["top_queries"]
     user_agents: list[dict[str, Any]] = data["user_agents"]
     total_calls: int = data["total_calls"]
@@ -199,6 +223,13 @@ def _render_page(data: dict[str, Any]) -> str:
         f"<td class='num'>{int(row['count'])}</td>"
         f"<td class='num'>{_share_pct(int(row['count']), total_calls)}</td></tr>"
         for row in by_operation
+    ]
+
+    source_rows_html = [
+        f"<tr><td>{_source_cell(str(row['source']))}</td>"
+        f"<td class='num'>{int(row['count'])}</td>"
+        f"<td class='num'>{_share_pct(int(row['count']), total_calls)}</td></tr>"
+        for row in by_source
     ]
 
     label_rollup: dict[Label, int] = dict.fromkeys(_LABEL_ORDER, 0)
@@ -322,6 +353,7 @@ def _render_page(data: dict[str, Any]) -> str:
   .pill-script {{ background: {_LABEL_COLOR["script"]}; }}
   .pill-unknown {{ background: {_LABEL_COLOR["unknown"]}; }}
   .pill-nocountry {{ background: {_NO_COUNTRY_COLOR}; }}
+  .pill-nosource {{ background: {_NO_SOURCE_COLOR}; }}
   .rollup-row {{ display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; font-size: 0.85rem; }}
   .dot {{ width: 0.6rem; height: 0.6rem; border-radius: 50%; flex-shrink: 0; }}
   .rollup-label {{ flex: 1; }}
@@ -385,6 +417,15 @@ def _render_page(data: dict[str, Any]) -> str:
         <table>
           <thead><tr><th>Country</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
           <tbody>{"".join(country_rows_html) or "<tr><td colspan='3'>No calls logged yet.</td></tr>"}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2 title="{escape(_NO_SOURCE_TITLE)}">Calls by source</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Source</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
+          <tbody>{"".join(source_rows_html) or "<tr><td colspan='3'>No calls logged yet.</td></tr>"}</tbody>
         </table>
       </div>
     </div>
@@ -524,6 +565,25 @@ def _country_cell(code: str) -> str:
             f"{escape(_NO_COUNTRY_LABEL)}</span>"
         )
     return escape(code)
+
+
+def _source_cell(source: str) -> str:
+    """Escaped `<td>` inner HTML for one `by_source` row's source column.
+
+    `source` is a raw value out of `core/stats.py::summary()`'s `by_source`
+    list — either a sanitised `?src=` tag as logged (`core/log.py::
+    sanitize_source` already restricts it to `[a-z0-9_-]`, so plain escaped
+    text is always safe here, same as `_country_cell`'s real-country branch),
+    or `stats_module.NO_SOURCE_KEY` for a call with no `?src=` at all, which
+    renders as its own pill — the same treatment `_country_cell` gives
+    `NO_COUNTRY_KEY`, and for the same reason: never presented as if it were
+    itself a channel tag."""
+    if source == stats_module.NO_SOURCE_KEY:
+        return (
+            f"<span class='pill pill-nosource' title='{escape(_NO_SOURCE_TITLE)}'>"
+            f"{escape(_NO_SOURCE_LABEL)}</span>"
+        )
+    return escape(source)
 
 
 def _share_pct(count: int, total: int) -> str:

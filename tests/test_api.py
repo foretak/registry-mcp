@@ -636,6 +636,47 @@ def test_no_lookup_still_logs_the_real_identifier(
     assert last["query"] == "923609016"
 
 
+# ---------------------------------------------------------------------------
+# `src` — "calls by channel" (T64)
+# ---------------------------------------------------------------------------
+
+
+def test_src_query_param_flows_to_record_call(
+    client: TestClient, ip: str, record_spy: _RecordSpy
+) -> None:
+    """`?src=` on a REST route reaches `record_call` as `source=` — proven on
+    `validate_company_id`, which needs no upstream mock, matching
+    `test_se_validate_logs_no_identifier`'s style. The value here is the raw
+    query parameter: `_record` (`api/main.py`) does not sanitise it itself,
+    the same way it does not sanitise `query` itself and instead defers to
+    `loggable_query` — sanitising `source` is `core/log.py::log_call`'s job
+    (`core.log.sanitize_source`, unit-tested directly in `tests/test_log.py`),
+    one chokepoint for both surfaces rather than a copy in each."""
+    resp = client.get(
+        "/v1/NO/validate/923609016",
+        params={"src": "README"},
+        headers={"X-Forwarded-For": ip},
+    )
+
+    assert resp.status_code == 200
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["source"] == "README"
+
+
+def test_src_query_param_is_optional(
+    client: TestClient, ip: str, record_spy: _RecordSpy
+) -> None:
+    """No `?src=` at all must not break the call or the logging hook — the
+    parameter defaults to `None` end to end."""
+    resp = client.get("/v1/NO/validate/923609016", headers={"X-Forwarded-For": ip})
+
+    assert resp.status_code == 200
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["source"] is None
+
+
 def test_dockerfile_uvicorn_cmd_disables_access_log() -> None:
     """D-040(e): uvicorn's default access log would write the request path — the
     identifier included, e.g. `GET /v1/SE/company/<personnummer>` — to Railway's log
