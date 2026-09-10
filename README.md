@@ -13,7 +13,7 @@
 **Company data for AI agents, any country.** One MCP server and REST API, three national registers today: the United Kingdom's **Companies House**, looked up by **company number**; Norway's **Enhetsregisteret** / **Brønnøysundregistrene** (**brreg**), looked up by **organisasjonsnummer** (**orgnr**); and Sweden's **Bolagsverket**, looked up by **organisationsnummer** — one JSON shape whichever you ask.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=readme
 ```
 
 No install step, over stdio:
@@ -32,9 +32,9 @@ What makes it worth a tool slot:
 
 One-click install, for a remote streamable-HTTP server:
 
-[<img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D)
-[<img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&label=Install%20Server&color=24bfa5">](https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%2522%257D)
-[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=registry-mcp&config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3AifQ%3D%3D)
+[<img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%253Fsrc%253Dreadme%2522%257D)
+[<img alt="Install in VS Code Insiders" src="https://img.shields.io/badge/VS_Code_Insiders-VS_Code_Insiders?style=flat-square&label=Install%20Server&color=24bfa5">](https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522registry-mcp%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fapi.foretak.dev%252Fmcp%253Fsrc%253Dreadme%2522%257D)
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=registry-mcp&config=eyJ1cmwiOiJodHRwczovL2FwaS5mb3JldGFrLmRldi9tY3A%2Fc3JjPXJlYWRtZSJ9)
 
 Other clients (Claude Desktop, Cursor, VS Code, Cline, plain JSON configs): see [docs/clients.md](docs/clients.md).
 
@@ -44,7 +44,7 @@ ChatGPT reaches an MCP server through a custom connector, and its deep research 
 exactly two tools — `search` and `fetch` — which this server ships alongside the five registry
 tools. In ChatGPT, open **Settings → Connectors**, add a custom connector, and give it:
 
-    https://api.foretak.dev/mcp
+    https://api.foretak.dev/mcp?src=readme
 
 No authentication, no key, no account. If your ChatGPT plan does not show custom connectors
 under Settings → Connectors, turn on **Settings → Security and login → Developer mode** first,
@@ -58,7 +58,7 @@ deadlines**, with the full JSON of both in `metadata`.
 ## Add to Claude Desktop
 
 Claude Desktop takes the same URL as a custom connector: **Settings → Connectors → Add custom
-connector**, then `https://api.foretak.dev/mcp`. No key. For a local stdio install instead, see
+connector**, then `https://api.foretak.dev/mcp?src=readme`. No key. For a local stdio install instead, see
 [Configuration](#configuration).
 
 > Status: `0.4.2`, live — `GET /health` returns `{"version":"0.4.2","countries":["GB","NO","SE"]}`. The five registry tools and their response shapes are frozen; two connector aliases (`search`, `fetch`) wrap them for ChatGPT and add no new shape. The hosted API at `api.foretak.dev` is live, and listed in the official MCP registry as `io.github.foretak/registry-mcp`. Countries: United Kingdom (Companies House), Norway (brreg), Sweden (Bolagsverket) — see [below](#tools) for each country's identifier format and example calls.
@@ -292,7 +292,7 @@ Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 ```json
 {
   "mcpServers": {
-    "registry-mcp": { "type": "http", "url": "https://api.foretak.dev/mcp" }
+    "registry-mcp": { "type": "http", "url": "https://api.foretak.dev/mcp?src=readme" }
   }
 }
 ```

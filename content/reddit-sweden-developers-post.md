@@ -17,7 +17,7 @@ Bolagsverket's free API behind one MCP tool — Swedish company lookup by organi
 
 Bolagsverket publishes company data as a free *värdefull datamängd* under the EU high-value-datasets regime — its own wording is *"Det krävs inget avtal"* and *"Värdefulla datamängder är avgiftsfritt"*. I put it behind an MCP server that already answered for Norway (brreg, organisasjonsnummer) and the UK (Companies House), so an agent gets one JSON shape whichever country it asks.
 
-    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 
 Ericsson, asked on 2026-09-07:
 

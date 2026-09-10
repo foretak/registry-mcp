@@ -3,7 +3,7 @@
 Every finance team has this file: a supplier column of organisasjonsnummer (orgnr, org.nr) typed in by hand. Some are wrong. `registry-mcp` checks them against Brønnøysundregistrene / Enhetsregisteret (brreg) and fills in the rest.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # or locally, over stdio: uvx registry-mcp
 ```
 

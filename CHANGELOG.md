@@ -9,6 +9,27 @@ frozen as of `0.2.0`.
 
 ## [Unreleased]
 
+### Added
+
+- **`?src=` on the REST routes and on `/mcp`, logged as a new `source`
+  column on the `calls` table — "calls by channel"** (`tasks/T64.md`).
+  Free text, sanitised to `[a-z0-9_-]` and truncated to 32 characters
+  (`core/log.py::sanitize_source`); an existing database is migrated in
+  place (`ALTER TABLE ... ADD COLUMN`, guarded by `PRAGMA table_info`), no
+  fresh database required. Surfaced in `GET /v1/stats` and the dashboard
+  (`GET /v1/stats/dashboard`) as `by_source`, one row per tag plus a "no
+  src" bucket for everything else — the same treatment `by_country`
+  already gives an unresolved country. `query` (D-040) is untouched: `src`
+  is a separate column with its own sanitiser. Verified locally that a
+  Streamable HTTP client connecting to `/mcp?src=...` still completes
+  `initialize` and `tools/list` — FastMCP ignores the extra query
+  parameter — so `src` is read on both surfaces, not REST only. Our own
+  install lines now carry a tag: `?src=readme` (`README.md`), `?src=llms`
+  (`static/llms.txt`, `static/llms-full.txt`), `?src=docs`
+  (`docs/clients.md`), `?src=plugin` (the Claude Code plugin's `.mcp.json`
+  and skill), `?src=article` (`content/`) — never in `server.json`, which
+  the MCP registry validates as a plain endpoint.
+
 ## [0.4.2] — 2026-09-10
 
 The `rules last reviewed` stamp (products round, `~/mcp-growth/products/00-SYNTHESIS.md` §4.1 S1).

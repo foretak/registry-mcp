@@ -20,6 +20,6 @@ Two gotchas: the code is `GB`, never `UK`; and a UK company number has no check 
 
 Norway (`brreg`, organisasjonsnummer/orgnr) returns the identical shape, including `vat_registered` — which Companies House does not publish at all.
 
-`claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp`, or `uvx registry-mcp`. GB needs a free Companies House key.
+`claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article`, or `uvx registry-mcp`. GB needs a free Companies House key.
 
 MIT: github.com/foretak/registry-mcp

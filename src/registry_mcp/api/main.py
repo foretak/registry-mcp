@@ -91,8 +91,16 @@ def _record(
     ok: bool,
     error_code: str | None = None,
     cached: bool | None = None,
+    source: str | None = None,
 ) -> None:
-    """Best-effort call into :data:`record_call`. Logging must never break a request."""
+    """Best-effort call into :data:`record_call`. Logging must never break a request.
+
+    ``source`` (T64) is the route's raw ``?src=`` query parameter, if any —
+    passed straight through to ``record_call``/`core/log.py::log_call`, which
+    sanitises it (``core.log.sanitize_source``); this function does not
+    duplicate that work, the same way it does not sanitise ``query`` itself
+    and instead defers to ``loggable_query``.
+    """
     try:
         record_call(
             surface=Surface.REST,
@@ -104,9 +112,27 @@ def _record(
             ok=ok,
             error_code=error_code,
             cached=cached,
+            source=source,
         )
     except Exception:  # pragma: no cover - defensive; the hook must never raise
         logger.exception("record_call hook raised; ignoring")
+
+
+#: Shared `?src=` description (T64, "calls by channel") — every route below
+#: that logs a call takes this same optional parameter, so one constant
+#: rather than five near-identical copies drifting apart. The channel values
+#: this project itself sets are named in `CHANGELOG.md`'s `[Unreleased]`
+#: entry and in the docs that carry them (`README.md`, `docs/clients.md`,
+#: `static/llms.txt`/`llms-full.txt`, the plugin's `.mcp.json`/skill,
+#: `content/`) — never enforced as a closed set here, since a future channel
+#: should not need a code change to use one.
+_SRC_DESCRIPTION = (
+    "Attribution tag for the channel this call came from — set to whichever "
+    "value (if any) is on the install line you copied this URL from, e.g. "
+    "`readme`, `llms`, `docs`, `plugin`, `article`. Free text, entirely "
+    "optional: lower-cased and reduced to `[a-z0-9_-]` (32 characters max) "
+    "before it is stored, and it is never required to call this API."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -765,10 +791,15 @@ async def health() -> HealthResponse:
     ),
     responses={200: {"content": {"application/json": {"example": _COUNTRIES_EXAMPLE}}}},
 )
-async def get_countries(request: Request) -> CountriesResponse:
+async def get_countries(
+    request: Request, src: str | None = Query(None, description=_SRC_DESCRIPTION)
+) -> CountriesResponse:
     started = time.monotonic()
     rows = [r.country_info() for r in list_registries()]
-    _record(operation="list_countries", country=None, query=None, request=request, started=started, ok=True)
+    _record(
+        operation="list_countries", country=None, query=None, request=request, started=started,
+        ok=True, source=src,
+    )
     return CountriesResponse(countries=rows)
 
 
@@ -846,6 +877,7 @@ async def get_company(
             "support, never an empty result."
         ),
     ),
+    src: str | None = Query(None, description=_SRC_DESCRIPTION),
 ) -> CompanyReport:
     started = time.monotonic()
     registry = get_registry(country)
@@ -854,12 +886,12 @@ async def get_company(
     except RegistryError as exc:
         _record(
             operation="lookup_company", country=country.upper(), query=id, request=request,
-            started=started, ok=False, error_code=exc.code.value,
+            started=started, ok=False, error_code=exc.code.value, source=src,
         )
         raise
     _record(
         operation="lookup_company", country=country.upper(), query=id, request=request,
-        started=started, ok=True, cached=report.cached,
+        started=started, ok=True, cached=report.cached, source=src,
     )
     return report
 
@@ -887,6 +919,7 @@ async def search_companies(
     request: Request,
     q: str = Query(..., min_length=1, description="Company name to search for."),
     limit: int = Query(10, description="Maximum hits to return, 1-100."),
+    src: str | None = Query(None, description=_SRC_DESCRIPTION),
 ) -> SearchResult:
     started = time.monotonic()
     registry = get_registry(country)
@@ -895,12 +928,12 @@ async def search_companies(
     except RegistryError as exc:
         _record(
             operation="search_company", country=country.upper(), query=q, request=request,
-            started=started, ok=False, error_code=exc.code.value,
+            started=started, ok=False, error_code=exc.code.value, source=src,
         )
         raise
     _record(
         operation="search_company", country=country.upper(), query=q, request=request,
-        started=started, ok=True, cached=result.cached,
+        started=started, ok=True, cached=result.cached, source=src,
     )
     return result
 
@@ -949,6 +982,7 @@ async def get_deadlines(
             "this route's allowed set."
         ),
     ),
+    src: str | None = Query(None, description=_SRC_DESCRIPTION),
 ) -> DeadlineReport:
     started = time.monotonic()
     registry = get_registry(country)
@@ -959,13 +993,13 @@ async def get_deadlines(
     except RegistryError as exc:
         _record(
             operation="company_deadlines", country=country.upper(), query=id, request=request,
-            started=started, ok=False, error_code=exc.code.value,
+            started=started, ok=False, error_code=exc.code.value, source=src,
         )
         raise
 
     _record(
         operation="company_deadlines", country=country.upper(), query=id, request=request,
-        started=started, ok=True,
+        started=started, ok=True, source=src,
     )
     return result
 
@@ -987,7 +1021,12 @@ async def get_deadlines(
     ),
     responses={200: {"content": {"application/json": {"example": _VALIDATE_EXAMPLE}}}},
 )
-async def validate_id(country: str, id: str, request: Request) -> ValidationResult:
+async def validate_id(
+    country: str,
+    id: str,
+    request: Request,
+    src: str | None = Query(None, description=_SRC_DESCRIPTION),
+) -> ValidationResult:
     # No try/except: `Registry.validate` (D-010) already turns an `invalid_id`
     # failure into `valid=False` rather than raising — this operation answers
     # a question, it does not fail (`DECISIONS.md` D-010, the one deliberate
@@ -998,6 +1037,6 @@ async def validate_id(country: str, id: str, request: Request) -> ValidationResu
     result = registry.validate(id)
     _record(
         operation="validate_company_id", country=country.upper(), query=id, request=request,
-        started=started, ok=True, error_code=None if result.valid else "invalid_id",
+        started=started, ok=True, error_code=None if result.valid else "invalid_id", source=src,
     )
     return result

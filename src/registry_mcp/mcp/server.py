@@ -37,7 +37,7 @@ from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ResourceError, ToolError
-from fastmcp.server.dependencies import get_http_headers
+from fastmcp.server.dependencies import get_http_headers, get_http_request
 from pydantic import Field
 
 from registry_mcp import __version__
@@ -75,6 +75,40 @@ def _current_user_agent() -> str:
     all", since either way there is no real user agent to report.
     """
     return get_http_headers().get("user-agent", "stdio")
+
+
+def _current_source() -> str | None:
+    """The client's ``?src=`` query parameter on Streamable HTTP; ``None`` on
+    stdio or when there is no active HTTP request (T64, "calls by channel").
+
+    Headers have their own never-raising accessor (`get_http_headers`, used by
+    `_current_user_agent` above), but a query parameter does not — reading one
+    means the actual Starlette `Request` (`get_http_request`, verified against
+    FastMCP 4.0.2 to be what this project's `fastmcp.server.dependencies`
+    exposes for it), which raises `RuntimeError` under the same "no live HTTP
+    request" condition `get_http_headers` instead swallows. Caught here for
+    the same reason: stdio and connect-time-with-no-request are both "no
+    query string to read", not an error.
+
+    Verified locally before this was written (not merely assumed): a
+    Streamable HTTP client that connects to ``/mcp?src=test`` still completes
+    `initialize` and `tools/list` — FastMCP does not reject or otherwise
+    choke on an unrecognised query parameter on this endpoint.
+
+    Returns the **raw** value, unsanitised — exactly as `_current_user_agent`
+    returns a raw header and `query`/`country` pass through `_call_context`
+    unsanitised. `core/log.py::log_call` runs it through
+    `core.log.sanitize_source` once, centrally, the same chokepoint the REST
+    surface's own `?src=` query parameter goes through (`api/main.py::_record`
+    passes its raw value through unchanged too) — so this function must not
+    sanitise its own return value, or a two-surface transform would exist in
+    two places with no shared test to keep them in sync.
+    """
+    try:
+        request = get_http_request()
+    except RuntimeError:
+        return None
+    return request.query_params.get("src")
 
 
 @dataclass
@@ -156,6 +190,7 @@ def _call_context(
                 ok=outcome.ok,
                 error_code=outcome.error_code,
                 cached=outcome.cached,
+                source=_current_source(),
             )
         except Exception:  # pragma: no cover - defensive; the hook must never raise
             logger.exception("record_call hook raised; ignoring")

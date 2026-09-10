@@ -3,7 +3,7 @@
 A new supplier sends an invoice with a company registration number on it. Is the company real, still trading, and up to date on its filings? `registry-mcp` answers from Companies House by company number — and from Brønnøysundregistrene / Enhetsregisteret (brreg) by organisasjonsnummer (orgnr, org.nr), with the same tool and the same JSON.
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # or locally, over stdio: uvx registry-mcp
 ```
 

@@ -10,7 +10,7 @@ An invoice arrived from a Norwegian supplier I had not used before: NOK 4,000 pl
 
 Install is one line:
 
-    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 
 Then I pasted the org number off the invoice and asked. What came back:
 

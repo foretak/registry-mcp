@@ -113,6 +113,7 @@ def test_summary_on_empty_database_is_zeroed(tmp_path: Path) -> None:
     assert result["by_surface"] == {}
     assert result["by_country"] == []
     assert result["by_operation"] == []
+    assert result["by_source"] == []
     assert result["top_queries"] == []
     assert result["user_agents"] == []
     assert result["error_rate"] == 0.0
@@ -259,6 +260,50 @@ def test_summary_by_country_counts_and_orders_with_null_bucket(tmp_path: Path) -
         {"country": "NO", "count": 3},
         {"country": stats.NO_COUNTRY_KEY, "count": 2},
         {"country": "SE", "count": 1},
+    ]
+
+
+def test_summary_by_source_counts_and_orders_with_null_bucket(tmp_path: Path) -> None:
+    """`by_source`: highest count first, then source tag ascending as a
+    tiebreak ("llms" and "readme" tie at 3 calls each below — "l" < "r") —
+    same shape and sort as `by_country`
+    (`test_summary_by_country_counts_and_orders_with_null_bucket`). A call
+    with no `?src=` at all lands under `stats.NO_SOURCE_KEY` ("none"), sorted
+    by its count like any other bucket, never dropped and never merged into a
+    real tag's count."""
+    db = tmp_path / "calls.sqlite3"
+    log.set_sink(db)
+    sources: list[str | None] = [
+        "readme",
+        "readme",
+        "readme",
+        "llms",
+        "llms",
+        "llms",
+        "docs",
+        None,
+        None,
+    ]
+    for source in sources:
+        log.log_call(
+            surface=Surface.REST,
+            operation="lookup_company",
+            country="NO",
+            query="923609016",
+            user_agent="agent/1.0",
+            latency_ms=1,
+            ok=True,
+            source=source,
+        )
+
+    result = stats.summary(db)
+
+    assert result["total_calls"] == 9
+    assert result["by_source"] == [
+        {"source": "llms", "count": 3},
+        {"source": "readme", "count": 3},
+        {"source": stats.NO_SOURCE_KEY, "count": 2},
+        {"source": "docs", "count": 1},
     ]
 
 

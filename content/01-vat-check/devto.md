@@ -3,7 +3,7 @@
 Your agent is about to approve an invoice charging 25% MVA. Is the supplier actually in Merverdiavgiftsregisteret? `registry-mcp` answers from Brønnøysundregistrene / Enhetsregisteret (brreg), by organisasjonsnummer (orgnr, org.nr).
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # or locally, over stdio: uvx registry-mcp
 ```
 

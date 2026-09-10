@@ -3,7 +3,7 @@
 Agenten din står i ferd med å godkjenne en faktura med 25 % mva. Er leverandøren i det hele tatt registrert i Merverdiavgiftsregisteret? `registry-mcp` slår det opp i Brønnøysundregistrene / Enhetsregisteret (brreg) på organisasjonsnummer (orgnr, org.nr).
 
 ```bash
-claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=article
 # eller lokalt, over stdio: uvx registry-mcp
 ```
 

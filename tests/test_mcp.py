@@ -941,6 +941,66 @@ def test_mcp_mount_has_no_trailing_slash_redirect(path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# `?src=` on `/mcp` (T64, "calls by channel"). Driven through the real
+# FastAPI+FastMCP ASGI stack via raw JSON-RPC over `TestClient`, the same
+# technique `test_mcp_mount_has_no_trailing_slash_redirect` above uses —
+# never `fastmcp.Client(mcp)` (every other test in this file), whose
+# in-process transport never goes through HTTP or a query string at all and
+# so could never exercise this. Also verified locally, before this code was
+# written, against a real local uvicorn server with `fastmcp.Client`
+# connecting to `http://127.0.0.1:<port>/mcp?src=test`: FastMCP does not
+# reject or otherwise choke on the unrecognised query parameter.
+# ---------------------------------------------------------------------------
+
+_INITIALIZE_BODY = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2025-03-26",
+        "capabilities": {},
+        "clientInfo": {"name": "t", "version": "0"},
+    },
+}
+_SSE_ACCEPT_HEADERS = {"accept": "application/json, text/event-stream"}
+
+
+def _initialize_session(rest_client: TestClient, path: str) -> dict[str, str]:
+    """POST `initialize` to `path`, then `notifications/initialized` on the
+    session it opens. Returns the headers (accept + `mcp-session-id`) every
+    further request on that session must carry."""
+    init_resp = rest_client.post(path, json=_INITIALIZE_BODY, headers=_SSE_ACCEPT_HEADERS)
+    assert init_resp.status_code == 200
+    session_headers = {**_SSE_ACCEPT_HEADERS, "mcp-session-id": init_resp.headers["mcp-session-id"]}
+    notified = rest_client.post(
+        path,
+        json={"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
+        headers=session_headers,
+    )
+    assert notified.status_code == 202
+    return session_headers
+
+
+def test_mcp_src_query_param_does_not_break_the_handshake() -> None:
+    """FastMCP must ignore an unrecognised `?src=` query parameter on `/mcp`
+    rather than rejecting the connection: `initialize` still completes and
+    hands back a session id, and `tools/list` on that same session still
+    returns every tool. If this ever stopped being true, T64's plan was to
+    drop `src` from `/mcp` and keep it on REST only — this test is what would
+    catch that regression."""
+    with TestClient(app) as rest_client:
+        session_headers = _initialize_session(rest_client, "/mcp?src=test")
+        list_resp = rest_client.post(
+            "/mcp?src=test",
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            headers=session_headers,
+        )
+    assert list_resp.status_code == 200
+    for tool_name in ("lookup_company", "search_company", "list_countries"):
+        assert tool_name in list_resp.text
+
+
+# ---------------------------------------------------------------------------
 # D-004 guarantee, Sweden (T26e fix 11 / `tasks/T26.md` §T26b): the first
 # country where REST and MCP have a second thing to agree on besides
 # `requires_api_key` — N10 and the `source` suffix. Appended at the end of
@@ -1199,6 +1259,34 @@ def record_spy(monkeypatch: pytest.MonkeyPatch) -> _RecordSpy:
     spy = _RecordSpy()
     monkeypatch.setattr("registry_mcp.mcp.server.record_call", spy)
     return spy
+
+
+def test_mcp_src_query_param_is_recorded_as_source(record_spy: _RecordSpy) -> None:
+    """The `?src=` value a Streamable HTTP client connects with reaches
+    `record_call` as `source=` for a tool call on that session — proof that
+    `mcp/server.py::_current_source` really does read it from the live
+    request via `get_http_request()` (`fastmcp.server.dependencies`), the
+    same dependency `_current_user_agent` already reads the `User-Agent`
+    header from. Driven through the real FastAPI+FastMCP ASGI stack (see
+    `_initialize_session` above), not the in-process `fastmcp.Client(mcp)`
+    every other test in this file uses — that transport never goes through
+    HTTP or a query string at all."""
+    with TestClient(app) as rest_client:
+        session_headers = _initialize_session(rest_client, "/mcp?src=test")
+        call_resp = rest_client.post(
+            "/mcp?src=test",
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "list_countries", "arguments": {}},
+            },
+            headers=session_headers,
+        )
+    assert call_resp.status_code == 200
+    assert record_spy.calls, "record_call was never invoked"
+    last = record_spy.calls[-1]
+    assert last["source"] == "test"
 
 
 async def test_se_lookup_without_credentials_logs_no_identifier(

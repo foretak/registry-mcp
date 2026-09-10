@@ -6,7 +6,7 @@ says what the call is for, when to use it, what comes back, and what to do on
 each error.
 
 Base URL: https://api.foretak.dev
-MCP endpoint (Streamable HTTP): https://api.foretak.dev/mcp
+MCP endpoint (Streamable HTTP): https://api.foretak.dev/mcp?src=llms
 Local stdio: `uvx registry-mcp` or `npx registry-mcp`
 Source (MIT): https://github.com/foretak/registry-mcp
 Short version of this file: https://api.foretak.dev/llms.txt
@@ -1171,7 +1171,7 @@ document, this is only a heartbeat.
 
 Add the server:
 
-    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp
+    claude mcp add registry-mcp --transport http https://api.foretak.dev/mcp?src=llms
 
 or run it locally over stdio with `uvx registry-mcp` / `npx registry-mcp`.
 
