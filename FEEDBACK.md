@@ -33,6 +33,7 @@ The usage log (`calls` table in the production SQLite on the Railway volume) kee
 
 ## Outbound (things we said to others, so replies can be traced)
 
+- 2026-09-10 · GitHub · Universal-Commerce-Protocol/ucp discussion #146 · itzikhr18 (the Israeli verification vendor) asked whether we had seen demand for Israeli verification, workflow, budget — a vendor validating its own demand · replied honestly on Kim's "post": no requests at all, ~600 calls all our own, the accuracy write-up shared, offered to compare notes · https://github.com/Universal-Commerce-Protocol/ucp/discussions/146#discussioncomment-18383549 · watch for a reply.
 - 2026-09-05 · GitHub · nordio-ai/brreg-mcp-server#7 (feature request for 8 dropped brreg fields, author fmogensen) · commented with the field-for-field mapping to `CompanyReport`, offered `mapping.py`/`NORBIZ_SPEC.md` §3 under MIT, agreed with their eval finding and mentioned the roll-forward correction · https://github.com/nordio-ai/brreg-mcp-server/issues/7#issuecomment-5552901312 · watch for a reply.
 - 2026-09-05 · awesome-mcp-servers PR #13631 · told the maintainers the Glama checks passed · no human reply yet.
 - 2026-09-05 · Erhvervsstyrelsen · CVR access application, sagsnummer 177481 · reply due ~2026-09-23.
