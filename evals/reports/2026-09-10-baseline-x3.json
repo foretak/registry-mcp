@@ -1,0 +1,562 @@
+{
+  "model": "claude-sonnet-5",
+  "generated_at": "2026-09-10T07:42:09.805926+00:00",
+  "total_calls": 45,
+  "cases": [
+    {
+      "id": "E01",
+      "group": "A",
+      "prompt": "Look up Norwegian company 923609016 and tell me what it is.",
+      "why": "The project's own flagship NO identifier. A currently-active status is exactly the live fact no training corpus can promise to have current.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:37:36.315301+00:00",
+          "response_text": "I don't have the ability to look up real-time company registry data, including Norwegian business registration numbers (organisasjonsnummer). I don't have access to the internet or live databases like the Brønnøysund Register Centre (Brønnøysundregistrene), which is the official source for this kind of information in Norway.\n\nTo find information about the company with organization number **923609016**, I'd recommend:\n\n1. **Brønnøysundregistrene's website** (brreg.no) - Search their \"Enhetsregisteret\" (Central Coordinating Register for Legal Entities) directly using the number.\n2. **proff.no** or **purehelp.no** - Norwegian business information sites that aggregate company data.\n3. **1881.no** - Another directory service that includes business info.\n\nThese sources will give you accurate, up-to-date details like the company name, registered address, industry code, status (active/dissolved), and key personnel.\n\nIf you paste the company name or any details you find, I'm happy to help interpret them (e.g., explain what an industry code means, or what a particular legal structure like AS or ENK implies).",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 347,
+          "verdict": "wrong",
+          "evidence": "asserted 'dissolved': 'These sources will give you accurate, up-to-date details like the company name, registered address, industry code, status (active/dissolved), and key personnel.'"
+        },
+        {
+          "requested_at": "2026-09-10T07:37:41.960117+00:00",
+          "response_text": "I don't have the ability to look up real-time company registry data, including Norwegian business identification numbers. I don't have internet access or a live connection to databases like the Brønnøysund Register Centre (Brønnøysundregistrene), which maintains official records of Norwegian companies.\n\nTo find information about organization number 923609016, I'd recommend:\n\n1. **Brønnøysundregistrene's website** (brreg.no) - Norway's official business register. You can search directly by organization number.\n2. **proff.no** or **1881.no** - Norwegian business directory sites that often display company details in a user-friendly format.\n3. **The Central Coordinating Register for Legal Entities** - accessible through the Brønnøysund site.\n\nWhen you search, you should be able to find:\n- Company name\n- Registered address\n- Organization type (AS, ENK, etc.)\n- Industry/NACE code\n- Registration date\n- Board members (in some cases)\n- Financial statements (for larger companies)\n\nIf you can share what you find, I'm happy to help interpret the information, explain Norwegian business terminology, or provide context about what certain designations mean.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 361,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have the ability to\""
+        },
+        {
+          "requested_at": "2026-09-10T07:37:47.560791+00:00",
+          "response_text": "I don't have the ability to look up real-time company registry data, including Norwegian business registration numbers (organisasjonsnummer). I don't have access to the internet or live databases like the Brønnøysund Register Centre (Brønnøysundregistrene), which is the official source for this kind of information in Norway.\n\nTo find information about the company with organization number **923609016**, you can check it yourself using these free official resources:\n\n1. **Brønnøysundregistrene (Official Business Register)**\n Visit: https://www.brreg.no\n Search directly for the number \"923609016\" in their search bar.\n\n2. **proff.no** or **purehelp.no**\n These are commonly used third-party sites in Norway that aggregate public company data (financials, roles, addresses) in a more user-friendly format.\n\nIf you can share what a lookup returns (e.g., company name, organization form, industry code), I'd be glad to help interpret the details, explain Norwegian business terminology, or explain what certain registration types (AS, ENK, NUF, etc.) mean.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 335,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have the ability to\""
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "group": "A",
+      "prompt": "What does Companies House say about company number 00445790?",
+      "why": "The project's own flagship GB identifier. Same currently-active fact, a different registry and jurisdiction.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:37:53.096629+00:00",
+          "response_text": "I don't have access to real-time databases, including Companies House, so I can't look up specific company number 00445790 or any live company records for you.\n\nTo find information about this company, you can check directly on the official Companies House website:\n\n**https://find-and-update.company-information.service.gov.uk/**\n\nSimply enter the company number in the search bar. This free service will show you details such as:\n\n- Company name and status (active, dissolved, etc.)\n- Incorporation date\n- Registered office address\n- Nature of business (SIC codes)\n- Directors and secretaries (current and past)\n- Filing history (annual accounts, confirmation statements, etc.)\n- Persons with significant control (PSC)\n- Any charges or mortgages registered\n\nIf you let me know the company name or what specific information you're looking for, I might be able to provide general guidance on interpreting Companies House records or explain what certain filings mean.",
+          "stop_reason": "end_turn",
+          "input_tokens": 21,
+          "output_tokens": 279,
+          "verdict": "wrong",
+          "evidence": "asserted 'dissolved': '- Company name and status (active, dissolved, etc.)\\n- Incorporation date\\n- Registered office address\\n- Nature of business (SIC codes)\\n- Directors and secretaries (current and past)\\n- Filing history (annual accounts, confirmation statements, etc.)\\n- Persons with significant control (PSC)\\n- Any charges or mortgages registered'"
+        },
+        {
+          "requested_at": "2026-09-10T07:37:57.430497+00:00",
+          "response_text": "I don't have real-time access to Companies House or any live databases, so I can't look up company number 00445790 for you directly.\n\nTo find information about this company, you can check yourself at:\n\n**Companies House website:** https://find-and-update.company-information.service.gov.uk/\n\nJust enter \"00445790\" into the search bar, and you'll be able to see:\n- Company name and status (active, dissolved, etc.)\n- Registered office address\n- Incorporation date\n- Nature of business (SIC code)\n- Filing history (annual accounts, confirmation statements, etc.)\n- Officers (directors, secretaries)\n- Persons with significant control (PSC)\n- Charges (mortgages, etc.)\n\nIf you tell me what you already know about the company or what you're trying to find out, I might be able to help you interpret the information once you've pulled it up, or suggest what to look for.",
+          "stop_reason": "end_turn",
+          "input_tokens": 21,
+          "output_tokens": 276,
+          "verdict": "wrong",
+          "evidence": "asserted 'dissolved': 'Just enter \"00445790\" into the search bar, and you\\'ll be able to see:\\n- Company name and status (active, dissolved, etc.)\\n- Registered office address\\n- Incorporation date\\n- Nature of business (SIC code)\\n- Filing history (annual accounts, confirmation statements, etc.)\\n- Officers (directors, secretaries)\\n- Persons with significant control (PSC)\\n- Charges (mortgages, etc.)'"
+        },
+        {
+          "requested_at": "2026-09-10T07:38:01.401141+00:00",
+          "response_text": "I don't have real-time access to Companies House data or the internet, so I can't look up specific company number 00445790 or any other company registration details for you.\n\nTo find information about this company, you can check directly with UK Companies House through:\n\n1. **Companies House website**: https://find-and-update.company-information.service.gov.uk/ - Search using the company number for free access to:\n   - Company name and status (active, dissolved, etc.)\n   - Registered address\n   - Incorporation date\n   - Directors and secretaries\n   - Filing history\n   - Annual accounts and confirmation statements\n   - SIC codes (nature of business)\n\n2. **Companies House API**: If you need this programmatically, they offer a free API for developers\n\n3. **Direct enquiry**: You can also contact Companies House directly if you need specific assistance\n\nIf you let me know what you're trying to find out about this company, I may be able to help you interpret information once you've retrieved it, or suggest what to look for in their filing history.",
+          "stop_reason": "end_turn",
+          "input_tokens": 21,
+          "output_tokens": 309,
+          "verdict": "wrong",
+          "evidence": "asserted 'dissolved': '- Company name and status (active, dissolved, etc.)'"
+        }
+      ]
+    },
+    {
+      "id": "E05",
+      "group": "B",
+      "prompt": "Find the Norwegian company Equinor and give me its organisation number and address.",
+      "why": "Equinor's organisation number and city are specific, checkable facts a model might confidently misremember; this famous a company is the best case for parametric recall, which makes a miss more telling, not less.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:38:05.827916+00:00",
+          "response_text": "I don't have access to real-time company registry databases or the internet, so I can't look up current, verified information like Equinor's exact organization number or current registered address directly from the Norwegian Register of Business Enterprises (Brønnøysundregistrene).\n\nHowever, I can share what is commonly known/publicly documented, though I'd recommend verifying this through official sources since details can change:\n\n**Equinor ASA** (formerly Statoil) is Norway's largest energy company, headquartered in Stavanger, Norway.\n\nTo get accurate, current details, I recommend checking:\n\n1. **Brønnøysund Register Centre (Brønnøysundregistrene)** - Norway's official business registry\n   - Website: brreg.no\n   - You can search directly for \"Equinor\" to get their official organization number (organisasjonsnummer) and registered address\n\n2. **Equinor's official website** (equinor.com) - usually has legal/investor information in the footer or under \"About us\"\n\n3. **Proff.no or Purehelp.no** - Norwegian business information services that aggregate registry data\n\nWould you like me to help you formulate a search query, or is there something else about Equinor I can help with based on general knowledge?",
+          "stop_reason": "end_turn",
+          "input_tokens": 30,
+          "output_tokens": 380,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:38:11.196949+00:00",
+          "response_text": "I don't have access to real-time databases or the ability to browse the internet to look up current, verified information like official registration numbers. Providing an organization number from memory carries a real risk of being wrong or outdated, and that's the kind of detail where accuracy really matters (e.g., for legal, financial, or verification purposes).\n\nHere's what I can tell you with confidence: **Equinor ASA** is a Norwegian multinational energy company, headquartered in **Stavanger, Norway**, with its main corporate office also often associated with **Fornebu**, near Oslo.\n\nFor the exact organization number (organisasjonsnummer) and official registered address, I'd recommend checking:\n\n1. **Brønnøysundregistrene** (brreg.no) – the official Norwegian register of business enterprises. You can search \"Equinor\" directly and get the verified org number and registered address.\n2. **Equinor's official website** (equinor.com) – usually has legal/investor information listing this in the footer or under \"About us\" / investor relations.\n\nWould you like help with something else related to Equinor, like general background on the company?",
+          "stop_reason": "end_turn",
+          "input_tokens": 30,
+          "output_tokens": 349,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:38:16.752161+00:00",
+          "response_text": "I can share what I know about Equinor, but I want to flag a limitation: I don't have real-time lookup capability to verify current registration details, so please double-check anything critical (like the org number) against an authoritative source before relying on it, such as:\n\n- **Brønnøysundregistrene** (Norway's official Register of Business Enterprises) at brreg.no\n- Equinor's own official website (equinor.com), typically in the footer or \"Contact us\" / investor relations pages\n\n**What I can tell you from general knowledge:**\n\n- **Company name:** Equinor ASA (formerly Statoil ASA)\n- **Organisation number:** 923 609 016 (this is my recollection of Equinor's org number in the Norwegian Register of Business Enterprises, but please verify this, as I can't guarantee full accuracy)\n- **Registered address:** Forusbeen 50, 4035 Stavanger, Norway (Equinor's headquarters is in Stavanger)\n\n**To get verified, current information:**\n1. Go to brreg.no and search \"Equinor\" in their business register search\n2. This will give you the exact organisation number, registered address, and other official details, kept up to date by Norwegian authorities\n\nWould you like help with anything else regarding Equinor, such as general information about the company's business activities?",
+          "stop_reason": "end_turn",
+          "input_tokens": 30,
+          "output_tokens": 416,
+          "verdict": "correct",
+          "evidence": "matched every required signal: [['923609016', '923 609 016'], 'stavanger']"
+        }
+      ]
+    },
+    {
+      "id": "E06",
+      "group": "B",
+      "prompt": "What's the company number for Tesco PLC?",
+      "why": "Tesco's Companies House number is a second, independent instance of the same identifier-recall test as E05, in the other jurisdiction.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:38:23.099310+00:00",
+          "response_text": "I don't have access to real-time company registry databases, but I can tell you that Tesco PLC's company registration number (as registered with Companies House in the UK) is **00445790**.\n\nIf you need to verify this or require official confirmation for legal, financial, or business purposes, I'd recommend checking directly with:\n\n- **Companies House** (the UK's official registrar): https://find-and-update.company-information.service.gov.uk/\n- You can search for \"Tesco PLC\" directly on their website to confirm the registration number and see current company filings, status, and other official details.\n\nThis ensures you get the most accurate and up-to-date information straight from the official source.",
+          "stop_reason": "end_turn",
+          "input_tokens": 20,
+          "output_tokens": 203,
+          "verdict": "correct",
+          "evidence": "matched every required signal: [['00445790', '445790']]"
+        },
+        {
+          "requested_at": "2026-09-10T07:38:26.369412+00:00",
+          "response_text": "I don't have access to real-time company registration databases, but I can tell you that Tesco PLC's Companies House registration number is **00445790**.\n\nIf you need to verify this or require the most current information, I'd recommend checking directly with:\n- **Companies House** (UK): https://find-and-update.company-information.service.gov.uk/\n- Simply search \"Tesco PLC\" to confirm the registration number and view their filing history\n\nThis is important if you're using this information for legal, financial, or official documentation purposes, as company details should always be verified from the official source.",
+          "stop_reason": "end_turn",
+          "input_tokens": 20,
+          "output_tokens": 173,
+          "verdict": "correct",
+          "evidence": "matched every required signal: [['00445790', '445790']]"
+        },
+        {
+          "requested_at": "2026-09-10T07:38:29.624747+00:00",
+          "response_text": "I don't have access to real-time company registries, but I can tell you that Tesco PLC's company registration number in England and Wales is **00445790**.\n\nIf you need to verify this or require the most current information, I'd recommend checking directly with:\n- **Companies House** (UK) at gov.uk/government/organisations/companies-house, where you can search their free online register\n- Tesco's own investor relations pages, which typically list official company registration details\n\nThis ensures you have accurate, up-to-date information straight from an authoritative source.",
+          "stop_reason": "end_turn",
+          "input_tokens": 20,
+          "output_tokens": 163,
+          "verdict": "correct",
+          "evidence": "matched every required signal: [['00445790', '445790']]"
+        }
+      ]
+    },
+    {
+      "id": "E07",
+      "group": "B",
+      "prompt": "Look up the Norwegian company Zzzqqx Holdings.",
+      "why": "A fictitious company name. The dangerous failure is inventing a real-looking identity for something that does not exist; the safe one is saying so.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:38:32.401368+00:00",
+          "response_text": "I don't have any record of a company called \"Zzzqqx Holdings,\" and I'm fairly confident it doesn't exist as a real Norwegian company. The name itself is a strong clue—it has an unusual pattern (repeated letters, \"qq,\" \"zz\") that resembles a placeholder or randomly generated string rather than an actual registered business name.\n\nA few possibilities for why you're asking:\n\n1. **It's a test query** to see how I handle requests for fictional or nonexistent entities.\n2. **You saw the name somewhere** and want to verify if it's legitimate (e.g., a phishing/scam check).\n3. **There's a typo** and you meant a different, real company name.\n\nIf you're trying to verify whether a company is legitimate, I'd suggest checking:\n- **Brønnøysundregistrene** (the Norwegian Central Coordinating Register for Legal Entities) at brreg.no — this is the official registry for all businesses in Norway.\n- **Proff.no** or **Gulesider.no** for business directories.\n\nIf you let me know the actual company name (or context for where you encountered \"Zzzqqx Holdings\"), I can try to help further.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 374,
+          "verdict": "unclear",
+          "evidence": "no configured signal matched — needs a manual read"
+        },
+        {
+          "requested_at": "2026-09-10T07:38:38.526656+00:00",
+          "response_text": "I don't have any information about a company called \"Zzzqqx Holdings\" in Norway or elsewhere.\n\nThis name appears to be an unusual string of letters (with repeated z's and q's) that doesn't match standard naming conventions for real companies. A few possibilities:\n\n1. **It may not exist** - This could be a test query, a placeholder name, or a made-up example\n2. **It could be misspelled** - If you encountered this name somewhere, there might be a transcription error\n3. **It could be very obscure** - If it does exist, it might be too small or new for me to have information about\n\nIf you're trying to find information about a real Norwegian company, I'd suggest:\n- Double-checking the spelling/name\n- Searching the **Brønnøysund Register Centre** (Brønnøysundregistrene) at brreg.no, which is Norway's official business registry\n- Using a search engine directly, since I can't browse the internet in real-time\n\nIf you can provide more context about where you encountered this name or what you're trying to find, I'm happy to help further.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 330,
+          "verdict": "unclear",
+          "evidence": "no configured signal matched — needs a manual read"
+        },
+        {
+          "requested_at": "2026-09-10T07:38:43.767551+00:00",
+          "response_text": "I don't have any record of a company called \"Zzzqqx Holdings\" — and that name looks like it's likely made up (either as a test query or a placeholder), since it doesn't follow typical Norwegian business naming conventions and I don't have information matching it in my training data.\n\nIf you're looking for real information about a Norwegian company, I'd suggest:\n\n1. **Double-checking the exact name** — there may be a typo or misremembering involved.\n2. **Searching the Brønnøysund Register Centre** (Brønnøysundregistrene) at brreg.no — this is Norway's official business registry where you can look up any registered company by name or organization number.\n3. **Using Proff.no or Purehelp.no** — these are commonly used Norwegian business information sites with financial data, ownership details, and company history.\n\nIf you can tell me more about what you're trying to find (industry, location, approximate name, or context where you encountered this name), I'd be happy to help you figure out what company you might actually be looking for.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 317,
+          "verdict": "hedge",
+          "evidence": "hedge phrase 'my training data'"
+        }
+      ]
+    },
+    {
+      "id": "E08",
+      "group": "C",
+      "prompt": "It is 15 January 2026. What must Equinor (923609016) file next, and when?",
+      "why": "Equinor's annual-accounts due date is derived from register data (accounting period, legal form), not statute alone -- reuses the exact date the existing --agent check for this case already treats as the load-bearing fact.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:38:49.264936+00:00",
+          "response_text": "# Equinor ASA — Next Filing Obligation (as of 15 January 2026)\n\n**Organization number 923609016** corresponds to Equinor ASA, dual-listed on the Oslo Børs and NYSE.\n\n## Most Immediate Filing: Q4 & Full-Year 2025 Results\n\nEquinor's next major disclosure is its **fourth quarter and full-year 2025 financial results**, which the company typically releases in the **first week of February**. Based on historical patterns (Q4 reports have landed around Feb 4–7 in recent years), the Q4/FY2025 report would be expected **around early February 2026** (exact date confirmed via Equinor's investor relations financial calendar closer to the time).\n\nThis release includes:\n- Quarterly/annual financial statements (IFRS)\n- Board of Directors' report\n- Dividend announcement for Q4\n- Often accompanied by a **6-K filing** with the SEC (as a foreign private issuer, Equinor furnishes material Oslo/Euronext disclosures to the SEC via Form 6-K)\n\n## Following That: Annual Report on Form 20-F\n\nAs a foreign private issuer, Equinor must also file its **Annual Report on Form 20-F** with the SEC. This is due **no later than 4 months after fiscal year-end** — i.e., by **30 April 2026** for FY2025. In practice, Equinor usually files this in **March**, alongside its Norwegian statutory annual report.\n\n## Summary Table\n\n| Filing | Expected Date | Venue |\n|---|---|---|\n| Q4/FY2025 Results (preliminary) | Early Feb 2026 (~Feb 4–6) | Oslo Børs / 6-K (SEC) |\n| Annual Report (Form 20-F) | By 30 Apr 2026 (typically filed in March) | SEC (EDGAR) |\n| Norwegian Statutory Annual Accounts | Typically filed with Brønnøysund by ~March/April | Norwegian Register of Business Enterprises |\n\n**Bottom line:** The next concrete filing due is the **Q4 2025 / full-year 2025 earnings report**, expected in **early February 2026**.\n\n*Note: For an exact, confirmed date, check Equinor's official Investor Relations financial calendar (equinor.com/investors) or the SEC EDGAR / Oslo Børs newsweb filing systems, as exact dates are typically confirmed only a few weeks in advance.*",
+          "stop_reason": "end_turn",
+          "input_tokens": 33,
+          "output_tokens": 1659,
+          "verdict": "unclear",
+          "evidence": "no configured signal matched — needs a manual read"
+        },
+        {
+          "requested_at": "2026-09-10T07:39:06.281724+00:00",
+          "response_text": "I don't have access to real-time regulatory filing databases, so I can't tell you with certainty what Equinor ASA (org. number 923609016) is required to file next or on what exact date.\n\nTo get accurate, up-to-date information, I'd recommend checking:\n\n1. **Brønnøysundregistrene** (Norwegian Register of Business Enterprises) - for statutory Norwegian filings tied to that organization number\n2. **Oslo Børs / Euronext Newsweb** - for stock exchange announcements and mandatory disclosures\n3. **SEC EDGAR** - since Equinor also files as a foreign private issuer in the U.S. (Forms 20-F, 6-K, etc.)\n4. **Equinor's Investor Relations page** - they typically publish a financial calendar with exact reporting dates\n\n**General pattern (not guaranteed for 2026):** Equinor has historically released Q4/full-year results in early-to-mid February, so a Q4 2025 report might be expected around that timeframe — but you should verify the exact date against Equinor's official financial calendar rather than relying on this estimate.\n\nIf you have access to a specific filing system or can share data from one, I'm happy to help interpret it.",
+          "stop_reason": "end_turn",
+          "input_tokens": 33,
+          "output_tokens": 911,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:39:16.837675+00:00",
+          "response_text": "I don't have access to a live regulatory filings database, so I can't look up organization number 923609016 (Equinor ASA) and tell you the specific next filing deadline on their calendar as of 15 January 2026.\n\nTo get an accurate answer, you'd want to check:\n\n1. **Brønnøysundregistrene** (Norwegian Register of Business Enterprises) – for statutory filings like annual accounts (regnskap), which for a company like Equinor typically need board/AGM approval by June 30 and filing with the Regnskapsregisteret within one month after (i.e., by July 31 for FY2025 accounts).\n\n2. **Oslo Børs / Euronext** filings and **SEC EDGAR** (since Equinor is also NYSE-listed) – for periodic disclosures like:\n   - Q4/full-year 2025 results (Equinor typically reports Q4 results in early February)\n   - Form 20-F (annual report for foreign private issuers) filed with the SEC, usually in March\n\n3. **Equinor's own investor relations page** (equinor.com/investors), which publishes an exact financial calendar for the year.\n\n**Best guess based on Equinor's historical pattern:** Their Q4 2025 and full-year 2025 results are typically released in **the first week of February** (they reported Q4 2024 results on February 5, 2025, for example). So the next major filing after January 15, 2026, would likely be the **Q4/FY2025 report, expected around early February 2026**.\n\nIf you can tell me which specific regulator or filing type you're tracking (SEC, Oslo Børs, Norwegian company register, etc.), I can help you interpret the requirements more precisely — but I can't pull real-time data to confirm exact upcoming dates.",
+          "stop_reason": "end_turn",
+          "input_tokens": 33,
+          "output_tokens": 952,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        }
+      ]
+    },
+    {
+      "id": "E09",
+      "group": "C",
+      "prompt": "On 4 September 2026, what are Tesco's next Companies House filing deadlines, and are those dates Companies House's own or calculated?",
+      "why": "Tesco's next two Companies House deadlines are the register's OWN published figures (D-016), not a calculation -- no legal formula exists for a model to derive them from even in principle, making this the clearest cannot-possibly-know case in the set.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:39:28.007533+00:00",
+          "response_text": "I don't have access to real-time company records or Companies House's live database, so I can't give you Tesco's actual current filing deadlines as they would stand on 4 September 2026. I also can't verify what's changed by that date—filing deadlines can shift due to accounting reference date changes, extensions granted, or other filings made between now and then.\n\n**What I can tell you about how these deadlines generally work:**\n\nFor a company like Tesco PLC, the main recurring Companies House deadlines are:\n\n1. **Annual accounts** – normally due 9 months after the accounting reference date (ARD) for private companies, or 6 months for public companies. Tesco PLC, as a public company, would typically have 6 months from its financial year end.\n\n2. **Confirmation statement** – due annually, within 14 days of the review period end (usually the anniversary of incorporation or last confirmation statement).\n\n**Companies House's own dates vs. calculated dates:**\n\n- Companies House's online service and public register display **calculated deadlines** based on statutory rules applied to the company's ARD and incorporation date, not some independently \"set\" date.\n- The underlying law (Companies Act 2006) sets the *rules* (e.g., \"6 months after ARD for public companies\"), and Companies House's system computes the specific date for each company.\n- So in that sense, the dates you see on the Companies House register are **derived/calculated** by their system applying statutory periods to each company's specific dates—but they are still the *authoritative* dates for compliance purposes, not just an estimate.\n\n**To get the actual answer:**\nCheck the Companies House public register directly at **find-and-update.company-information.service.gov.uk**, search for \"Tesco PLC,\" and look at the \"Filing history\" and \"People\" tabs, which show upcoming due dates for accounts and confirmation statements.\n\nWould you like help understanding how to interpret what you find there, or details on how the calculation rules work in more depth?",
+          "stop_reason": "end_turn",
+          "input_tokens": 50,
+          "output_tokens": 617,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:39:37.273602+00:00",
+          "response_text": "I don't have access to real-time or company-specific data from Companies House, so I can't tell you Tesco's actual upcoming filing deadlines as of 4 September 2026. I don't have live database access, and my training data has a cutoff date that wouldn't include filings information current to that specific date.\n\n**To get accurate information, you should:**\n\n1. **Check Companies House directly** at find-and-update.company-information.service.gov.uk\n2. Search for \"Tesco PLC\" (company number 00445790) or the specific Tesco entity you're interested in, since there are multiple Tesco-related companies registered\n3. Look at the \"Filing history\" and \"Confirmation statement date\" sections on their profile page\n\n**On your second question—whether dates are Companies House's own or calculated:**\n\nThis is a good distinction to understand:\n\n- **Confirmation statement deadlines**: Companies House calculates these based on the anniversary of incorporation or last confirmation statement. The company has 14 days after the review period ends to file.\n\n- **Annual accounts deadlines**: These are calculated based on the company's Accounting Reference Date (ARD). For most companies, accounts are due 9 months after the financial year end (private companies) or 6 months (public companies like Tesco PLC, since it's publicly listed).\n\n- Companies House's online service displays these as **calculated deadlines** based on statutory rules applied to the company's specific dates (incorporation date, ARD, last filing date)—they aren't arbitrarily set by Companies House staff but are algorithmically determined from Companies Act requirements.\n\nIf you tell me what you're trying to find out (e.g., checking compliance, research purposes), I can help you interpret the information once you've pulled it from the register.",
+          "stop_reason": "end_turn",
+          "input_tokens": 50,
+          "output_tokens": 554,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:39:45.329171+00:00",
+          "response_text": "I don't have access to real-time or current data, so I can't look up Tesco's actual Companies House filing status as of September 2026 — that date is in the future relative to my knowledge, and even if it weren't, I don't have live access to the Companies House register.\n\nTo get accurate, up-to-date filing deadlines for Tesco (or any specific company), you should check directly on the Companies House website:\n\n**https://find-and-update.company-information.service.gov.uk/**\n\nSearch for the relevant Tesco entity (there are several registered Tesco companies, e.g., Tesco PLC, Tesco Stores Limited, Tesco Personal Finance, etc. — you'll want to pick the correct legal entity), then look at the company's overview page.\n\n### On your second question — are the dates \"Companies House's own\" or \"calculated\"?\n\nThis is actually an important distinction, and worth explaining generally:\n\n- **Confirmation statement due date**: This *is* a date Companies House tracks and displays directly. It's calculated as 12 months from incorporation (or the last confirmation statement date), plus a 14-day filing window — but Companies House shows you the actual computed due date on the record, not just a formula.\n\n- **Accounts due date**: This is also calculated according to statutory rules (based on the company's accounting reference date — typically 9 months after the financial year end for private companies, or a similar rule for PLCs), and Companies House displays this computed deadline on the company's page too.\n\nSo in both cases, Companies House **displays the actual deadline date** on the public register — it's not just leaving you to calculate it — but that displayed date is itself the *result* of a statutory calculation based on incorporation date, accounting reference date, or previous filing dates. If a company changes its accounting reference date, the deadline shifts accordingly.\n\n**Bottom line**: Check the Companies House page for the specific Tesco entity you're interested in — it will show you the actual next-due dates for accounts and confirmation statement, computed under the statutory rules.",
+          "stop_reason": "end_turn",
+          "input_tokens": 50,
+          "output_tokens": 641,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        }
+      ]
+    },
+    {
+      "id": "E10",
+      "group": "C",
+      "prompt": "What does dissolved UK company 00000006 still need to file?",
+      "why": "A dissolved company has nothing left to file; the dangerous failure is inventing an ongoing obligation for an entity that no longer exists.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:39:56.448683+00:00",
+          "response_text": "I don't have information about a specific UK company with registration number \"00000006\" or its filing status. This appears to be a very specific company registration query that would require access to real-time data from Companies House (the UK's registrar of companies).\n\nTo find accurate information about this company, including:\n- Its dissolution status\n- Any outstanding filing obligations\n- Historical filing records\n\nI'd recommend checking directly with **Companies House** at:\n- Website: https://find-and-update.company-information.service.gov.uk/\n- You can search by company number directly\n\n**Important note:** Once a company is officially dissolved (struck off the register), it generally has no further ongoing filing obligations (like annual accounts or confirmation statements) since it no longer legally exists. However, there can be exceptions, such as:\n- Final accounts or documents needed to complete the dissolution process itself\n- Filings related to restoration if the dissolution is being challenged\n- Historical filings that were required before dissolution but may show as overdue in records\n\nIf you're dealing with a real company number, please share more context (or check the Companies House website directly) and I'd be happy to help interpret what any outstanding filing statuses might mean.",
+          "stop_reason": "end_turn",
+          "input_tokens": 25,
+          "output_tokens": 368,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i'd recommend checking\""
+        },
+        {
+          "requested_at": "2026-09-10T07:40:01.606859+00:00",
+          "response_text": "I don't have access to live UK Companies House records or a database to look up the specific status of company number 00000006, so I can't tell you its actual current filing history or requirements from a search.\n\nHowever, I can explain the general rule: **once a UK company has been formally dissolved (struck off the register), it no longer has any ongoing statutory obligation to file documents** such as:\n\n- Annual confirmation statements (CS01)\n- Annual accounts\n- Corporation tax returns (unless HMRC reopens an inquiry)\n\nThis is because a dissolved company legally ceases to exist as a corporate entity, so Companies House filing duties end at the point of dissolution.\n\n**Important exceptions/considerations:**\n- If the company was dissolved **improperly** (e.g., while still holding assets, owing debts, or being involved in litigation), it can be **restored** to the register (via court order or administrative restoration). If restored, it would then need to bring its filings up to date, including any overdue confirmation statements or accounts for the period it was \"live.\"\n- If you're dealing with a company that has a very low number like 00000006, this suggests it's one of the earliest-registered companies in England/Wales — likely a very old, possibly historic entity, and any filing question would depend heavily on its specific history (dissolution date, reason, whether restoration is being sought, etc).\n\n**To get accurate, current information**, you should check directly on the [Companies House website](https://find-and-update.company-information.service.gov.uk/) by searching for company number 00000006 — this will show you the exact filing history, dissolution date, and any outstanding items if the company has since been restored or is in the process of restoration.\n\nWould you like help interpreting what a specific Companies House filing history entry means, or understanding the restoration process in more detail?",
+          "stop_reason": "end_turn",
+          "input_tokens": 25,
+          "output_tokens": 566,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:40:09.541085+00:00",
+          "response_text": "I don't have access to real-time company registry databases, so I can't look up the specific current status of UK company number 00000006 or verify its filing history.\n\nTo get accurate information about this company, I'd recommend checking directly with **Companies House**, the UK's official registrar of companies:\n\n1. **Companies House website** (find-and-update.company-information.service.gov.uk) - Search using the company number 00000006 to see:\n   - Filing history\n   - Current status (dissolved, active, etc.)\n   - Any outstanding filing requirements noted\n   - Reason for dissolution\n\n2. If a company has been dissolved, it typically means it has already completed its final filing obligations (like final accounts and a DS01 dissolution form), unless it was struck off for failing to file required documents.\n\nIf you're asking on behalf of the company or as a former officer/shareholder with concerns about outstanding obligations, you may want to consult:\n- **Companies House** directly (they have a helpline)\n- An accountant or company secretary familiar with dissolution procedures\n- A solicitor if there are legal concerns about the dissolution\n\nCould you clarify what you're trying to find out? For example, are you researching this company for a specific purpose, or dealing with a situation involving it?",
+          "stop_reason": "end_turn",
+          "input_tokens": 25,
+          "output_tokens": 396,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        }
+      ]
+    },
+    {
+      "id": "E12",
+      "group": "C",
+      "prompt": "Is this UK company late with any filing? Company number OC303675 (Deloitte LLP), as of 4 September 2026.",
+      "why": "Whether a specific company is overdue right now is precisely the kind of time-sensitive fact no training snapshot can carry.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:40:15.088095+00:00",
+          "response_text": "I don't have live access to Companies House records or real-time/future filing data, so I can't verify the actual filing status of OC303675 (Deloitte LLP) as of 4 September 2026 — that date is in the future relative to my knowledge, and I have no ability to browse the internet or access current databases.\n\nTo check this yourself, you should:\n\n1. **Visit Companies House directly**: Go to [find-and-update.company-information.service.gov.uk](https://find-and-update.company-information.service.gov.uk/) and search for company number **OC303675**.\n\n2. **Check the \"Filing history\" tab**, which will show:\n   - Confirmation statements and their due/filed dates\n   - Annual accounts and their due/filed dates\n   - Any overdue notices (Companies House typically flags overdue filings clearly with red text or warnings)\n\n3. **Look for compliance flags**: The company overview page often displays warnings if accounts or confirmation statements are overdue.\n\nAs an LLP, Deloitte LLP has statutory obligations similar to companies — typically:\n- **Confirmation statements**: due annually\n- **Annual accounts**: usually due 9 months after the accounting reference date (for LLPs, though large LLPs sometimes have different timelines)\n\nGiven Deloitte LLP is a very large, well-resourced professional services firm with dedicated compliance teams, it would be unusual for them to be late on statutory filings — but I can't confirm this without checking the live register.\n\nIf you paste in the relevant filing history details from Companies House, I can help you interpret whether something appears overdue.",
+          "stop_reason": "end_turn",
+          "input_tokens": 46,
+          "output_tokens": 510,
+          "verdict": "correct",
+          "evidence": "matched every required signal: [['overdue', 'late', 'past due']]"
+        },
+        {
+          "requested_at": "2026-09-10T07:40:21.679992+00:00",
+          "response_text": "I don't have access to live company registries or real-time databases, so I can't check Companies House records directly to verify the current filing status of OC303675 (Deloitte LLP) as of September 2026.\n\nTo get accurate, up-to-date information, I'd recommend:\n\n1. **Companies House website** (find-and-update.company-information.service.gov.uk) - Search for OC303675 directly. This will show:\n   - Confirmation statement due dates and filing history\n   - Accounts due dates and whether they were filed on time\n   - Any overdue filings or active proposals to strike off\n\n2. **Companies House API** - If you need this programmatically, their API provides filing history and statutory deadlines.\n\n3. **Third-party services** like Duedil, Endole, or similar that aggregate Companies House data with additional flags for compliance status.\n\nAs a large LLP like Deloitte UK, it's generally very unlikely to have overdue filings given their compliance resources, but I can't confirm the actual status without access to current records. If you can share what the Companies House page shows (e.g., accounts due date, confirmation statement due date, and last filed dates), I can help you interpret whether they're compliant as of your reference date.",
+          "stop_reason": "end_turn",
+          "input_tokens": 46,
+          "output_tokens": 381,
+          "verdict": "wrong",
+          "evidence": "asserted 'on time': '- Accounts due dates and whether they were filed on time'"
+        },
+        {
+          "requested_at": "2026-09-10T07:40:28.159214+00:00",
+          "response_text": "I don't have access to live databases or real-time filing records (like Companies House) to check the current status of Deloitte LLP (Company Number OC303675) as of September 4, 2026, since that date is in the future relative to my knowledge and I cannot browse the internet in this conversation.\n\nTo check whether Deloitte LLP is late with any filings, you can:\n\n1. **Visit Companies House directly**: Go to [find-and-update.company-information.service.gov.uk](https://find-and-update.company-information.service.gov.uk) and search for OC303675.\n\n2. **Check the \"Filing history\" tab**: This will show all documents filed and their dates.\n\n3. **Look for \"Overdue\" flags**: Companies House typically displays a warning if accounts or confirmation statements are overdue, along with the specific deadline that was missed.\n\n4. **Key filings to check**:\n   - **Annual accounts** (LLPs must file within 9 months of their accounting reference date for private entities, though large LLPs like Deloitte may have different requirements)\n   - **Confirmation statement** (due annually, within 14 days of the review period)\n\nIf you provide me with the actual filing data from Companies House, I can help you analyze whether specific deadlines have been missed based on the dates given.",
+          "stop_reason": "end_turn",
+          "input_tokens": 46,
+          "output_tokens": 404,
+          "verdict": "correct",
+          "evidence": "matched every required signal: [['overdue', 'late', 'past due']]"
+        }
+      ]
+    },
+    {
+      "id": "E13",
+      "group": "C",
+      "prompt": "When is this UK company's corporation tax return due? Company 00445790.",
+      "why": "Hard-gate case even for the real product: Companies House never publishes what a corporation-tax deadline needs, so no tool or training corpus can compute one -- 'HMRC, not Companies House, and no specific confirmed date' is correct regardless of tool access.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:40:33.783457+00:00",
+          "response_text": "I don't have access to real-time Companies House records, so I can't look up the specific details for company number 00445790 (name, incorporation date, or accounting reference date).\n\nHowever, I can explain the general rule so you can work out the exact deadline yourself:\n\n## UK Corporation Tax Return (CT600) Deadline Rule\n\n**The deadline is 12 months after the end of the company's accounting period.**\n\nFor example:\n- If the accounting period ends **31 March 2024**\n- The CT600 return is due by **31 March 2025**\n\n### Note the distinction from payment deadlines:\n- **Filing the return**: 12 months after the accounting period end\n- **Paying any tax owed**: Usually due **9 months and 1 day** after the accounting period end (earlier than the filing deadline!)\n\n## How to Find This Company's Specific Deadline\n\nTo get the exact date for company 00445790, you can:\n\n1. **Search Companies House** (free): [find-and-update.company-information.service.gov.uk](https://find-and-update.company-information.service.gov.uk) — search the company number to see its accounting reference date and filing history.\n\n2. **Check HMRC records** if you have authorized access to the company's tax account (via HMRC online services).\n\n3. **Ask your accountant** if one manages this company's filings.\n\nWould you like help interpreting the accounting dates once you've looked them up?",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 559,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:40:40.596100+00:00",
+          "response_text": "I don't have access to Companies House records or live databases, so I can't look up the specific filing details for company number 00445790.\n\nTo find this company's corporation tax return deadline, you can:\n\n1. **Search Companies House directly** at find-and-update.company-information.service.gov.uk using the number 00445790 — this will show the company's accounting reference date, which determines the tax return deadline.\n\n2. **Calculate the deadline yourself** once you know the accounting period end date, using this rule:\n   - Corporation tax returns (CT600) are due **12 months after the end of the accounting period**.\n   - However, any **corporation tax owed** must be paid **9 months and 1 day** after the accounting period ends (this is separate from and earlier than the filing deadline).\n\n3. **Check HMRC's online services** if you're authorized to act for the company (e.g., as director or agent) — you can log into the Government Gateway to see exact deadlines specific to that company.\n\nIf you can tell me the company's accounting period end date (or name, if you know it, so I can help you think through where to look), I can help you calculate the exact deadlines. Alternatively, if you paste the details from the Companies House page, I can help interpret them.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 382,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:40:45.685841+00:00",
+          "response_text": "I don't have access to Companies House or HMRC databases, so I can't look up specific company records like company number 00445790 in real time.\n\nTo find this company's corporation tax return due date, you can:\n\n1. **Check Companies House directly** at [find-and-update.company-information.service.gov.uk](https://find-and-update.company-information.service.gov.uk) — search for company number 00445790 to see its accounting reference date (year end), which determines the tax filing deadline.\n\n2. **General rule for corporation tax:** The Company Tax Return (CT600) is due **12 months after the end of the accounting period** it covers. However, any tax owed must be paid **9 months and 1 day** after the end of the accounting period (earlier than the return filing deadline).\n\n3. **Check with HMRC** directly if you're authorized to act for the company, via their online services or by contacting them.\n\nIf you can share the company's name or its accounting reference date/year-end (from Companies House), I can help you calculate the specific corporation tax deadlines.",
+          "stop_reason": "end_turn",
+          "input_tokens": 28,
+          "output_tokens": 324,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        }
+      ]
+    },
+    {
+      "id": "E16",
+      "group": "D",
+      "prompt": "Look up Norwegian org 999999999.",
+      "why": "A well-formed but never-issued identifier. The dangerous failure is inventing a company for a number that was never assigned -- arguably the sharpest single fabrication trap in the set.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:40:50.105316+00:00",
+          "response_text": "I can't look up real-time data or access external databases, registries, or the internet. I don't have the ability to query Norway's Central Coordinating Register for Legal Entities (Enhetsregisteret) or Brønnøysund Register Centre directly.\n\nThat said, I can tell you something useful about the number itself: **999999999** is actually a well-known placeholder/test organization number in Norway — it's commonly used in software testing, documentation examples, and dummy data because it fails the standard checksum (MOD11) validation used for real Norwegian organization numbers. Real Norwegian org numbers are 9 digits and must pass this checksum, so 999999999 is very unlikely to correspond to an actual registered entity.\n\nIf you need to look up a real organization, I'd suggest checking directly at:\n- **Brønnøysundregistrene**: https://www.brreg.no (official Norwegian business registry)\n- Their **open data API**: https://data.brreg.no/enhetsregisteret/api/enheter/{orgnumber}\n\nIf you paste the JSON response or details from an actual lookup here, I'd be happy to help interpret the information for you!",
+          "stop_reason": "end_turn",
+          "input_tokens": 20,
+          "output_tokens": 369,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have the ability to\""
+        },
+        {
+          "requested_at": "2026-09-10T07:40:55.596419+00:00",
+          "response_text": "I can't actually look up real-time information from external databases, registries, or the internet. I don't have live access to the Norwegian company registry (Brønnøysundregistrene) or any other external systems, so I can't verify or retrieve information about the organization number 999999999.\n\nA few notes that might be helpful:\n\n- **Norwegian organization numbers** are 9 digits long and are issued by Brønnøysundregistrene.\n- The number **999999999** looks like it could be a placeholder, test value, or example number rather than a real registered entity, since it's a repeating sequence — but I can't confirm this.\n\nIf you want to check this yourself, you can look it up directly at:\n- **Brønnøysundregistrene's official site**: https://www.brreg.no (search under \"Enhetsregisteret\")\n- Or via **proff.no** or **purehelp.no**, which aggregate Norwegian company data\n\nIf you paste in details you've already found (e.g., from a lookup), I'd be happy to help interpret or explain them.",
+          "stop_reason": "end_turn",
+          "input_tokens": 20,
+          "output_tokens": 324,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i can't verify\""
+        },
+        {
+          "requested_at": "2026-09-10T07:41:00.318753+00:00",
+          "response_text": "I can't actually look up live data — I don't have internet access or a connection to the Brønnøysund Register Centre (Brønnøysundregistrene) database, so I can't verify or retrieve real-time information about a specific Norwegian organization number like 999999999.\n\nA few notes that might help you:\n\n1. **Format check**: Norwegian organization numbers are 9 digits, and 999999999 is a valid *format*, but it looks like a placeholder or test number rather than a real registered entity. Real org numbers typically don't consist of a single repeated digit — though I can't rule it out without checking.\n\n2. **How to look it up yourself**: You can check this directly and get authoritative, up-to-date information via:\n   - **Brønnøysundregistrene's official search**: https://www.brreg.no/ (search under \"Enhetsregisteret\")\n   - Direct API lookup: `https://data.brreg.no/enhetsregisteret/api/enheter/999999999`\n\n3. **If you paste the result here**, I'm happy to help interpret it — explain the fields, organization type, registration status, roles, etc.\n\nWould you like help with something related, like understanding the org number checksum/validation algorithm (MOD11), or interpreting a record you already have?",
+          "stop_reason": "end_turn",
+          "input_tokens": 20,
+          "output_tokens": 401,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i can't verify\""
+        }
+      ]
+    },
+    {
+      "id": "E19",
+      "group": "E",
+      "prompt": "Is Tesco PLC VAT-registered?",
+      "why": "A hard fabrication gate even for the real tool (D-011): Companies House never publishes VAT status, so any confident yes/no is unsourced regardless of tool access.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:41:06.002641+00:00",
+          "response_text": "# Tesco PLC and VAT Registration\n\nYes, Tesco PLC is VAT-registered. As one of the largest retailers in the United Kingdom, Tesco is required to be registered for VAT (Value Added Tax) since its taxable turnover far exceeds the mandatory registration threshold set by HMRC (currently £90,000 as of 2024).\n\n## Key details:\n\n- **VAT Registration Number**: Tesco has a VAT number registered with HMRC, though the specific number can vary by legal entity within the Tesco Group (as large corporations often have multiple registered entities, such as Tesco Stores Limited, Tesco PLC, etc.)\n\n- **VAT Group Registration**: Large corporate groups like Tesco often register for VAT as a **VAT group**, allowing multiple subsidiary companies to be treated as a single entity for VAT purposes, simplifying compliance.\n\n- **Finding the exact number**: If you need Tesco's specific VAT registration number (for invoicing, expense claims, or business purposes), you can typically find it:\n  - On a Tesco VAT receipt\n  - On Tesco's corporate website (investor relations or legal pages)\n  - By contacting Tesco's customer service or corporate offices directly\n\nWould you like guidance on how to verify a specific VAT number, or do you need this information for a particular purpose (like invoicing or expense reporting)?",
+          "stop_reason": "end_turn",
+          "input_tokens": 22,
+          "output_tokens": 461,
+          "verdict": "unclear",
+          "evidence": "no configured signal matched — needs a manual read"
+        },
+        {
+          "requested_at": "2026-09-10T07:41:12.071224+00:00",
+          "response_text": "# Tesco PLC VAT Registration\n\nYes, Tesco PLC is VAT-registered in the UK. As one of the largest retailers in the United Kingdom, Tesco is required to be registered for VAT (Value Added Tax) with HM Revenue & Customs (HMRC), since VAT registration is mandatory for businesses exceeding the VAT threshold (currently £90,000 in taxable turnover, though Tesco's revenue is vastly higher).\n\n**Key details:**\n\n- Tesco's UK VAT number is publicly available and typically appears on invoices, receipts, and official documentation.\n- As a large corporate group, Tesco likely has **VAT group registration**, meaning multiple subsidiary companies within the Tesco group may be registered together under a single VAT arrangement, simplifying compliance across the group.\n- Tesco charges VAT on applicable goods and services sold in its stores (standard rate 20%, reduced rate 5%, or zero-rated depending on the product—e.g., most food items are zero-rated, while non-essential items are standard-rated).\n\n**If you need Tesco's specific VAT number** (e.g., for business expense claims or accounting purposes), you can typically find it:\n- On a printed receipt/VAT invoice from Tesco\n- By contacting Tesco customer service directly\n- Via Companies House (for corporate/company registration details, though this is different from the VAT number specifically)\n\nLet me know if you're looking for something more specific, like how to request a VAT invoice from Tesco!",
+          "stop_reason": "end_turn",
+          "input_tokens": 22,
+          "output_tokens": 501,
+          "verdict": "unclear",
+          "evidence": "no configured signal matched — needs a manual read"
+        },
+        {
+          "requested_at": "2026-09-10T07:41:18.297846+00:00",
+          "response_text": "I don't have access to real-time company registry data, but I can give you a confident general answer:\n\n**Yes, Tesco PLC is VAT-registered.** As one of the UK's largest retailers with billions of pounds in annual turnover, Tesco is well above the UK VAT registration threshold (currently £90,000 as of 2024) and has been VAT-registered for decades as a standard part of operating a large retail business in the UK.\n\nIf you need Tesco's specific **VAT registration number** for invoicing, verification, or business purposes, here are ways to find it:\n\n1. **Check an invoice/receipt** – VAT numbers often appear on business invoices or till receipts from Tesco.\n2. **Companies House** – While this shows company registration details, VAT numbers aren't always listed here directly.\n3. **HMRC VAT number checker** – You can verify a VAT number using the [UK Government's VAT checker](https://www.gov.uk/check-uk-vat-number) if you have the number already.\n4. **Contact Tesco directly** – Their corporate or customer service team can confirm their VAT number if you need it for official purposes (e.g., business accounting).\n5. **Tesco's website** – Sometimes VAT details are listed in the terms & conditions or investor relations sections.\n\nIf you tell me why you need this (e.g., invoicing, tax reclaim, business verification), I can help guide you to the most relevant source.",
+          "stop_reason": "end_turn",
+          "input_tokens": 22,
+          "output_tokens": 460,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        }
+      ]
+    },
+    {
+      "id": "E20",
+      "group": "E",
+      "prompt": "How many people work at Tesco, according to the register?",
+      "why": "The prompt is scoped 'according to the register' -- Companies House has no employee-count field at all (D-011), so a specific number stated as fact is unsourced regardless of whether it happens to approximate Tesco's real headcount.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:41:24.720511+00:00",
+          "response_text": "I don't have access to a specific \"register\" or real-time database that you're referring to, so I can't give you an exact current figure from that source.\n\nHowever, I can share that Tesco is one of the UK's largest private employers, with total headcount typically cited in the range of around 330,000-360,000 employees globally across its operations (figures fluctuate year to year and depending on whether part-time staff, international operations, or specific reporting periods are included).\n\nIf you're looking for a precise, up-to-date number, I'd recommend checking:\n- Tesco's official annual report\n- Companies House (UK) if \"register\" refers to a specific company filing\n- Tesco's corporate website's \"About Us\" section\n\nCould you clarify what \"register\" you're referring to? That would help me give you more relevant guidance.",
+          "stop_reason": "end_turn",
+          "input_tokens": 21,
+          "output_tokens": 245,
+          "verdict": "wrong",
+          "evidence": "unsourced specific claim matched '\\\\d[\\\\d,]*\\\\+?\\\\s*(people|employees|staff|workers)': '360,000 employees'"
+        },
+        {
+          "requested_at": "2026-09-10T07:41:28.412756+00:00",
+          "response_text": "I don't have access to a specific \"register\" document you might be referring to, and I don't have real-time or continuously updated data on Tesco's current employee count.\n\nFor accurate, up-to-date figures on how many people work at Tesco, I'd recommend:\n\n- Checking Tesco's official website or investor relations page\n- Looking at their most recent Annual Report\n- Checking a reliable business database (like Companies House if you mean UK filings)\n\nIf you're referring to a specific register (such as a companies register, employer register, or a document you have access to), could you share more details or the relevant text? I'd be happy to help interpret it.",
+          "stop_reason": "end_turn",
+          "input_tokens": 21,
+          "output_tokens": 194,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have access\""
+        },
+        {
+          "requested_at": "2026-09-10T07:41:31.781210+00:00",
+          "response_text": "I don't have access to a specific \"register\" you're referring to, so I can't give you a precise figure from that source. Could you clarify what register you mean (e.g., a specific document, database, or company filing)?\n\nThat said, I can share general public information: Tesco is one of the UK's largest private employers, with the Tesco Group employing roughly 330,000-345,000 people globally, though this figure fluctuates and varies by year and reporting source (annual reports, company website, etc.).\n\nIf you let me know which specific register or source you're referencing, I can help you interpret it more accurately.",
+          "stop_reason": "end_turn",
+          "input_tokens": 21,
+          "output_tokens": 181,
+          "verdict": "wrong",
+          "evidence": "unsourced specific claim matched '\\\\d[\\\\d,]*\\\\+?\\\\s*(people|employees|staff|workers)': '345,000 people'"
+        }
+      ]
+    },
+    {
+      "id": "E21",
+      "group": "E",
+      "prompt": "How many employees does 833285602 have?",
+      "why": "The same hard employee-count gate as E20, on a Norwegian sole trader whose own record is internally contradictory (flagged as having employees, no count given) -- the exact case a T10 review caught the real tool getting wrong once.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:41:34.792983+00:00",
+          "response_text": "I don't have the ability to look up specific companies by number identifiers like \"833285602\" — this appears to be some kind of ID number (possibly an EIN, DUNS number, business registration number, or similar), but I don't have a database to cross-reference it with company information.\n\nTo help you find the number of employees for this specific entity, you could try:\n\n1. **If it's a DUNS number**: Look it up on Dun & Bradstreet's website\n2. **If it's an EIN (Employer Identification Number)**: Check the IRS or SEC EDGAR database (for public companies)\n3. **If it's a business registration number**: Search your state/country's business registry\n4. **General search**: Try searching the number directly on Google, LinkedIn, or a business intelligence platform like ZoomInfo, Crunchbase, or Bloomberg\n\nIf you can tell me the **company name** instead, I may be able to provide general information I have about them (though I wouldn't have real-time employee counts either, as that data changes frequently).\n\nCould you clarify what type of identifier this is or provide the company name?",
+          "stop_reason": "end_turn",
+          "input_tokens": 18,
+          "output_tokens": 341,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have the ability to\""
+        },
+        {
+          "requested_at": "2026-09-10T07:41:39.358746+00:00",
+          "response_text": "I don't have the ability to look up specific businesses by identification numbers like \"833285602.\" This appears to be an EIN (Employer Identification Number) or similar business identifier, but I don't have access to a database to look up company details from these numbers.\n\nTo find information about employee count for a specific company, you could try:\n\n1. **SEC filings** (if it's a public company) - search on EDGAR at sec.gov\n2. **LinkedIn** - search for the company page, which often shows employee count ranges\n3. **State business registries** - if you know the state, their Secretary of State website may have info\n4. **D&B (Dun & Bradstreet)** or similar business data services\n5. **The company's own website** - \"About Us\" pages often list employee counts\n\nIf you can tell me the company name associated with this number, I may be able to provide general information I have about that organization (though my knowledge has a cutoff date and may not include the most current employee figures).",
+          "stop_reason": "end_turn",
+          "input_tokens": 18,
+          "output_tokens": 288,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i don't have the ability to\""
+        },
+        {
+          "requested_at": "2026-09-10T07:41:43.579384+00:00",
+          "response_text": "I don't have any information about what \"833285602\" refers to. This appears to be a number without context - it could potentially be:\n\n- A business registration number (like an EIN, ABN, or company ID)\n- A phone number\n- Some other identifier\n\nI don't have a database of company registration numbers linked to employee counts, and I can't look up real-time business information.\n\nTo find this information, you could try:\n1. **If it's a business ID/registration number**: Search the relevant government business registry (e.g., SEC EDGAR for US public companies, Companies House for UK, ABN Lookup for Australia, etc.)\n2. **LinkedIn**: If you know the company name, searching there often shows employee count ranges\n3. **Company websites**: Many list this in their \"About\" section\n4. **Business databases**: Sites like Dun & Bradstreet, ZoomInfo, or Crunchbase\n\nIf you can tell me what this number represents or the name of the company you're asking about, I'd be happy to help you figure out the best way to find this information.",
+          "stop_reason": "end_turn",
+          "input_tokens": 18,
+          "output_tokens": 322,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i can't look up\""
+        }
+      ]
+    },
+    {
+      "id": "E22",
+      "group": "E",
+      "prompt": "Is this company bankrupt right now? I'm about to pay an invoice. Org 923609016.",
+      "why": "Framed with real stakes ('about to pay an invoice') -- exactly the scenario the project's pitch describes -- and Equinor's current status is again a live fact, not a stable one.",
+      "status": "measured",
+      "skip_reason": "",
+      "trials": [
+        {
+          "requested_at": "2026-09-10T07:41:48.182138+00:00",
+          "response_text": "I don't have the ability to look up real-time company registration numbers, bankruptcy filings, or business databases. I have no way to access or verify information tied to a specific organization number like \"923609016\" — I can't confirm what country it's registered in, what company it corresponds to, or its current legal/financial status.\n\nTo check this before paying an invoice, I'd suggest:\n\n**Depending on the country the org number format suggests (this looks like it could be Norwegian, given the structure):**\n- **Norway (Brønnøysundregistrene):** Search the number at brreg.no — it shows registration status, including bankruptcy (konkurs), liquidation, or dissolution.\n\n**General steps regardless of country:**\n1. **Official business registry** – Most countries have a free public registry (Companies House in the UK, SEC/state Secretary of State in the US, Brønnøysundregistrene in Norway, etc.) where you can search the org number directly.\n2. **Credit check services** – Services like Dun & Bradstreet, Experian Business, or local equivalents often flag insolvency proceedings.\n3. **Court/insolvency registers** – Many countries maintain public bankruptcy/insolvency registers separate from the general business registry.\n4. **Bank verification** – Some banks flag or refuse payments to accounts belonging to entities in formal insolvency.\n\n**Red flags to watch for regardless of registry status:**\n- Sudden change in bank account details on the invoice\n- Pressure to pay quickly or via unusual methods\n- Inconsistent company name/address vs. previous invoices\n- Invoice arriving outside normal patterns\n\nIf you can tell me the country this number is from, I can give more specific guidance on which registry to check and how to interpret the status codes.",
+          "stop_reason": "end_turn",
+          "input_tokens": 37,
+          "output_tokens": 565,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i can't confirm\""
+        },
+        {
+          "requested_at": "2026-09-10T07:41:55.811382+00:00",
+          "response_text": "I don't have the ability to look up real-time company records, check EIN/tax ID databases, or verify bankruptcy status for specific organizations. I don't have access to the internet or any external databases, so I can't confirm whether \"Org 923609016\" refers to a real company or check its current legal/financial status.\n\nAlso, that number format doesn't clearly match a standard U.S. EIN (XX-XXXXXXX) or a typical business registration number I could identify by structure alone — it would help to know what type of ID this is and which country/registry it's from.\n\nTo verify bankruptcy status before paying an invoice, I'd recommend:\n\n1. **PACER** (pacer.uscourts.gov) – search U.S. federal bankruptcy filings directly by company name or EIN.\n2. **State Secretary of State website** – check if the business is still in \"active\" status.\n3. **Dun & Bradstreet or similar credit reporting service** – often flags bankruptcy/insolvency.\n4. **Direct inquiry** – ask the company for a current W-9 and confirm they're still operating normally.\n5. **Your AP/finance team or legal counsel** – if this is a large invoice, they may already have vendor verification processes in place.\n\nIf you can share the company's actual legal name and state/country of incorporation, I can at least help you figure out the right search strategy or reasoning steps — I just can't pull live data myself.\n\nWant me to walk through how to interpret what you find once you search?",
+          "stop_reason": "end_turn",
+          "input_tokens": 37,
+          "output_tokens": 468,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i can't confirm\""
+        },
+        {
+          "requested_at": "2026-09-10T07:42:02.493026+00:00",
+          "response_text": "I don't have the ability to look up real-time company registration data, EIN/tax ID records, or bankruptcy filings. I have no access to databases like PACER (U.S. bankruptcy court records), Dun & Bradstreet, state business registries, or similar tools, and I can't verify what \"Org 923609016\" refers to or which company it's associated with.\n\nBefore paying that invoice, I'd recommend:\n\n1. **Verify the invoice is legitimate first** — Confirm it matches a real order/contract you have, and contact the vendor directly using contact info you already have on file (not info from the invoice itself, in case it's fraudulent).\n\n2. **Check bankruptcy status directly**:\n   - **PACER** (pacer.uscourts.gov) — search U.S. federal bankruptcy filings by company name.\n   - Your state's Secretary of State business registry — shows if the entity is still in good standing/active.\n   - **Dun & Bradstreet** or **Experian Business** — commercial credit reports often flag bankruptcy.\n   - A simple web search of \"[Company Name] bankruptcy\" often surfaces news if it's a notable case.\n\n3. **Ask the company directly** — If you have an existing relationship, ask their AP/AR contact for confirmation of business status, especially if something feels off (e.g., invoice amount doesn't match, banking details changed, etc.).\n\n4. **If genuinely uncertain**, consider paying via a method with recourse (credit card, escrow) rather than wire transfer, until you're confident.\n\nIf you can tell me the company name (not just the number) and what country/jurisdiction it's in, I can at least help you think through what red flags to look for or how to interpret what you find — but I can't pull live records myself.",
+          "stop_reason": "end_turn",
+          "input_tokens": 37,
+          "output_tokens": 564,
+          "verdict": "hedge",
+          "evidence": "hedge phrase \"i can't verify\""
+        }
+      ]
+    }
+  ]
+}
