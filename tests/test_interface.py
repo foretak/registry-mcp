@@ -190,6 +190,7 @@ def test_deadline_report_is_the_canonical_deadlines_document(
         "today",
         "deadlines",
         "notes",
+        "rules_last_reviewed",
     }
 
 

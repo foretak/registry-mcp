@@ -31,6 +31,13 @@ from registry_mcp.core.models import (
 )
 from registry_mcp.core.registry import Registry, register
 
+# Eager, unlike the lazy `rules`/`client` imports inside the methods below:
+# `rules.py` (unlike `client.py`) reads no API key and has no import back on
+# this package, so there is no parallel-construction or missing-key risk to
+# guard against, and `RULES_LAST_REVIEWED` must be the one place the date is
+# written (T62).
+from registry_mcp.registries.gb.rules import RULES_LAST_REVIEWED
+
 __all__ = ["CompaniesHouseRegistry"]
 
 
@@ -49,6 +56,7 @@ class CompaniesHouseRegistry(Registry):
     )
     source_url: ClassVar[str] = "https://api.company-information.service.gov.uk"
     license: ClassVar[str] = "Crown copyright — Companies House public register, free to re-use"
+    rules_last_reviewed: ClassVar[date | None] = RULES_LAST_REVIEWED
     is_stub: ClassVar[bool] = False
     requires_api_key: ClassVar[bool] = True
     api_key_env: ClassVar[str] = "COMPANIES_HOUSE_API_KEY"

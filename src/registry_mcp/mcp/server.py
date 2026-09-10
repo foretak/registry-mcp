@@ -549,7 +549,9 @@ async def company_deadlines(
     answer — a bankrupt, deleted or compulsorily-liquidated entity, a branch/sub-unit, or
     any company whose status is not active — and `notes` explains why.
     `registry://rules/{country}` carries each country's full deadline rules, roll-forward
-    treatment and legal sources.
+    treatment and legal sources. `rules_last_reviewed` names the date this country's
+    statutes and day-count arithmetic were last checked against the law — a deadline
+    computed long after that date should be re-verified before anyone acts on it.
 
     Errors are the `{"error": {"code", "message", "hint"}}` envelope this server's
     instructions set out code by code; `hint` names the next call. This tool looks the

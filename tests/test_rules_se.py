@@ -26,11 +26,13 @@ from registry_mcp.core.models import (
     RegistryError,
     SourceRef,
 )
+from registry_mcp.core.registry import get_registry
 from registry_mcp.registries.se import mapping
 from registry_mcp.registries.se.rules import (
     AS_OF,
     DEADLINE_FORM_CODES,
     ORGANISATION_FORMS,
+    RULES_LAST_REVIEWED,
     deadlines_for,
     format_id,
     id_caveat,
@@ -975,6 +977,25 @@ def test_rules_markdown_covers_required_points() -> None:
     assert "verksam" in lowered
     assert "juridiskform" in lowered.replace(" ", "") or "juridisk form" in lowered
     assert "weekend" in lowered or "holiday" in lowered
+
+
+def test_rules_markdown_opens_with_rules_last_reviewed() -> None:
+    """T62: a caller can tell a stale answer from a fresh one before reading
+    any further into `registry://rules/SE`."""
+    first_line, blank, rest = rules_markdown().partition("\n\n")
+    assert first_line == f"Rules last reviewed: {RULES_LAST_REVIEWED.isoformat()}"
+    assert blank == "\n\n"
+    assert rest.startswith("# Sweden — Bolagsverket (with Statistics Sweden, SCB)\n\n")
+
+
+def test_deadline_report_rules_last_reviewed_matches_module_constant() -> None:
+    """T62: `DeadlineReport.rules_last_reviewed` is filled by
+    `Registry.deadline_report` from this module's own `RULES_LAST_REVIEWED`,
+    not a copy that can drift from it."""
+    registry = get_registry("SE")
+    report = _report()
+    document = registry.deadline_report(report, date(2026, 9, 8))
+    assert document.rules_last_reviewed == RULES_LAST_REVIEWED
 
 
 def test_organisation_forms_table_has_no_duplicate_keys() -> None:

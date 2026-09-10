@@ -36,6 +36,13 @@ from registry_mcp.core.models import (
 )
 from registry_mcp.core.registry import Registry, register
 
+# Eager, unlike the lazy `rules`/`client` imports inside the methods below:
+# `rules.py` (unlike `client.py`) reads no OAuth credential and has no import
+# back on this package, so there is no missing-credential risk to guard
+# against, and `RULES_LAST_REVIEWED` must be the one place the date is
+# written (T62).
+from registry_mcp.registries.se.rules import RULES_LAST_REVIEWED
+
 __all__ = ["BolagsverketRegistry"]
 
 
@@ -60,6 +67,7 @@ class BolagsverketRegistry(Registry):
         "Free re-use (Bolagsverket/SCB high-value datasets, EU Open Data Directive) — "
         "the publisher names no licence"
     )
+    rules_last_reviewed: ClassVar[date | None] = RULES_LAST_REVIEWED
     is_stub: ClassVar[bool] = False
     requires_api_key: ClassVar[bool] = True
     id_may_be_personal: ClassVar[bool] = True

@@ -20,8 +20,10 @@ from registry_mcp.core.models import (
     ErrorCode,
     RegistryError,
 )
+from registry_mcp.core.registry import get_registry
 from registry_mcp.registries.no import accounts
 from registry_mcp.registries.no.rules import (
+    RULES_LAST_REVIEWED,
     deadline_exemption_note,
     deadlines_for,
     derive_status,
@@ -620,6 +622,25 @@ def test_rules_markdown_is_nonempty_text() -> None:
     assert isinstance(markdown, str)
     assert "organisasjonsnummer" in markdown.lower()
     assert "vat_return" in markdown
+
+
+def test_rules_markdown_opens_with_rules_last_reviewed() -> None:
+    """T62: a caller can tell a stale answer from a fresh one before reading
+    any further into `registry://rules/NO`."""
+    first_line, blank, rest = rules_markdown().partition("\n\n")
+    assert first_line == f"Rules last reviewed: {RULES_LAST_REVIEWED.isoformat()}"
+    assert blank == "\n\n"
+    assert rest.startswith("# Norway — Brønnøysundregistrene (Enhetsregisteret)\n\n")
+
+
+def test_deadline_report_rules_last_reviewed_matches_module_constant() -> None:
+    """T62: `DeadlineReport.rules_last_reviewed` is filled by
+    `Registry.deadline_report` from this module's own `RULES_LAST_REVIEWED`,
+    not a copy that can drift from it."""
+    registry = get_registry("NO")
+    report = _report()
+    document = registry.deadline_report(report, date(2026, 1, 15))
+    assert document.rules_last_reviewed == RULES_LAST_REVIEWED
 
 
 # ---------------------------------------------------------------------------

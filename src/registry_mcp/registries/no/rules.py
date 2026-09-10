@@ -32,6 +32,7 @@ from registry_mcp.core.rules.common import (
 __all__ = [
     "LEGAL_FORMS",
     "ORG_FORMS",
+    "RULES_LAST_REVIEWED",
     "LegalFormEntry",
     "LegalFormInfo",
     "StatusResult",
@@ -44,6 +45,12 @@ __all__ = [
     "rules_markdown",
     "validate_orgnr",
 ]
+
+#: The date this module's statutes and day-count arithmetic were last checked
+#: against the law — verified live by R01/T18 (`DECISIONS.md` D-022, D-023).
+#: Surfaced at the top of `rules_markdown()` and, via `BrregRegistry.
+#: rules_last_reviewed`, on every `DeadlineReport` (T62).
+RULES_LAST_REVIEWED = date(2026, 9, 5)
 
 
 # ---------------------------------------------------------------------------
@@ -732,9 +739,12 @@ def rules_markdown() -> str:
 
     Served as the MCP resource ``registry://rules/NO`` via
     ``BrregRegistry.rules_markdown`` (T07). Kept short; ``NORBIZ_SPEC.md`` is
-    the authoritative, detailed version.
+    the authoritative, detailed version. Opens with ``RULES_LAST_REVIEWED``
+    (T62) so a caller can tell a stale answer from a fresh one before reading
+    any further.
     """
     return (
+        f"Rules last reviewed: {RULES_LAST_REVIEWED.isoformat()}\n\n"
         "# Norway — Brønnøysundregistrene (Enhetsregisteret)\n\n"
         "## Organisasjonsnummer\n"
         "Nine digits with a MOD11 check digit (weights 3,2,7,6,5,4,3,2 on the "
